@@ -15,6 +15,7 @@ use crate::trie::{
     TRIE_OP_SIZE,
 };
 use crate::xetex_ini::*;
+use crate::xetex_scaledmath::Scaled;
 /*use crate::xetex_ini::MEM;
 use crate::xetex_ini::{ITALIC_BASE, LIG_KERN_BASE, DEPTH_BASE, HEIGHT_BASE, WIDTH_BASE, CHAR_BASE};
 use crate::xetex_ini::fmem_ptr;
@@ -882,10 +883,10 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         FONT_LAYOUT_ENGINE.push(crate::xetex_ext::Font::None);
     }
     FONT_FLAGS = vec![0; FONT_MAX + 1];
-    FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];
+    FONT_LETTER_SPACE = vec![Scaled::ZERO; FONT_MAX + 1];
     FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
-    FONT_SIZE = vec![0; FONT_MAX + 1];
-    FONT_DSIZE = vec![0; FONT_MAX + 1];
+    FONT_SIZE = vec![Scaled::ZERO; FONT_MAX + 1];
+    FONT_DSIZE = vec![Scaled::ZERO; FONT_MAX + 1];
     FONT_PARAMS = vec![0; FONT_MAX + 1];
     FONT_NAME = vec![0; FONT_MAX + 1];
     FONT_AREA = vec![0; FONT_MAX + 1];
@@ -1210,7 +1211,16 @@ macro_rules! slice {
     };
 }
 
-slice!(i32, memory_word, b32x2, b16x4, UTF16_code, i16, EqtbWord);
+slice!(
+    i32,
+    memory_word,
+    b32x2,
+    b16x4,
+    UTF16_code,
+    i16,
+    EqtbWord,
+    Scaled
+);
 
 /* Read and write dump files.  As distributed, these files are
 architecture dependent; specifically, BigEndian and LittleEndian

@@ -70,7 +70,6 @@ use bridge::OutputHandleWrapper;
 /* harfbuzz */
 /* Endianness foo */
 /* our typedefs */
-pub(crate) type scaled_t = i32;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
@@ -537,8 +536,6 @@ pub(crate) static mut use_err_help: bool = false;
 #[no_mangle]
 pub(crate) static mut arith_error: bool = false;
 #[no_mangle]
-pub(crate) static mut tex_remainder: scaled_t = 0;
-#[no_mangle]
 pub(crate) static mut MEM: Vec<memory_word> = Vec::new();
 #[no_mangle]
 pub(crate) static mut lo_mem_max: i32 = 0;
@@ -739,10 +736,12 @@ pub(crate) static mut fmem_ptr: font_index = 0;
 pub(crate) static mut FONT_PTR: usize = 0;
 #[no_mangle]
 pub(crate) static mut FONT_CHECK: Vec<b16x4> = Vec::new();
+
+use crate::xetex_scaledmath::Scaled;
 #[no_mangle]
-pub(crate) static mut FONT_SIZE: Vec<scaled_t> = Vec::new();
+pub(crate) static mut FONT_SIZE: Vec<Scaled> = Vec::new();
 #[no_mangle]
-pub(crate) static mut FONT_DSIZE: Vec<scaled_t> = Vec::new();
+pub(crate) static mut FONT_DSIZE: Vec<Scaled> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_PARAMS: Vec<font_index> = Vec::new();
 #[no_mangle]
@@ -776,15 +775,15 @@ pub(crate) static mut FONT_MAPPING: Vec<*mut libc::c_void> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_FLAGS: Vec<i8> = Vec::new();
 #[no_mangle]
-pub(crate) static mut FONT_LETTER_SPACE: Vec<scaled_t> = Vec::new();
+pub(crate) static mut FONT_LETTER_SPACE: Vec<Scaled> = Vec::new();
 #[no_mangle]
 pub(crate) static mut loaded_font_mapping: *mut libc::c_void = ptr::null_mut();
 #[no_mangle]
 pub(crate) static mut loaded_font_flags: i8 = 0;
 #[no_mangle]
-pub(crate) static mut loaded_font_letter_space: scaled_t = 0;
+pub(crate) static mut loaded_font_letter_space: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut loaded_font_design_size: scaled_t = 0;
+pub(crate) static mut loaded_font_design_size: Scaled = Scaled::ZERO;
 #[no_mangle]
 pub(crate) static mut mapped_text: *mut UTF16_code = ptr::null_mut();
 #[no_mangle]
@@ -815,9 +814,9 @@ pub(crate) const NULL_CHARACTER: b16x4 = b16x4 {
 #[no_mangle]
 pub(crate) static mut TOTAL_PAGES: usize = 0;
 #[no_mangle]
-pub(crate) static mut max_v: scaled_t = 0;
+pub(crate) static mut max_v: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut max_h: scaled_t = 0;
+pub(crate) static mut max_h: Scaled = Scaled::ZERO;
 #[no_mangle]
 pub(crate) static mut max_push: i32 = 0;
 #[no_mangle]
@@ -827,19 +826,19 @@ pub(crate) static mut dead_cycles: i32 = 0;
 #[no_mangle]
 pub(crate) static mut doing_leaders: bool = false;
 #[no_mangle]
-pub(crate) static mut rule_ht: scaled_t = 0;
+pub(crate) static mut rule_ht: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut rule_dp: scaled_t = 0;
+pub(crate) static mut rule_dp: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut rule_wd: scaled_t = 0;
+pub(crate) static mut rule_wd: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut cur_h: scaled_t = 0;
+pub(crate) static mut cur_h: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut cur_v: scaled_t = 0;
+pub(crate) static mut cur_v: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut total_stretch: [scaled_t; 4] = [0; 4];
+pub(crate) static mut total_stretch: [Scaled; 4] = [Scaled::ZERO; 4];
 #[no_mangle]
-pub(crate) static mut total_shrink: [scaled_t; 4] = [0; 4];
+pub(crate) static mut total_shrink: [Scaled; 4] = [Scaled::ZERO; 4];
 #[no_mangle]
 pub(crate) static mut last_badness: i32 = 0;
 #[no_mangle]
@@ -923,7 +922,7 @@ pub(crate) static mut HYPH_COUNT: usize = 0;
 #[no_mangle]
 pub(crate) static mut HYPH_NEXT: usize = 0;
 #[no_mangle]
-pub(crate) static mut best_height_plus_depth: scaled_t = 0;
+pub(crate) static mut best_height_plus_depth: Scaled = Scaled::ZERO;
 #[no_mangle]
 pub(crate) static mut main_f: internal_font_number = 0;
 #[no_mangle]
@@ -977,17 +976,17 @@ pub(crate) static mut write_open: [bool; 18] = [false; 18];
 #[no_mangle]
 pub(crate) static mut write_loc: i32 = 0;
 #[no_mangle]
-pub(crate) static mut cur_page_width: scaled_t = 0;
+pub(crate) static mut cur_page_width: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut cur_page_height: scaled_t = 0;
+pub(crate) static mut cur_page_height: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut cur_h_offset: scaled_t = 0;
+pub(crate) static mut cur_h_offset: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut cur_v_offset: scaled_t = 0;
+pub(crate) static mut cur_v_offset: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut pdf_last_x_pos: i32 = 0;
+pub(crate) static mut pdf_last_x_pos: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut pdf_last_y_pos: i32 = 0;
+pub(crate) static mut pdf_last_y_pos: Scaled = Scaled::ZERO;
 #[no_mangle]
 pub(crate) static mut EOF_SEEN: Vec<bool> = Vec::new();
 #[no_mangle]
@@ -1026,7 +1025,7 @@ pub(crate) static mut stop_at_space: bool = false;
 #[no_mangle]
 pub(crate) static mut xtx_ligature_present: bool = false;
 #[no_mangle]
-pub(crate) static mut delta: scaled_t = 0;
+pub(crate) static mut delta: Scaled = Scaled::ZERO;
 #[no_mangle]
 pub(crate) static mut synctex_enabled: i32 = 0;
 #[no_mangle]
@@ -1041,13 +1040,13 @@ pub(crate) static mut page_tail: usize = 0;
 #[no_mangle]
 pub(crate) static mut page_contents: PageContents = PageContents::Empty;
 #[no_mangle]
-pub(crate) static mut page_so_far: [scaled_t; 8] = [0; 8];
+pub(crate) static mut page_so_far: [Scaled; 8] = [Scaled::ZERO; 8];
 #[no_mangle]
 pub(crate) static mut last_glue: i32 = 0;
 #[no_mangle]
 pub(crate) static mut last_penalty: i32 = 0;
 #[no_mangle]
-pub(crate) static mut last_kern: scaled_t = 0;
+pub(crate) static mut last_kern: Scaled = Scaled::ZERO;
 #[no_mangle]
 pub(crate) static mut last_node_type: i32 = 0;
 #[no_mangle]
@@ -1933,19 +1932,19 @@ pub(crate) unsafe fn prefixed_command(
             scan_optional_equals(input);
             let val = scan_dimen(input, false, false, None);
             if a >= 4 {
-                geq_word_define(p, val);
-            } else { eq_word_define(p, val); }
+                geq_word_define(p, val.0);
+            } else { eq_word_define(p, val.0); }
         }
         Cmd::AssignGlue | Cmd::AssignMuGlue => {
             let p = ochr as usize;
             let n = ocmd;
             scan_optional_equals(input);
-            let mut val = if n == Cmd::AssignMuGlue {
+            let val = if n == Cmd::AssignMuGlue {
                 scan_glue(input, ValLevel::Mu)
             } else {
                 scan_glue(input, ValLevel::Glue)
             };
-            trap_zero_glue(&mut val);
+            let val = trap_zero_glue(val);
             if a >= 4 {
                 geq_define(p, Cmd::GlueRef, val.opt());
             } else { eq_define(p, Cmd::GlueRef, val.opt()); }
@@ -2148,9 +2147,9 @@ pub(crate) unsafe fn prefixed_command(
     
                 for j in 1..=(n as usize) {
                     let val = scan_dimen(input, false, false, None);
-                    MEM[p + 2 * j - 1].b32.s1 = val;
+                    MEM[p + 2 * j - 1].b32.s1 = val.0;
                     let val = scan_dimen(input, false, false, None);
-                    MEM[p + 2 * j].b32.s1 = val;
+                    MEM[p + 2 * j].b32.s1 = val.0;
                 }
                 Some(p)
             };
@@ -2184,7 +2183,7 @@ pub(crate) unsafe fn prefixed_command(
             k = find_font_dimen(input, true);
             scan_optional_equals(input);
             let val = scan_dimen(input, false, false, None);
-            FONT_INFO[k as usize].b32.s1 = val;
+            FONT_INFO[k as usize].b32.s1 = val.0;
         }
         Cmd::AssignFontInt => {
             let n = AssignFontInt::from(ochr);
@@ -2347,8 +2346,8 @@ unsafe fn initialize_more_variables() {
     page_tail = PAGE_HEAD;
     last_glue = MAX_HALFWORD;
     last_penalty = 0;
-    last_kern = 0;
-    page_so_far[7] = 0;
+    last_kern = Scaled::ZERO;
+    page_so_far[7] = Scaled::ZERO;
 
     for k in INT_BASE..=EQTB_SIZE {
         _xeq_level_array[k - INT_BASE] = 1_u16;
@@ -2393,8 +2392,8 @@ unsafe fn initialize_more_variables() {
     cur_if = 0;
     if_line = 0;
     TOTAL_PAGES = 0;
-    max_v = 0;
-    max_h = 0;
+    max_v = Scaled::ZERO;
+    max_h = Scaled::ZERO;
     max_push = 0;
     last_bop = -1;
     doing_leaders = false;
@@ -4365,10 +4364,10 @@ pub(crate) unsafe fn tt_run_engine(
             FONT_LAYOUT_ENGINE.push(Font::None);
         }
         FONT_FLAGS = vec![0; FONT_MAX + 1];
-        FONT_LETTER_SPACE = vec![0; FONT_MAX + 1];
+        FONT_LETTER_SPACE = vec![Scaled::ZERO; FONT_MAX + 1];
         FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
-        FONT_SIZE = vec![0; FONT_MAX + 1];
-        FONT_DSIZE = vec![0; FONT_MAX + 1];
+        FONT_SIZE = vec![Scaled::ZERO; FONT_MAX + 1];
+        FONT_DSIZE = vec![Scaled::ZERO; FONT_MAX + 1];
         FONT_PARAMS = vec![0; FONT_MAX + 1];
         FONT_NAME = vec![0; FONT_MAX + 1];
         FONT_AREA = vec![0; FONT_MAX + 1];
@@ -4400,8 +4399,8 @@ pub(crate) unsafe fn tt_run_engine(
         FONT_FALSE_BCHAR[0] = TOO_BIG_CHAR;
         FONT_BC[0] = 1;
         FONT_EC[0] = 0;
-        FONT_SIZE[0] = 0;
-        FONT_DSIZE[0] = 0;
+        FONT_SIZE[0] = Scaled::ZERO;
+        FONT_DSIZE[0] = Scaled::ZERO;
         CHAR_BASE[0] = 0;
         WIDTH_BASE[0] = 0;
         HEIGHT_BASE[0] = 0;

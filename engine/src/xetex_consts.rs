@@ -1,6 +1,8 @@
 use crate::cmd::{BoxCode, TopBotMarkCode};
 use crate::xetex_ini::EQTB;
 
+use crate::xetex_scaledmath::Scaled;
+
 pub(crate) type placeholdertype = i32;
 pub(crate) const MIN_HALFWORD: placeholdertype = -0x0FFFFFFF;
 pub(crate) const MAX_HALFWORD: placeholdertype = 0x3FFFFFFF;
@@ -10,9 +12,9 @@ pub(crate) const TEX_NULL: placeholdertype = MIN_HALFWORD;
 /// "the largest positive value that TeX knows"
 pub(crate) const TEX_INFINITY: placeholdertype = 0x7FFFFFFF;
 /// "signifies a missing item" in rule nodes */
-pub(crate) const NULL_FLAG: placeholdertype = -0x40000000;
+pub(crate) const NULL_FLAG: Scaled = Scaled(-0x4000_0000);
 /// "denotes default_rule_thickness"
-pub(crate) const DEFAULT_CODE: placeholdertype = 0x40000000;
+pub(crate) const DEFAULT_CODE: Scaled = Scaled(0x40000000);
 
 /* characters
  *
@@ -364,13 +366,13 @@ pub(crate) enum DimenPar {
 
 pub(crate) const DIMEN_PARS: usize = 23;
 
-pub(crate) fn DIMENPAR(x: DimenPar) -> &'static mut i32 {
-    unsafe { &mut EQTB[DIMEN_BASE + x as usize].val }
+pub(crate) fn DIMENPAR(x: DimenPar) -> &'static mut Scaled {
+    unsafe { &mut *(&mut EQTB[DIMEN_BASE + x as usize].val as *mut i32 as *mut Scaled) }
 }
 
 pub(crate) const SCALED_BASE: usize = DIMEN_BASE + DIMEN_PARS;
-pub(crate) unsafe fn SCALED_REG(n: usize) -> &'static mut i32 {
-    &mut EQTB[SCALED_BASE + n].val
+pub(crate) unsafe fn SCALED_REG(n: usize) -> &'static mut Scaled {
+    &mut *(&mut EQTB[SCALED_BASE + n].val as *mut i32 as *mut Scaled)
 }
 
 pub(crate) const EQTB_SIZE: usize = SCALED_BASE + NUMBER_REGS - 1;
@@ -780,7 +782,7 @@ pub(crate) const CHAR_CLASS_LIMIT: placeholdertype = 4096;
 pub(crate) const EJECT_PENALTY: placeholdertype = -10000;
 pub(crate) const INF_BAD: placeholdertype = 10000;
 pub(crate) const INF_PENALTY: placeholdertype = 10000;
-pub(crate) const DEFAULT_RULE: placeholdertype = 26214;
+pub(crate) const DEFAULT_RULE: Scaled = Scaled(26214); // 0.4
 pub(crate) const TOO_BIG_CHAR: placeholdertype = 65536;
 pub(crate) const NO_EXPAND_FLAG: placeholdertype = BIGGEST_USV as i32 + 2;
 
@@ -826,10 +828,10 @@ pub(crate) const POINT_TOKEN: placeholdertype = OTHER_TOKEN + '.' as placeholder
 pub(crate) const ZERO_TOKEN: placeholdertype = OTHER_TOKEN + '0' as placeholdertype;
 pub(crate) const ALPHA_TOKEN: placeholdertype = OTHER_TOKEN + '`' as placeholdertype;
 
-pub(crate) const BOX_FLAG: placeholdertype = 0x40000000;
-pub(crate) const GLOBAL_BOX_FLAG: placeholdertype = 0x40008000;
-pub(crate) const SHIP_OUT_FLAG: placeholdertype = 0x40010000;
-pub(crate) const LEADER_FLAG: placeholdertype = 0x40010001;
+pub(crate) const BOX_FLAG: placeholdertype = 0x4000_0000;
+pub(crate) const GLOBAL_BOX_FLAG: placeholdertype = 0x4000_8000;
+pub(crate) const SHIP_OUT_FLAG: placeholdertype = 0x4001_0000;
+pub(crate) const LEADER_FLAG: placeholdertype = 0x4001_0001;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Side {

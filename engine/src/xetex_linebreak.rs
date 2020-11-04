@@ -30,8 +30,8 @@ use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
 use crate::xetex_stringpool::length;
 use crate::xetex_xetex0::{
     append_to_vlist, badness, char_pw, delete_glue_ref, effective_char, flush_list,
-    flush_node_list, fract, free_node, get_avail, get_node, hpack, max_hyphenatable_length,
-    new_character, new_disc, new_kern, new_lig_item, new_ligature, new_margin_kern, new_math,
+    flush_node_list, free_node, get_avail, get_node, hpack, max_hyphenatable_length, new_character,
+    new_disc, new_kern, new_lig_item, new_ligature, new_margin_kern, new_math,
     new_native_character, new_native_word_node, new_param_glue, new_penalty, new_spec, pop_nest,
     prev_rightmost,
 };
@@ -40,7 +40,8 @@ use crate::xetex_xetexd::{
     TeXOpt, FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH,
 };
 
-pub(crate) type scaled_t = i32;
+use crate::xetex_scaledmath::Scaled;
+
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type pool_pointer = i32;
@@ -64,7 +65,7 @@ static mut background: DeltaSize = DeltaSize::new();
 static mut break_width: DeltaSize = DeltaSize::new();
 static mut best_place: [i32; 4] = [0; 4];
 static mut best_pl_line: [i32; 4] = [0; 4];
-static mut disc_width: scaled_t = 0;
+static mut disc_width: Scaled = Scaled::ZERO;
 static mut no_shrink_error_yet: bool = false;
 static mut cur_p: Option<usize> = Some(0);
 static mut final_pass: bool = false;
@@ -73,10 +74,10 @@ static mut minimal_demerits: [i32; 4] = [0; 4];
 static mut minimum_demerits: i32 = 0;
 static mut easy_line: i32 = 0;
 static mut last_special_line: i32 = 0;
-static mut first_width: scaled_t = 0;
-static mut second_width: scaled_t = 0;
-static mut first_indent: scaled_t = 0;
-static mut second_indent: scaled_t = 0;
+static mut first_width: Scaled = Scaled::ZERO;
+static mut second_width: Scaled = Scaled::ZERO;
+static mut first_indent: Scaled = Scaled::ZERO;
+static mut second_indent: Scaled = Scaled::ZERO;
 static mut best_bet: Active = Active(0);
 static mut fewest_demerits: i32 = 0;
 static mut best_line: i32 = 0;
@@ -95,9 +96,9 @@ static mut hyf_bchar: i32 = 0;
 static mut last_line_fill: i32 = 0;
 static mut do_last_line_fit: bool = false;
 static mut active_node_size: i16 = 0;
-static mut fill_width: [scaled_t; 3] = [0; 3];
-static mut best_pl_short: [scaled_t; 4] = [0; 4];
-static mut best_pl_glue: [scaled_t; 4] = [0; 4];
+static mut fill_width: [Scaled; 3] = [Scaled::ZERO; 3];
+static mut best_pl_short: [Scaled; 4] = [Scaled::ZERO; 4];
+static mut best_pl_glue: [Scaled; 4] = [Scaled::ZERO; 4];
 #[inline]
 unsafe fn get_native_usv(p: usize, i: usize) -> UnicodeScalar {
     let mut c: u16 =
@@ -163,12 +164,12 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     no_shrink_error_yet = true;
 
     if GlueSpec(*GLUEPAR(GluePar::left_skip) as usize).shrink_order() != GlueOrder::Normal
-        && GlueSpec(*GLUEPAR(GluePar::left_skip) as usize).shrink() != 0
+        && GlueSpec(*GLUEPAR(GluePar::left_skip) as usize).shrink() != Scaled::ZERO
     {
         *GLUEPAR(GluePar::left_skip) = finite_shrink(*GLUEPAR(GluePar::left_skip) as usize) as i32;
     }
     if GlueSpec(*GLUEPAR(GluePar::right_skip) as usize).shrink_order() != GlueOrder::Normal
-        && GlueSpec(*GLUEPAR(GluePar::right_skip) as usize).shrink() != 0
+        && GlueSpec(*GLUEPAR(GluePar::right_skip) as usize).shrink() != Scaled::ZERO
     {
         *GLUEPAR(GluePar::right_skip) =
             finite_shrink(*GLUEPAR(GluePar::right_skip) as usize) as i32;
@@ -177,10 +178,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     let q = GlueSpec(*GLUEPAR(GluePar::left_skip) as usize);
     let r = GlueSpec(*GLUEPAR(GluePar::right_skip) as usize);
     background.width = q.size() + r.size();
-    background.stretch0 = 0;
-    background.stretch1 = 0;
-    background.stretch2 = 0;
-    background.stretch3 = 0;
+    background.stretch0 = Scaled::ZERO;
+    background.stretch1 = Scaled::ZERO;
+    background.stretch2 = Scaled::ZERO;
+    background.stretch3 = Scaled::ZERO;
     match q.stretch_order() {
         GlueOrder::Normal => background.stretch0 = q.stretch(),
         GlueOrder::Fil => background.stretch1 = q.stretch(),
@@ -204,13 +205,16 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     if *INTPAR(IntPar::last_line_fit) > 0 {
         let llf = Glue(last_line_fill as usize);
         let q = GlueSpec(llf.glue_ptr() as usize);
-        if q.stretch() > 0 && q.stretch_order() > GlueOrder::Normal {
-            if background.stretch1 == 0 && background.stretch2 == 0 && background.stretch3 == 0 {
+        if q.stretch() > Scaled::ZERO && q.stretch_order() > GlueOrder::Normal {
+            if background.stretch1 == Scaled::ZERO
+                && background.stretch2 == Scaled::ZERO
+                && background.stretch3 == Scaled::ZERO
+            {
                 do_last_line_fit = true;
                 active_node_size = ACTIVE_NODE_SIZE_EXTENDED as _;
-                fill_width[0] = 0;
-                fill_width[1] = 0;
-                fill_width[2] = 0;
+                fill_width[0] = Scaled::ZERO;
+                fill_width[1] = Scaled::ZERO;
+                fill_width[2] = Scaled::ZERO;
                 fill_width[q.stretch_order() as usize - 1] = q.stretch();
             }
         }
@@ -226,36 +230,28 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     if let Some(ps) = LOCAL(Local::par_shape).opt() {
         last_special_line = *LLIST_info(ps) - 1;
         /* These direct `mem` accesses are in the original WEB code */
-        second_width = MEM[ps + 2 * (last_special_line as usize + 1)].b32.s1;
-        second_indent = MEM[ps + 2 * last_special_line as usize + 1].b32.s1;
+        second_width = Scaled(MEM[ps + 2 * (last_special_line as usize + 1)].b32.s1);
+        second_indent = Scaled(MEM[ps + 2 * last_special_line as usize + 1].b32.s1);
     } else {
-        if *DIMENPAR(DimenPar::hang_indent) == 0 {
+        if *DIMENPAR(DimenPar::hang_indent) == Scaled::ZERO {
             last_special_line = 0;
             second_width = *DIMENPAR(DimenPar::hsize);
-            second_indent = 0;
+            second_indent = Scaled::ZERO;
         } else {
             /*878:*/
             last_special_line = (*INTPAR(IntPar::hang_after)).abs();
 
             if *INTPAR(IntPar::hang_after) < 0 {
                 first_width = *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
-                if *DIMENPAR(DimenPar::hang_indent) >= 0 {
-                    first_indent = *DIMENPAR(DimenPar::hang_indent);
-                } else {
-                    first_indent = 0;
-                }
+                first_indent = (*DIMENPAR(DimenPar::hang_indent)).max(Scaled::ZERO);
                 second_width = *DIMENPAR(DimenPar::hsize);
-                second_indent = 0;
+                second_indent = Scaled::ZERO;
             } else {
                 first_width = *DIMENPAR(DimenPar::hsize);
-                first_indent = 0;
+                first_indent = Scaled::ZERO;
                 second_width =
                     *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
-                if *DIMENPAR(DimenPar::hang_indent) >= 0 {
-                    second_indent = *DIMENPAR(DimenPar::hang_indent);
-                } else {
-                    second_indent = 0;
-                }
+                second_indent = (*DIMENPAR(DimenPar::hang_indent)).max(Scaled::ZERO);
             }
         }
     }
@@ -276,7 +272,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     } else {
         threshold = *INTPAR(IntPar::tolerance);
         second_pass = true;
-        final_pass = *DIMENPAR(DimenPar::emergency_stretch) <= 0;
+        final_pass = *DIMENPAR(DimenPar::emergency_stretch) <= Scaled::ZERO;
     }
     loop {
         if threshold > INF_BAD {
@@ -308,8 +304,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
         if do_last_line_fit {
             /*1633:*/
-            q.set_shortfall(0) /*:893*/
-                .set_glue(0);
+            q.set_shortfall(Scaled::ZERO) /*:893*/
+                .set_glue(Scaled::ZERO);
         }
         active_width = background;
         passive = None.tex_int();
@@ -337,13 +333,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     let chr = Char(cp);
                     let f = chr.font() as usize;
                     let eff_char = effective_char(true, f, chr.character());
-                    active_width.width += FONT_INFO[(WIDTH_BASE[f as usize]
-                        + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
-                            .b16
-                            .s3 as i32)
-                        as usize]
-                        .b32
-                        .s1;
+                    active_width.width += Scaled(
+                        FONT_INFO[(WIDTH_BASE[f as usize]
+                            + FONT_INFO[(CHAR_BASE[f as usize] + eff_char) as usize]
+                                .b16
+                                .s3 as i32) as usize]
+                            .b32
+                            .s1,
+                    );
                     cur_p = llist_link(cp);
                     cp = cur_p.unwrap();
                     if !is_char_node(Some(cp)) {
@@ -422,7 +419,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                 }
                 TxtNode::Disc(d) => {
                     /*898: try to break after a discretionary fragment, then goto done5 */
-                    disc_width = 0;
+                    disc_width = Scaled::ZERO;
 
                     if let Some(mut s) = d.pre_break().opt() {
                         loop {
@@ -629,7 +626,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         if !second_pass {
             threshold = *INTPAR(IntPar::tolerance);
             second_pass = true;
-            final_pass = *DIMENPAR(DimenPar::emergency_stretch) <= 0;
+            final_pass = *DIMENPAR(DimenPar::emergency_stretch) <= Scaled::ZERO;
         } else {
             background.stretch0 += *DIMENPAR(DimenPar::emergency_stretch);
             final_pass = true;
@@ -637,14 +634,14 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     }
     if do_last_line_fit {
         /*1641:*/
-        if best_bet.shortfall() == 0 {
+        if best_bet.shortfall() == Scaled::ZERO {
             do_last_line_fit = false
         } else {
             let mut llf = Glue(last_line_fill as usize);
             let mut q = GlueSpec(new_spec(llf.glue_ptr() as usize));
             delete_glue_ref(llf.glue_ptr() as usize);
             q.set_size(q.size() + best_bet.shortfall() - best_bet.glue())
-                .set_stretch(0);
+                .set_stretch(Scaled::ZERO);
             llf.set_glue_ptr(q.ptr() as i32);
         }
     }
@@ -679,7 +676,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         auto_breaking: bool,
     ) -> UnicodeScalar {
         let mut q = GlueSpec(cp.glue_ptr() as usize);
-        if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
+        if q.shrink_order() != GlueOrder::Normal && q.shrink() != Scaled::ZERO {
             let g = finite_shrink(q.ptr());
             cp.set_glue_ptr(g as i32);
             q = GlueSpec(g as usize);
@@ -1086,7 +1083,7 @@ unsafe fn post_line_break(mut d: bool) {
                         MathType::Eq(BE::End, mode) => MathType::Eq(BE::Begin, mode),
                         _ => unreachable!(),
                     };
-                    let s = new_math(0, beg) as usize;
+                    let s = new_math(Scaled::ZERO, beg) as usize;
                     *LLIST_link(s) = r;
                     r = s as i32;
                     if let Some(next) = llist_link(tmp_ptr) {
@@ -1180,10 +1177,10 @@ unsafe fn post_line_break(mut d: bool) {
                     disc_break = true;
                 }
                 TxtNode::Kern(k) => {
-                    k.set_width(0);
+                    k.set_width(Scaled::ZERO);
                 }
                 TxtNode::Math(m) => {
-                    m.set_width(0);
+                    m.set_width(Scaled::ZERO);
                     if *INTPAR(IntPar::texxet) > 0 {
                         /*1495:*/
                         let (be, _) = MathType::from(*INTPAR(IntPar::texxet) as u16).equ();
@@ -1233,7 +1230,7 @@ unsafe fn post_line_break(mut d: bool) {
                 }
             };
             let w = char_pw(p, Side::Right);
-            if w != 0 {
+            if w != Scaled::ZERO {
                 let ptmp = ptmp.unwrap();
                 let k = new_margin_kern(-w, last_rightmost_char, Side::Right);
                 *LLIST_link(k) = *LLIST_link(ptmp);
@@ -1263,7 +1260,7 @@ unsafe fn post_line_break(mut d: bool) {
                 let mut ropt = Some(lr);
 
                 while let Some(r) = ropt {
-                    let tmp_ptr = new_math(0, Math(r).subtype_i32());
+                    let tmp_ptr = new_math(Scaled::ZERO, Math(r).subtype_i32());
                     *LLIST_link(s) = Some(tmp_ptr).tex_int();
                     s = tmp_ptr;
                     ropt = llist_link(r);
@@ -1282,7 +1279,7 @@ unsafe fn post_line_break(mut d: bool) {
         if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
             let p = find_protchar_left(q as usize, false);
             let w = char_pw(Some(p), Side::Left);
-            if w != 0 {
+            if w != Scaled::ZERO {
                 let k = new_margin_kern(-w, last_leftmost_char, Side::Left);
                 *LLIST_link(k) = q;
                 q = k as i32;
@@ -1299,7 +1296,7 @@ unsafe fn post_line_break(mut d: bool) {
             (second_width, second_indent)
         } else if let Some(l) = LOCAL(Local::par_shape).opt() {
             /* These manual `mem` indices are in the original WEB code */
-            (MEM[l + 2 * cur_line as usize].b32.s1, MEM[l + 2 * cur_line as usize - 1].b32.s1)
+            (Scaled(MEM[l + 2 * cur_line as usize].b32.s1), Scaled(MEM[l + 2 * cur_line as usize - 1].b32.s1))
         } else {
             (first_width, first_indent)
         };
@@ -1308,7 +1305,7 @@ unsafe fn post_line_break(mut d: bool) {
         /* Tectonic: in semantic pagination mode, set each "line" (really the
          * whole paragraph) at its natural width. */
         let mut jb = if semantic_pagination_enabled {
-            hpack(q.opt(), 0, PackMode::Additional)
+            hpack(q.opt(), Scaled::ZERO, PackMode::Additional)
         } else {
             hpack(q.opt(), cur_width, PackMode::Exactly)
         }; /*:918*/
@@ -1451,12 +1448,12 @@ unsafe fn post_line_break(mut d: bool) {
 unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
     let mut prev_prev_r = None;
     let mut node_r_stays_active: bool = false;
-    let mut line_width: scaled_t = 0i32;
+    let mut line_width = Scaled::ZERO;
     let mut fit_class: u8 = 0;
     let mut b: i32 = 0;
     let mut artificial_demerits: bool = false;
-    let mut shortfall: scaled_t = 0;
-    let mut g: scaled_t = 0i32;
+    let mut shortfall = Scaled::ZERO;
+    let mut g = Scaled::ZERO;
     /* Tectonic: no-op except at the end of the paragraph. We know we're at
      * the very end of the paragraph when cur_p is TEX_NULL. */
     if semantic_pagination_enabled && cur_p.is_some() {
@@ -1728,7 +1725,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         line_width = if l > last_special_line {
                             second_width
                         } else if let Some(ps) = LOCAL(Local::par_shape).opt() {
-                            MEM[ps + 2 * (l as usize)].b32.s1
+                            Scaled(MEM[ps + 2 * (l as usize)].b32.s1)
                         } else {
                             first_width
                         };
@@ -1745,7 +1742,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                 if semantic_pagination_enabled {
                     line_width = cur_active_width.width;
                     artificial_demerits = true;
-                    shortfall = 0;
+                    shortfall = Scaled::ZERO;
                 } else {
                     artificial_demerits = false;
                     shortfall = line_width - cur_active_width.width;
@@ -1755,17 +1752,17 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                 }
 
                 let mut current_block: u64;
-                if shortfall > 0 {
+                if shortfall > Scaled::ZERO {
                     /*881: "Set the value of b to the badness for stretching the line,
                      * and compute the corresponding fit_class" */
-                    if cur_active_width.stretch1 != 0
-                        || cur_active_width.stretch2 != 0
-                        || cur_active_width.stretch3 != 0
+                    if cur_active_width.stretch1 != Scaled::ZERO
+                        || cur_active_width.stretch2 != Scaled::ZERO
+                        || cur_active_width.stretch3 != Scaled::ZERO
                     {
                         if do_last_line_fit {
                             if cur_p.is_none() {
                                 /*1634: "Perform computations for the last line and goto found" */
-                                if r.shortfall() == 0 || r.glue() <= 0 {
+                                if r.shortfall() == Scaled::ZERO || r.glue() <= Scaled::ZERO {
                                     current_block = 5565703735569783978;
                                 } else if cur_active_width.stretch1 != fill_width[0]
                                     || cur_active_width.stretch2 != fill_width[1]
@@ -1773,42 +1770,40 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                 {
                                     current_block = 5565703735569783978;
                                 } else {
-                                    g = if r.shortfall() > 0 {
+                                    g = if r.shortfall() > Scaled::ZERO {
                                         cur_active_width.stretch0
                                     } else {
                                         cur_active_width.shrink
                                     };
-                                    if g <= 0 {
+                                    if g <= Scaled::ZERO {
                                         current_block = 5565703735569783978;
                                     } else {
                                         arith_error = false;
-                                        g = fract(g, r.shortfall(), r.glue(), MAX_HALFWORD);
+                                        g = g.fract(r.shortfall(), r.glue());
                                         if *INTPAR(IntPar::last_line_fit) < 1000 {
-                                            g = fract(
-                                                g,
-                                                *INTPAR(IntPar::last_line_fit),
-                                                1000,
-                                                MAX_HALFWORD,
+                                            g = g.fract(
+                                                Scaled(*INTPAR(IntPar::last_line_fit)),
+                                                Scaled(1000),
                                             )
                                         }
                                         if arith_error {
-                                            g = if r.shortfall() > 0 {
-                                                MAX_HALFWORD
+                                            g = if r.shortfall() > Scaled::ZERO {
+                                                Scaled::MAX_HALFWORD
                                             } else {
-                                                -MAX_HALFWORD
+                                                -Scaled::MAX_HALFWORD
                                             };
                                         }
-                                        if g > 0 {
+                                        if g > Scaled::ZERO {
                                             /*1635: "Set the value of b to the badness of the
                                              * last line for stretching, compute the
                                              * corresponding fit_class, and goto found" */
                                             if g > shortfall {
                                                 g = shortfall
                                             }
-                                            if g > 7230584 {
-                                                /* XXX: magic number in original WEB code */
-                                                if (cur_active_width.stretch0 as i64) < 1663497 {
-                                                    /* XXX: magic number in original WEB code */
+                                            if g > Scaled(7230584) {
+                                                // 110.33: magic number in original WEB code
+                                                if cur_active_width.stretch0 < Scaled(1663497) {
+                                                    // 25.38: magic number in original WEB code
                                                     b = INF_BAD;
                                                     fit_class = VERY_LOOSE_FIT;
                                                     current_block = 11849408527845460430;
@@ -1834,7 +1829,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                                     current_block = 11849408527845460430;
                                                 }
                                             }
-                                        } else if g < 0 {
+                                        } else if g < Scaled::ZERO {
                                             /*1636: "Set the value of b to the badness of the
                                              * last line for shrinking, compute the
                                              * corresponding fit_class, and goto found" */
@@ -1860,7 +1855,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             match current_block {
                                 11849408527845460430 => {}
                                 _ => {
-                                    shortfall = 0i32;
+                                    shortfall = Scaled::ZERO;
                                     current_block = 16988252441985098516;
                                 }
                             }
@@ -1877,10 +1872,10 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         }
                     } else {
                         let mut current_block_230: u64;
-                        if shortfall as i64 > 7230584 {
-                            /* XXX: magic number in original WEB code */
-                            if (cur_active_width.stretch0 as i64) < 1663497 {
-                                /* XXX: magic number in original WEB code */
+                        if shortfall > Scaled(7230584) {
+                            // 110.33: magic number in original WEB code
+                            if cur_active_width.stretch0 < Scaled(1663497) {
+                                // 25.38: magic number in original WEB code
                                 b = INF_BAD;
                                 fit_class = VERY_LOOSE_FIT;
                                 current_block_230 = 4001239642700071046;
@@ -1923,14 +1918,14 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                         if do_last_line_fit {
                             /*1637: "Adjust the additional data for last line" */
                             if cur_p.is_none() {
-                                shortfall = 0
+                                shortfall = Scaled::ZERO;
                             }
-                            g = if shortfall > 0 {
+                            g = if shortfall > Scaled::ZERO {
                                 cur_active_width.stretch0
-                            } else if shortfall < 0 {
+                            } else if shortfall < Scaled::ZERO {
                                 cur_active_width.shrink
                             } else {
-                                0
+                                Scaled::ZERO
                             };
                         }
                     }
@@ -2435,7 +2430,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
 
     hyphen_passed = 0;
     let mut t = HOLD_HEAD as i32;
-    let mut w = 0;
+    let mut w = Scaled::ZERO;
     *LLIST_link(HOLD_HEAD) = None.tex_int();
     cur_l = hu[j as usize];
     cur_q = t;
@@ -2628,12 +2623,14 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
                                         continue 'c_27176;
                                     }
                                 } else {
-                                    w = FONT_INFO[(KERN_BASE[hf as usize]
-                                        + 256 * q.s1 as i32
-                                        + q.s0 as i32)
-                                        as usize]
-                                        .b32
-                                        .s1;
+                                    w = Scaled(
+                                        FONT_INFO[(KERN_BASE[hf as usize]
+                                            + 256 * q.s1 as i32
+                                            + q.s0 as i32)
+                                            as usize]
+                                            .b32
+                                            .s1,
+                                    );
                                     break;
                                 }
                             }
@@ -2669,11 +2666,11 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
             t = p as i32;
             ligature_present = false
         }
-        if w != 0 {
+        if w != Scaled::ZERO {
             *LLIST_link(t as usize) = new_kern(w) as i32;
             t = *LLIST_link(t as usize);
-            w = 0;
-            MEM[(t + 2) as usize].b32.s0 = 0
+            w = Scaled::ZERO;
+            MEM[(t + 2) as usize].b32.s0 = 0;
         }
         if let Some(ls) = lig_stack {
             cur_q = t;
@@ -2707,7 +2704,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
     }
     j
 }
-unsafe fn total_pw(q: &Active, p: Option<usize>) -> scaled_t {
+unsafe fn total_pw(q: &Active, p: Option<usize>) -> Scaled {
     let mut lopt = if let Some(r) = q.break_node().opt() {
         Passive(r).cur_break().opt()
     } else {

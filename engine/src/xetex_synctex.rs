@@ -8,6 +8,9 @@
     unused_mut
 )]
 
+use crate::xetex_scaledmath::Scaled;
+const S_72_27: Scaled = Scaled(4736287);
+
 use std::ffi::CString;
 use std::io::Write;
 
@@ -23,7 +26,6 @@ use crate::xetex_xetexd::{SYNCTEX_line, SYNCTEX_tag};
 use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 
 use bridge::OutputHandleWrapper;
-pub(crate) type scaled_t = i32;
 pub(crate) type str_number = i32;
 bitflags::bitflags! {
     #[repr(C)]
@@ -46,12 +48,12 @@ pub(crate) struct Context {
     pub(crate) recorder: synctex_recorder_t,
     pub(crate) tag: i32,
     pub(crate) line: i32,
-    pub(crate) curh: i32,
-    pub(crate) curv: i32,
+    pub(crate) curh: Scaled,
+    pub(crate) curv: Scaled,
     pub(crate) magnification: i32,
     pub(crate) unit: i32,
     pub(crate) total_length: usize,
-    pub(crate) lastv: i32,
+    pub(crate) lastv: Scaled,
     pub(crate) form_depth: i32,
     pub(crate) synctex_tag_counter: u32,
     pub(crate) flags: Flags,
@@ -88,12 +90,12 @@ const default_synctex_ctxt: Context = Context {
     recorder: None,
     tag: 0i32,
     line: 0i32,
-    curh: 0i32,
-    curv: 0i32,
+    curh: Scaled::ZERO,
+    curv: Scaled::ZERO,
     magnification: 0i32,
     unit: 0i32,
     total_length: 0,
-    lastv: -1i32,
+    lastv: Scaled(-1),
     form_depth: 0i32,
     synctex_tag_counter: 0_u32,
     flags: Flags::empty(),
@@ -377,8 +379,8 @@ pub(crate) unsafe fn synctex_vlist(this_box: &List) {
     synctex_ctxt.recorder = None;
     synctex_ctxt.tag = *SYNCTEX_tag(this_box.ptr(), BOX_NODE_SIZE);
     synctex_ctxt.line = *SYNCTEX_line(this_box.ptr(), BOX_NODE_SIZE);
-    synctex_ctxt.curh = cur_h + 4736287i32;
-    synctex_ctxt.curv = cur_v + 4736287i32;
+    synctex_ctxt.curh = cur_h + S_72_27;
+    synctex_ctxt.curv = cur_v + S_72_27;
     synctex_record_node_vlist(this_box);
 }
 /*  Recording a "}" line ending a vbox: this message is sent whenever a vlist
@@ -400,8 +402,8 @@ pub(crate) unsafe fn synctex_tsilv(this_box: usize) {
     synctex_ctxt.node = this_box; /*  0 to reset  */
     synctex_ctxt.tag = *SYNCTEX_tag(this_box, BOX_NODE_SIZE);
     synctex_ctxt.line = *SYNCTEX_line(this_box, BOX_NODE_SIZE);
-    synctex_ctxt.curh = cur_h + 4736287i32;
-    synctex_ctxt.curv = cur_v + 4736287i32;
+    synctex_ctxt.curh = cur_h + S_72_27;
+    synctex_ctxt.curv = cur_v + S_72_27;
     synctex_ctxt.recorder = None;
     synctex_record_node_tsilv(this_box);
 }
@@ -419,8 +421,8 @@ pub(crate) unsafe fn synctex_void_vlist(p: &List, mut _this_box: &List) {
     synctex_ctxt.node = p.ptr(); /*  reset  */
     synctex_ctxt.tag = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
     synctex_ctxt.line = *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE);
-    synctex_ctxt.curh = cur_h + 4736287i32;
-    synctex_ctxt.curv = cur_v + 4736287i32;
+    synctex_ctxt.curh = cur_h + S_72_27;
+    synctex_ctxt.curv = cur_v + S_72_27;
     synctex_ctxt.recorder = None;
     synctex_record_node_void_vlist(p);
 }
@@ -442,8 +444,8 @@ pub(crate) unsafe fn synctex_hlist(this_box: &List) {
     synctex_ctxt.node = this_box.ptr(); /*  reset  */
     synctex_ctxt.tag = *SYNCTEX_tag(this_box.ptr(), BOX_NODE_SIZE);
     synctex_ctxt.line = *SYNCTEX_line(this_box.ptr(), BOX_NODE_SIZE);
-    synctex_ctxt.curh = cur_h + 4736287i32;
-    synctex_ctxt.curv = cur_v + 4736287i32;
+    synctex_ctxt.curh = cur_h + S_72_27;
+    synctex_ctxt.curv = cur_v + S_72_27;
     synctex_ctxt.recorder = None;
     synctex_record_node_hlist(this_box);
 }
@@ -464,8 +466,8 @@ pub(crate) unsafe fn synctex_tsilh(this_box: usize) {
     synctex_ctxt.node = this_box; /*  0 to force next node to be recorded!  */
     synctex_ctxt.tag = *SYNCTEX_tag(this_box, BOX_NODE_SIZE); /*  reset  */
     synctex_ctxt.line = *SYNCTEX_line(this_box, BOX_NODE_SIZE);
-    synctex_ctxt.curh = cur_h + 4736287i32;
-    synctex_ctxt.curv = cur_v + 4736287i32;
+    synctex_ctxt.curh = cur_h + S_72_27;
+    synctex_ctxt.curv = cur_v + S_72_27;
     synctex_ctxt.recorder = None;
     synctex_record_node_tsilh(this_box);
 }
@@ -489,8 +491,8 @@ pub(crate) unsafe fn synctex_void_hlist(p: &List, _this_box: &List) {
     synctex_ctxt.node = p.ptr();
     synctex_ctxt.tag = *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE);
     synctex_ctxt.line = *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE);
-    synctex_ctxt.curh = cur_h + 4736287i32;
-    synctex_ctxt.curv = cur_v + 4736287i32;
+    synctex_ctxt.curh = cur_h + S_72_27;
+    synctex_ctxt.curv = cur_v + S_72_27;
     synctex_ctxt.recorder = None;
     synctex_record_node_void_hlist(p);
 }
@@ -520,8 +522,8 @@ pub(crate) unsafe fn synctex_math(p: usize, mut _this_box: usize) {
     synctex_ctxt.node = p;
     synctex_ctxt.tag = *SYNCTEX_tag(p, MEDIUM_NODE_SIZE);
     synctex_ctxt.line = *SYNCTEX_line(p, MEDIUM_NODE_SIZE);
-    synctex_ctxt.curh = cur_h + 4736287i32;
-    synctex_ctxt.curv = cur_v + 4736287i32;
+    synctex_ctxt.curh = cur_h + S_72_27;
+    synctex_ctxt.curv = cur_v + S_72_27;
     synctex_ctxt.recorder = None;
     synctex_record_node_math(p);
     /*  always record synchronously  */
@@ -566,8 +568,8 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
         }
     } /*  always record synchronously: maybe some text is outside the box  */
     synctex_ctxt.node = p; /*  always record synchronously: maybe some text is outside the box  */
-    synctex_ctxt.curh = cur_h + 4736287i32;
-    synctex_ctxt.curv = cur_v + 4736287i32;
+    synctex_ctxt.curh = cur_h + S_72_27;
+    synctex_ctxt.curv = cur_v + S_72_27;
     synctex_ctxt.recorder = None;
     match TxtNode::from(p) {
         TxtNode::Rule(r) => {
@@ -651,10 +653,10 @@ pub(crate) unsafe fn synctex_current() {
         "x{},{}:{},{}\n",
         synctex_ctxt.tag,
         synctex_ctxt.line,
-        (cur_h + 4736287i32) / synctex_ctxt.unit,
-        (cur_v + 4736287i32) / synctex_ctxt.unit,
+        (cur_h + S_72_27).0 / synctex_ctxt.unit,
+        (cur_v + S_72_27).0 / synctex_ctxt.unit,
     ); /* XXX: should this be `+=`? */
-    synctex_ctxt.lastv = cur_v + 4736287i32;
+    synctex_ctxt.lastv = cur_v + S_72_27;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
     } else {
@@ -814,8 +816,8 @@ unsafe fn synctex_record_mrofxfdp() -> i32 {
 #[inline]
 unsafe fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
 /* UNUSED form JL */ {
-    synctex_ctxt.curh = cur_h + 4736287i32;
-    synctex_ctxt.curv = cur_v + 4736287i32;
+    synctex_ctxt.curh = cur_h + S_72_27;
+    synctex_ctxt.curv = cur_v + S_72_27;
     if synctex_ctxt.flags.contains(Flags::OFF)
         || *INTPAR(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
@@ -825,10 +827,10 @@ unsafe fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
         let s = format!(
             "f{}:{},{}\n",
             objnum,
-            (cur_h + 4736287i32) / synctex_ctxt.unit,
-            (cur_v + 4736287i32) / synctex_ctxt.unit,
+            (cur_h + S_72_27).0 / synctex_ctxt.unit,
+            (cur_v + S_72_27).0 / synctex_ctxt.unit,
         );
-        synctex_ctxt.lastv = cur_v + 4736287i32;
+        synctex_ctxt.lastv = cur_v + S_72_27;
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;
@@ -844,13 +846,13 @@ unsafe fn synctex_record_node_void_vlist(p: &List) {
         "v{},{}:{},{}:{},{},{}\n",
         *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
         *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE),
-        synctex_ctxt.curh / synctex_ctxt.unit,
-        synctex_ctxt.curv / synctex_ctxt.unit,
-        p.width() / synctex_ctxt.unit,
-        p.height() / synctex_ctxt.unit,
-        p.depth() / synctex_ctxt.unit,
+        synctex_ctxt.curh.0 / synctex_ctxt.unit,
+        synctex_ctxt.curv.0 / synctex_ctxt.unit,
+        p.width().0 / synctex_ctxt.unit,
+        p.height().0 / synctex_ctxt.unit,
+        p.depth().0 / synctex_ctxt.unit,
     );
-    synctex_ctxt.lastv = cur_v + 4736287i32;
+    synctex_ctxt.lastv = cur_v + S_72_27;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1
@@ -865,13 +867,13 @@ unsafe fn synctex_record_node_vlist(p: &List) {
         "[{},{}:{},{}:{},{},{}\n",
         *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
         *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE),
-        synctex_ctxt.curh / synctex_ctxt.unit,
-        synctex_ctxt.curv / synctex_ctxt.unit,
-        p.width() / synctex_ctxt.unit,
-        p.height() / synctex_ctxt.unit,
-        p.depth() / synctex_ctxt.unit,
+        synctex_ctxt.curh.0 / synctex_ctxt.unit,
+        synctex_ctxt.curv.0 / synctex_ctxt.unit,
+        p.width().0 / synctex_ctxt.unit,
+        p.height().0 / synctex_ctxt.unit,
+        p.depth().0 / synctex_ctxt.unit,
     );
-    synctex_ctxt.lastv = cur_v + 4736287i32;
+    synctex_ctxt.lastv = cur_v + S_72_27;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1
@@ -894,13 +896,13 @@ unsafe fn synctex_record_node_void_hlist(p: &List) {
         "h{},{}:{},{}:{},{},{}\n",
         *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
         *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE),
-        synctex_ctxt.curh / synctex_ctxt.unit,
-        synctex_ctxt.curv / synctex_ctxt.unit,
-        p.width() / synctex_ctxt.unit,
-        p.height() / synctex_ctxt.unit,
-        p.depth() / synctex_ctxt.unit,
+        synctex_ctxt.curh.0 / synctex_ctxt.unit,
+        synctex_ctxt.curv.0 / synctex_ctxt.unit,
+        p.width().0 / synctex_ctxt.unit,
+        p.height().0 / synctex_ctxt.unit,
+        p.depth().0 / synctex_ctxt.unit,
     );
-    synctex_ctxt.lastv = cur_v + 4736287i32;
+    synctex_ctxt.lastv = cur_v + S_72_27;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1
@@ -915,13 +917,13 @@ unsafe fn synctex_record_node_hlist(p: &List) {
         "({},{}:{},{}:{},{},{}\n",
         *SYNCTEX_tag(p.ptr(), BOX_NODE_SIZE),
         *SYNCTEX_line(p.ptr(), BOX_NODE_SIZE),
-        synctex_ctxt.curh / synctex_ctxt.unit,
-        synctex_ctxt.curv / synctex_ctxt.unit,
-        p.width() / synctex_ctxt.unit,
-        p.height() / synctex_ctxt.unit,
-        p.depth() / synctex_ctxt.unit,
+        synctex_ctxt.curh.0 / synctex_ctxt.unit,
+        synctex_ctxt.curv.0 / synctex_ctxt.unit,
+        p.width().0 / synctex_ctxt.unit,
+        p.height().0 / synctex_ctxt.unit,
+        p.depth().0 / synctex_ctxt.unit,
     );
-    synctex_ctxt.lastv = cur_v + 4736287;
+    synctex_ctxt.lastv = cur_v + S_72_27;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1
@@ -975,10 +977,10 @@ unsafe fn synctex_record_node_glue(p: usize) {
         "g{},{}:{},{}\n",
         *SYNCTEX_tag(p, MEDIUM_NODE_SIZE),
         *SYNCTEX_line(p, MEDIUM_NODE_SIZE),
-        synctex_ctxt.curh / synctex_ctxt.unit,
-        synctex_ctxt.curv / synctex_ctxt.unit,
+        synctex_ctxt.curh.0 / synctex_ctxt.unit,
+        synctex_ctxt.curv.0 / synctex_ctxt.unit,
     );
-    synctex_ctxt.lastv = cur_v + 4736287i32;
+    synctex_ctxt.lastv = cur_v + S_72_27;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1
@@ -992,11 +994,11 @@ unsafe fn synctex_record_node_kern(p: usize) {
         "k{},{}:{},{}:{}\n",
         *SYNCTEX_tag(p, MEDIUM_NODE_SIZE),
         *SYNCTEX_line(p, MEDIUM_NODE_SIZE),
-        synctex_ctxt.curh / synctex_ctxt.unit,
-        synctex_ctxt.curv / synctex_ctxt.unit,
-        Kern(p).width() / synctex_ctxt.unit,
+        synctex_ctxt.curh.0 / synctex_ctxt.unit,
+        synctex_ctxt.curv.0 / synctex_ctxt.unit,
+        Kern(p).width().0 / synctex_ctxt.unit,
     );
-    synctex_ctxt.lastv = cur_v + 4736287i32;
+    synctex_ctxt.lastv = cur_v + S_72_27;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1
@@ -1010,13 +1012,13 @@ unsafe fn synctex_record_node_rule(p: usize) {
         "r{},{}:{},{}:{},{},{}\n",
         *SYNCTEX_tag(p, RULE_NODE_SIZE),
         *SYNCTEX_line(p, RULE_NODE_SIZE),
-        synctex_ctxt.curh / synctex_ctxt.unit,
-        synctex_ctxt.curv / synctex_ctxt.unit,
-        rule_wd / synctex_ctxt.unit,
-        rule_ht / synctex_ctxt.unit,
-        rule_dp / synctex_ctxt.unit,
+        synctex_ctxt.curh.0 / synctex_ctxt.unit,
+        synctex_ctxt.curv.0 / synctex_ctxt.unit,
+        rule_wd.0 / synctex_ctxt.unit,
+        rule_ht.0 / synctex_ctxt.unit,
+        rule_dp.0 / synctex_ctxt.unit,
     );
-    synctex_ctxt.lastv = cur_v + 4736287i32;
+    synctex_ctxt.lastv = cur_v + S_72_27;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1
@@ -1029,10 +1031,10 @@ unsafe fn synctex_record_node_math(p: usize) {
         "${},{}:{},{}\n",
         *SYNCTEX_tag(p, MEDIUM_NODE_SIZE),
         *SYNCTEX_line(p, MEDIUM_NODE_SIZE),
-        synctex_ctxt.curh / synctex_ctxt.unit,
-        synctex_ctxt.curv / synctex_ctxt.unit
+        synctex_ctxt.curh.0 / synctex_ctxt.unit,
+        synctex_ctxt.curv.0 / synctex_ctxt.unit
     );
-    synctex_ctxt.lastv = cur_v + 4736287i32;
+    synctex_ctxt.lastv = cur_v + S_72_27;
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
         synctex_ctxt.count += 1

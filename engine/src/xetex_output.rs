@@ -14,6 +14,7 @@ use super::xetex_consts::{
 };
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
+use crate::xetex_scaledmath::Scaled;
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
@@ -553,7 +554,8 @@ pub(crate) unsafe fn print_current_string() {
         j += 1
     }
 }
-pub(crate) unsafe fn print_scaled(mut s: i32) {
+pub(crate) unsafe fn print_scaled(s: Scaled) {
+    let mut s = s.0;
     let mut delta = 0;
     if s < 0 {
         print_chr('-');

@@ -19,7 +19,7 @@ use crate::xetex_ini::{
     semantic_pagination_enabled, NEST, NEST_PTR,
 };
 use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
-use crate::xetex_scaledmath::x_over_n;
+use crate::xetex_scaledmath::{x_over_n, Scaled};
 use crate::xetex_shipout::ship_out;
 use crate::xetex_xetex0::{
     badness, begin_token_list, box_error, delete_glue_ref, delete_token_ref, do_marks,
@@ -29,7 +29,6 @@ use crate::xetex_xetex0::{
 };
 use crate::xetex_xetexd::{llist_link, LLIST_link, TOKEN_LIST_ref_count, TeXInt, TeXOpt};
 
-pub(crate) type scaled_t = i32;
 /* tectonic/xetex-pagebuilder.c: the page builder
    Copyright 2017-2018 The Tectonic Project
    Licensed under the MIT License.
@@ -43,26 +42,26 @@ pub(crate) type scaled_t = i32;
  * processed.
  */
 static mut best_page_break: Option<usize> = Some(0);
-static mut best_size: scaled_t = 0;
+static mut best_size: Scaled = Scaled::ZERO;
 static mut least_page_cost: i32 = 0;
-static mut page_max_depth: scaled_t = 0;
+static mut page_max_depth: Scaled = Scaled::ZERO;
 /* XXX other variables belong here but pop up all over the code */
 
 pub(crate) unsafe fn initialize_pagebuilder_variables() {
-    page_max_depth = 0;
+    page_max_depth = Scaled::ZERO;
 }
 
 unsafe fn freeze_page_specs(s: PageContents) {
     page_contents = s;
     page_so_far[0] = *DIMENPAR(DimenPar::vsize);
     page_max_depth = *DIMENPAR(DimenPar::max_depth);
-    page_so_far[7] = 0;
-    page_so_far[1] = 0;
-    page_so_far[2] = 0;
-    page_so_far[3] = 0;
-    page_so_far[4] = 0;
-    page_so_far[5] = 0;
-    page_so_far[6] = 0;
+    page_so_far[7] = Scaled::ZERO;
+    page_so_far[1] = Scaled::ZERO;
+    page_so_far[2] = Scaled::ZERO;
+    page_so_far[3] = Scaled::ZERO;
+    page_so_far[4] = Scaled::ZERO;
+    page_so_far[5] = Scaled::ZERO;
+    page_so_far[6] = Scaled::ZERO;
     least_page_cost = MAX_HALFWORD;
 }
 
@@ -95,7 +94,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
     let mut n: u8 = 0;
     let mut wait = false;
     let mut save_vbadness: i32 = 0;
-    let mut save_vfuzz: scaled_t = 0;
+    let mut save_vfuzz: Scaled = Scaled::ZERO;
     let mut save_split_top_skip: i32 = 0;
     /*1048: "Set the value of output_penalty" */
     let bpb = best_page_break.unwrap();
@@ -236,9 +235,9 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
                                     if p_ins.ins_ptr().opt().is_some() {
                                         let tmp_ptr = vpackage(
                                             p_ins.ins_ptr().opt(),
-                                            0,
+                                            Scaled::ZERO,
                                             PackMode::Additional as _,
-                                            MAX_HALFWORD,
+                                            Scaled::MAX_HALFWORD,
                                         );
                                         p_ins.set_height(tmp_ptr.height() + tmp_ptr.depth());
                                         free_node(tmp_ptr.ptr(), BOX_NODE_SIZE);
@@ -253,7 +252,13 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
                             let tmp_ptr = b.list_ptr().opt();
                             b.free();
                             *BOX_REG(n as _) = Some(
-                                vpackage(tmp_ptr, 0, PackMode::Additional, MAX_HALFWORD).ptr(),
+                                vpackage(
+                                    tmp_ptr,
+                                    Scaled::ZERO,
+                                    PackMode::Additional,
+                                    Scaled::MAX_HALFWORD,
+                                )
+                                .ptr(),
                             )
                             .tex_int();
                         } else {
@@ -338,7 +343,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
     save_vbadness = *INTPAR(IntPar::vbadness);
     *INTPAR(IntPar::vbadness) = INF_BAD;
     save_vfuzz = *DIMENPAR(DimenPar::vfuzz);
-    *DIMENPAR(DimenPar::vfuzz) = MAX_HALFWORD;
+    *DIMENPAR(DimenPar::vfuzz) = Scaled::MAX_HALFWORD;
     *BOX_REG(255) = vpackage(
         LLIST_link(PAGE_HEAD as usize).opt(),
         best_size,
@@ -359,10 +364,10 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
     *LLIST_link(PAGE_HEAD) = None.tex_int();
     last_glue = MAX_HALFWORD;
     last_penalty = 0;
-    last_kern = 0;
+    last_kern = Scaled::ZERO;
     last_node_type = -1;
-    page_so_far[7] = 0;
-    page_max_depth = 0;
+    page_so_far[7] = Scaled::ZERO;
+    page_max_depth = Scaled::ZERO;
 
     if q != HOLD_HEAD {
         *LLIST_link(PAGE_HEAD) = *LLIST_link(HOLD_HEAD);
@@ -480,7 +485,10 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
             /*1042: "Compute the badness b of the current page, using
              * awful_bad if the box is too full." */
             let b = if page_so_far[1] < page_so_far[0] {
-                if page_so_far[3] != 0 || page_so_far[4] != 0 || page_so_far[5] != 0 {
+                if page_so_far[3] != Scaled::ZERO
+                    || page_so_far[4] != Scaled::ZERO
+                    || page_so_far[5] != Scaled::ZERO
+                {
                     0_i32
                 } else {
                     badness(page_so_far[0] - page_so_far[1], page_so_far[2])
@@ -584,7 +592,7 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
         }
 
         last_penalty = 0;
-        last_kern = 0;
+        last_kern = Scaled::ZERO;
         last_node_type = p as i32 + 1;
 
         last_glue = MAX_HALFWORD;
@@ -641,7 +649,7 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                     if tmp_ptr.size() > b.height() {
                         tmp_ptr.set_size(tmp_ptr.size() - b.height());
                     } else {
-                        tmp_ptr.set_size(0);
+                        tmp_ptr.set_size(Scaled::ZERO);
                     }
 
                     *LLIST_link(q) = Some(b.ptr()).tex_int();
@@ -672,7 +680,7 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                     if tmp_ptr.size() > r.height() {
                         tmp_ptr.set_size(tmp_ptr.size() - r.height());
                     } else {
-                        tmp_ptr.set_size(0);
+                        tmp_ptr.set_size(Scaled::ZERO);
                     }
 
                     *LLIST_link(q) = Some(r.ptr()).tex_int();
@@ -723,32 +731,33 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                     let q_spec = GlueSpec(q);
                     page_so_far[2 + q_spec.stretch_order() as usize] += q_spec.stretch();
                     page_so_far[6] += q_spec.shrink();
-                    let width =
-                        if q_spec.shrink_order() != GlueOrder::Normal && q_spec.shrink() != 0 {
-                            if file_line_error_style_p != 0 {
-                                print_file_line();
-                            } else {
-                                print_nl_cstr("! ");
-                            }
-                            print_cstr("Infinite glue shrinkage found on current page");
-                            help!(
-                                "The page about to be output contains some infinitely",
-                                "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
-                                "Such glue doesn\'t belong there; but you can safely proceed,",
-                                "since the offensive shrinkability has been made finite."
-                            );
-                            error();
-                            let r = new_spec(q);
-                            let mut r_spec = GlueSpec(r);
-                            r_spec.set_shrink_order(GlueOrder::Normal);
-                            delete_glue_ref(q);
-                            g.set_glue_ptr(Some(r).tex_int());
-                            r_spec.size()
+                    let width = if q_spec.shrink_order() != GlueOrder::Normal
+                        && q_spec.shrink() != Scaled::ZERO
+                    {
+                        if file_line_error_style_p != 0 {
+                            print_file_line();
                         } else {
-                            q_spec.size()
-                        };
+                            print_nl_cstr("! ");
+                        }
+                        print_cstr("Infinite glue shrinkage found on current page");
+                        help!(
+                            "The page about to be output contains some infinitely",
+                            "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
+                            "Such glue doesn\'t belong there; but you can safely proceed,",
+                            "since the offensive shrinkability has been made finite."
+                        );
+                        error();
+                        let r = new_spec(q);
+                        let mut r_spec = GlueSpec(r);
+                        r_spec.set_shrink_order(GlueOrder::Normal);
+                        delete_glue_ref(q);
+                        g.set_glue_ptr(Some(r).tex_int());
+                        r_spec.size()
+                    } else {
+                        q_spec.size()
+                    };
                     page_so_far[1] += page_so_far[7] + width;
-                    page_so_far[7] = 0;
+                    page_so_far[7] = Scaled::ZERO;
                     contribute(g.ptr());
                 }
                 false
@@ -767,7 +776,7 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                     }
                 }
                 page_so_far[1] += page_so_far[7] + k.width();
-                page_so_far[7] = 0;
+                page_so_far[7] = Scaled::ZERO;
                 contribute(k.ptr());
                 false
             }
@@ -822,16 +831,16 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                         let br = List::from(br);
                         br.height() + br.depth()
                     } else {
-                        0
+                        Scaled::ZERO
                     });
 
                     r_pins.set_best_ins_ptr(None.tex_int());
                     let q = *SKIP_REG(n as _) as usize;
 
-                    let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
+                    let h = if *COUNT_REG(n as _) == 1000 {
                         r_pins.height()
                     } else {
-                        x_over_n(r_pins.height(), 1000) * *COUNT_REG(n as _)
+                        x_over_n(r_pins.height(), 1000).0 * *COUNT_REG(n as _)
                     };
 
                     let mut q_spec = GlueSpec(q);
@@ -839,7 +848,8 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                     page_so_far[2 + q_spec.stretch_order() as usize] += q_spec.stretch();
                     page_so_far[6] += q_spec.shrink();
 
-                    if q_spec.shrink_order() != GlueOrder::Normal && q_spec.shrink() != 0 {
+                    if q_spec.shrink_order() != GlueOrder::Normal && q_spec.shrink() != Scaled::ZERO
+                    {
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -861,16 +871,16 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                     insert_penalties += p_ins.float_cost()
                 } else {
                     r_pins.set_last_ins_ptr(Some(p_ins.ptr()).tex_int());
-                    let delta: scaled_t =
+                    let delta: Scaled =
                         page_so_far[0] - page_so_far[1] - page_so_far[7] + page_so_far[6];
 
-                    let h: scaled_t = if *COUNT_REG(n as _) == 1000 {
+                    let h = if *COUNT_REG(n as _) == 1000 {
                         p_ins.height()
                     } else {
-                        x_over_n(p_ins.height(), 1000) * *COUNT_REG(n as _)
+                        x_over_n(p_ins.height(), 1000).0 * *COUNT_REG(n as _)
                     };
 
-                    if (h <= 0 || h <= delta)
+                    if (h <= Scaled::ZERO || h <= delta)
                         && p_ins.height() + r_pins.height() <= *SCALED_REG(n as _)
                     {
                         page_so_far[0] -= h;
@@ -889,12 +899,12 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                          * `\count n` over 1000.) Now we will choose the best way
                          * to break the vlist of the insertion, using the same
                          * criteria as in the `\vsplit` operation." */
-                        let mut w: scaled_t = if *COUNT_REG(n as _) <= 0 {
-                            MAX_HALFWORD
+                        let mut w = if *COUNT_REG(n as _) <= 0 {
+                            Scaled::MAX_HALFWORD
                         } else {
                             let mut w = page_so_far[0] - page_so_far[1] - page_so_far[7];
                             if *COUNT_REG(n as _) != 1000 {
-                                w = x_over_n(w, *COUNT_REG(n as _)) * 1000;
+                                w = x_over_n(w, *COUNT_REG(n as _)).0 * 1000;
                             }
                             w
                         };
@@ -906,7 +916,7 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
 
                         if *COUNT_REG(n as _) != 1000 {
                             best_height_plus_depth =
-                                x_over_n(best_height_plus_depth, 1000) * *COUNT_REG(n as _);
+                                x_over_n(best_height_plus_depth, 1000).0 * *COUNT_REG(n as _);
                         }
                         page_so_far[0] -= best_height_plus_depth;
                         r_pins

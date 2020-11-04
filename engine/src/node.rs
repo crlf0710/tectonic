@@ -1,3 +1,4 @@
+use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetex0::free_node;
 use derive_more::{Deref, DerefMut};
 
@@ -179,27 +180,27 @@ impl BaseBox {
         self.0
     }
     /// a scaled; 1 <=> WEB const `width_offset`
-    pub(crate) unsafe fn width(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
+    pub(crate) unsafe fn width(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 1].b32.s1)
     }
-    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
+    pub(crate) unsafe fn set_width(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v.0;
         self
     }
     /// a scaled; 2 <=> WEB const `depth_offset`
-    pub(crate) unsafe fn depth(&self) -> i32 {
-        MEM[self.ptr() + 2].b32.s1
+    pub(crate) unsafe fn depth(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 2].b32.s1)
     }
-    pub(crate) unsafe fn set_depth(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 2].b32.s1 = v;
+    pub(crate) unsafe fn set_depth(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v.0;
         self
     }
     /// a scaled; 3 <=> WEB const `height_offset`
-    pub(crate) unsafe fn height(&self) -> i32 {
-        MEM[self.ptr() + 3].b32.s1
+    pub(crate) unsafe fn height(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 3].b32.s1)
     }
-    pub(crate) unsafe fn set_height(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 3].b32.s1 = v;
+    pub(crate) unsafe fn set_height(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v.0;
         self
     }
 }
@@ -215,9 +216,9 @@ impl List {
     }
     pub(crate) unsafe fn is_empty(&self) -> bool {
         self.is_horizontal()
-            && self.width() == 0
-            && self.height() == 0
-            && self.depth() == 0
+            && self.width() == Scaled::ZERO
+            && self.height() == Scaled::ZERO
+            && self.depth() == Scaled::ZERO
             && self.list_ptr().opt().is_none()
     }
     /// subtype; records L/R direction mode
@@ -249,11 +250,11 @@ impl List {
         self.set_list_dir(ListDir::Vertical);
         self
     }
-    pub(crate) unsafe fn shift_amount(&self) -> i32 {
-        MEM[self.ptr() + 4].b32.s1
+    pub(crate) unsafe fn shift_amount(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 4].b32.s1)
     }
-    pub(crate) unsafe fn set_shift_amount(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 4].b32.s1 = v;
+    pub(crate) unsafe fn set_shift_amount(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s1 = v.0;
         self
     }
     pub(crate) unsafe fn list_ptr(&self) -> i32 {
@@ -360,18 +361,18 @@ impl Insertion {
         MEM[self.ptr() + 1].b32.s1 = v;
         self
     }
-    pub(crate) unsafe fn depth(&self) -> i32 {
-        MEM[self.ptr() + 2].b32.s1
+    pub(crate) unsafe fn depth(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 2].b32.s1)
     }
-    pub(crate) unsafe fn set_depth(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 2].b32.s1 = v;
+    pub(crate) unsafe fn set_depth(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v.0;
         self
     }
-    pub(crate) unsafe fn height(&self) -> i32 {
-        MEM[self.ptr() + 3].b32.s1
+    pub(crate) unsafe fn height(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 3].b32.s1)
     }
-    pub(crate) unsafe fn set_height(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 3].b32.s1 = v;
+    pub(crate) unsafe fn set_height(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v.0;
         self
     }
     /// a pointer to a vlist
@@ -582,6 +583,7 @@ impl Discretionary {
 pub(crate) use whatsit::*;
 pub(crate) mod whatsit {
     use super::{free_node, BaseBox, NodeSize, MEM};
+    use crate::xetex_scaledmath::Scaled;
     use derive_more::{Deref, DerefMut};
 
     #[derive(Clone, Debug)]
@@ -895,7 +897,7 @@ pub(crate) mod whatsit {
         pub(crate) unsafe fn set_justified_native_glyphs(&mut self) {
             crate::xetex_ext::store_justified_native_glyphs(self)
         }
-        pub(crate) unsafe fn italic_correction(&self) -> i32 {
+        pub(crate) unsafe fn italic_correction(&self) -> Scaled {
             crate::xetex_ext::real_get_native_italic_correction(self)
         }
         pub(crate) unsafe fn make_xdv_glyph_array_data(&self) -> Vec<u8> {
@@ -947,7 +949,7 @@ pub(crate) mod whatsit {
         pub(crate) unsafe fn set_metrics(&mut self, use_glyph_metrics: bool) {
             crate::xetex_ext::measure_native_glyph(self, use_glyph_metrics)
         }
-        pub(crate) unsafe fn italic_correction(&self) -> i32 {
+        pub(crate) unsafe fn italic_correction(&self) -> Scaled {
             crate::xetex_ext::real_get_native_glyph_italic_correction(self)
         }
         pub(crate) unsafe fn free(self) {
@@ -1005,18 +1007,22 @@ pub(crate) mod whatsit {
             MEM[self.ptr() + 4].b16.s1 = v as u16;
             self
         }
-        pub(crate) unsafe fn transform_matrix(&self) -> [i32; 6] {
+        pub(crate) unsafe fn transform_matrix(&self) -> [Scaled; 6] {
             [
-                MEM[self.ptr() + 5].b32.s0,
-                MEM[self.ptr() + 5].b32.s1,
-                MEM[self.ptr() + 6].b32.s0,
-                MEM[self.ptr() + 6].b32.s1,
-                MEM[self.ptr() + 7].b32.s0,
-                MEM[self.ptr() + 7].b32.s1,
+                Scaled(MEM[self.ptr() + 5].b32.s0),
+                Scaled(MEM[self.ptr() + 5].b32.s1),
+                Scaled(MEM[self.ptr() + 6].b32.s0),
+                Scaled(MEM[self.ptr() + 6].b32.s1),
+                Scaled(MEM[self.ptr() + 7].b32.s0),
+                Scaled(MEM[self.ptr() + 7].b32.s1),
             ]
         }
-        pub(crate) unsafe fn set_transform_matrix(&self, m: [i32; 6]) {
-            std::slice::from_raw_parts_mut(&mut MEM[self.ptr() + 5].b32.s0, 6).copy_from_slice(&m);
+        pub(crate) unsafe fn set_transform_matrix(&self, m: [Scaled; 6]) {
+            std::slice::from_raw_parts_mut(
+                &mut MEM[self.ptr() + 5].b32.s0 as *mut i32 as *mut Scaled,
+                6,
+            )
+            .copy_from_slice(&m);
         }
         pub(crate) unsafe fn pagebox(&self) -> u16 {
             MEM[self.ptr() + 8].b16.s1
@@ -1079,7 +1085,7 @@ impl Math {
         self.0
     }
     pub(crate) unsafe fn is_empty(&self) -> bool {
-        self.width() == 0
+        self.width() == Scaled::ZERO
     }
     pub(crate) unsafe fn subtype(&self) -> MathType {
         MathType::from(MEM[self.ptr()].b16.s0)
@@ -1098,11 +1104,11 @@ impl Math {
     pub(crate) unsafe fn dir(&self) -> LR {
         self.subtype().dir()
     }
-    pub(crate) unsafe fn width(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
+    pub(crate) unsafe fn width(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 1].b32.s1)
     }
-    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
+    pub(crate) unsafe fn set_width(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v.0;
         self
     }
     pub(crate) unsafe fn free(self) {
@@ -1237,25 +1243,25 @@ impl GlueSpec {
     pub(crate) unsafe fn rc_dec(&mut self) {
         MEM[self.ptr()].b32.s1 -= 1;
     }
-    pub(crate) unsafe fn size(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
+    pub(crate) unsafe fn size(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 1].b32.s1)
     }
-    pub(crate) unsafe fn set_size(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
+    pub(crate) unsafe fn set_size(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v.0;
         self
     }
-    pub(crate) unsafe fn stretch(&self) -> i32 {
-        MEM[self.ptr() + 2].b32.s1
+    pub(crate) unsafe fn stretch(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 2].b32.s1)
     }
-    pub(crate) unsafe fn set_stretch(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 2].b32.s1 = v;
+    pub(crate) unsafe fn set_stretch(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v.0;
         self
     }
-    pub(crate) unsafe fn shrink(&self) -> i32 {
-        MEM[self.ptr() + 3].b32.s1
+    pub(crate) unsafe fn shrink(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 3].b32.s1)
     }
-    pub(crate) unsafe fn set_shrink(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 3].b32.s1 = v;
+    pub(crate) unsafe fn set_shrink(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v.0;
         self
     }
 }
@@ -1270,7 +1276,7 @@ impl Kern {
         self.0
     }
     pub(crate) unsafe fn is_empty(&self) -> bool {
-        self.width() == 0 || self.subtype() == KernType::Normal
+        self.width() == Scaled::ZERO || self.subtype() == KernType::Normal
     }
     pub(crate) unsafe fn subtype(&self) -> KernType {
         let n = MEM[self.ptr()].b16.s0;
@@ -1280,11 +1286,11 @@ impl Kern {
         MEM[self.ptr()].b16.s0 = v as u16;
         self
     }
-    pub(crate) unsafe fn width(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
+    pub(crate) unsafe fn width(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 1].b32.s1)
     }
-    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
+    pub(crate) unsafe fn set_width(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v.0;
         self
     }
     pub(crate) unsafe fn free(self) {
@@ -1329,18 +1335,18 @@ impl Unset {
         MEM[self.ptr()].b16.s0 = v;
         self
     }
-    pub(crate) unsafe fn shrink(&self) -> i32 {
-        MEM[self.ptr() + 4].b32.s1
+    pub(crate) unsafe fn shrink(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 4].b32.s1)
     }
-    pub(crate) unsafe fn set_shrink(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 4].b32.s1 = v;
+    pub(crate) unsafe fn set_shrink(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s1 = v.0;
         self
     }
-    pub(crate) unsafe fn stretch(&self) -> i32 {
-        MEM[self.ptr() + 6].b32.s1
+    pub(crate) unsafe fn stretch(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 6].b32.s1)
     }
-    pub(crate) unsafe fn set_stretch(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 6].b32.s1 = v;
+    pub(crate) unsafe fn set_stretch(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 6].b32.s1 = v.0;
         self
     }
     pub(crate) unsafe fn stretch_order(&self) -> GlueOrder {
@@ -1388,19 +1394,19 @@ impl Edge {
         MEM[self.ptr()].b16.s0 = v as _;
         self
     }
-    pub(crate) unsafe fn width(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
+    pub(crate) unsafe fn width(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 1].b32.s1)
     }
-    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
+    pub(crate) unsafe fn set_width(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v.0;
         self
     }
     /// "new left_edge position relative to cur_h"
-    pub(crate) unsafe fn edge_dist(&self) -> i32 {
-        MEM[self.ptr() + 2].b32.s1
+    pub(crate) unsafe fn edge_dist(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 2].b32.s1)
     }
-    pub(crate) unsafe fn set_edge_dist(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 2].b32.s1 = v;
+    pub(crate) unsafe fn set_edge_dist(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v.0;
         self
     }
     pub(crate) unsafe fn free(self) {
@@ -1455,11 +1461,11 @@ impl MarginKern {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
-    pub(crate) unsafe fn width(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
+    pub(crate) unsafe fn width(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 1].b32.s1)
     }
-    pub(crate) unsafe fn set_width(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
+    pub(crate) unsafe fn set_width(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v.0;
         self
     }
     pub(crate) unsafe fn free(self) {
@@ -1523,11 +1529,11 @@ impl PageInsertion {
         MEM[self.ptr() + 2].b32.s0 = v;
         self
     }
-    pub(crate) unsafe fn height(&self) -> i32 {
-        MEM[self.ptr() + 3].b32.s1
+    pub(crate) unsafe fn height(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 3].b32.s1)
     }
-    pub(crate) unsafe fn set_height(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 3].b32.s1 = v;
+    pub(crate) unsafe fn set_height(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v.0;
         self
     }
     pub(crate) unsafe fn free(self) {
@@ -1568,51 +1574,51 @@ impl Delta {
         self.0
     }
     /// the "natural width" difference
-    pub(crate) unsafe fn dwidth(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
+    pub(crate) unsafe fn dwidth(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 1].b32.s1)
     }
-    pub(crate) unsafe fn set_dwidth(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
+    pub(crate) unsafe fn set_dwidth(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v.0;
         self
     }
     /// the stretch difference in points
-    pub(crate) unsafe fn dstretch0(&self) -> i32 {
-        MEM[self.ptr() + 2].b32.s1
+    pub(crate) unsafe fn dstretch0(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 2].b32.s1)
     }
-    pub(crate) unsafe fn set_dstretch0(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 2].b32.s1 = v;
+    pub(crate) unsafe fn set_dstretch0(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v.0;
         self
     }
     /// the stretch difference in fil
-    pub(crate) unsafe fn dstretch1(&self) -> i32 {
-        MEM[self.ptr() + 3].b32.s1
+    pub(crate) unsafe fn dstretch1(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 3].b32.s1)
     }
-    pub(crate) unsafe fn set_dstretch1(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 3].b32.s1 = v;
+    pub(crate) unsafe fn set_dstretch1(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v.0;
         self
     }
     /// the stretch difference in fill
-    pub(crate) unsafe fn dstretch2(&self) -> i32 {
-        MEM[self.ptr() + 4].b32.s1
+    pub(crate) unsafe fn dstretch2(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 4].b32.s1)
     }
-    pub(crate) unsafe fn set_dstretch2(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 4].b32.s1 = v;
+    pub(crate) unsafe fn set_dstretch2(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s1 = v.0;
         self
     }
     /// the stretch difference in filll
-    pub(crate) unsafe fn dstretch3(&self) -> i32 {
-        MEM[self.ptr() + 5].b32.s1
+    pub(crate) unsafe fn dstretch3(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 5].b32.s1)
     }
-    pub(crate) unsafe fn set_dstretch3(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 5].b32.s1 = v;
+    pub(crate) unsafe fn set_dstretch3(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 5].b32.s1 = v.0;
         self
     }
     /// the shrink difference
-    pub(crate) unsafe fn dshrink(&self) -> i32 {
-        MEM[self.ptr() + 6].b32.s1
+    pub(crate) unsafe fn dshrink(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 6].b32.s1)
     }
-    pub(crate) unsafe fn set_dshrink(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 6].b32.s1 = v;
+    pub(crate) unsafe fn set_dshrink(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 6].b32.s1 = v.0;
         self
     }
 
@@ -1649,22 +1655,22 @@ impl Delta {
     derive_more::SubAssign,
 )]
 pub(crate) struct DeltaSize {
-    pub width: i32,
-    pub stretch0: i32,
-    pub stretch1: i32,
-    pub stretch2: i32,
-    pub stretch3: i32,
-    pub shrink: i32,
+    pub width: Scaled,
+    pub stretch0: Scaled,
+    pub stretch1: Scaled,
+    pub stretch2: Scaled,
+    pub stretch3: Scaled,
+    pub shrink: Scaled,
 }
 impl DeltaSize {
     pub(crate) const fn new() -> Self {
         Self {
-            width: 0,
-            stretch0: 0,
-            stretch1: 0,
-            stretch2: 0,
-            stretch3: 0,
-            shrink: 0,
+            width: Scaled::ZERO,
+            stretch0: Scaled::ZERO,
+            stretch1: Scaled::ZERO,
+            stretch2: Scaled::ZERO,
+            stretch3: Scaled::ZERO,
+            shrink: Scaled::ZERO,
         }
     }
 }
@@ -1711,18 +1717,18 @@ impl Active {
         self
     }
     /// a scaled; "active_short" in the WEB
-    pub(crate) unsafe fn shortfall(&self) -> i32 {
-        MEM[self.ptr() + 3].b32.s1
+    pub(crate) unsafe fn shortfall(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 3].b32.s1)
     }
-    pub(crate) unsafe fn set_shortfall(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 3].b32.s1 = v;
+    pub(crate) unsafe fn set_shortfall(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v.0;
         self
     }
-    pub(crate) unsafe fn glue(&self) -> i32 {
-        MEM[self.ptr() + 4].b32.s1
+    pub(crate) unsafe fn glue(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 4].b32.s1)
     }
-    pub(crate) unsafe fn set_glue(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 4].b32.s1 = v;
+    pub(crate) unsafe fn set_glue(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s1 = v.0;
         self
     }
 }
@@ -1927,6 +1933,7 @@ pub(crate) mod math {
     use super::MEM;
     use crate::xetex_consts::Limit;
     use crate::xetex_ini::memory_word;
+    use crate::xetex_scaledmath::Scaled;
     use crate::xetex_xetexd::TeXInt;
     use derive_more::{Deref, DerefMut};
 
@@ -2118,11 +2125,11 @@ pub(crate) mod math {
         pub(crate) const fn ptr(&self) -> usize {
             self.0
         }
-        pub(crate) unsafe fn thickness(&self) -> i32 {
-            MEM[self.ptr() + 1].b32.s1
+        pub(crate) unsafe fn thickness(&self) -> Scaled {
+            Scaled(MEM[self.ptr() + 1].b32.s1)
         }
-        pub(crate) unsafe fn set_thickness(&mut self, v: i32) -> &mut Self {
-            MEM[self.ptr() + 1].b32.s1 = v;
+        pub(crate) unsafe fn set_thickness(&mut self, v: Scaled) -> &mut Self {
+            MEM[self.ptr() + 1].b32.s1 = v.0;
             self
         }
         pub(crate) unsafe fn second(&self) -> &MCell {

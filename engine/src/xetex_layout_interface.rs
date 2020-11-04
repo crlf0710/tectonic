@@ -60,15 +60,15 @@ pub(crate) struct GlyphAssembly {
     pub(crate) parts: *mut hb_ot_math_glyph_part_t,
 }
 
-pub(crate) use crate::xetex_font_info::{Fixed, GlyphBBox};
-pub(crate) type scaled_t = i32;
+pub(crate) use crate::xetex_font_info::GlyphBBox;
+use crate::xetex_scaledmath::Scaled;
 
 #[derive(Copy, Clone)]
 #[cfg_attr(not(target_os = "macos"), repr(C))]
 #[cfg_attr(target_os = "macos", repr(C, packed(2)))]
 pub(crate) struct FixedPoint {
-    pub(crate) x: Fixed,
-    pub(crate) y: Fixed,
+    pub(crate) x: Scaled,
+    pub(crate) y: Scaled,
 }
 
 #[derive(Copy, Clone)]
@@ -553,7 +553,7 @@ pub(crate) type XeTeXFont = crate::xetex_font_info::imp::XeTeXFontInst_Mac;
 
 pub(crate) unsafe fn createFont(
     mut fontRef: PlatformFontRef,
-    mut pointSize: Fixed,
+    mut pointSize: Scaled,
 ) -> Option<Box<XeTeXFont>> {
     let mut status: i32 = 0i32;
     let font;
@@ -593,7 +593,7 @@ pub(crate) unsafe fn createFont(
 pub(crate) unsafe fn createFontFromFile(
     filename: &str,
     index: u32,
-    mut pointSize: Fixed,
+    mut pointSize: Scaled,
 ) -> Option<Box<XeTeXFont>> {
     let mut status: i32 = 0i32;
     let font = {
@@ -643,7 +643,7 @@ pub(crate) unsafe fn getFontRef(engine: &XeTeXLayoutEngine) -> PlatformFontRef {
 pub(crate) unsafe fn getFontTablePtr(font: &XeTeXFontInst, mut tableTag: u32) -> *mut libc::c_void {
     font.get_font_table(tableTag)
 }
-pub(crate) unsafe fn getSlant(font: &XeTeXFontInst) -> Fixed {
+pub(crate) unsafe fn getSlant(font: &XeTeXFontInst) -> Scaled {
     let italAngle = font.get_italic_angle();
     D2Fix((-italAngle as f64 * std::f64::consts::PI / 180.0f64).tan())
 }

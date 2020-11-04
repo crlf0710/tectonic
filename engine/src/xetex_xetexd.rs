@@ -2,6 +2,8 @@ use crate::node::{MathNode, TextNode, SYNCTEX_FIELD_SIZE};
 use crate::xetex_ini::MEM;
 use crate::{xetex_ini, xetex_output};
 
+use crate::xetex_scaledmath::Scaled;
+
 /* Symbolic accessors for various TeX data structures. I would loooove to turn these
  * into actual structs, but the path to doing that is not currently clear. Making
  * field references symbolic seems like a decent start. Sadly I don't see how to do
@@ -80,27 +82,27 @@ pub(crate) unsafe fn FONT_CHARACTER_INFO(f: usize, c: usize) -> b16x4 {
     FONT_INFO[CHAR_BASE[f] as usize + c].b16
 }
 
-pub(crate) unsafe fn FONT_CHARINFO_WIDTH<'a>(f: usize, info: b16x4) -> &'a mut i32 {
-    &mut FONT_INFO[(WIDTH_BASE[f] + (info.s3 as i32)) as usize]
+pub(crate) unsafe fn FONT_CHARINFO_WIDTH<'a>(f: usize, info: b16x4) -> &'a mut Scaled {
+    &mut *(&mut FONT_INFO[(WIDTH_BASE[f] + (info.s3 as i32)) as usize]
         .b32
-        .s1
+        .s1 as *mut i32 as *mut Scaled)
 }
-pub(crate) unsafe fn FONT_CHARINFO_HEIGHT<'a>(f: usize, info: b16x4) -> &'a mut i32 {
-    &mut FONT_INFO[(HEIGHT_BASE[f] + ((info.s2 / 16) as i32)) as usize]
+pub(crate) unsafe fn FONT_CHARINFO_HEIGHT<'a>(f: usize, info: b16x4) -> &'a mut Scaled {
+    &mut *(&mut FONT_INFO[(HEIGHT_BASE[f] + ((info.s2 / 16) as i32)) as usize]
         .b32
-        .s1
+        .s1 as *mut i32 as *mut Scaled)
 }
-pub(crate) unsafe fn FONT_CHARINFO_DEPTH<'a>(f: usize, info: b16x4) -> &'a mut i32 {
-    &mut FONT_INFO[(DEPTH_BASE[f] + ((info.s2 % 16) as i32)) as usize]
+pub(crate) unsafe fn FONT_CHARINFO_DEPTH<'a>(f: usize, info: b16x4) -> &'a mut Scaled {
+    &mut *(&mut FONT_INFO[(DEPTH_BASE[f] + ((info.s2 % 16) as i32)) as usize]
         .b32
-        .s1
+        .s1 as *mut i32 as *mut Scaled)
 }
-pub(crate) unsafe fn FONT_CHARINFO_ITALCORR<'a>(f: usize, info: b16x4) -> &'a mut i32 {
-    &mut FONT_INFO[(ITALIC_BASE[f] + ((info.s1 / 4) as i32)) as usize]
+pub(crate) unsafe fn FONT_CHARINFO_ITALCORR<'a>(f: usize, info: b16x4) -> &'a mut Scaled {
+    &mut *(&mut FONT_INFO[(ITALIC_BASE[f] + ((info.s1 / 4) as i32)) as usize]
         .b32
-        .s1
+        .s1 as *mut i32 as *mut Scaled)
 }
-pub(crate) unsafe fn FONT_CHARACTER_WIDTH<'a>(f: usize, c: usize) -> &'a mut i32 {
+pub(crate) unsafe fn FONT_CHARACTER_WIDTH<'a>(f: usize, c: usize) -> &'a mut Scaled {
     FONT_CHARINFO_WIDTH(f, FONT_CHARACTER_INFO(f, c))
 }
 

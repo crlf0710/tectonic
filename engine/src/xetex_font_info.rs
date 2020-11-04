@@ -147,7 +147,8 @@ pub(crate) type hb_font_get_glyph_v_kerning_func_t = hb_font_get_glyph_kerning_f
 pub(crate) type OTTag = uint32_t;
 pub(crate) type GlyphID = uint16_t;
 
-pub(crate) type Fixed = i32;
+use crate::xetex_scaledmath::Scaled;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct GlyphBBox {
@@ -275,14 +276,14 @@ unsafe extern "C" fn _get_glyph_advance(
     mut vertical: bool,
 ) -> FT_Fixed {
     let mut error: FT_Error = 0;
-    let mut advance: FT_Fixed = 0;
+    let mut advance = 0;
     let mut flags: libc::c_int = (1i64 << 0i32) as libc::c_int;
     if vertical {
         flags = (flags as libc::c_long | 1 << 4i32) as libc::c_int
     }
     error = FT_Get_Advance(face, gid, flags, &mut advance);
     if error != 0 {
-        advance = 0i32 as FT_Fixed
+        advance = 0;
     }
     /* FreeType's vertical metrics grows downward */
     if vertical {
@@ -652,7 +653,7 @@ impl XeTeXFontInst {
         self.m_descent = self.units_to_points((*self.m_ftFace).descender as f32);
         postTable = self.get_font_table_ft(FT_SFNT_POST) as *mut TT_Postscript;
         if !postTable.is_null() {
-            self.m_italicAngle = Fix2D((*postTable).italicAngle as Fixed) as f32
+            self.m_italicAngle = Fix2D(Scaled((*postTable).italicAngle as i32)) as f32
         }
         os2Table = self.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
         if !os2Table.is_null() {
