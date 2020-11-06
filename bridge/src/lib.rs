@@ -120,7 +120,11 @@ impl InFile {
 impl Read for InFile {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         unsafe {
-            let res = ttstub_input_read_rust_style(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
+            let res = ttstub_input_read_rust_style(
+                self.0.as_ptr(),
+                buf.as_mut_ptr() as *mut i8,
+                buf.len(),
+            );
             res.ok_or_else(|| std::io::ErrorKind::UnexpectedEof.into())
         }
     }
@@ -129,7 +133,11 @@ impl Read for InFile {
 impl Read for &InFile {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         unsafe {
-            let res = ttstub_input_read_rust_style(self.0.as_ptr(), buf.as_mut_ptr() as *mut i8, buf.len());
+            let res = ttstub_input_read_rust_style(
+                self.0.as_ptr(),
+                buf.as_mut_ptr() as *mut i8,
+                buf.len(),
+            );
             res.ok_or_else(|| std::io::ErrorKind::UnexpectedEof.into())
         }
     }
@@ -198,7 +206,12 @@ pub struct tt_bridge_api_t {
         ) -> size_t,
     >,
     pub input_read: Option<
-        unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t, _: *mut i8, _: size_t) -> Option<usize>,
+        unsafe fn(
+            _: *mut libc::c_void,
+            _: rust_input_handle_t,
+            _: *mut i8,
+            _: size_t,
+        ) -> Option<usize>,
     >,
     pub input_close: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
 }

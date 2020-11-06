@@ -303,7 +303,6 @@ fn load_cache_inner(
 
     let index_path = make_txt_path(index_base, &digest_text);
 
-
     // Let's try to approximate the line count to be able to pre-allocate the hashmap:
     // SourceCodePro-BlackIt.otf 122048 5b5a08844e41c1e639599a32460cc05e74a19829cd38c17ec12ff1cdf072c8ec
     let index_file_size = fs::metadata(&index_path)?.len();

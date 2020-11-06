@@ -818,7 +818,9 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
     loop {
         lpos += 1;
         line.clear();
-        bufreader.read_line(&mut line).expect("failed to fill fontmap line");
+        bufreader
+            .read_line(&mut line)
+            .expect("failed to fill fontmap line");
         if line.is_empty() {
             break;
         }
@@ -828,7 +830,8 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
             line.truncate(idx);
         }
 
-        let s = line.trim_start()
+        let s = line
+            .trim_start()
             .trim_end_matches('\n')
             .trim_end_matches('\r');
         if s.is_empty() {
