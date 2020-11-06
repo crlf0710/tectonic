@@ -586,7 +586,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         *hash.add(x) = b32x2_le_t { s0: 0, s1: 0 };
     }
 
-    EQTB = Vec::with_capacity(EQTB_TOP+2);
+    EQTB = Vec::with_capacity(EQTB_TOP + 2);
     unsafe { EQTB.set_len(EQTB_TOP + 2) };
     for x in EQTB_SIZE..=EQTB_TOP {
         EQTB[x] = EqtbWord {
@@ -610,8 +610,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     cur_list.tail = CONTRIB_HEAD;
     page_tail = PAGE_HEAD;
 
-
-    MEM = Vec::with_capacity(MEM_TOP+2);
+    MEM = Vec::with_capacity(MEM_TOP + 2);
     unsafe { MEM.set_len(MEM_TOP + 2) };
 
     fmt_in.undump_one(&mut x);

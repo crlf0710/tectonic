@@ -1430,11 +1430,7 @@ unsafe fn spc_handler_pdfm_mapline(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
         _ => {
             let s = String::from_utf8(ap.cur.into()).unwrap();
             let mut mrec = pdf_init_fontmap_record();
-            error = pdf_read_fontmap_line(
-                &mut mrec,
-                &s,
-                is_pdfm_mapline(&s),
-            );
+            error = pdf_read_fontmap_line(&mut mrec, &s, is_pdfm_mapline(&s));
             if error != 0 {
                 spc_warn!(spe, "Invalid fontmap line.");
             } else if opchr == b'+' {
