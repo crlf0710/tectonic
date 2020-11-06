@@ -9,6 +9,7 @@ use crate::xetex_ini::nine_bits;
 use crate::xetex_ini::packed_UTF16_code;
 use crate::xetex_ini::str_number;
 use crate::xetex_ini::UTF16_code;
+use crate::xetex_scaledmath::Scaled;
 
 use crate::xetex_xetexd::print_c_str;
 use crate::xetex_xetexd::TeXInt;
@@ -104,7 +105,7 @@ pub(crate) unsafe fn read_font_info(
     u: i32,
     nom: str_number,
     aire: str_number,
-    s: i32,
+    s: Scaled,
     quoted_filename: bool,
     file_name_quote_char: Option<u16>,
 ) -> Result<(bool, usize), TfmError> {
@@ -115,9 +116,9 @@ pub(crate) unsafe fn read_font_info(
             print_nl_cstr("Requested font \"");
             print_c_str(&name_of_file);
             print('\"' as i32);
-            if s < 0 {
+            if s < Scaled::ZERO {
                 print_cstr(" scaled ");
-                print_int(-s);
+                print_int(-s.0);
             } else {
                 print_cstr(" at ");
                 print_scaled(s);
@@ -251,8 +252,8 @@ pub(crate) unsafe fn read_font_info(
     tfm_file
         .read_exact(&mut buf[..])
         .map_err(|_| TfmError::BadMetric)?;
-    let mut z = i32::from_be_bytes(buf) >> 4;
-    if z < 65536 {
+    let mut z = Scaled(i32::from_be_bytes(buf) >> 4);
+    if z < Scaled(65536) {
         return Err(TfmError::BadMetric);
     }
     while lh > 2 {
@@ -260,12 +261,12 @@ pub(crate) unsafe fn read_font_info(
         lh -= 1
     }
     FONT_DSIZE[f] = z;
-    if s != -1000 {
-        if s >= 0 {
-            z = s
+    if s != Scaled(-1000) {
+        z = if s >= Scaled::ZERO {
+            s
         } else {
-            z = xn_over_d(z, -s, 1000)
-        }
+            xn_over_d(z, -s, 1000).0
+        };
     }
     FONT_SIZE[f] = z;
 
@@ -323,24 +324,26 @@ pub(crate) unsafe fn read_font_info(
     }
 
     let mut alpha = 16;
-    while z >= 0x800000 {
+    while z >= Scaled(0x800000) {
         z = z / 2;
         alpha *= 2;
     }
     let beta = (256 / alpha) as u8;
-    alpha *= z;
+    let alpha = z * alpha;
 
     for k in WIDTH_BASE[f]..LIG_KERN_BASE[f] {
         tfm_file
             .read_exact(&mut buf[..])
             .map_err(|_| TfmError::BadMetric)?;
         let [a, b, c, d] = buf;
-        let sw = (((d as i32) * z / 256 + (c as i32) * z) / 256 + (b as i32) * z) / beta as i32;
+        let sw = Scaled(
+            (((d as i32) * z.0 / 256 + (c as i32) * z.0) / 256 + (b as i32) * z.0) / beta as i32,
+        );
 
         if a == 0 {
-            FONT_INFO[k as usize].b32.s1 = sw
+            FONT_INFO[k as usize].b32.s1 = sw.0;
         } else if a == 255 {
-            FONT_INFO[k as usize].b32.s1 = sw - alpha
+            FONT_INFO[k as usize].b32.s1 = (sw - alpha).0;
         } else {
             return Err(TfmError::BadMetric);
         }
@@ -425,11 +428,13 @@ pub(crate) unsafe fn read_font_info(
             .map_err(|_| TfmError::BadMetric)?;
         let [a, b, c, d] = buf;
 
-        let sw = (((d as i32) * z / 256 + (c as i32) * z) / 256 + (b as i32) * z) / beta as i32;
+        let sw = Scaled(
+            (((d as i32) * z.0 / 256 + (c as i32) * z.0) / 256 + (b as i32) * z.0) / beta as i32,
+        );
         if a == 0 {
-            FONT_INFO[k as usize].b32.s1 = sw
+            FONT_INFO[k as usize].b32.s1 = sw.0;
         } else if a == 255 {
-            FONT_INFO[k as usize].b32.s1 = sw - alpha
+            FONT_INFO[k as usize].b32.s1 = (sw - alpha).0;
         } else {
             return Err(TfmError::BadMetric);
         }
@@ -498,11 +503,14 @@ pub(crate) unsafe fn read_font_info(
                 .map_err(|_| TfmError::BadMetric)?;
             let [a, b, c, d] = buf;
 
-            let sw = (((d as i32) * z / 256 + (c as i32) * z) / 256 + (b as i32) * z) / beta as i32;
+            let sw = Scaled(
+                (((d as i32) * z.0 / 256 + (c as i32) * z.0) / 256 + (b as i32) * z.0)
+                    / beta as i32,
+            );
             if a == 0 {
-                FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = sw
+                FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = sw.0;
             } else if a == 255 {
-                FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = sw - alpha
+                FONT_INFO[(PARAM_BASE[f] + k - 1) as usize].b32.s1 = (sw - alpha).0;
             } else {
                 return Err(TfmError::BadMetric);
             }
@@ -556,7 +564,7 @@ pub(crate) unsafe fn bad_tfm(
     u: i32,
     nom: i32,
     aire: i32,
-    s: i32,
+    s: Scaled,
     file_name_quote_char: Option<u16>,
 ) {
     if *INTPAR(IntPar::suppress_fontnotfound_error) == 0 {
@@ -576,13 +584,13 @@ pub(crate) unsafe fn bad_tfm(
         if let Some(qc) = file_name_quote_char {
             print_char(qc as i32);
         }
-        if s >= 0 {
+        if s >= Scaled::ZERO {
             print_cstr(" at ");
             print_scaled(s);
             print_cstr("pt");
-        } else if s != -1000 {
+        } else if s != Scaled(-1000) {
             print_cstr(" scaled ");
-            print_int(-s);
+            print_int(-s.0);
         }
         match err {
             TfmError::BadMetric => print_cstr(" not loadable: Bad metric (TFM) file"),
@@ -621,16 +629,16 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
     ok.1
 }
 
-pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontError> {
+pub(crate) unsafe fn load_native_font(mut s: Scaled) -> Result<usize, NativeFontError> {
     let font_engine = find_native_font(&name_of_file, s);
     if font_engine.is_none() {
         return Err(NativeFontError::NotFound);
     }
     let font_engine = font_engine.unwrap();
-    let actual_size = if s >= 0 {
+    let actual_size = if s >= Scaled::ZERO {
         s
-    } else if s != -1000 {
-        xn_over_d(loaded_font_design_size, -s, 1000)
+    } else if s != Scaled(-1000) {
+        xn_over_d(loaded_font_design_size, -s, 1000).0
     } else {
         loaded_font_design_size
     };
@@ -681,8 +689,8 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
         Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(*fe),
         Otgr(fe) => ot_get_font_metrics(fe),
     };
-    HEIGHT_BASE[FONT_PTR] = ascent;
-    DEPTH_BASE[FONT_PTR] = -descent;
+    HEIGHT_BASE[FONT_PTR] = ascent.0;
+    DEPTH_BASE[FONT_PTR] = -descent.0;
     FONT_PARAMS[FONT_PTR] = num_font_dimens;
     FONT_BC[FONT_PTR] = 0 as UTF16_code;
     FONT_EC[FONT_PTR] = 65535 as UTF16_code;
@@ -695,24 +703,24 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
     FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
     /* "measure the width of the space character and set up font parameters" */
     let p = new_native_character(FONT_PTR, ' ' as i32);
-    s = p.width() + loaded_font_letter_space;
+    let s = p.width() + loaded_font_letter_space;
     p.free();
 
-    FONT_INFO[fmem_ptr as usize].b32.s1 = font_slant;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = font_slant.0;
     fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = s;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = s.0;
     fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = s / 2; // space_stretch
+    FONT_INFO[fmem_ptr as usize].b32.s1 = (s / 2).0; // space_stretch
     fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = s / 3; // space_shrink
+    FONT_INFO[fmem_ptr as usize].b32.s1 = (s / 3).0; // space_shrink
     fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = x_ht;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = x_ht.0;
     fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = FONT_SIZE[FONT_PTR]; // quad
+    FONT_INFO[fmem_ptr as usize].b32.s1 = FONT_SIZE[FONT_PTR].0; // quad
     fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = s / 3; // extra_space
+    FONT_INFO[fmem_ptr as usize].b32.s1 = (s / 3).0; // extra_space
     fmem_ptr += 1;
-    FONT_INFO[fmem_ptr as usize].b32.s1 = cap_ht;
+    FONT_INFO[fmem_ptr as usize].b32.s1 = cap_ht.0;
     fmem_ptr += 1;
     if num_font_dimens == 65 {
         FONT_INFO[fmem_ptr as usize].b32.s1 = num_font_dimens;
@@ -720,7 +728,7 @@ pub(crate) unsafe fn load_native_font(mut s: i32) -> Result<usize, NativeFontErr
         for k in 0..=55 {
             /* 55 = lastMathConstant */
             /*:582*/
-            FONT_INFO[fmem_ptr as usize].b32.s1 = get_ot_math_constant(FONT_PTR, k);
+            FONT_INFO[fmem_ptr as usize].b32.s1 = get_ot_math_constant(FONT_PTR, k).0;
             fmem_ptr += 1;
         }
     }
@@ -734,7 +742,7 @@ unsafe fn nf_error(
     u: i32,
     nom: str_number,
     aire: str_number,
-    s: i32,
+    s: Scaled,
     file_name_quote_char: Option<u16>,
 ) {
     match e {
@@ -755,13 +763,13 @@ unsafe fn nf_error(
             if let Some(qc) = file_name_quote_char {
                 print_char(qc as i32);
             }
-            if s >= 0 {
+            if s >= Scaled::ZERO {
                 print_cstr(" at ");
                 print_scaled(s);
                 print_cstr("pt");
-            } else if s != -1000 {
+            } else if s != Scaled(-1000) {
                 print_cstr(" scaled ");
-                print_int(-s);
+                print_int(-s.0);
             }
             print_cstr(" not loaded: Not enough room left");
             help!(

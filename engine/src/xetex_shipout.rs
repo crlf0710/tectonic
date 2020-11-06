@@ -25,7 +25,7 @@ use crate::xetex_output::{
     print, print_chr, print_cstr, print_file_line, print_file_name, print_int, print_ln,
     print_nl_cstr, print_raw_char, print_scaled,
 };
-use crate::xetex_scaledmath::tex_round;
+use crate::xetex_scaledmath::{tex_round, Scaled};
 use crate::xetex_stringpool::{length, PoolString};
 use crate::xetex_synctex::{
     synctex_current, synctex_hlist, synctex_horizontal_rule_or_glue, synctex_kern, synctex_math,
@@ -37,7 +37,7 @@ use crate::xetex_xetex0::{
     begin_token_list, cur_length, diagnostic, effective_char, end_token_list, flush_list,
     flush_node_list, free_node, get_avail, get_node, get_token, internal_font_number,
     make_name_string, new_kern, new_math, new_native_word_node, open_log_file, pack_file_name,
-    pack_job_name, packed_UTF16_code, prepare_mag, scaled_t, scan_toks, show_box, show_token_list,
+    pack_job_name, packed_UTF16_code, prepare_mag, scan_toks, show_box, show_token_list,
     str_number, token_show, UTF16_code,
 };
 use crate::xetex_xetexd::{
@@ -62,8 +62,8 @@ static mut dvi_offset: usize = 0;
 static mut dvi_gone: i32 = 0;
 static mut down_ptr: Option<usize> = Some(0);
 static mut right_ptr: Option<usize> = Some(0);
-static mut dvi_h: scaled_t = 0;
-static mut dvi_v: scaled_t = 0;
+static mut dvi_h: Scaled = Scaled::ZERO;
+static mut dvi_v: Scaled = Scaled::ZERO;
 static mut dvi_f: internal_font_number = 0;
 static mut cur_s: i32 = 0;
 
@@ -138,10 +138,10 @@ pub(crate) unsafe fn ship_out(mut p: List) {
     /*663: "Update the values of max_h and max_v; but if the page is too
      * large, goto done". */
 
-    if p.height() > MAX_HALFWORD
-        || p.depth() > MAX_HALFWORD
-        || p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > MAX_HALFWORD
-        || p.width() + *DIMENPAR(DimenPar::h_offset) > MAX_HALFWORD
+    if p.height() > Scaled::MAX_HALFWORD
+        || p.depth() > Scaled::MAX_HALFWORD
+        || p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > Scaled::MAX_HALFWORD
+        || p.width() + *DIMENPAR(DimenPar::h_offset) > Scaled::MAX_HALFWORD
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -171,25 +171,26 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         /*637: "Initialize variables as ship_out begins." */
 
-        dvi_h = 0;
-        dvi_v = 0;
+        dvi_h = Scaled::ZERO;
+        dvi_v = Scaled::ZERO;
         cur_h = *DIMENPAR(DimenPar::h_offset);
         dvi_f = 0;
 
         /*1405: "Calculate page dimensions and margins" */
-        /* 4736287 = round(0xFFFF * 72.27) ; i.e., 1 inch expressed as a scaled_t */
-        cur_h_offset = *DIMENPAR(DimenPar::h_offset) + 4736287;
-        cur_v_offset = *DIMENPAR(DimenPar::v_offset) + 4736287;
+        /* 4736287 = round(0xFFFF * 72.27) ; i.e., 1 inch expressed as a Scaled */
+        const S_72_27: Scaled = Scaled(4736287);
+        cur_h_offset = *DIMENPAR(DimenPar::h_offset) + S_72_27;
+        cur_v_offset = *DIMENPAR(DimenPar::v_offset) + S_72_27;
 
-        if *DIMENPAR(DimenPar::pdf_page_width) != 0 {
+        if *DIMENPAR(DimenPar::pdf_page_width) != Scaled::ZERO {
             cur_page_width = *DIMENPAR(DimenPar::pdf_page_width);
         } else {
-            cur_page_width = p.width() + 2 * cur_h_offset;
+            cur_page_width = p.width() + cur_h_offset * 2;
         }
-        if *DIMENPAR(DimenPar::pdf_page_height) != 0 {
+        if *DIMENPAR(DimenPar::pdf_page_height) != Scaled::ZERO {
             cur_page_height = *DIMENPAR(DimenPar::pdf_page_height);
         } else {
-            cur_page_height = p.height() + p.depth() + 2 * cur_v_offset;
+            cur_page_height = p.height() + p.depth() + cur_v_offset * 2;
         }
 
         /* ... resuming 637 ... open up the DVI file if needed */
@@ -217,8 +218,8 @@ pub(crate) unsafe fn ship_out(mut p: List) {
                 dvi_out(XDV_ID_BYTE);
             }
 
-            dvi_four(25400000); /* magic values: conversion ratio for sp */
-            dvi_four(473628672); /* magic values: conversion ratio for sp */
+            dvi_four(25_400_000); /* magic values: conversion ratio for sp */
+            dvi_four(Scaled(473628672).0); /* 7227 magic values: conversion ratio for sp */
 
             prepare_mag();
             dvi_four(*INTPAR(IntPar::mag));
@@ -248,7 +249,9 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         let old_setting = selector;
         selector = Selector::NEW_STRING;
         print_cstr("pdf:pagesize ");
-        if *DIMENPAR(DimenPar::pdf_page_width) <= 0 || *DIMENPAR(DimenPar::pdf_page_height) <= 0 {
+        if *DIMENPAR(DimenPar::pdf_page_width) <= Scaled::ZERO
+            || *DIMENPAR(DimenPar::pdf_page_height) <= Scaled::ZERO
+        {
             print_cstr("default");
         } else {
             print_cstr("width");
@@ -331,7 +334,7 @@ unsafe fn hlist_out(this_box: &mut List) {
             if llist_link(p).is_some() {
                 match CharOrText::from(p) {
                     CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(r_nw)))
-                        if FONT_LETTER_SPACE[r_nw.font() as usize] == 0 =>
+                        if FONT_LETTER_SPACE[r_nw.font() as usize] == Scaled::ZERO =>
                     {
                         /* "got a word in an AAT font, might be the start of a run" */
                         let mut k = r_nw.text().len() as i32;
@@ -468,7 +471,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                             if pool_ptr + k > pool_size {
                                 overflow("pool size", (pool_size - init_pool_ptr) as usize);
                             }
-                            k = 0;
+                            let mut k = Scaled::ZERO;
                             let mut q = r_nw.ptr();
                             loop {
                                 match Node::from(q) {
@@ -492,12 +495,12 @@ unsafe fn hlist_out(this_box: &mut List) {
                                             if g_sign == GlueSign::Stretching {
                                                 if g.stretch_order() == g_order {
                                                     k += tex_round(
-                                                        this_box.glue_set() * g.stretch() as f64,
+                                                        this_box.glue_set() * g.stretch().0 as f64,
                                                     )
                                                 }
                                             } else if g.shrink_order() == g_order {
                                                 k -= tex_round(
-                                                    this_box.glue_set() * g.shrink() as f64,
+                                                    this_box.glue_set() * g.shrink().0 as f64,
                                                 )
                                             }
                                         }
@@ -608,16 +611,16 @@ unsafe fn hlist_out(this_box: &mut List) {
         }
     }
 
-    let mut cur_g: scaled_t = 0;
+    let mut cur_g: Scaled = Scaled::ZERO;
     let mut cur_glue: f64 = 0.0;
     if cur_dir == LR::RightToLeft && this_box.lr_mode() != LRMode::Reversed {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
         let save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
         let tmp_ptr = popt.unwrap();
-        let mut p = Kern(new_kern(0));
+        let mut p = Kern(new_kern(Scaled::ZERO));
         *SYNCTEX_tag(p.ptr(), MEDIUM_NODE_SIZE) = 0;
         *LLIST_link(prev_p) = Some(p.ptr()).tex_int();
-        cur_h = 0;
+        cur_h = Scaled::ZERO;
         *LLIST_link(p.ptr()) = reverse(this_box, tmp_ptr, None, &mut cur_g, &mut cur_glue);
         p.set_width(-cur_h);
         popt = Some(p.ptr());
@@ -744,7 +747,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         rule_dp = this_box.depth();
                     }
                     rule_ht += rule_dp;
-                    if rule_ht > 0 && rule_wd > 0 {
+                    if rule_ht > Scaled::ZERO && rule_wd > Scaled::ZERO {
                         if cur_h != dvi_h {
                             movement(cur_h - dvi_h, RIGHT1);
                             dvi_h = cur_h
@@ -755,8 +758,8 @@ unsafe fn hlist_out(this_box: &mut List) {
                             dvi_v = cur_v
                         }
                         dvi_out(SET_RULE);
-                        dvi_four(rule_ht);
-                        dvi_four(rule_wd);
+                        dvi_four(rule_ht.0);
+                        dvi_four(rule_wd.0);
                         cur_v = base_line;
                         dvi_h += rule_wd;
                     }
@@ -805,7 +808,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         WhatsIt::Glyph(g) => {
                             out_font(g.font() as usize);
                             dvi_out(SET_GLYPHS);
-                            dvi_four(g.width());
+                            dvi_four(g.width().0);
                             dvi_two(1);
                             dvi_four(0);
                             dvi_four(0);
@@ -874,14 +877,14 @@ unsafe fn hlist_out(this_box: &mut List) {
                             if g.stretch_order() ==
                                    g_order {
                                 cur_glue +=
-                                    g.stretch() as f64;
+                                    g.stretch().0 as f64;
                                 cur_g = tex_round((this_box.glue_set() *
                                         cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
                             }
                         } else if g.shrink_order() ==
                                       g_order {
                             cur_glue -=
-                                g.shrink() as
+                                g.shrink().0 as
                                     f64;
                             cur_g = tex_round((this_box.glue_set() *
                                     cur_glue).min(1_000_000_000.).max(-1_000_000_000.));
@@ -912,8 +915,8 @@ unsafe fn hlist_out(this_box: &mut List) {
                             g.set_stretch_order(GlueOrder::Incorrect) /* "will never match" */
                             .set_shrink_order(GlueOrder::Incorrect)
                             .set_size(rule_wd)
-                            .set_stretch(0)
-                            .set_shrink(0);
+                            .set_stretch(Scaled::ZERO)
+                            .set_shrink(Scaled::ZERO);
                             p.set_glue_ptr(g.ptr() as i32);
                         }
                     }
@@ -933,7 +936,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     rule_dp = this_box.depth();
                                 }
                                 rule_ht += rule_dp;
-                                if rule_ht > 0 && rule_wd > 0 {
+                                if rule_ht > Scaled::ZERO && rule_wd > Scaled::ZERO {
                                     if cur_h != dvi_h {
                                         movement(cur_h - dvi_h, RIGHT1);
                                         dvi_h = cur_h
@@ -944,21 +947,21 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         dvi_v = cur_v
                                     }
                                     dvi_out(SET_RULE);
-                                    dvi_four(rule_ht);
-                                    dvi_four(rule_wd);
+                                    dvi_four(rule_ht.0);
+                                    dvi_four(rule_wd.0);
                                     cur_v = base_line;
                                     dvi_h += rule_wd;
                                 }
                             }
                             Node::Text(TxtNode::List(lb)) => {
                                 let leader_wd = lb.width();
-                                if leader_wd > 0 && rule_wd > 0 {
-                                    rule_wd += 10;
+                                if leader_wd > Scaled::ZERO && rule_wd > Scaled::ZERO {
+                                    rule_wd += Scaled(10);
                                     if cur_dir == LR::RightToLeft {
-                                        cur_h -= 10;
+                                        cur_h -= Scaled(10);
                                     }
                                     let edge = cur_h + rule_wd;
-                                    let mut lx = 0;
+                                    let mut lx = Scaled::ZERO;
                                     /*649: "Let cur_h be the position of the first pox,
                                      * and set leader_wd + lx to the spacing between
                                      * corresponding parts of boxes". Additional
@@ -976,7 +979,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                             cur_h = cur_h + lr / 2;
                                         } else {
                                             lx = lr / (lq + 1);
-                                            cur_h = cur_h + (lr - (lq - 1) * lx) / 2;
+                                            cur_h = cur_h + (lr -  lx * (lq - 1)) / 2;
                                         }
                                     }
 
@@ -1013,7 +1016,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     if cur_dir == LR::RightToLeft {
                                         cur_h = edge;
                                     } else {
-                                        cur_h = edge - 10;
+                                        cur_h = edge - Scaled(10);
                                     }
                                     prev_p = p.ptr();
                                     popt = llist_link(p.ptr());
@@ -1078,7 +1081,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                             cur_h = cur_h - left_edge + rule_wd;
                             *LLIST_link(p.ptr()) =
                                 reverse(this_box, tmp_ptr,
-                                        Some(new_edge(!cur_dir, 0)),
+                                        Some(new_edge(!cur_dir, Scaled::ZERO)),
                                         &mut cur_g, &mut cur_glue);
                             p.set_edge_dist(cur_h);
                             cur_dir = !cur_dir;
@@ -1160,7 +1163,7 @@ unsafe fn hlist_out(this_box: &mut List) {
  * the vlist_node pointed to by tmp_ptr. The reference point of that box has
  * coordinates (cur_h, cur_v)." */
 unsafe fn vlist_out(this_box: &List) {
-    let mut cur_g = 0;
+    let mut cur_g = Scaled::ZERO;
     let mut cur_glue = 0_f64;
     let g_order = this_box.glue_order();
     let g_sign = this_box.glue_sign();
@@ -1264,7 +1267,7 @@ unsafe fn vlist_out(this_box: &List) {
                     cur_v += rule_ht
                 }
 
-                if rule_ht > 0 && rule_wd > 0 {
+                if rule_ht > Scaled::ZERO && rule_wd > Scaled::ZERO {
                     if cur_dir == LR::RightToLeft {
                         cur_h -= rule_wd
                     }
@@ -1277,8 +1280,8 @@ unsafe fn vlist_out(this_box: &List) {
                         dvi_v = cur_v
                     }
                     dvi_out(PUT_RULE);
-                    dvi_four(rule_ht);
-                    dvi_four(rule_wd);
+                    dvi_four(rule_ht.0);
+                    dvi_four(rule_wd.0);
                     cur_h = left_edge
                 }
             }
@@ -1348,7 +1351,7 @@ unsafe fn vlist_out(this_box: &List) {
                 if g_sign != GlueSign::Normal {
                     if g_sign == GlueSign::Stretching {
                         if g.stretch_order() == g_order {
-                            cur_glue += g.stretch() as f64;
+                            cur_glue += g.stretch().0 as f64;
                             cur_g = tex_round(
                                 (this_box.glue_set() * cur_glue)
                                     .min(1_000_000_000.)
@@ -1356,7 +1359,7 @@ unsafe fn vlist_out(this_box: &List) {
                             )
                         }
                     } else if g.shrink_order() == g_order {
-                        cur_glue -= g.shrink() as f64;
+                        cur_glue -= g.shrink().0 as f64;
                         cur_g = tex_round(
                             (this_box.glue_set() * cur_glue)
                                 .min(1_000_000_000.)
@@ -1375,7 +1378,7 @@ unsafe fn vlist_out(this_box: &List) {
                     match &mut TxtNode::from(leader_box) {
                         TxtNode::Rule(r) => {
                             rule_wd = r.width();
-                            rule_dp = 0;
+                            rule_dp = Scaled::ZERO;
                             // 655: "Output a rule in a vlist, goto next_p
 
                             if rule_wd == NULL_FLAG {
@@ -1390,7 +1393,7 @@ unsafe fn vlist_out(this_box: &List) {
                                 cur_v += rule_ht
                             }
 
-                            if rule_ht > 0 && rule_wd > 0 {
+                            if rule_ht > Scaled::ZERO && rule_wd > Scaled::ZERO {
                                 if cur_dir == LR::RightToLeft {
                                     cur_h -= rule_wd
                                 }
@@ -1403,8 +1406,8 @@ unsafe fn vlist_out(this_box: &List) {
                                     dvi_v = cur_v
                                 }
                                 dvi_out(PUT_RULE);
-                                dvi_four(rule_ht);
-                                dvi_four(rule_wd);
+                                dvi_four(rule_ht.0);
+                                dvi_four(rule_wd.0);
                                 cur_h = left_edge;
                             }
                             popt = llist_link(p.ptr());
@@ -1412,10 +1415,10 @@ unsafe fn vlist_out(this_box: &List) {
                         }
                         TxtNode::List(lb) => {
                             let leader_ht = lb.height() + lb.depth();
-                            if leader_ht > 0i32 && rule_ht > 0i32 {
-                                rule_ht += 10i32;
+                            if leader_ht > Scaled::ZERO && rule_ht > Scaled::ZERO {
+                                rule_ht += Scaled(10);
                                 let edge = cur_v + rule_ht;
-                                let mut lx = 0;
+                                let mut lx = Scaled::ZERO;
                                 /*658: "Let cur_v be the position of the first box,
                                  * and set leader_ht + lx to the spacing between
                                  * corresponding parts of boxes" */
@@ -1432,7 +1435,7 @@ unsafe fn vlist_out(this_box: &List) {
                                         cur_v = cur_v + lr / 2;
                                     } else {
                                         lx = lr / (lq + 1);
-                                        cur_v = cur_v + (lr - (lq - 1) * lx) / 2;
+                                        cur_v = cur_v + (lr - lx * (lq - 1)) / 2;
                                     }
                                 }
 
@@ -1475,7 +1478,7 @@ unsafe fn vlist_out(this_box: &List) {
                                     cur_h = left_edge;
                                     cur_v = save_v - lb.height() + leader_ht + lx
                                 }
-                                cur_v = edge - 10;
+                                cur_v = edge - Scaled(10);
                                 popt = llist_link(p.ptr());
                                 continue;
                             }
@@ -1520,8 +1523,8 @@ unsafe fn reverse(
     this_box: &List,
     tmp_ptr: usize,
     mut t: Option<usize>,
-    mut cur_g: *mut scaled_t,
-    mut cur_glue: *mut f64,
+    cur_g: &mut Scaled,
+    cur_glue: &mut f64,
 ) -> i32 {
     let g_order = this_box.glue_order();
     let g_sign = this_box.glue_sign();
@@ -1539,12 +1542,14 @@ unsafe fn reverse(
                     let chr = Char(p);
                     let f = chr.font() as usize;
                     let c = chr.character();
-                    cur_h += FONT_INFO[(WIDTH_BASE[f]
-                        + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize]
-                            .b16
-                            .s3 as i32) as usize]
-                        .b32
-                        .s1;
+                    cur_h += Scaled(
+                        FONT_INFO[(WIDTH_BASE[f]
+                            + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize]
+                                .b16
+                                .s3 as i32) as usize]
+                            .b32
+                            .s1,
+                    );
                     popt = llist_link(p);
                     *LLIST_link(p) = l.tex_int();
                     l = Some(p);
@@ -1588,7 +1593,7 @@ unsafe fn reverse(
                             GlueSign::Normal => {}
                             GlueSign::Stretching => {
                                 if g.stretch_order() == g_order {
-                                    *cur_glue = *cur_glue + g.stretch() as f64;
+                                    *cur_glue = *cur_glue + g.stretch().0 as f64;
                                     *cur_g = tex_round(
                                         (this_box.glue_set() * *cur_glue)
                                             .min(1_000_000_000.)
@@ -1598,7 +1603,7 @@ unsafe fn reverse(
                             }
                             GlueSign::Shrinking => {
                                 if g.shrink_order() == g_order {
-                                    *cur_glue = *cur_glue - g.shrink() as f64;
+                                    *cur_glue = *cur_glue - g.shrink().0 as f64;
                                     *cur_g = tex_round(
                                         (this_box.glue_set() * *cur_glue)
                                             .min(1_000_000_000.)
@@ -1627,8 +1632,8 @@ unsafe fn reverse(
                                 g.set_stretch_order(GlueOrder::Incorrect)
                                     .set_shrink_order(GlueOrder::Incorrect)
                                     .set_size(rule_wd)
-                                    .set_stretch(0)
-                                    .set_shrink(0);
+                                    .set_stretch(Scaled::ZERO)
+                                    .set_shrink(Scaled::ZERO);
                                 p.set_glue_ptr(g.ptr() as i32);
                             }
                         }
@@ -1714,7 +1719,7 @@ unsafe fn reverse(
                 *LLIST_link(p) = l.tex_int();
                 let mut pp = Some(p);
                 if let TxtNode::Kern(k) = TxtNode::from(p) {
-                    if rule_wd == 0 || l.is_none() {
+                    if rule_wd == Scaled::ZERO || l.is_none() {
                         k.free();
                         pp = l
                     }
@@ -1727,17 +1732,17 @@ unsafe fn reverse(
         if t.is_none() && m == MIN_HALFWORD && n == MIN_HALFWORD {
             break; /* "Manufacture a missing math node" */
         }
-        popt = Some(new_math(0, Math(LR_ptr as usize).subtype_i32()));
+        popt = Some(new_math(Scaled::ZERO, Math(LR_ptr as usize).subtype_i32()));
         LR_problems += 10000i32
     }
     l.tex_int()
 }
 
 /*1506: Create a new edge node of subtype `s` and width `w` */
-pub(crate) unsafe fn new_edge(s: LR, w: scaled_t) -> usize {
+pub(crate) unsafe fn new_edge(s: LR, w: Scaled) -> usize {
     let mut p = Edge(get_node(EDGE_NODE_SIZE));
     set_NODE_type(p.ptr(), EDGE_NODE);
-    p.set_lr(s).set_width(w).set_edge_dist(0);
+    p.set_lr(s).set_width(w).set_edge_dist(Scaled::ZERO);
     p.ptr()
 }
 
@@ -1843,8 +1848,8 @@ unsafe fn dvi_font_def(f: internal_font_number) {
         dvi_out(FONT_CHECK[f].s2 as u8);
         dvi_out(FONT_CHECK[f].s1 as u8);
         dvi_out(FONT_CHECK[f].s0 as u8);
-        dvi_four(FONT_SIZE[f]);
-        dvi_four(FONT_DSIZE[f]);
+        dvi_four(FONT_SIZE[f].0);
+        dvi_four(FONT_DSIZE[f].0);
         dvi_out(length(FONT_AREA[f]) as u8);
         let l = PoolString::from(FONT_NAME[f])
             .as_slice()
@@ -1861,10 +1866,10 @@ unsafe fn dvi_font_def(f: internal_font_number) {
     };
 }
 
-unsafe fn movement(mut w: scaled_t, mut o: u8) {
+unsafe fn movement(w: Scaled, mut o: u8) {
     let mut k: i32 = 0;
     let mut q = get_node(MOVEMENT_NODE_SIZE);
-    MEM[q + 1].b32.s1 = w;
+    MEM[q + 1].b32.s1 = w.0;
     MEM[q + 2].b32.s1 = (dvi_offset + dvi_ptr) as i32;
     if o == DOWN1 {
         *LLIST_link(q) = down_ptr.tex_int();
@@ -1879,7 +1884,7 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
 
     loop {
         if let Some(p) = popt {
-            if MEM[(p + 1) as usize].b32.s1 == w {
+            if MEM[(p + 1) as usize].b32.s1 == w.0 {
                 /*632:*/
                 match (mstate, MoveDir::from(MEM[p as usize].b32.s0)) {
                     (MoveSeen::None, MoveDir::YZOk)
@@ -1968,7 +1973,8 @@ unsafe fn movement(mut w: scaled_t, mut o: u8) {
             }
         }
     }
-    unsafe fn not_found(q: usize, o: u8, mut w: scaled_t) {
+    unsafe fn not_found(q: usize, o: u8, w: Scaled) {
+        let mut w = w.0;
         MEM[q].b32.s0 = MoveDir::YZOk as i32;
 
         if w.abs() >= 0x800000 {
@@ -2243,12 +2249,12 @@ pub(crate) unsafe fn finalize_dvi_file() {
     dvi_out(POST); /* magic values: conversion ratio for sp */
     dvi_four(last_bop);
     last_bop = (dvi_offset + dvi_ptr - 5) as i32;
-    dvi_four(25400000); /* magic values: conversion ratio for sp */
-    dvi_four(473628672i64 as i32); /* magic values: conversion ratio for sp */
+    dvi_four(25_400_000); /* magic values: conversion ratio for sp */
+    dvi_four(Scaled(473628672).0); /* 7227.0 magic values: conversion ratio for sp */
     prepare_mag();
     dvi_four(*INTPAR(IntPar::mag));
-    dvi_four(max_v);
-    dvi_four(max_h);
+    dvi_four(max_v.0);
+    dvi_four(max_h.0);
     dvi_out((max_push / 256) as u8);
     dvi_out((max_push % 256) as u8);
     dvi_out((TOTAL_PAGES / 256 % 256) as u8);

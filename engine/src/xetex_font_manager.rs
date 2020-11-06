@@ -41,7 +41,7 @@ use libc::{free, malloc, strchr, strlen};
 #[cfg(not(target_os = "macos"))]
 use imp::FcPattern;
 
-pub(crate) type Fixed = i32;
+use crate::xetex_scaledmath::Scaled;
 #[cfg(not(target_os = "macos"))]
 pub(crate) type PlatformFontRef = *mut FcPattern;
 
@@ -389,7 +389,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     let mut nameStr = CString::new(name).unwrap();
     let mut font: *mut XeTeXFontMgrFont = 0 as *mut XeTeXFontMgrFont;
     let mut dsize: libc::c_int = 100i32;
-    loaded_font_design_size = 655360i64 as Fixed;
+    loaded_font_design_size = Scaled(655360);
     for pass in 0..2i32 {
         // try full name as given
         if let Some(name_FONT_PTR) = (*(*self_0).m_nameToFont).get(&nameStr).cloned() {
@@ -729,7 +729,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     }
     if !font.is_null() && (*font).opSizeInfo.designSize != 0i32 as libc::c_uint {
         loaded_font_design_size =
-            ((*font).opSizeInfo.designSize << 16i64).wrapping_div(10i32 as libc::c_uint) as Fixed
+            Scaled(((*font).opSizeInfo.designSize << 16).wrapping_div(10 as libc::c_uint) as i32)
     }
     if get_tracing_fonts_state() > 0i32 {
         diagnostic(false, || {
@@ -872,7 +872,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
 ) {
     use crate::freetype_sys_patch::{TT_Header, FT_SFNT_HEAD, FT_SFNT_OS2, FT_SFNT_POST};
     use freetype::freetype_sys::{TT_Postscript, TT_OS2};
-    if let Some(font) = createFont((*theFont).fontRef, 655360i32) {
+    if let Some(font) = createFont((*theFont).fontRef, Scaled(655360)) {
         let mut pSizeRec: *mut XeTeXFontMgrOpSizeRec = XeTeXFontMgr_getOpSize(self_0, &font);
         if !pSizeRec.is_null() {
             (*theFont).opSizeInfo.designSize = (*pSizeRec).designSize;
@@ -915,8 +915,8 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(
             font.get_font_table_ft(FT_SFNT_POST) as *const TT_Postscript;
         if !postTable.is_null() {
             (*theFont).slant = (1000_f64
-                * (Fix2D(-(*postTable).italicAngle as Fixed) * std::f64::consts::PI / 180.).tan())
-                as libc::c_int as i16
+                * (Fix2D(Scaled(-(*postTable).italicAngle as i32)) * std::f64::consts::PI / 180.)
+                    .tan()) as libc::c_int as i16
         }
     };
 }

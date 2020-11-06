@@ -53,13 +53,13 @@ use crate::xetex_ini::{
     pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used,
     pseudo_files, pstack, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
     sa_root, save_native_len, scanner_status, selector, set_box_allowed, shown_mode, skip_line,
-    space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, tex_remainder,
-    texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count, use_err_help,
-    used_tectonic_coda_tokens, warning_index, write_file, write_open, xtx_ligature_present,
-    LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, CHAR_BASE, EOF_SEEN, EQTB, EQTB_TOP,
-    FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO,
-    FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
-    FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
+    space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, texmf_log_name,
+    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
+    warning_index, write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL,
+    BUFFER, BUF_SIZE, CHAR_BASE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR,
+    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING,
+    FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE,
+    FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
     INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK,
     MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE,
     PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
@@ -82,7 +82,9 @@ use crate::xetex_output::{
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
-use crate::xetex_scaledmath::{mult_and_add, round_xn_over_d, tex_round, x_over_n, xn_over_d};
+use crate::xetex_scaledmath::{
+    mult_and_add, round_xn_over_d, tex_round, x_over_n, xn_over_d, Scaled,
+};
 use crate::xetex_shipout::{finalize_dvi_file, new_edge, out_what, ship_out};
 use crate::xetex_stringpool::EMPTY_STRING;
 use crate::xetex_stringpool::{
@@ -99,7 +101,6 @@ use bridge::{TTHistory, TTInputFormat};
 
 use libc::{memcpy, strlen};
 
-pub(crate) type scaled_t = i32;
 pub(crate) type CFDictionaryRef = *mut libc::c_void;
 
 pub(crate) type UTF16_code = u16;
@@ -130,7 +131,9 @@ unsafe fn int_error(mut n: i32) {
     print_chr(')');
     error();
 }
-pub(crate) unsafe fn badness(mut t: scaled_t, mut s: scaled_t) -> i32 {
+pub(crate) unsafe fn badness(t: Scaled, s: Scaled) -> i32 {
+    let t = t.0;
+    let s = s.0;
     if t == 0 {
         return 0;
     }
@@ -389,24 +392,24 @@ pub(crate) unsafe fn new_null_box() -> usize {
     let mut p = List::from(get_node(BOX_NODE_SIZE));
     p.set_horizontal();
     p.set_lr_mode(LRMode::Normal)
-        .set_width(0)
-        .set_depth(0)
-        .set_height(0);
-    p.set_shift_amount(0)
+        .set_width(Scaled::ZERO)
+        .set_depth(Scaled::ZERO)
+        .set_height(Scaled::ZERO);
+    p.set_shift_amount(Scaled::ZERO)
         .set_list_ptr(None.tex_int())
         .set_glue_sign(GlueSign::Normal)
         .set_glue_order(GlueOrder::Normal)
         .set_glue_set(0.);
     p.ptr()
 }
-pub(crate) unsafe fn new_rule() -> usize {
+pub(crate) unsafe fn new_rule() -> Rule {
     let mut p = Rule::from(get_node(RULE_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::Rule);
     MEM[p.ptr()].b16.s0 = 0;
     p.set_width(NULL_FLAG)
         .set_depth(NULL_FLAG)
         .set_height(NULL_FLAG);
-    p.ptr()
+    p
 }
 pub(crate) unsafe fn new_ligature(mut f: internal_font_number, mut c: u16, mut q: i32) -> usize {
     let mut p = Ligature(get_node(SMALL_NODE_SIZE));
@@ -445,7 +448,7 @@ pub(crate) unsafe fn copy_native_glyph_info(src: &NativeWord, dest: &mut NativeW
         dest.set_glyph_count(glyph_count as u16);
     };
 }
-pub(crate) unsafe fn new_math(w: i32, s: MathType) -> usize {
+pub(crate) unsafe fn new_math(w: Scaled, s: MathType) -> usize {
     let mut p = Math(get_node(MEDIUM_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::Math);
     p.set_subtype(s).set_width(w);
@@ -488,7 +491,7 @@ pub(crate) unsafe fn new_skip_param(n: GluePar) -> (usize, GlueSpec) {
     MEM[p].b16.s0 = n as u16 + 1;
     (p, tmp_ptr)
 }
-pub(crate) unsafe fn new_kern(w: i32) -> usize {
+pub(crate) unsafe fn new_kern(w: Scaled) -> usize {
     let mut p = Kern(get_node(MEDIUM_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::Kern);
     p.set_subtype(KernType::Normal).set_width(w);
@@ -612,14 +615,14 @@ pub(crate) unsafe fn print_mark(mut p: i32) {
     }
     print_chr('}');
 }
-pub(crate) unsafe fn print_rule_dimen(mut d: scaled_t) {
+pub(crate) unsafe fn print_rule_dimen(d: Scaled) {
     if d == NULL_FLAG {
         print_chr('*');
     } else {
         print_scaled(d);
     };
 }
-pub(crate) unsafe fn print_glue(mut d: scaled_t, order: GlueOrder, s: &str) {
+pub(crate) unsafe fn print_glue(d: Scaled, order: GlueOrder, s: &str) {
     print_scaled(d);
     match order {
         // TODO: optimize
@@ -639,11 +642,11 @@ pub(crate) unsafe fn print_spec(p: i32, unit: &str) {
         if !unit.is_empty() {
             print_cstr(unit);
         }
-        if p.stretch() != 0 {
+        if p.stretch() != Scaled::ZERO {
             print_cstr(" plus ");
             print_glue(p.stretch(), p.stretch_order(), unit);
         }
-        if p.shrink() != 0 {
+        if p.shrink() != Scaled::ZERO {
             print_cstr(" minus ");
             print_glue(p.shrink(), p.shrink_order(), unit);
         }
@@ -661,12 +664,12 @@ pub(crate) unsafe fn print_fam_and_char(p: usize) {
         print_char(c);
     };
 }
-pub(crate) unsafe fn print_delimiter(p: usize) {
+pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
     let mut a: i32 = 0;
-    a = ((MEM[p].b16.s3 as i32 % 256 * 256) as i64
-        + (MEM[p].b16.s2 as i64 + (MEM[p].b16.s3 as i32 / 256) as i64 * 65536)) as i32;
-    a = ((a * 4096 + MEM[p].b16.s1 as i32 % 256 * 256) as i64
-        + (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536)) as i32;
+    a = ((d.s3 as i32 % 256 * 256) as i64 + (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536))
+        as i32;
+    a = ((a * 4096 + d.s1 as i32 % 256 * 256) as i64
+        + (d.s0 as i64 + (d.s1 as i32 / 256) as i64 * 65536)) as i32;
     if a < 0 {
         print_int(a);
     } else {
@@ -737,15 +740,13 @@ pub(crate) unsafe fn print_skip_param(n: GluePar) {
     };
 }
 pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
-    let mut n: i32 = 0;
-    let mut g: f64 = 0.;
     if cur_length() > depth_threshold {
         if popt.is_some() {
             print_cstr(" []");
         }
         return;
     }
-    n = 0;
+    let mut n = 0;
     while let Some(p) = popt.filter(|&p| p != 0) {
         print_ln();
         print_current_string();
@@ -774,7 +775,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     print_scaled(p.depth());
                     print_cstr(")x");
                     print_scaled(p.width());
-                    g = p.glue_set();
+                    let g = p.glue_set();
                     if g != 0. && p.glue_sign() != GlueSign::Normal {
                         print_cstr(", glue set ");
                         if p.glue_sign() == GlueSign::Shrinking {
@@ -786,12 +787,12 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             } else {
                                 print_cstr("< -");
                             }
-                            print_glue((20000_i64 * 65536) as scaled_t, p.glue_order(), "");
+                            print_glue(Scaled::from(20000), p.glue_order(), "");
                         } else {
                             print_glue(tex_round(65536_f64 * g), p.glue_order(), "");
                         }
                     }
-                    if p.shift_amount() != 0 {
+                    if p.shift_amount() != Scaled::ZERO {
                         print_cstr(", shifted ");
                         print_scaled(p.shift_amount());
                     }
@@ -818,11 +819,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_int(p.columns() as i32 + 1);
                         print_cstr(" columns)");
                     }
-                    if p.stretch() != 0 {
+                    if p.stretch() != Scaled::ZERO {
                         print_cstr(", stretch ");
                         print_glue(p.stretch(), p.stretch_order(), "");
                     }
-                    if p.shrink() != 0 {
+                    if p.shrink() != Scaled::ZERO {
                         print_cstr(", shrink ");
                         print_glue(p.shrink(), p.shrink_order(), "");
                     }
@@ -967,10 +968,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_cstr("mu");
                     }
                 }
-                TxtNode::MarginKern(_) => {
+                TxtNode::MarginKern(m) => {
                     print_esc_cstr("kern");
-                    print_scaled(MEM[p + 1].b32.s1);
-                    if MEM[p].b16.s0 == 0 {
+                    print_scaled(m.width());
+                    if MEM[m.ptr()].b16.s0 == 0 {
                         print_cstr(" (left margin)");
                     } else {
                         print_cstr(" (right margin)");
@@ -995,7 +996,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             MathType::After => print_cstr("off"),
                             _ => unreachable!(),
                         }
-                        if p.width() != 0 {
+                        if p.width() != Scaled::ZERO {
                             print_cstr(", surrounded ");
                             print_scaled(p.width());
                         }
@@ -1101,24 +1102,27 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         MathNode::Under => print_esc_cstr("underline"),
                         MathNode::VCenter => print_esc_cstr("vcenter"),
                         MathNode::Radical => {
+                            let r = Radical::from(p);
                             print_esc_cstr("radical");
-                            print_delimiter(p + 4);
+                            print_delimiter(r.delimeter());
                         }
                         MathNode::Accent => {
                             print_esc_cstr("accent");
                             print_fam_and_char(p + 4);
                         }
                         MathNode::Left => {
+                            let l = LeftRight(p);
                             print_esc_cstr("left");
-                            print_delimiter(p + 1);
+                            print_delimiter(l.delimeter());
                         }
                         MathNode::Right => {
+                            let r = LeftRight(p);
                             if MEM[p].b16.s0 == NORMAL {
                                 print_esc_cstr("right");
                             } else {
                                 print_esc_cstr("middle");
                             }
-                            print_delimiter(p + 1);
+                            print_delimiter(r.delimeter());
                         }
                         _ => {}
                     }
@@ -1134,35 +1138,30 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     print_subsidiary_data(p + 3, '_' as i32 as UTF16_code);
                 }
                 MathNode::Fraction => {
+                    let f = Fraction(p);
                     print_esc_cstr("fraction, thickness ");
-                    if MEM[p + 1].b32.s1 == DEFAULT_CODE {
+                    if f.thickness() == DEFAULT_CODE {
                         print_cstr("= default");
                     } else {
-                        print_scaled(MEM[p + 1].b32.s1);
+                        print_scaled(f.thickness());
                     }
-                    if MEM[p + 4].b16.s3 as i32 % 256 != 0
-                        || MEM[p + 4].b16.s2 as i64
-                            + (MEM[p + 4].b16.s3 as i32 / 256) as i64 * 65536
-                            != 0
-                        || MEM[p + 4].b16.s1 as i32 % 256 != 0
-                        || MEM[p + 4].b16.s0 as i64
-                            + (MEM[p + 4].b16.s1 as i32 / 256) as i64 * 65536
-                            != 0
+                    let ld = f.left_delimeter();
+                    if ld.s3 as i32 % 256 != 0
+                        || ld.s2 as i64 + (ld.s3 as i32 / 256) as i64 * 65536 != 0
+                        || ld.s1 as i32 % 256 != 0
+                        || ld.s0 as i64 + (ld.s1 as i32 / 256) as i64 * 65536 != 0
                     {
                         print_cstr(", left-delimiter ");
-                        print_delimiter(p + 4);
+                        print_delimiter(ld);
                     }
-                    if MEM[p + 5].b16.s3 as i32 % 256 != 0
-                        || MEM[p + 5].b16.s2 as i64
-                            + (MEM[p + 5].b16.s3 as i32 / 256) as i64 * 65536
-                            != 0
-                        || MEM[p + 5].b16.s1 as i32 % 256 != 0
-                        || MEM[p + 5].b16.s0 as i64
-                            + (MEM[p + 5].b16.s1 as i32 / 256) as i64 * 65536
-                            != 0
+                    let rd = f.right_delimeter();
+                    if rd.s3 as i32 % 256 != 0
+                        || rd.s2 as i64 + (rd.s3 as i32 / 256) as i64 * 65536 != 0
+                        || rd.s1 as i32 % 256 != 0
+                        || rd.s0 as i64 + (rd.s1 as i32 / 256) as i64 * 65536 != 0
                     {
                         print_cstr(", right-delimiter ");
-                        print_delimiter(p + 5);
+                        print_delimiter(rd);
                     }
                     print_subsidiary_data(p + 2, '\\' as i32 as UTF16_code);
                     print_subsidiary_data(p + 3, '/' as i32 as UTF16_code);
@@ -1575,18 +1574,18 @@ pub(crate) unsafe fn show_activities() {
                         while r.ptr() != PAGE_INS_HEAD {
                             print_ln();
                             print_esc_cstr("insert");
-                            let mut t = r.box_reg() as i32;
+                            let t = r.box_reg() as i32;
                             print_int(t);
                             print_cstr(" adds ");
-                            if *COUNT_REG(t as usize) == 1000 {
-                                t = r.height();
+                            let t = if *COUNT_REG(t as usize) == 1000 {
+                                r.height()
                             } else {
-                                t = x_over_n(r.height(), 1000) * *COUNT_REG(t as usize)
-                            }
+                                x_over_n(r.height(), 1000).0 * *COUNT_REG(t as usize)
+                            };
                             print_scaled(t);
                             if r.subtype() == PageInsType::SplitUp {
                                 let mut q = PAGE_HEAD;
-                                t = 0;
+                                let mut t = 0;
                                 loop {
                                     q = *LLIST_link(q as usize) as usize;
                                     match Node::from(q as usize) {
@@ -1620,7 +1619,7 @@ pub(crate) unsafe fn show_activities() {
                     if a.b32.s1 <= IGNORE_DEPTH {
                         print_cstr("ignored");
                     } else {
-                        print_scaled(a.b32.s1);
+                        print_scaled(Scaled(a.b32.s1));
                     }
                     if NEST[p].prev_graf != 0 {
                         print_cstr(", prevgraf ");
@@ -6075,14 +6074,14 @@ pub(crate) unsafe fn scan_something_internal(
             let m = chr;
             let val = if page_contents == PageContents::Empty && !output_active {
                 if m == 0 {
-                    MAX_HALFWORD
+                    Scaled::MAX_HALFWORD
                 } else {
-                    0
+                    Scaled::ZERO
                 }
             } else {
                 page_so_far[m as usize]
             };
-            (val, ValLevel::Dimen)
+            (val.0, ValLevel::Dimen)
         }
         Cmd::SetShape => {
             let m = chr;
@@ -6185,7 +6184,7 @@ pub(crate) unsafe fn scan_something_internal(
                 } else {
                     match val_level {
                         ValLevel::Int => *COUNT_REG(val as usize),
-                        ValLevel::Dimen => *SCALED_REG(val as usize),
+                        ValLevel::Dimen => (*SCALED_REG(val as usize)).0,
                         ValLevel::Glue => *SKIP_REG(val as usize),
                         ValLevel::Mu => *MU_SKIP_REG(val as usize),
                         _ => val,
@@ -6269,7 +6268,7 @@ pub(crate) unsafe fn scan_something_internal(
                                     0
                                 } else {
                                     let val = scan_int(input);
-                                    get_glyph_bounds(EQTB[CUR_FONT_LOC].val as usize, n, val)
+                                    get_glyph_bounds(EQTB[CUR_FONT_LOC].val as usize, n, val).0
                                 }
                             } else {
                                 not_native_font_error(
@@ -6286,7 +6285,7 @@ pub(crate) unsafe fn scan_something_internal(
                         | LastItemCode::FontCharIc => {
                             let q = scan_font_ident(input) as usize;
                             let val = scan_usv_num(input);
-                            if let Font::Native(nq) = &FONT_LAYOUT_ENGINE[q] {
+                            (if let Font::Native(nq) = &FONT_LAYOUT_ENGINE[q] {
                                 match m {
                                     LastItemCode::FontCharWd => getnativecharwd(q, val),
                                     LastItemCode::FontCharHt => getnativecharht(q, val),
@@ -6309,8 +6308,9 @@ pub(crate) unsafe fn scan_something_internal(
                                     _ => unreachable!(),
                                 }
                             } else {
-                                0
-                            }
+                                Scaled::ZERO
+                            })
+                            .0
                         }
                         LastItemCode::ParShapeLength
                         | LastItemCode::ParShapeIndent
@@ -6333,13 +6333,14 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::GlueStretch | LastItemCode::GlueShrink => {
-                            let q = scan_normal_glue(input) as usize;
+                            let q = GlueSpec(scan_normal_glue(input) as usize);
                             let val = if m == LastItemCode::GlueStretch {
-                                MEM[q + 2].b32.s1
+                                q.stretch()
                             } else {
-                                MEM[q + 3].b32.s1
-                            };
-                            delete_glue_ref(q);
+                                q.shrink()
+                            }
+                            .0;
+                            delete_glue_ref(q.ptr());
                             val
                         }
                         _ => unreachable!(),
@@ -6576,8 +6577,8 @@ pub(crate) unsafe fn scan_something_internal(
                                 FONT_EC[n as usize] as i32
                             }
                         }
-                        LastItemCode::PdfLastXPos => pdf_last_x_pos,
-                        LastItemCode::PdfLastYPos => pdf_last_y_pos,
+                        LastItemCode::PdfLastXPos => pdf_last_x_pos.0,
+                        LastItemCode::PdfLastYPos => pdf_last_y_pos.0,
                         LastItemCode::XetexPdfPageCount => {
                             scan_and_pack_name(input);
                             count_pdf_file_pages()
@@ -6612,13 +6613,13 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::GlueStretchOrder | LastItemCode::GlueShrinkOrder => {
-                            let q = scan_normal_glue(input) as usize;
+                            let q = GlueSpec(scan_normal_glue(input) as usize);
                             let val = if m == LastItemCode::GlueStretchOrder {
-                                MEM[q].b16.s1 as i32
+                                q.stretch_order() as i32
                             } else {
-                                MEM[q].b16.s0 as i32
+                                q.shrink_order() as i32
                             };
-                            delete_glue_ref(q);
+                            delete_glue_ref(q.ptr());
                             val
                         }
                         _ => unreachable!(),
@@ -6664,7 +6665,7 @@ pub(crate) unsafe fn scan_something_internal(
                         }
                         LastItemCode::LastKern => {
                             if let Node::Text(TxtNode::Kern(k)) = &nd {
-                                val = k.width();
+                                val = k.width().0;
                             }
                         }
                         LastItemCode::LastSkip => {
@@ -6691,7 +6692,7 @@ pub(crate) unsafe fn scan_something_internal(
                 } else if cur_list.mode == (false, ListMode::VMode) && tx == cur_list.head {
                     match m {
                         LastItemCode::LastPenalty => val = last_penalty,
-                        LastItemCode::LastKern => val = last_kern,
+                        LastItemCode::LastKern => val = last_kern.0,
                         LastItemCode::LastSkip => {
                             if last_glue != MAX_HALFWORD {
                                 val = last_glue
@@ -6920,13 +6921,13 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
     };
     (ival, radix, tok)
 }
-unsafe fn round_decimals(mut k: i16) -> scaled_t {
+unsafe fn round_decimals(mut k: i16) -> Scaled {
     let mut a: i32 = 0;
     while k as i32 > 0 {
         k -= 1;
         a = (a + dig[k as usize] as i32 * 0x20000) / 10
     }
-    (a + 1) / 2
+    Scaled((a + 1) / 2)
 }
 pub(crate) unsafe fn xetex_scan_dimen(
     input: &mut input_state_t,
@@ -6934,8 +6935,8 @@ pub(crate) unsafe fn xetex_scan_dimen(
     mut inf: bool,
     shortcut: Option<i32>,
     mut requires_units: bool,
-) -> i32 {
-    let mut f = 0;
+) -> Scaled {
+    let mut f = Scaled::ZERO;
     arith_error = false;
     cur_order = GlueOrder::Normal;
     let mut negative = false;
@@ -6978,7 +6979,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     }
                 }
                 if val_level == ValLevel::Mu {
-                    return attach_sign(negative, val);
+                    return attach_sign(negative, Scaled(val));
                 } else if val_level != ValLevel::Int {
                     mu_error();
                 }
@@ -6987,7 +6988,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 let (val, val_level) =
                     scan_something_internal(input, tok, cmd, chr, ValLevel::Dimen, false);
                 if val_level == ValLevel::Dimen {
-                    return attach_sign(negative, val);
+                    return attach_sign(negative, Scaled(val));
                 }
                 val
             }
@@ -7099,25 +7100,28 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     scan_something_internal(input, tok, cmd, chr, ValLevel::Dimen, false);
                 val
             };
-            return found(save_val, v, f, negative);
+            return found(save_val, Scaled(v), f, negative);
         }
 
         if !mu {
             if scan_keyword(input, b"em") {
-                let v = FONT_INFO
-                    [(QUAD_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
-                    .b32
-                    .s1;
+                let v = Scaled(
+                    FONT_INFO[(QUAD_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
+                        .b32
+                        .s1,
+                );
                 let (tok, cmd, ..) = get_x_token(input);
                 if cmd != Cmd::Spacer {
                     back_input(input, tok);
                 }
                 return found(save_val, v, f, negative);
             } else if scan_keyword(input, b"ex") {
-                let v = FONT_INFO
-                    [(X_HEIGHT_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
-                    .b32
-                    .s1;
+                let v = Scaled(
+                    FONT_INFO
+                        [(X_HEIGHT_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
+                        .b32
+                        .s1,
+                );
                 let (tok, cmd, ..) = get_x_token(input);
                 if cmd != Cmd::Spacer {
                     back_input(input, tok);
@@ -7154,11 +7158,12 @@ pub(crate) unsafe fn xetex_scan_dimen(
             /*476:*/
             prepare_mag(); /* magic ratio consant */
             if *INTPAR(IntPar::mag) != 1000 {
-                val = xn_over_d(val, 1000, *INTPAR(IntPar::mag)); /* magic ratio consant */
-                f = (((1000 * f) as i64 + 65536 * tex_remainder as i64)
+                let (v, tex_remainder) = xn_over_d(Scaled(val), Scaled(1000), *INTPAR(IntPar::mag)); /* magic ratio consant */
+                val = v.0;
+                let f_ = (((1000 * f.0) as i64 + 65536 * tex_remainder as i64)
                     / *INTPAR(IntPar::mag) as i64) as i32;
-                val = (val as i64 + f as i64 / 65536) as i32;
-                f = (f as i64 % 65536) as i32
+                val = (val as i64 + f_ as i64 / 65536) as i32;
+                f = Scaled((f_ as i64 % 65536) as i32);
             }
         }
 
@@ -7190,7 +7195,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
             num = 14856; // magic ratio consant
             denom = 1157; // magic ratio consant
         } else if scan_keyword(input, b"sp") {
-            return done(input, negative, val);
+            return done(input, negative, Scaled(val));
         /*478:*/
         } else {
             if file_line_error_style_p != 0 {
@@ -7212,33 +7217,35 @@ pub(crate) unsafe fn xetex_scan_dimen(
             return attach_fraction(input, f, negative, val);
         }
 
-        let val = xn_over_d(val, num, denom);
-        f = (((num * f) as i64 + 65536 * tex_remainder as i64) / denom as i64) as i32;
-        let val = (val as i64 + f as i64 / 65536) as i32;
-        f = (f as i64 % 65536) as i32;
+        let (val, tex_remainder) = xn_over_d(Scaled(val), Scaled(num), denom);
+        let f_ = (((num * f.0) as i64 + 65536 * tex_remainder as i64) / denom as i64) as i32;
+        let val = (val.0 as i64 + f_ as i64 / 65536) as i32;
+        f = Scaled((f_ as i64 % 65536) as i32);
         return attach_fraction(input, f, negative, val);
-    } else if val >= 16384 {
-        arith_error = true
     } else {
-        val = (val as i64 * 65536 + f as i64) as i32
+        if val >= 16384 {
+            arith_error = true
+        } else {
+            val = (val as i64 * 65536 + f.0 as i64) as i32
+        }
     }
 
     // done2:
     unsafe fn attach_fraction(
         input: &mut input_state_t,
-        f: i32,
+        f: Scaled,
         negative: bool,
         mut val: i32,
-    ) -> i32 {
+    ) -> Scaled {
         if val >= 16384 {
             arith_error = true
         } else {
-            val = (val as i64 * 65536 + f as i64) as i32
+            val = (val as i64 * 65536 + f.0 as i64) as i32
         }
-        done(input, negative, val)
+        done(input, negative, Scaled(val))
     }
 
-    unsafe fn done(input: &mut input_state_t, negative: bool, val: i32) -> i32 {
+    unsafe fn done(input: &mut input_state_t, negative: bool, val: Scaled) -> Scaled {
         let (tok, cmd, ..) = get_x_token(input);
         if cmd != Cmd::Spacer {
             back_input(input, tok);
@@ -7246,13 +7253,13 @@ pub(crate) unsafe fn xetex_scan_dimen(
         attach_sign(negative, val)
     }
 
-    unsafe fn found(save_cur_val: i32, v: i32, f: i32, negative: bool) -> i32 {
-        let val = mult_and_add(save_cur_val, v, xn_over_d(v, f, 65536 as i32), 0x3fffffff);
+    unsafe fn found(save_cur_val: i32, v: Scaled, f: Scaled, negative: bool) -> Scaled {
+        let val = v.mul_add(save_cur_val, xn_over_d(v, f, 65536 as i32).0);
         attach_sign(negative, val)
     }
 
-    unsafe fn attach_sign(negative: bool, mut val: i32) -> i32 {
-        if arith_error || val.wrapping_abs() >= 0x40000000 {
+    unsafe fn attach_sign(negative: bool, mut val: Scaled) -> Scaled {
+        if arith_error || val.0.wrapping_abs() >= 0x40000000 {
             // TODO: check
             /*479:*/
             if file_line_error_style_p != 0 {
@@ -7266,7 +7273,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 "Continue and I\'ll use the largest value I can."
             );
             error();
-            val = MAX_HALFWORD;
+            val = Scaled::MAX_HALFWORD;
             arith_error = false
         }
         if negative {
@@ -7275,17 +7282,17 @@ pub(crate) unsafe fn xetex_scan_dimen(
         val
     }
 
-    attach_sign(negative, val)
+    attach_sign(negative, Scaled(val))
 }
 pub(crate) unsafe fn scan_dimen(
     input: &mut input_state_t,
     mut mu: bool,
     mut inf: bool,
     shortcut: Option<i32>,
-) -> i32 {
+) -> Scaled {
     xetex_scan_dimen(input, mu, inf, shortcut, true)
 }
-pub(crate) unsafe fn scan_decimal(input: &mut input_state_t) -> i32 {
+pub(crate) unsafe fn scan_decimal(input: &mut input_state_t) -> Scaled {
     xetex_scan_dimen(input, false, false, None, false)
 }
 pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i32 {
@@ -7315,21 +7322,19 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i3
     let val = if cmd >= MIN_INTERNAL && cmd <= MAX_INTERNAL {
         let (val, val_level) = scan_something_internal(input, tok, cmd, chr, level, negative);
         match val_level {
-            ValLevel::Int | ValLevel::Dimen => {}
+            ValLevel::Int => scan_dimen(input, mu, false, Some(val)),
+            ValLevel::Dimen => Scaled(if level == ValLevel::Mu {
+                mu_error();
+                val
+            } else {
+                val
+            }),
             _ => {
                 if val_level != level {
                     mu_error();
                 }
                 return val;
             }
-        }
-        if val_level == ValLevel::Int {
-            scan_dimen(input, mu, false, Some(val))
-        } else if level == ValLevel::Mu {
-            mu_error();
-            val
-        } else {
-            val
         }
     } else {
         back_input(input, tok);
@@ -7359,7 +7364,7 @@ pub(crate) unsafe fn add_or_sub(
     mut max_answer: i32,
     mut negative: bool,
 ) -> i32 {
-    let mut a: i32 = 0;
+    let mut a = 0;
     if negative {
         y = -y
     }
@@ -7422,15 +7427,10 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i
         }
     }
 
-    let mut a: i32 = 0;
-    let mut f: i32 = 0;
-    let mut h: i32 = 0;
-    let mut r: i32 = 0;
-    let mut t: i32 = 0;
     if d == 0 {
         return too_big();
     }
-    a = 0;
+    let mut a = 0;
     let mut negative = if d > 0 {
         false
     } else {
@@ -7447,7 +7447,7 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i
         n = -n;
         negative = !negative
     }
-    t = n / d;
+    let t = n / d;
     if t > max_answer / x {
         return too_big();
     }
@@ -7456,7 +7456,7 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i
     if n == 0 {
         return found(a, negative);
     }
-    t = x / d;
+    let t = x / d;
     if t > (max_answer - a) / n {
         return too_big();
     }
@@ -7466,13 +7466,13 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i
         return found(a, negative);
     }
     if x < n {
-        t = x;
+        let t = x;
         x = n;
         n = t
     }
-    f = 0;
-    r = d / 2 - d;
-    h = -r;
+    let mut f = 0;
+    let mut r = d / 2 - d;
+    let h = -r;
     loop {
         if n & 1 != 0 {
             r = r + x;
@@ -7488,7 +7488,7 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i
         if x < h {
             x = x + x
         } else {
-            t = x - d;
+            let t = x - d;
             x = t + x;
             f = f + n;
             if !(x < n) {
@@ -7497,7 +7497,7 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i
             if x == 0 {
                 break;
             }
-            t = x;
+            let t = x;
             x = n;
             n = t
         }
@@ -7539,7 +7539,7 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
             back_input(input, tok);
             let mut f = match o {
                 ValLevel::Int => scan_int(input),
-                ValLevel::Dimen => scan_dimen(input, false, false, None),
+                ValLevel::Dimen => scan_dimen(input, false, false, None).0,
                 ValLevel::Glue => scan_normal_glue(input),
                 _ => scan_mu_glue(input),
             };
@@ -7584,28 +7584,30 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
                         f = 0;
                     }
                 } else if l == ValLevel::Dimen {
-                    if f.abs() > MAX_HALFWORD {
+                    if Scaled(f).abs() > Scaled::MAX_HALFWORD {
                         arith_error = true;
                         f = 0;
                     }
-                } else if (MEM[(f + 1) as usize].b32.s1).abs() > MAX_HALFWORD
-                    || (MEM[(f + 2) as usize].b32.s1).abs() > MAX_HALFWORD
-                    || (MEM[(f + 3) as usize].b32.s1).abs() > MAX_HALFWORD
-                {
+                } else if {
+                    let f = GlueSpec(f as usize);
+                    f.size().abs() > Scaled::MAX_HALFWORD
+                        || f.stretch().abs() > Scaled::MAX_HALFWORD
+                        || f.shrink().abs() > Scaled::MAX_HALFWORD
+                } {
                     arith_error = true;
                     delete_glue_ref(f as usize);
                     f = new_spec(0) as i32
                 }
-                match s as i32 {
-                    0 => {
+                match s {
+                    Expr::None => {
                         /*1579: */
                         t = if l >= ValLevel::Glue && o != Expr::None {
                             let mut t = GlueSpec(new_spec(f as usize));
                             delete_glue_ref(f as usize);
-                            if t.stretch() == 0 {
+                            if t.stretch() == Scaled::ZERO {
                                 t.set_stretch_order(GlueOrder::Normal);
                             }
-                            if t.shrink() == 0 {
+                            if t.shrink() == Scaled::ZERO {
                                 t.set_shrink_order(GlueOrder::Normal);
                             }
                             t.ptr() as i32
@@ -7613,47 +7615,42 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
                             f
                         };
                     }
-                    3 => {
+                    Expr::Mult => {
                         if o == Expr::Div {
                             n = f;
                             o = Expr::Scale;
                         } else if l == ValLevel::Int {
                             t = mult_and_add(t, f, 0, TEX_INFINITY)
                         } else if l == ValLevel::Dimen {
-                            t = mult_and_add(t, f, 0, MAX_HALFWORD)
+                            t = Scaled(t).mul_add(f, Scaled::ZERO).0;
                         } else {
-                            MEM[(t + 1) as usize].b32.s1 =
-                                mult_and_add(MEM[(t + 1) as usize].b32.s1, f, 0, MAX_HALFWORD);
-                            MEM[(t + 2) as usize].b32.s1 =
-                                mult_and_add(MEM[(t + 2) as usize].b32.s1, f, 0, MAX_HALFWORD);
-                            MEM[(t + 3) as usize].b32.s1 =
-                                mult_and_add(MEM[(t + 3) as usize].b32.s1, f, 0, MAX_HALFWORD)
+                            let mut t = GlueSpec(t as usize);
+                            t.set_size(t.size().mul_add(f, Scaled::ZERO));
+                            t.set_stretch(t.stretch().mul_add(f, Scaled::ZERO));
+                            t.set_shrink(t.shrink().mul_add(f, Scaled::ZERO));
                         }
                     }
-                    4 => {
+                    Expr::Div => {
                         if l < ValLevel::Glue {
                             t = quotient(t, f)
                         } else {
-                            MEM[(t + 1) as usize].b32.s1 =
-                                quotient(MEM[(t + 1) as usize].b32.s1, f);
-                            MEM[(t + 2) as usize].b32.s1 =
-                                quotient(MEM[(t + 2) as usize].b32.s1, f);
-                            MEM[(t + 3) as usize].b32.s1 = quotient(MEM[(t + 3) as usize].b32.s1, f)
+                            let mut t = GlueSpec(t as usize);
+                            t.set_size(t.size().quotient(f));
+                            t.set_stretch(t.stretch().quotient(f));
+                            t.set_shrink(t.shrink().quotient(f));
                         }
                     }
-                    5 => {
-                        if l == ValLevel::Int {
-                            t = fract(t, n, f, TEX_INFINITY)
-                        } else if l == ValLevel::Dimen {
-                            t = fract(t, n, f, MAX_HALFWORD)
-                        } else {
+                    Expr::Scale => match l {
+                        ValLevel::Int => t = fract(t, n, f, TEX_INFINITY),
+                        ValLevel::Dimen => t = Scaled(t).fract(Scaled(n), Scaled(f)).0,
+                        _ => {
                             let mut e = GlueSpec(e as usize);
                             let mut t = GlueSpec(t as usize);
-                            t.set_size(fract(t.size(), n, f, MAX_HALFWORD));
-                            t.set_stretch(fract(t.stretch(), n, f, MAX_HALFWORD));
-                            e.set_shrink(fract(e.shrink(), n, f, MAX_HALFWORD));
+                            t.set_size(t.size().fract(Scaled(n), Scaled(f)));
+                            t.set_stretch(t.stretch().fract(Scaled(n), Scaled(f)));
+                            e.set_shrink(e.shrink().fract(Scaled(n), Scaled(f)));
                         }
-                    }
+                    },
                     _ => {}
                 }
                 if o == Expr::Mult || o == Expr::Div || o == Expr::Scale {
@@ -7666,38 +7663,31 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
                     } else if l == ValLevel::Int {
                         e = add_or_sub(e, t, TEX_INFINITY, r == Expr::Sub)
                     } else if l == ValLevel::Dimen {
-                        e = add_or_sub(e, t, MAX_HALFWORD, r == Expr::Sub)
+                        e = Scaled(e).add_or_sub(Scaled(t), r == Expr::Sub).0
                     } else {
                         /*1582: */
                         let mut e = GlueSpec(e as usize);
                         let t = GlueSpec(t as usize);
-                        e.set_size(add_or_sub(e.size(), t.size(), MAX_HALFWORD, r == Expr::Sub));
+                        e.set_size(e.size().add_or_sub(t.size(), r == Expr::Sub));
                         if e.stretch_order() == t.stretch_order() {
-                            e.set_stretch(add_or_sub(
-                                e.stretch(),
-                                t.stretch(),
-                                MAX_HALFWORD,
-                                r == Expr::Sub,
-                            ));
-                        } else if e.stretch_order() < t.stretch_order() && t.stretch() != 0 {
+                            e.set_stretch(e.stretch().add_or_sub(t.stretch(), r == Expr::Sub));
+                        } else if e.stretch_order() < t.stretch_order()
+                            && t.stretch() != Scaled::ZERO
+                        {
                             e.set_stretch(t.stretch())
                                 .set_stretch_order(t.stretch_order());
                         }
                         if e.shrink_order() == t.shrink_order() {
-                            e.set_shrink(add_or_sub(
-                                e.shrink(),
-                                t.shrink(),
-                                MAX_HALFWORD,
-                                r == Expr::Sub,
-                            ));
-                        } else if e.shrink_order() < t.shrink_order() && t.shrink() != 0 {
+                            e.set_shrink(e.shrink().add_or_sub(t.shrink(), r == Expr::Sub));
+                        } else if e.shrink_order() < t.shrink_order() && t.shrink() != Scaled::ZERO
+                        {
                             e.set_shrink(t.shrink()).set_shrink_order(t.shrink_order());
                         }
                         delete_glue_ref(t.ptr());
-                        if e.stretch() == 0 {
+                        if e.stretch() == Scaled::ZERO {
                             e.set_stretch_order(GlueOrder::Normal);
                         }
-                        if e.shrink() == 0 {
+                        if e.shrink() == Scaled::ZERO {
                             e.set_shrink_order(GlueOrder::Normal);
                         }
                     }
@@ -7764,27 +7754,22 @@ pub(crate) unsafe fn scan_normal_glue(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_mu_glue(input: &mut input_state_t) -> i32 {
     scan_glue(input, ValLevel::Mu)
 }
-pub(crate) unsafe fn scan_rule_spec(input: &mut input_state_t, cmd: Cmd) -> usize {
-    let q = new_rule();
+pub(crate) unsafe fn scan_rule_spec(input: &mut input_state_t, cmd: Cmd) -> Rule {
+    let mut q = new_rule();
     if cmd == Cmd::VRule {
-        MEM[q + 1].b32.s1 = DEFAULT_RULE
+        q.set_width(DEFAULT_RULE);
     } else {
-        MEM[q + 3].b32.s1 = DEFAULT_RULE;
-        MEM[q + 2].b32.s1 = 0
+        q.set_height(DEFAULT_RULE).set_depth(Scaled::ZERO);
     }
     loop {
         if scan_keyword(input, b"width") {
-            let val = scan_dimen(input, false, false, None);
-            MEM[q + 1].b32.s1 = val;
+            q.set_width(scan_dimen(input, false, false, None));
         } else if scan_keyword(input, b"height") {
-            let val = scan_dimen(input, false, false, None);
-            MEM[q + 3].b32.s1 = val;
+            q.set_height(scan_dimen(input, false, false, None));
+        } else if scan_keyword(input, b"depth") {
+            q.set_depth(scan_dimen(input, false, false, None));
         } else {
-            if !scan_keyword(input, b"depth") {
-                break;
-            }
-            let val = scan_dimen(input, false, false, None);
-            MEM[q + 2].b32.s1 = val;
+            break;
         }
     }
     q
@@ -8021,7 +8006,7 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
             match val_level {
                 ValLevel::Int => print_int(val),
                 ValLevel::Dimen => {
-                    print_scaled(val);
+                    print_scaled(Scaled(val));
                     print_cstr("pt");
                 }
                 ValLevel::Glue => {
@@ -8327,7 +8312,7 @@ pub(crate) unsafe fn conv_toks(
             }
             match popt.map(|p| CharOrText::from(p)) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 0 => {
-                    print_scaled(MEM[m.ptr() + 1].b32.s1);
+                    print_scaled(Scaled(MEM[m.ptr() + 1].b32.s1));
                 }
                 _ => print('0' as i32),
             }
@@ -8360,7 +8345,7 @@ pub(crate) unsafe fn conv_toks(
             }
             match popt.map(|p| CharOrText::from(p)) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 1 => {
-                    print_scaled(MEM[m.ptr() + 1].b32.s1);
+                    print_scaled(Scaled(MEM[m.ptr() + 1].b32.s1));
                 }
                 _ => print('0' as i32),
             }
@@ -8802,7 +8787,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             let n = if this_if == IfTestCode::IfInt {
                 scan_int(input)
             } else {
-                scan_dimen(input, false, false, None)
+                scan_dimen(input, false, false, None).0
             };
 
             let tok = loop {
@@ -8830,7 +8815,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             let val = if this_if == IfTestCode::IfInt {
                 scan_int(input)
             } else {
-                scan_dimen(input, false, false, None)
+                scan_dimen(input, false, false, None).0
             };
 
             match r {
@@ -9797,7 +9782,7 @@ pub(crate) unsafe fn scan_spec(
         spec_code = PackMode::Additional;
     } else {
         spec_code = PackMode::Additional;
-        sd = Some(0);
+        sd = Some(Scaled::ZERO);
     }
     let val = sd.unwrap_or_else(|| scan_dimen(input, false, false, None));
     // found
@@ -9806,19 +9791,19 @@ pub(crate) unsafe fn scan_spec(
         SAVE_PTR += 1;
     }
     SAVE_STACK[SAVE_PTR + 0].val = spec_code as i32;
-    SAVE_STACK[SAVE_PTR + 1].val = val;
+    SAVE_STACK[SAVE_PTR + 1].val = val.0;
     SAVE_PTR += 2;
     new_save_level(c);
     scan_left_brace(input).1
 }
-pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
+pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> Scaled {
     if side == Side::Left {
         last_leftmost_char = None.tex_int()
     } else {
         last_rightmost_char = None.tex_int()
     }
     if p.is_none() {
-        return 0;
+        return Scaled::ZERO;
     }
     let p = match CharOrText::from(p.unwrap()) {
         CharOrText::Char(p) => p,
@@ -9827,23 +9812,23 @@ pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
             return if !(nw.glyph_info_ptr()).is_null() {
                 let f = nw.font() as internal_font_number;
                 round_xn_over_d(
-                    FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
+                    Scaled(FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1),
                     nw.native_word_cp(side),
                     1000,
                 )
             } else {
-                0
+                Scaled::ZERO
             };
         }
         CharOrText::Text(TxtNode::WhatsIt(WhatsIt::Glyph(g))) => {
             let f = g.font() as internal_font_number;
             return round_xn_over_d(
-                FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
+                Scaled(FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1),
                 get_cp_code(f, g.glyph() as u32, side),
                 1000,
             );
         }
-        _ => return 0,
+        _ => return Scaled::ZERO,
     };
     let f = p.font() as internal_font_number;
     let c = get_cp_code(f, p.character() as u32, side);
@@ -9852,40 +9837,40 @@ pub(crate) unsafe fn char_pw(p: Option<usize>, side: Side) -> scaled_t {
         Side::Right => last_rightmost_char = Some(p.ptr()).tex_int(),
     }
     if c == 0 {
-        return 0;
+        return Scaled::ZERO;
     }
     round_xn_over_d(
-        FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1,
+        Scaled(FONT_INFO[(QUAD_CODE + PARAM_BASE[f]) as usize].b32.s1),
         c,
         1000,
     )
 }
-pub(crate) unsafe fn new_margin_kern(w: scaled_t, _p: i32, side: Side) -> usize {
+pub(crate) unsafe fn new_margin_kern(w: Scaled, _p: i32, side: Side) -> usize {
     let k = get_node(MARGIN_KERN_NODE_SIZE);
     set_NODE_type(k, TextNode::MarginKern);
     MEM[k].b16.s0 = side as u16;
-    MEM[k + 1].b32.s1 = w;
+    MEM[k + 1].b32.s1 = w.0;
     k
 }
-pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode) -> List {
+pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) -> List {
     last_badness = 0;
     let mut r = List::from(get_node(BOX_NODE_SIZE));
     r.set_horizontal();
     r.set_lr_mode(LRMode::Normal);
-    r.set_shift_amount(0);
+    r.set_shift_amount(Scaled::ZERO);
     let mut q = r.ptr() + 5;
     r.set_list_ptr(popt.tex_int());
-    let mut h = 0;
-    let mut d = 0;
-    let mut x = 0;
-    total_stretch[NORMAL as usize] = 0;
-    total_shrink[NORMAL as usize] = 0;
-    total_stretch[FIL as usize] = 0;
-    total_shrink[FIL as usize] = 0;
-    total_stretch[FILL as usize] = 0;
-    total_shrink[FILL as usize] = 0;
-    total_stretch[FILLL as usize] = 0;
-    total_shrink[FILLL as usize] = 0;
+    let mut h = Scaled::ZERO;
+    let mut d = Scaled::ZERO;
+    let mut x = Scaled::ZERO;
+    total_stretch[NORMAL as usize] = Scaled::ZERO;
+    total_shrink[NORMAL as usize] = Scaled::ZERO;
+    total_stretch[FIL as usize] = Scaled::ZERO;
+    total_shrink[FIL as usize] = Scaled::ZERO;
+    total_stretch[FILL as usize] = Scaled::ZERO;
+    total_shrink[FILL as usize] = Scaled::ZERO;
+    total_stretch[FILLL as usize] = Scaled::ZERO;
+    total_shrink[FILLL as usize] = Scaled::ZERO;
     if *INTPAR(IntPar::texxet) > 0 {
         /*1497: */
         let mut tmp_ptr = Math(get_avail());
@@ -10123,25 +10108,25 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
     }
     r.set_width(w);
     x = w - x;
-    if x == 0 {
+    if x == Scaled::ZERO {
         r.set_glue_sign(GlueSign::Normal)
             .set_glue_order(GlueOrder::Normal)
             .set_glue_set(0.);
         return exit(r, q);
-    } else if x > 0 {
+    } else if x > Scaled::ZERO {
         /*683: */
-        let o = if total_stretch[GlueOrder::Filll as usize] != 0 {
+        let o = if total_stretch[GlueOrder::Filll as usize] != Scaled::ZERO {
             GlueOrder::Filll
-        } else if total_stretch[GlueOrder::Fill as usize] != 0 {
+        } else if total_stretch[GlueOrder::Fill as usize] != Scaled::ZERO {
             GlueOrder::Fill
-        } else if total_stretch[GlueOrder::Fil as usize] != 0 {
+        } else if total_stretch[GlueOrder::Fil as usize] != Scaled::ZERO {
             GlueOrder::Fil
         } else {
             GlueOrder::Normal
         }; /*normal *//*:684 */
         r.set_glue_order(o).set_glue_sign(GlueSign::Stretching);
-        if total_stretch[o as usize] != 0 {
-            r.set_glue_set(x as f64 / total_stretch[o as usize] as f64);
+        if total_stretch[o as usize] != Scaled::ZERO {
+            r.set_glue_set(x.0 as f64 / total_stretch[o as usize].0 as f64);
         } else {
             r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
         }
@@ -10164,18 +10149,18 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
         }
         return exit(r, q);
     } else {
-        let o = if total_shrink[GlueOrder::Filll as usize] != 0 {
+        let o = if total_shrink[GlueOrder::Filll as usize] != Scaled::ZERO {
             GlueOrder::Filll
-        } else if total_shrink[GlueOrder::Fill as usize] != 0 {
+        } else if total_shrink[GlueOrder::Fill as usize] != Scaled::ZERO {
             GlueOrder::Fill
-        } else if total_shrink[GlueOrder::Fil as usize] != 0 {
+        } else if total_shrink[GlueOrder::Fil as usize] != Scaled::ZERO {
             GlueOrder::Fil
         } else {
             GlueOrder::Normal
         };
         r.set_glue_order(o).set_glue_sign(GlueSign::Shrinking);
-        if total_shrink[o as usize] != 0 {
-            r.set_glue_set(-x as f64 / total_shrink[o as usize] as f64);
+        if total_shrink[o as usize] != Scaled::ZERO {
+            r.set_glue_set(-x.0 as f64 / total_shrink[o as usize].0 as f64);
         } else {
             r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
         }
@@ -10184,15 +10169,15 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
             r.set_glue_set(1.);
             if -x - total_shrink[0] > *DIMENPAR(DimenPar::hfuzz) || *INTPAR(IntPar::hbadness) < 100
             {
-                if *DIMENPAR(DimenPar::overfull_rule) > 0
+                if *DIMENPAR(DimenPar::overfull_rule) > Scaled::ZERO
                     && -x - total_shrink[0] > *DIMENPAR(DimenPar::hfuzz)
                 {
                     while let Some(next) = LLIST_link(q as usize).opt() {
                         q = next;
                     }
-                    *LLIST_link(q as usize) = Some(new_rule()).tex_int();
+                    *LLIST_link(q as usize) = Some(new_rule().ptr()).tex_int();
                     MEM[(*LLIST_link(q as usize) + 1) as usize].b32.s1 =
-                        *DIMENPAR(DimenPar::overfull_rule)
+                        (*DIMENPAR(DimenPar::overfull_rule)).0
                 }
                 print_ln();
                 print_nl_cstr("Overfull \\hbox (");
@@ -10250,7 +10235,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
                 } /*:673 */
                 loop {
                     let tmp_ptr = q;
-                    q = new_math(0, Math(LR_ptr as usize).subtype_i32());
+                    q = new_math(Scaled::ZERO, Math(LR_ptr as usize).subtype_i32());
                     *LLIST_link(tmp_ptr) = Some(q).tex_int();
                     LR_problems = LR_problems + 10000;
                     let tmp_ptr = LR_ptr as usize;
@@ -10286,9 +10271,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: scaled_t, m: PackMode
 }
 pub(crate) unsafe fn vpackage(
     mut popt: Option<usize>,
-    mut h: scaled_t,
+    mut h: Scaled,
     mut m: PackMode,
-    mut l: scaled_t,
+    mut l: Scaled,
 ) -> List {
     last_badness = 0;
     let mut r = List::from(get_node(BOX_NODE_SIZE) as usize);
@@ -10298,19 +10283,19 @@ pub(crate) unsafe fn vpackage(
     } else {
         LRMode::Normal
     });
-    r.set_shift_amount(0);
+    r.set_shift_amount(Scaled::ZERO);
     r.set_list_ptr(popt.tex_int());
-    let mut w = 0;
-    let mut d = 0;
-    let mut x = 0;
-    total_stretch[NORMAL as usize] = 0;
-    total_shrink[NORMAL as usize] = 0;
-    total_stretch[FIL as usize] = 0;
-    total_shrink[FIL as usize] = 0;
-    total_stretch[FILL as usize] = 0;
-    total_shrink[FILL as usize] = 0;
-    total_stretch[FILLL as usize] = 0;
-    total_shrink[FILLL as usize] = 0;
+    let mut w = Scaled::ZERO;
+    let mut d = Scaled::ZERO;
+    let mut x = Scaled::ZERO;
+    total_stretch[NORMAL as usize] = Scaled::ZERO;
+    total_shrink[NORMAL as usize] = Scaled::ZERO;
+    total_stretch[FIL as usize] = Scaled::ZERO;
+    total_shrink[FIL as usize] = Scaled::ZERO;
+    total_stretch[FILL as usize] = Scaled::ZERO;
+    total_shrink[FILL as usize] = Scaled::ZERO;
+    total_stretch[FILLL as usize] = Scaled::ZERO;
+    total_shrink[FILLL as usize] = Scaled::ZERO;
     while let Some(p) = popt {
         /*694: */
         match &TxtNode::from(p) {
@@ -10339,7 +10324,7 @@ pub(crate) unsafe fn vpackage(
             },
             TxtNode::Glue(p) => {
                 x += d;
-                d = 0;
+                d = Scaled::ZERO;
                 let g = GlueSpec(p.glue_ptr() as usize);
                 x += g.size();
                 let o = g.stretch_order() as usize;
@@ -10353,7 +10338,7 @@ pub(crate) unsafe fn vpackage(
             }
             TxtNode::Kern(k) => {
                 x += d + k.width();
-                d = 0;
+                d = Scaled::ZERO;
             }
             _ => {}
         }
@@ -10371,24 +10356,24 @@ pub(crate) unsafe fn vpackage(
     }
     r.set_height(h);
     x = h - x;
-    if x == 0 {
+    if x == Scaled::ZERO {
         r.set_glue_sign(GlueSign::Normal)
             .set_glue_order(GlueOrder::Normal)
             .set_glue_set(0.);
-    } else if x > 0 {
+    } else if x > Scaled::ZERO {
         /*698: */
-        let o = if total_stretch[FILLL as usize] != 0 {
+        let o = if total_stretch[FILLL as usize] != Scaled::ZERO {
             GlueOrder::Filll
-        } else if total_stretch[FILL as usize] != 0 {
+        } else if total_stretch[FILL as usize] != Scaled::ZERO {
             GlueOrder::Fill
-        } else if total_stretch[FIL as usize] != 0 {
+        } else if total_stretch[FIL as usize] != Scaled::ZERO {
             GlueOrder::Fil
         } else {
             GlueOrder::Normal
         }; /*normal *//*:684 */
         r.set_glue_order(o).set_glue_sign(GlueSign::Stretching);
-        if total_stretch[o as usize] != 0 {
-            r.set_glue_set(x as f64 / total_stretch[o as usize] as f64);
+        if total_stretch[o as usize] != Scaled::ZERO {
+            r.set_glue_set(x.0 as f64 / total_stretch[o as usize].0 as f64);
         } else {
             r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
         }
@@ -10410,18 +10395,18 @@ pub(crate) unsafe fn vpackage(
             }
         }
     } else {
-        let o = if total_shrink[FILLL as usize] != 0 {
+        let o = if total_shrink[FILLL as usize] != Scaled::ZERO {
             GlueOrder::Filll
-        } else if total_shrink[FILL as usize] != 0 {
+        } else if total_shrink[FILL as usize] != Scaled::ZERO {
             GlueOrder::Fill
-        } else if total_shrink[FIL as usize] != 0 {
+        } else if total_shrink[FIL as usize] != Scaled::ZERO {
             GlueOrder::Fil
         } else {
             GlueOrder::Normal
         };
         r.set_glue_order(o).set_glue_sign(GlueSign::Shrinking);
-        if total_shrink[o as usize] != 0 {
-            r.set_glue_set(-x as f64 / total_shrink[o as usize] as f64);
+        if total_shrink[o as usize] != Scaled::ZERO {
+            r.set_glue_set(-x.0 as f64 / total_shrink[o as usize].0 as f64);
         } else {
             r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
         }
@@ -10475,12 +10460,12 @@ pub(crate) unsafe fn append_to_vlist(b: List) {
     upwards = *INTPAR(IntPar::xetex_upwards) > 0;
     if cur_list.aux.b32.s1 > IGNORE_DEPTH {
         let d = if upwards {
-            MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
-                - cur_list.aux.b32.s1
+            Scaled(MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1)
+                - Scaled(cur_list.aux.b32.s1)
                 - b.depth()
         } else {
-            MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1
-                - cur_list.aux.b32.s1
+            Scaled(MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1)
+                - Scaled(cur_list.aux.b32.s1)
                 - b.height()
         };
         let p = if d < *DIMENPAR(DimenPar::line_skip_limit) {
@@ -10495,7 +10480,7 @@ pub(crate) unsafe fn append_to_vlist(b: List) {
     }
     *LLIST_link(cur_list.tail) = Some(b.ptr()).tex_int();
     cur_list.tail = b.ptr();
-    cur_list.aux.b32.s1 = if upwards { b.height() } else { b.depth() };
+    cur_list.aux.b32.s1 = (if upwards { b.height() } else { b.depth() }).0;
 }
 pub(crate) unsafe fn new_noad() -> usize {
     let p = get_node(NOAD_SIZE);
@@ -10690,7 +10675,7 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
         *LLIST_link(ca2) = Some(ca).tex_int();
         cur_align = Some(ca);
         MEM[ca].b32.s0 = END_SPAN as i32;
-        MEM[ca + 1].b32.s1 = NULL_FLAG;
+        MEM[ca + 1].b32.s1 = NULL_FLAG.0;
         MEM[ca + 3].b32.s1 = *LLIST_link(HOLD_HEAD);
         p = HOLD_HEAD as i32;
         *LLIST_link(p as usize) = None.tex_int();
@@ -10786,7 +10771,7 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
             *LLIST_link(q) = Some(nb).tex_int(); /*:823 */
             p = Some(nb);
             MEM[nb].b32.s0 = END_SPAN as i32;
-            MEM[nb + 1].b32.s1 = NULL_FLAG;
+            MEM[nb + 1].b32.s1 = NULL_FLAG.0;
             let cl = *LLIST_link(cl) as usize;
             cur_loop = Some(cl);
             let mut q = HOLD_HEAD;
@@ -10839,14 +10824,23 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
         if cur_list.mode == (true, ListMode::HMode) {
             adjust_tail = cur_tail;
             pre_adjust_tail = cur_pre_tail;
-            u = hpack(MEM[cur_list.head].b32.s1.opt(), 0, PackMode::Additional);
+            u = hpack(
+                MEM[cur_list.head].b32.s1.opt(),
+                Scaled::ZERO,
+                PackMode::Additional,
+            );
             w = u.width();
             cur_tail = adjust_tail;
             adjust_tail = None;
             cur_pre_tail = pre_adjust_tail;
             pre_adjust_tail = None;
         } else {
-            u = vpackage(MEM[cur_list.head].b32.s1.opt(), 0, PackMode::Additional, 0);
+            u = vpackage(
+                MEM[cur_list.head].b32.s1.opt(),
+                Scaled::ZERO,
+                PackMode::Additional,
+                Scaled::ZERO,
+            );
             w = u.height();
         }
         let mut n = 0;
@@ -10872,32 +10866,32 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
                 MEM[s].b32.s0 = MEM[q].b32.s0;
                 MEM[s].b32.s1 = n;
                 MEM[q].b32.s0 = Some(s).tex_int();
-                MEM[s + 1].b32.s1 = w
-            } else if MEM[(MEM[q].b32.s0 + 1) as usize].b32.s1 < w {
-                MEM[(MEM[q].b32.s0 + 1) as usize].b32.s1 = w
+                MEM[s + 1].b32.s1 = w.0
+            } else if Scaled(MEM[(MEM[q].b32.s0 + 1) as usize].b32.s1) < w {
+                MEM[(MEM[q].b32.s0 + 1) as usize].b32.s1 = w.0;
             }
-        } else if w > MEM[ca + 1].b32.s1 {
-            MEM[ca + 1].b32.s1 = w
+        } else if w > Scaled(MEM[ca + 1].b32.s1) {
+            MEM[ca + 1].b32.s1 = w.0
         }
         let mut u = Unset::from(u.ptr());
         set_NODE_type(u.ptr(), TextNode::Unset);
         u.set_columns(n as u16);
-        let o = if total_stretch[FILLL as usize] != 0 {
+        let o = if total_stretch[FILLL as usize] != Scaled::ZERO {
             GlueOrder::Filll
-        } else if total_stretch[FILL as usize] != 0 {
+        } else if total_stretch[FILL as usize] != Scaled::ZERO {
             GlueOrder::Fill
-        } else if total_stretch[FIL as usize] != 0 {
+        } else if total_stretch[FIL as usize] != Scaled::ZERO {
             GlueOrder::Fil
         } else {
             GlueOrder::Normal
         };
         u.set_stretch_order(o);
         u.set_stretch(total_stretch[o as usize]);
-        let o = if total_shrink[FILLL as usize] != 0 {
+        let o = if total_shrink[FILLL as usize] != Scaled::ZERO {
             GlueOrder::Filll
-        } else if total_shrink[FILL as usize] != 0 {
+        } else if total_shrink[FILL as usize] != Scaled::ZERO {
             GlueOrder::Fill
-        } else if total_shrink[FIL as usize] != 0 {
+        } else if total_shrink[FIL as usize] != Scaled::ZERO {
             GlueOrder::Fil
         } else {
             GlueOrder::Normal
@@ -10930,7 +10924,11 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
 pub(crate) unsafe fn fin_row(input: &mut input_state_t) {
     let p;
     if cur_list.mode == (true, ListMode::HMode) {
-        p = hpack(MEM[cur_list.head].b32.s1.opt(), 0, PackMode::Additional);
+        p = hpack(
+            MEM[cur_list.head].b32.s1.opt(),
+            Scaled::ZERO,
+            PackMode::Additional,
+        );
         pop_nest();
         if cur_pre_head != cur_pre_tail {
             *LLIST_link(cur_list.tail) = MEM[cur_pre_head.unwrap()].b32.s1;
@@ -10944,9 +10942,9 @@ pub(crate) unsafe fn fin_row(input: &mut input_state_t) {
     } else {
         p = vpackage(
             MEM[cur_list.head].b32.s1.opt(),
-            0,
+            Scaled::ZERO,
             PackMode::Additional,
-            MAX_HALFWORD,
+            Scaled::MAX_HALFWORD,
         );
         pop_nest();
         *LLIST_link(cur_list.tail) = Some(p.ptr()).tex_int();
@@ -10955,17 +10953,15 @@ pub(crate) unsafe fn fin_row(input: &mut input_state_t) {
     }
     let mut p = Unset::from(p.ptr());
     set_NODE_type(p.ptr(), TextNode::Unset);
-    p.set_stretch(0);
+    p.set_stretch(Scaled::ZERO);
     if let Some(ecr) = LOCAL(Local::every_cr).opt() {
         begin_token_list(input, ecr, Btl::EveryCRText);
     }
     align_peek(input);
 }
 pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
-    let mut t: scaled_t = 0;
-    let mut w: scaled_t = 0;
     let mut n: i32 = 0;
-    let mut rule_save: scaled_t = 0;
+    let mut rule_save: Scaled = Scaled::ZERO;
     let mut aux_save: memory_word = memory_word {
         b32: b32x2 { s0: 0, s1: 0 },
     };
@@ -10980,14 +10976,14 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
     let o = if NEST[(NEST_PTR - 1) as usize].mode == (false, ListMode::MMode) {
         *DIMENPAR(DimenPar::display_indent)
     } else {
-        0
+        Scaled::ZERO
     };
     let mut q = MEM[*LLIST_link(ALIGN_HEAD) as usize].b32.s1 as usize;
     loop {
         flush_list(MEM[q + 3].b32.s1.opt());
         flush_list(MEM[q + 2].b32.s1.opt());
         let p = MEM[*LLIST_link(q) as usize].b32.s1.opt();
-        if MEM[q + 1].b32.s1 == NULL_FLAG {
+        if Scaled(MEM[q + 1].b32.s1) == NULL_FLAG {
             /*831: */
             MEM[q + 1].b32.s1 = 0;
             let r = *LLIST_link(q) as usize;
@@ -11000,7 +10996,7 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
         }
         if MEM[q].b32.s0 != END_SPAN as i32 {
             /*832: */
-            t = MEM[q + 1].b32.s1
+            let t = MEM[q + 1].b32.s1
                 + MEM[(MEM[(*LLIST_link(q) + 1) as usize].b32.s0 + 1) as usize]
                     .b32
                     .s1; /*:833 */
@@ -11035,12 +11031,12 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
         let mut q_unset = Unset::from(q);
         set_NODE_type(q_unset.ptr(), TextNode::Unset);
         q_unset.set_columns(0);
-        q_unset.set_height(0).set_depth(0);
+        q_unset.set_height(Scaled::ZERO).set_depth(Scaled::ZERO);
         q_unset
             .set_stretch_order(GlueOrder::Normal)
             .set_shrink_order(GlueOrder::Normal)
-            .set_stretch(0)
-            .set_shrink(0);
+            .set_stretch(Scaled::ZERO)
+            .set_shrink(Scaled::ZERO);
         if let Some(pp) = p {
             q = pp;
         } else {
@@ -11052,10 +11048,10 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
     let p;
     if cur_list.mode == (true, ListMode::VMode) {
         rule_save = *DIMENPAR(DimenPar::overfull_rule);
-        *DIMENPAR(DimenPar::overfull_rule) = 0;
+        *DIMENPAR(DimenPar::overfull_rule) = Scaled::ZERO;
         p = hpack(
             llist_link(ALIGN_HEAD),
-            SAVE_STACK[SAVE_PTR + 1].val,
+            Scaled(SAVE_STACK[SAVE_PTR + 1].val),
             PackMode::from(SAVE_STACK[SAVE_PTR + 0].val),
         );
         *DIMENPAR(DimenPar::overfull_rule) = rule_save
@@ -11072,9 +11068,9 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
         }
         p = vpackage(
             llist_link(ALIGN_HEAD),
-            SAVE_STACK[SAVE_PTR + 1].val,
+            Scaled(SAVE_STACK[SAVE_PTR + 1].val),
             PackMode::from(SAVE_STACK[SAVE_PTR + 0].val),
-            MAX_HALFWORD,
+            Scaled::MAX_HALFWORD,
         );
         let mut q = MEM[*LLIST_link(ALIGN_HEAD) as usize].b32.s1 as usize;
         loop {
@@ -11114,8 +11110,8 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
                 loop {
                     /*837: */
                     n = MEM[r].b16.s0 as i32; /*840: */
-                    t = BaseBox(s).width(); // TODO: check
-                    w = t;
+                    let mut t = BaseBox(s).width(); // TODO: check
+                    let w = t;
                     let mut u = HOLD_HEAD;
                     MEM[r].b16.s0 = 0;
                     while n > 0 {
@@ -11129,11 +11125,11 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
                         t += v.size();
                         if p.glue_sign() == GlueSign::Stretching {
                             if v.stretch_order() == p.glue_order() {
-                                t += tex_round(p.glue_set() * v.stretch() as f64);
+                                t += tex_round(p.glue_set() * v.stretch().0 as f64);
                             }
                         } else if p.glue_sign() == GlueSign::Shrinking {
                             if v.shrink_order() == p.glue_order() {
-                                t -= tex_round(p.glue_set() * v.shrink() as f64);
+                                t -= tex_round(p.glue_set() * v.shrink().0 as f64);
                             }
                         }
                         s = *LLIST_link(s) as usize;
@@ -11160,24 +11156,24 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
                                 .set_glue_set(0.);
                         } else if t > r_unset.width() {
                             r_box.set_glue_sign(GlueSign::Stretching).set_glue_set(
-                                if r_unset.stretch() == 0 {
+                                if r_unset.stretch() == Scaled::ZERO {
                                     0.
                                 } else {
-                                    (t - r_unset.width()) as f64 / r_unset.stretch() as f64
+                                    (t - r_unset.width()).0 as f64 / r_unset.stretch().0 as f64
                                 },
                             );
                         } else {
                             r_box
                                 .set_glue_order(r_unset.shrink_order())
                                 .set_glue_sign(GlueSign::Shrinking);
-                            r_box.set_glue_set(if r_unset.shrink() == 0 {
+                            r_box.set_glue_set(if r_unset.shrink() == Scaled::ZERO {
                                 0.
                             } else if r_box.glue_order() == GlueOrder::Normal
                                 && r_unset.width() - t > r_unset.shrink()
                             {
                                 1.
                             } else {
-                                (r_unset.width() - t) as f64 / r_unset.shrink() as f64
+                                (r_unset.width() - t).0 as f64 / r_unset.shrink().0 as f64
                                 // BOX_glue
                             });
                         }
@@ -11192,30 +11188,30 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
                                 .set_glue_set(0.);
                         } else if t > r_unset.height() {
                             r_box.set_glue_sign(GlueSign::Stretching).set_glue_set(
-                                if r_unset.stretch() == 0 {
+                                if r_unset.stretch() == Scaled::ZERO {
                                     0.
                                 } else {
-                                    (t - r_unset.height()) as f64 / r_unset.stretch() as f64
+                                    (t - r_unset.height()).0 as f64 / r_unset.stretch().0 as f64
                                 },
                             );
                         } else {
                             r_box
                                 .set_glue_order(r_unset.shrink_order())
                                 .set_glue_sign(GlueSign::Shrinking);
-                            r_box.set_glue_set(if r_unset.shrink() == 0 {
+                            r_box.set_glue_set(if r_unset.shrink() == Scaled::ZERO {
                                 0.
                             } else if r_box.glue_order() == GlueOrder::Normal
                                 && r_unset.height() - t > r_unset.shrink()
                             {
                                 1.
                             } else {
-                                (r_unset.height() - t) as f64 / r_unset.shrink() as f64
+                                (r_unset.height() - t).0 as f64 / r_unset.shrink().0 as f64
                             });
                         }
                         r_box.set_height(w);
                         r_box.set_vertical();
                     }
-                    r_box.set_shift_amount(0);
+                    r_box.set_shift_amount(Scaled::ZERO);
                     if u != HOLD_HEAD {
                         *LLIST_link(u) = *LLIST_link(r);
                         *LLIST_link(r) = *LLIST_link(HOLD_HEAD);
@@ -11241,10 +11237,10 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
                 if q_rule.depth() == NULL_FLAG {
                     q_rule.set_depth(p.depth());
                 }
-                if o != 0 {
+                if o != Scaled::ZERO {
                     let r = *LLIST_link(q);
                     *LLIST_link(q) = None.tex_int();
-                    let mut q_box = hpack(Some(q), 0, PackMode::Additional);
+                    let mut q_box = hpack(Some(q), Scaled::ZERO, PackMode::Additional);
                     q_box.set_shift_amount(o);
                     q = q_box.ptr();
                     *LLIST_link(q) = r;
@@ -11510,7 +11506,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
                 } else {
                     print_cmd_chr(j, 1);
                 }
-                print_scaled(i.abs());
+                print_scaled(Scaled(i.abs()));
                 print_cstr("pt");
             } else if i < SHIP_OUT_FLAG {
                 if i >= GLOBAL_BOX_FLAG {
@@ -11536,7 +11532,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
             } else {
                 print_cstr("spread");
             }
-            print_scaled(SAVE_STACK[SAVE_PTR1 - 2].val);
+            print_scaled(Scaled(SAVE_STACK[SAVE_PTR1 - 2].val));
             print_cstr("pt");
         }
         found2(p, a)
@@ -11572,12 +11568,12 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
         a = new_a;
     }
 }
-pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) -> i32 {
+pub(crate) unsafe fn vert_break(mut p: i32, mut h: Scaled, mut d: Scaled) -> i32 {
     let mut best_place = None;
     let mut prev_p = p;
     let mut least_cost = MAX_HALFWORD;
     active_width = DeltaSize::new();
-    let mut prev_dp = 0;
+    let mut prev_dp = Scaled::ZERO;
     loop {
         if let Some(p) = p.opt() {
             /*1008: */
@@ -11623,30 +11619,31 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         _ => unreachable!(),
                     } /*:1014*/
                     active_width.shrink += q.shrink();
-                    let width = if q.shrink_order() != GlueOrder::Normal && q.shrink() != 0 {
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
+                    let width =
+                        if q.shrink_order() != GlueOrder::Normal && q.shrink() != Scaled::ZERO {
+                            if file_line_error_style_p != 0 {
+                                print_file_line();
+                            } else {
+                                print_nl_cstr("! ");
+                            }
+                            print_cstr("Infinite glue shrinkage found in box being split");
+                            help!(
+                                "The box you are \\vsplitting contains some infinitely",
+                                "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
+                                "Such glue doesn\'t belong there; but you can safely proceed,",
+                                "since the offensive shrinkability has been made finite."
+                            );
+                            error();
+                            let mut r = GlueSpec(new_spec(q.ptr()));
+                            r.set_shrink_order(GlueOrder::Normal);
+                            delete_glue_ref(q.ptr());
+                            g.set_glue_ptr(Some(r.ptr()).tex_int());
+                            r.size()
                         } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Infinite glue shrinkage found in box being split");
-                        help!(
-                            "The box you are \\vsplitting contains some infinitely",
-                            "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
-                            "Such glue doesn\'t belong there; but you can safely proceed,",
-                            "since the offensive shrinkability has been made finite."
-                        );
-                        error();
-                        let mut r = GlueSpec(new_spec(q.ptr()));
-                        r.set_shrink_order(GlueOrder::Normal);
-                        delete_glue_ref(q.ptr());
-                        g.set_glue_ptr(Some(r.ptr()).tex_int());
-                        r.size()
-                    } else {
-                        q.size()
-                    };
+                            q.size()
+                        };
                     active_width.width += prev_dp + width;
-                    prev_dp = 0;
+                    prev_dp = Scaled::ZERO;
                 }
                 TxtNode::Kern(k) => {
                     match llist_link(p).map(|next| Node::from(next)) {
@@ -11659,7 +11656,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
                         _ => {}
                     }
                     active_width.width += prev_dp + k.width();
-                    prev_dp = 0;
+                    prev_dp = Scaled::ZERO;
                 }
                 TxtNode::Penalty(pen) => {
                     if with_penalty(
@@ -11679,9 +11676,9 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
         } else {
             // TODO: remove unreachable
             let mut b = if active_width.width < h {
-                if active_width.stretch1 != 0
-                    || active_width.stretch2 != 0
-                    || active_width.stretch3 != 0
+                if active_width.stretch1 != Scaled::ZERO
+                    || active_width.stretch2 != Scaled::ZERO
+                    || active_width.stretch3 != Scaled::ZERO
                 {
                     0
                 } else {
@@ -11713,16 +11710,16 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
     unsafe fn with_penalty(
         p: usize,
         pi: i32,
-        h: i32,
-        prev_dp: &mut i32,
+        h: Scaled,
+        prev_dp: &mut Scaled,
         best_place: &mut Option<usize>,
         least_cost: &mut i32,
     ) -> bool {
         if pi < INF_PENALTY {
             let mut b = if active_width.width < h {
-                if active_width.stretch1 != 0
-                    || active_width.stretch2 != 0
-                    || active_width.stretch3 != 0
+                if active_width.stretch1 != Scaled::ZERO
+                    || active_width.stretch2 != Scaled::ZERO
+                    || active_width.stretch3 != Scaled::ZERO
                 {
                     0
                 } else {
@@ -11754,7 +11751,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: scaled_t, mut d: scaled_t) ->
         false
     }
 }
-pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
+pub(crate) unsafe fn vsplit(mut n: i32, mut h: Scaled) -> Option<usize> {
     let val = n;
     let v = if val < 256 {
         BOX_REG(val as usize).opt()
@@ -11838,7 +11835,15 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
     let p = v.list_ptr().opt();
     free_node(v.ptr(), BOX_NODE_SIZE);
     let q = if let Some(q) = q {
-        Some(vpackage(Some(q), 0, PackMode::Additional, MAX_HALFWORD).ptr())
+        Some(
+            vpackage(
+                Some(q),
+                Scaled::ZERO,
+                PackMode::Additional,
+                Scaled::MAX_HALFWORD,
+            )
+            .ptr(),
+        )
     } else {
         None
     };
@@ -11864,27 +11869,27 @@ pub(crate) unsafe fn vsplit(mut n: i32, mut h: scaled_t) -> Option<usize> {
 }
 pub(crate) unsafe fn print_totals() {
     print_scaled(page_so_far[1]);
-    if page_so_far[2] != 0 {
+    if page_so_far[2] != Scaled::ZERO {
         print_cstr(" plus ");
         print_scaled(page_so_far[2]);
         print_cstr("");
     }
-    if page_so_far[3] != 0 {
+    if page_so_far[3] != Scaled::ZERO {
         print_cstr(" plus ");
         print_scaled(page_so_far[3]);
         print_cstr("fil");
     }
-    if page_so_far[4] != 0 {
+    if page_so_far[4] != Scaled::ZERO {
         print_cstr(" plus ");
         print_scaled(page_so_far[4]);
         print_cstr("fill");
     }
-    if page_so_far[5] != 0 {
+    if page_so_far[5] != Scaled::ZERO {
         print_cstr(" plus ");
         print_scaled(page_so_far[5]);
         print_cstr("filll");
     }
-    if page_so_far[6] != 0 {
+    if page_so_far[6] != Scaled::ZERO {
         print_cstr(" minus ");
         print_scaled(page_so_far[6]);
     };
@@ -11914,9 +11919,9 @@ pub(crate) unsafe fn app_space() {
                     let main_p = new_spec(0);
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
                     GlueSpec(main_p)
-                        .set_size(FONT_INFO[main_k as usize].b32.s1)
-                        .set_stretch(FONT_INFO[(main_k + 1) as usize].b32.s1)
-                        .set_shrink(FONT_INFO[(main_k + 2) as usize].b32.s1);
+                        .set_size(Scaled(FONT_INFO[main_k as usize].b32.s1))
+                        .set_stretch(Scaled(FONT_INFO[(main_k + 1) as usize].b32.s1))
+                        .set_shrink(Scaled(FONT_INFO[(main_k + 2) as usize].b32.s1));
                     FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
                     main_p
                 })
@@ -11925,14 +11930,16 @@ pub(crate) unsafe fn app_space() {
         if cur_list.aux.b32.s0 >= 2000 {
             main_p.set_size(
                 main_p.size()
-                    + FONT_INFO
-                        [(EXTRA_SPACE_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
-                        .b32
-                        .s1,
+                    + Scaled(
+                        FONT_INFO[(EXTRA_SPACE_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize])
+                            as usize]
+                            .b32
+                            .s1,
+                    ),
             );
         }
-        main_p.set_stretch(xn_over_d(main_p.stretch(), cur_list.aux.b32.s0, 1000));
-        main_p.set_shrink(xn_over_d(main_p.shrink(), 1000, cur_list.aux.b32.s0));
+        main_p.set_stretch(xn_over_d(main_p.stretch(), Scaled(cur_list.aux.b32.s0), 1000).0);
+        main_p.set_shrink(xn_over_d(main_p.shrink(), Scaled(1000), cur_list.aux.b32.s0).0);
         q = new_glue(main_p.ptr());
         main_p.rc_none();
     }
@@ -11991,11 +11998,11 @@ pub(crate) unsafe fn its_all_over(input: &mut input_state_t, tok: i32, cmd: Cmd,
         let nb = new_null_box();
         *LLIST_link(cur_list.tail) = Some(nb).tex_int();
         cur_list.tail = nb;
-        MEM[cur_list.tail + 1].b32.s1 = *DIMENPAR(DimenPar::hsize);
+        MEM[cur_list.tail + 1].b32.s1 = (*DIMENPAR(DimenPar::hsize)).0;
         let g = new_glue(8);
         *LLIST_link(cur_list.tail) = Some(g).tex_int();
         cur_list.tail = g;
-        let p = new_penalty(NULL_FLAG);
+        let p = new_penalty(NULL_FLAG.0);
         *LLIST_link(cur_list.tail) = Some(p).tex_int();
         cur_list.tail = p;
         build_page(input);
@@ -12118,7 +12125,7 @@ pub(crate) unsafe fn normal_paragraph() {
     if *INTPAR(IntPar::looseness) != 0 {
         eq_word_define(INT_BASE as usize + (IntPar::looseness as usize), 0i32);
     }
-    if *DIMENPAR(DimenPar::hang_indent) != 0 {
+    if *DIMENPAR(DimenPar::hang_indent) != Scaled::ZERO {
         eq_word_define(DIMEN_BASE as usize + (DimenPar::hang_indent as usize), 0i32);
     }
     if *INTPAR(IntPar::hang_after) != 1 {
@@ -12145,7 +12152,7 @@ pub(crate) unsafe fn box_end(input: &mut input_state_t, mut box_context: i32) {
     if box_context < BOX_FLAG {
         /*1111:*/
         if let Some(mut cb) = cur_box {
-            List::from(cb).set_shift_amount(box_context);
+            List::from(cb).set_shift_amount(Scaled(box_context));
             if cur_list.mode.1 == ListMode::VMode {
                 if let Some(a) = pre_adjust_tail {
                     if PRE_ADJUST_HEAD != a {
@@ -12349,7 +12356,7 @@ pub(crate) unsafe fn begin_box(
                                     flush_node_list(p.opt());
                                 }
                                 cur_box = Some(tx as usize);
-                                b.set_shift_amount(0);
+                                b.set_shift_amount(Scaled::ZERO);
                                 break;
                             }
                         }
@@ -12423,7 +12430,7 @@ pub(crate) unsafe fn scan_box(input: &mut input_state_t, mut box_context: i32) {
     if cmd == Cmd::MakeBox {
         begin_box(input, cmd, chr, box_context);
     } else if box_context >= LEADER_FLAG && (cmd == Cmd::HRule || cmd == Cmd::VRule) {
-        cur_box = Some(scan_rule_spec(input, cmd));
+        cur_box = Some(scan_rule_spec(input, cmd).ptr());
         box_end(input, box_context);
     } else {
         if file_line_error_style_p != 0 {
@@ -12451,7 +12458,7 @@ pub(crate) unsafe fn package(input: &mut input_state_t, c: i16) {
         cur_box = Some(
             hpack(
                 MEM[cur_list.head].b32.s1.opt(),
-                SAVE_STACK[SAVE_PTR + 2].val,
+                Scaled(SAVE_STACK[SAVE_PTR + 2].val),
                 PackMode::from(SAVE_STACK[SAVE_PTR + 1].val),
             )
             .ptr(),
@@ -12459,14 +12466,14 @@ pub(crate) unsafe fn package(input: &mut input_state_t, c: i16) {
     } else {
         let mut cb = vpackage(
             MEM[cur_list.head].b32.s1.opt(),
-            SAVE_STACK[SAVE_PTR + 2].val,
+            Scaled(SAVE_STACK[SAVE_PTR + 2].val),
             PackMode::from(SAVE_STACK[SAVE_PTR + 1].val),
             d,
         );
         cur_box = Some(cb.ptr());
         if c == BoxCode::VTop as i16 {
             /*1122: */
-            let mut h = 0;
+            let mut h = Scaled::ZERO;
             if let Some(p) = cb.list_ptr().opt() {
                 match Node::from(p) {
                     Node::Text(TxtNode::List(b)) => {
@@ -12957,13 +12964,13 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
     let val = scan_char_num(input);
     let mut f = EQTB[CUR_FONT_LOC].val as usize;
     if let Some(mut p) = new_character(f, val as UTF16_code) {
-        let mut lsb: scaled_t = 0;
-        let mut rsb: scaled_t = 0;
-        let x = FONT_INFO[(X_HEIGHT_CODE + PARAM_BASE[f]) as usize].b32.s1;
+        let mut lsb: Scaled = Scaled::ZERO;
+        let mut rsb: Scaled = Scaled::ZERO;
+        let x = Scaled(FONT_INFO[(X_HEIGHT_CODE + PARAM_BASE[f]) as usize].b32.s1);
         let s = FONT_INFO[(SLANT_CODE + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.;
         let a = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
             let a = NativeWord::from(p).width();
-            if a == 0 {
+            if a == Scaled::ZERO {
                 let (lsb_, rsb_) = get_native_char_sidebearings(nf, val);
                 lsb = lsb_;
                 rsb = rsb_;
@@ -13001,15 +13008,15 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
                 h = *FONT_CHARINFO_HEIGHT(f, i);
             }
             if h != x {
-                let mut p_box = hpack(Some(p), 0, PackMode::Additional);
+                let mut p_box = hpack(Some(p), Scaled::ZERO, PackMode::Additional);
                 p_box.set_shift_amount(x - h);
                 p = p_box.ptr();
             }
             let delta = match &FONT_LAYOUT_ENGINE[f] {
-                Font::Native(_) if a == 0 => {
-                    tex_round((w - lsb + rsb) as f64 / 2. + h as f64 * t - x as f64 * s)
+                Font::Native(_) if a == Scaled::ZERO => {
+                    tex_round((w - lsb + rsb).0 as f64 / 2. + h.0 as f64 * t - x.0 as f64 * s)
                 }
-                _ => tex_round((w - a) as f64 / 2. + h as f64 * t - x as f64 * s),
+                _ => tex_round((w - a).0 as f64 / 2. + h.0 as f64 * t - x.0 as f64 * s),
             };
             let mut r = Kern(new_kern(delta));
             r.set_subtype(KernType::AccKern);
@@ -13278,7 +13285,7 @@ pub(crate) unsafe fn just_reverse(p: usize) {
         just_copy(llist_link(p), TEMP_HEAD, None.tex_int());
         q = llist_link(TEMP_HEAD);
     }
-    let mut t = Edge(new_edge(cur_dir, 0));
+    let mut t = Edge(new_edge(cur_dir, Scaled::ZERO));
     let mut l = t.ptr();
     cur_dir = !cur_dir;
     while let Some(p) = q {
@@ -13391,15 +13398,17 @@ pub(crate) unsafe fn get_r_token(input: &mut input_state_t) -> (i32, Cmd, i32, i
     }
     (tok, cmd, chr, cs)
 }
-pub(crate) unsafe fn trap_zero_glue(val: &mut i32) {
-    if MEM[(*val + 1) as usize].b32.s1 == 0
-        && MEM[(*val + 2) as usize].b32.s1 == 0
-        && MEM[(*val + 3) as usize].b32.s1 == 0
+pub(crate) unsafe fn trap_zero_glue(val: i32) -> i32 {
+    if MEM[(val + 1) as usize].b32.s1 == 0
+        && MEM[(val + 2) as usize].b32.s1 == 0
+        && MEM[(val + 3) as usize].b32.s1 == 0
     {
         GlueSpec(0).rc_inc(); // TODO: check
-        delete_glue_ref(*val as usize);
-        *val = 0;
-    };
+        delete_glue_ref(val as usize);
+        0
+    } else {
+        val
+    }
 }
 pub(crate) unsafe fn do_register_command(
     input: &mut input_state_t,
@@ -13476,9 +13485,9 @@ pub(crate) unsafe fn do_register_command(
     let mut s = None.tex_int();
     if p < ValLevel::Glue {
         if e {
-            w = MEM[(l + 2) as usize].b32.s1
+            w = MEM[(l + 2) as usize].b32.s1;
         } else {
-            w = EQTB[l as usize].val
+            w = EQTB[l as usize].val;
         }
     } else if e {
         s = MEM[(l + 1) as usize].b32.s1
@@ -13499,7 +13508,7 @@ pub(crate) unsafe fn do_register_command(
                 let val = if p == ValLevel::Int {
                     scan_int(input)
                 } else {
-                    scan_dimen(input, false, false, None)
+                    scan_dimen(input, false, false, None).0
                 };
                 if q == Cmd::Advance {
                     val + w
@@ -13515,21 +13524,21 @@ pub(crate) unsafe fn do_register_command(
                     let r = GlueSpec(s as usize);
                     delete_glue_ref(val as usize);
                     q.set_size(q.size() + r.size());
-                    if q.stretch() == 0 {
+                    if q.stretch() == Scaled::ZERO {
                         q.set_stretch_order(GlueOrder::Normal);
                     }
                     if q.stretch_order() == r.stretch_order() {
                         q.set_stretch(q.stretch() + r.stretch());
-                    } else if q.stretch_order() < r.stretch_order() && r.stretch() != 0 {
+                    } else if q.stretch_order() < r.stretch_order() && r.stretch() != Scaled::ZERO {
                         q.set_stretch(r.stretch())
                             .set_stretch_order(r.stretch_order());
                     }
-                    if q.shrink() == 0 {
+                    if q.shrink() == Scaled::ZERO {
                         q.set_shrink_order(GlueOrder::Normal);
                     }
                     if q.shrink_order() == r.shrink_order() {
                         q.set_shrink(q.shrink() + r.shrink());
-                    } else if q.shrink_order() < r.shrink_order() && r.shrink() != 0 {
+                    } else if q.shrink_order() < r.shrink_order() && r.shrink() != Scaled::ZERO {
                         q.set_shrink(r.shrink()).set_shrink_order(r.shrink_order());
                     }
                     q.ptr() as i32
@@ -13546,23 +13555,23 @@ pub(crate) unsafe fn do_register_command(
                     if p == ValLevel::Int {
                         mult_and_add(w, val, 0, TEX_INFINITY)
                     } else {
-                        mult_and_add(w, val, 0, MAX_HALFWORD)
+                        Scaled(w).mul_add(val, Scaled::ZERO).0
                     }
                 } else {
-                    x_over_n(w, val)
+                    (x_over_n(Scaled(w), val).0).0
                 }
             }
             _ => {
                 let s_spec = GlueSpec(s as usize);
                 let mut r = GlueSpec(new_spec(s as usize));
                 if q == Cmd::Multiply {
-                    r.set_size(mult_and_add(s_spec.size(), val, 0, MAX_HALFWORD))
-                        .set_stretch(mult_and_add(s_spec.stretch(), val, 0, MAX_HALFWORD))
-                        .set_shrink(mult_and_add(s_spec.shrink(), val, 0, MAX_HALFWORD));
+                    r.set_size(s_spec.size().mul_add(val, Scaled::ZERO))
+                        .set_stretch(s_spec.stretch().mul_add(val, Scaled::ZERO))
+                        .set_shrink(s_spec.shrink().mul_add(val, Scaled::ZERO));
                 } else {
-                    r.set_size(x_over_n(s_spec.size(), val))
-                        .set_stretch(x_over_n(s_spec.stretch(), val))
-                        .set_shrink(x_over_n(s_spec.shrink(), val));
+                    r.set_size(x_over_n(s_spec.size(), val).0)
+                        .set_stretch(x_over_n(s_spec.stretch(), val).0)
+                        .set_shrink(x_over_n(s_spec.shrink(), val).0);
                 }
                 r.ptr() as i32
             }
@@ -13598,7 +13607,7 @@ pub(crate) unsafe fn do_register_command(
             eq_word_define(l as usize, val);
         }
     } else {
-        trap_zero_glue(&mut val);
+        let val = trap_zero_glue(val);
         if e {
             if a >= 4 {
                 gsa_def(l as usize, val.opt());
@@ -13620,7 +13629,7 @@ pub(crate) unsafe fn alter_aux(input: &mut input_state_t, cmd: Cmd, chr: i32) {
         scan_optional_equals(input);
         if c == ListMode::VMode as i32 {
             let val = scan_dimen(input, false, false, None);
-            cur_list.aux.b32.s1 = val;
+            cur_list.aux.b32.s1 = val.0;
         } else {
             let val = scan_int(input);
             if val <= 0 || val > 32767 {
@@ -13706,11 +13715,11 @@ pub(crate) unsafe fn alter_box_dimen(input: &mut input_state_t, chr: i32) {
     scan_optional_equals(input);
     let val = scan_dimen(input, false, false, None);
     if let Some(b) = b {
-        MEM[b + c].b32.s1 = val;
+        MEM[b + c].b32.s1 = val.0;
     };
 }
 pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
-    let mut s: scaled_t = 0;
+    let mut s: Scaled = Scaled::ZERO;
     if job_name == 0 {
         open_log_file();
     }
@@ -13746,7 +13755,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
         /*1294: */
         s = scan_dimen(input, false, false, None); /*:1293 */
         /*:79 */
-        if s <= 0 || s >= 0x8000000 {
+        if s <= Scaled::ZERO || s >= Scaled::from(2048) {
             if file_line_error_style_p != 0 {
                 print_file_line(); /*1318: */
             } else {
@@ -13760,11 +13769,11 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
                 "less than 2048pt, so I\'ve changed what you said to 10pt."
             );
             error();
-            s = (10_i64 * 65536) as scaled_t
+            s = Scaled::from(10);
         }
     } else if scan_keyword(input, b"scaled") {
         let val = scan_int(input);
-        s = -val;
+        s = Scaled(-val);
         if val <= 0 || val > 32768 {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -13774,10 +13783,10 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
             print_cstr("Illegal magnification has been changed to 1000");
             help!("The magnification ratio must be between 1 and 32768.");
             int_error(val);
-            s = -1000;
+            s = Scaled(-1000);
         }
     } else {
-        s = -1000;
+        s = Scaled(-1000);
     }
     name_in_progress = false;
 
@@ -13787,11 +13796,11 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
             && ((length(cur_area) == 0 && matches!(&FONT_LAYOUT_ENGINE[f], Font::Native(_)))
                 || PoolString::from(FONT_AREA[f]) == PoolString::from(cur_area))
         {
-            if s > 0 {
+            if s > Scaled::ZERO {
                 if s == FONT_SIZE[f] {
                     return common_ending(a, u, f, t);
                 }
-            } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000) {
+            } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000).0 {
                 return common_ending(a, u, f, t);
             }
         }
@@ -13802,11 +13811,11 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
             str_ptr -= 1;
             pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
-                if s > 0 {
+                if s > Scaled::ZERO {
                     if s == FONT_SIZE[f] {
                         return common_ending(a, u, f, t);
                     }
-                } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000) {
+                } else if FONT_SIZE[f] == xn_over_d(FONT_DSIZE[f], -s, 1000).0 {
                     return common_ending(a, u, f, t);
                 }
             }
@@ -14340,9 +14349,9 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
             SAVE_PTR -= 2;
             let p = vpackage(
                 MEM[cur_list.head].b32.s1.opt(),
-                0,
+                Scaled::ZERO,
                 PackMode::Additional,
-                MAX_HALFWORD,
+                Scaled::MAX_HALFWORD,
             );
             pop_nest();
             if SAVE_STACK[SAVE_PTR + 0].val < 255 {
@@ -14458,9 +14467,9 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
             SAVE_PTR -= 2;
             let p = vpackage(
                 MEM[cur_list.head].b32.s1.opt(),
-                SAVE_STACK[SAVE_PTR + 1].val,
+                Scaled(SAVE_STACK[SAVE_PTR + 1].val),
                 PackMode::from(SAVE_STACK[SAVE_PTR + 0].val),
-                MAX_HALFWORD,
+                Scaled::MAX_HALFWORD,
             );
             pop_nest();
             let n = new_noad();
@@ -14695,7 +14704,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                     (VMode, Cmd::HRule) | (HMode, Cmd::VRule) | (MMode, Cmd::VRule) => {
                         // 37 | 139 | 242
-                        let srs = scan_rule_spec(input, cur_cmd);
+                        let srs = scan_rule_spec(input, cur_cmd).ptr();
                         *LLIST_link(cur_list.tail) = Some(srs).tex_int();
                         cur_list.tail = srs;
                         if cur_list.mode.1 == ListMode::VMode {
@@ -14740,9 +14749,9 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         let t = cur_chr;
                         let val = scan_dimen(input, false, false, None);
                         if t == 0 {
-                            scan_box(input, val);
+                            scan_box(input, val.0);
                         } else {
-                            scan_box(input, -val);
+                            scan_box(input, -val.0);
                         }
                     }
                     (_, Cmd::LeaderShip) => {
@@ -14829,7 +14838,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                     (MMode, Cmd::ItalCorr) => {
                         // 251
-                        let k = new_kern(0);
+                        let k = new_kern(Scaled::ZERO);
                         *LLIST_link(cur_list.tail) = Some(k).tex_int();
                         cur_list.tail = k;
                     }
@@ -14861,7 +14870,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         // 137
                         if cur_chr > 0 {
                             if eTeX_enabled(*INTPAR(IntPar::texxet) > 0, cur_cmd, cur_chr) {
-                                let m = new_math(0, MathType::from(cur_chr as u16));
+                                let m = new_math(Scaled::ZERO, MathType::from(cur_chr as u16));
                                 *LLIST_link(cur_list.tail) = Some(m).tex_int();
                                 cur_list.tail = m;
                             }
@@ -15591,9 +15600,13 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 tmp_ptr.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
                                 let t = tmp_ptr.width() - native_pp.width() - native_tail.width();
                                 tmp_ptr.free();
-                                if t != MEM[(FONT_GLUE[main_f as usize] + 1) as usize].b32.s1 {
+                                if t != Scaled(
+                                    MEM[(FONT_GLUE[main_f as usize] + 1) as usize].b32.s1,
+                                ) {
                                     let mut tmp_ptr = Kern(new_kern(
-                                        t - MEM[(FONT_GLUE[main_f as usize] + 1) as usize].b32.s1,
+                                        t - Scaled(
+                                            MEM[(FONT_GLUE[main_f as usize] + 1) as usize].b32.s1,
+                                        ),
                                     ));
                                     tmp_ptr.set_subtype(KernType::SpaceAdjustment);
                                     *LLIST_link(tmp_ptr.ptr()) = *LLIST_link(main_p);
@@ -15776,14 +15789,14 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                             }
                                         }
                                     }
-                                    *LLIST_link(cur_list.tail) = new_kern(
+                                    *LLIST_link(cur_list.tail) = new_kern(Scaled(
                                         FONT_INFO[(KERN_BASE[main_f as usize]
                                             + 256 * main_j.s1 as i32
                                             + main_j.s0 as i32)
                                             as usize]
                                             .b32
                                             .s1,
-                                    )
+                                    ))
                                         as i32;
                                     cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                                     current_block = 2772858075894446251;
@@ -16203,9 +16216,9 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     let main_p = new_spec(0);
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
                     GlueSpec(main_p)
-                        .set_size(FONT_INFO[main_k as usize].b32.s1)
-                        .set_stretch(FONT_INFO[(main_k + 1) as usize].b32.s1)
-                        .set_shrink(FONT_INFO[(main_k + 2) as usize].b32.s1);
+                        .set_size(Scaled(FONT_INFO[main_k as usize].b32.s1))
+                        .set_stretch(Scaled(FONT_INFO[(main_k + 1) as usize].b32.s1))
+                        .set_shrink(Scaled(FONT_INFO[(main_k + 2) as usize].b32.s1));
                     FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
                     main_p
                 });
@@ -16316,7 +16329,7 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
                 if tmp_ptr.size() > b.height() {
                     tmp_ptr.set_size(tmp_ptr.size() - b.height());
                 } else {
-                    tmp_ptr.set_size(0);
+                    tmp_ptr.set_size(Scaled::ZERO);
                 }
                 popt = None;
             }
@@ -16327,7 +16340,7 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
                 if tmp_ptr.size() > r.height() {
                     tmp_ptr.set_size(tmp_ptr.size() - r.height());
                 } else {
-                    tmp_ptr.set_size(0);
+                    tmp_ptr.set_size(Scaled::ZERO);
                 }
                 popt = None;
             }

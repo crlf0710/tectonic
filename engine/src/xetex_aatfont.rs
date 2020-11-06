@@ -33,13 +33,13 @@ use crate::xetex_xetex0::font_feature_warning;
 use libc::{free, strlen};
 pub(crate) type Boolean = libc::c_uchar;
 
-type Fixed = i32;
+use crate::xetex_scaledmath::Scaled;
 type Fract = i32;
 #[derive(Copy, Clone)]
 #[repr(C, packed(2))]
 struct FixedPoint {
-    x: Fixed,
-    y: Fixed,
+    x: Scaled,
+    y: Scaled,
 }
 
 pub(crate) type str_number = i32;
@@ -96,7 +96,7 @@ unsafe fn PStoTeXPoints(mut pts: f64) -> f64 {
     return pts * 72.27f64 / 72.0f64;
 }
 #[inline]
-unsafe fn FixedPStoTeXPoints(mut pts: f64) -> Fixed {
+unsafe fn FixedPStoTeXPoints(mut pts: f64) -> Scaled {
     return D2Fix(PStoTeXPoints(pts));
 }
 
@@ -112,7 +112,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     let mut runCount: CFIndex = 0;
     let mut totalGlyphCount: CFIndex = 0;
     let mut glyphIDs: *mut u16 = ptr::null_mut();
-    let mut glyphAdvances: *mut Fixed = ptr::null_mut();
+    let mut glyphAdvances: *mut Scaled = ptr::null_mut();
     let mut glyph_info: *mut libc::c_void = ptr::null_mut();
     let mut locations: *mut FixedPoint = ptr::null_mut();
     let mut width: CGFloat = 0.;
@@ -137,7 +137,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
             let mut lineWidth: CGFloat = TeXtoPSPoints(Fix2D(node.width()));
             let mut justifiedLine: CTLineRef = CTLineCreateJustifiedLine(
                 line,
-                TeXtoPSPoints(Fix2D(0x40000000i64 as Fract)),
+                TeXtoPSPoints(Fix2D(Scaled(0x40000000))),
                 lineWidth,
             );
             // TODO(jjgod): how to handle the case when justification failed? for
@@ -155,8 +155,8 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
             locations = glyph_info as *mut FixedPoint;
             glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
             glyphAdvances = xmalloc(
-                (totalGlyphCount as usize).wrapping_mul(::std::mem::size_of::<Fixed>()) as _,
-            ) as *mut Fixed;
+                (totalGlyphCount as usize).wrapping_mul(::std::mem::size_of::<Scaled>()) as _,
+            ) as *mut Scaled;
             totalGlyphCount = 0i32 as CFIndex;
             width = 0i32 as CGFloat;
             i = 0i32 as CFIndex;
@@ -222,11 +222,11 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
                             -FixedPStoTeXPoints((*positions.offset(j as isize)).y)
                     }
                     *glyphAdvances.offset(totalGlyphCount as isize) =
-                        (*advances.offset(j as isize)).width as Fixed;
+                        Scaled((*advances.offset(j as isize)).width as i32);
                     totalGlyphCount += 1;
                     j += 1
                 }
-                width += FixedPStoTeXPoints(runWidth) as f64;
+                width += FixedPStoTeXPoints(runWidth).0 as f64;
                 free(glyphs as *mut libc::c_void);
                 free(positions as *mut libc::c_void);
                 free(advances as *mut libc::c_void);
@@ -239,16 +239,18 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     node.set_glyph_count(totalGlyphCount as u16);
     node.set_glyph_info_ptr(glyph_info);
     if !justify {
-        node.set_width(width as i32);
+        node.set_width(Scaled(width as i32));
         if totalGlyphCount > 0 {
             /* this is essentially a copy from similar code in XeTeX_ext.c, easier
              * to be done here */
-            if FONT_LETTER_SPACE[f as usize] != 0 {
-                let mut lsDelta: Fixed = 0i32;
-                let mut lsUnit: Fixed = FONT_LETTER_SPACE[f as usize];
+            if FONT_LETTER_SPACE[f as usize] != Scaled::ZERO {
+                let mut lsDelta = Scaled::ZERO;
+                let mut lsUnit = FONT_LETTER_SPACE[f as usize];
                 let mut i_0 = 0;
                 while i_0 < totalGlyphCount {
-                    if *glyphAdvances.offset(i_0 as isize) == 0i32 && lsDelta != 0i32 {
+                    if *glyphAdvances.offset(i_0 as isize) == Scaled::ZERO
+                        && lsDelta != Scaled::ZERO
+                    {
                         lsDelta -= lsUnit
                     }
                     let ref mut fresh1 = (*locations.offset(i_0 as isize)).x;
@@ -256,7 +258,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
                     lsDelta += lsUnit;
                     i_0 += 1
                 }
-                if lsDelta != 0i32 {
+                if lsDelta != Scaled::ZERO {
                     lsDelta -= lsUnit;
                     let w = node.width();
                     node.set_width(w + lsDelta);
@@ -453,7 +455,7 @@ unsafe fn GetGlyphIDFromCTFont(
 }
 
 /* single-purpose metrics accessors */
-/* the metrics params here are really TeX 'scaled' (or MacOS 'Fixed') values, but that typedef isn't available every place this is included */
+/* the metrics params here are really TeX 'scaled' (or MacOS 'Scaled') values, but that typedef isn't available every place this is included */
 /* functions in XeTeX_mac.c */
 pub(crate) unsafe fn MapGlyphToIndex_AAT(
     mut attributes: CFDictionaryRef,
@@ -723,7 +725,7 @@ use crate::xetex_ext::{Font, NativeFont, NativeFont::*};
 
 pub(crate) unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
-    mut scaled_size: i32,
+    mut scaled_size: Scaled,
     mut cp1: &[u8],
 ) -> Option<NativeFont> {
     let mut current_block: u64;
@@ -1013,7 +1015,8 @@ pub(crate) unsafe fn loadAATfont(
         CFRelease(emboldenNumber as CFTypeRef);
     }
     if letterspace as f64 != 0.0f64 {
-        loaded_font_letter_space = (letterspace as f64 / 100.0f64 * scaled_size as f64) as i32
+        loaded_font_letter_space =
+            Scaled((letterspace as f64 / 100.0f64 * scaled_size.0 as f64) as i32)
     }
     // Disable Core Text font fallback (cascading) with only the last resort font
     // in the cascade list.
@@ -1050,11 +1053,11 @@ pub(crate) unsafe fn loadAATfont(
     }
 }
 
-/* the metrics params here are really TeX 'scaled' (or MacOS 'Fixed') values, but that typedef isn't available every place this is included */
+/* the metrics params here are really TeX 'scaled' (or MacOS 'Scaled') values, but that typedef isn't available every place this is included */
 /* these are here, not XeTeX_mac.c, because we need stubs on other platforms */
 pub(crate) unsafe fn aat_get_font_metrics(
     mut attributes: CFDictionaryRef,
-) -> (i32, i32, i32, i32, i32) {
+) -> (Scaled, Scaled, Scaled, Scaled, Scaled) {
     let mut font: CTFontRef = font_from_attributes(attributes);
     let ascent = D2Fix(CTFontGetAscent(font));
     let descent = D2Fix(CTFontGetDescent(font));

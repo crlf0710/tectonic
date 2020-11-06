@@ -20,6 +20,7 @@ use crate::xetex_ini::{
 use crate::xetex_output::{
     print, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
 };
+use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetex0::{
     pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
 };
@@ -33,8 +34,6 @@ use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
 use dpx::{pdf_obj, pdf_open, pdf_release_obj};
-pub type scaled_t = i32;
-pub type Fixed = scaled_t;
 pub type str_number = i32;
 
 use euclid::{point2, size2, Angle};
@@ -240,7 +239,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
             }
         } else if scan_keyword(input, b"width") {
             let val = scan_dimen(input, false, false, None);
-            if val <= 0i32 {
+            if val <= Scaled::ZERO {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -260,7 +259,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
             }
         } else if scan_keyword(input, b"height") {
             let val = scan_dimen(input, false, false, None);
-            if val <= 0i32 {
+            if val <= Scaled::ZERO {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -335,8 +334,8 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
     let ymax = brect.max_y() as f64;
 
     let mut t2 = Transform::create_translation(
-        (-(xmin as i32) * 72i32) as f64 / 72.27,
-        (-(ymin as i32) * 72i32) as f64 / 72.27,
+        (-(xmin as i32) * 72) as f64 / 72.27,
+        (-(ymin as i32) * 72) as f64 / 72.27,
     );
     t = t.post_transform(&t2);
     if result == 0 {
@@ -354,7 +353,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
         tail_pic
             .set_width(D2Fix(xmax - xmin))
             .set_height(D2Fix(ymax - ymin))
-            .set_depth(0);
+            .set_depth(Scaled::ZERO);
         tail_pic.set_transform_matrix([
             D2Fix(t.m11),
             D2Fix(t.m12),
