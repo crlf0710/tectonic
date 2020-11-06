@@ -3483,6 +3483,8 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
 }
 // HtTable implements defers to a normal std::collections::HashMap
 // but tracks the iteration order of dvipdfmx's ht_table for backwards compat
+// Note: Elements are wrapped in a Box to allow the (highly unsafe!)
+// access pattern of storing .get_mut(x).as_mut_ptr() pointers.
 struct HtTable<T> {
     backing: HashMap<Vec<u8>, Box<T>>,
     compat_iteration_order: HashMap<u32, Vec<Vec<u8>>>,
@@ -3509,7 +3511,7 @@ impl<T> HtTable<T> {
             .wrapping_rem(503)
     }
 
-    fn insert(&mut self, key: Vec<u8>, mut val: Box<T>) {
+    fn insert(&mut self, key: Vec<u8>, val: Box<T>) {
         self.compat_iteration_order
             .entry(Self::hash_key(&key))
             .or_default()
