@@ -617,7 +617,7 @@ unsafe fn hlist_out(this_box: &mut List) {
         /*1508: "Reverse the complete hlist and set the subtype to reversed." */
         let save_h = cur_h; /* "SyncTeX: do nothing, it is too late" */
         let tmp_ptr = popt.unwrap();
-        let mut p = Kern(new_kern(Scaled::ZERO));
+        let mut p = new_kern(Scaled::ZERO);
         *SYNCTEX_tag(p.ptr(), MEDIUM_NODE_SIZE) = 0;
         *LLIST_link(prev_p) = Some(p.ptr()).tex_int();
         cur_h = Scaled::ZERO;
@@ -1732,7 +1732,8 @@ unsafe fn reverse(
         if t.is_none() && m == MIN_HALFWORD && n == MIN_HALFWORD {
             break; /* "Manufacture a missing math node" */
         }
-        popt = Some(new_math(Scaled::ZERO, Math(LR_ptr as usize).subtype_i32()));
+        let m = new_math(Scaled::ZERO, Math(LR_ptr as usize).subtype_i32());
+        popt = Some(m.ptr());
         LR_problems += 10000i32
     }
     l.tex_int()

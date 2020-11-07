@@ -1237,10 +1237,10 @@ impl GlueSpec {
     pub(crate) unsafe fn rc_none(&mut self) {
         MEM[self.ptr()].b32.s1 = None.tex_int();
     }
-    pub(crate) unsafe fn rc_inc(&mut self) {
+    pub(crate) unsafe fn rc_inc(&self) {
         MEM[self.ptr()].b32.s1 += 1;
     }
-    pub(crate) unsafe fn rc_dec(&mut self) {
+    pub(crate) unsafe fn rc_dec(&self) {
         MEM[self.ptr()].b32.s1 -= 1;
     }
     pub(crate) unsafe fn size(&self) -> Scaled {

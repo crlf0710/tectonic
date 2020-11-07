@@ -95,7 +95,6 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
     let mut wait = false;
     let mut save_vbadness: i32 = 0;
     let mut save_vfuzz: Scaled = Scaled::ZERO;
-    let mut save_split_top_skip: i32 = 0;
     /*1048: "Set the value of output_penalty" */
     let bpb = best_page_break.unwrap();
     if let TxtNode::Penalty(bpb) = &mut TxtNode::from(bpb) {
@@ -158,7 +157,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
         box_error(255);
     }
     insert_penalties = 0; /* "this will count the number of insertions held over" */
-    save_split_top_skip = *GLUEPAR(GluePar::split_top_skip);
+    let save_split_top_skip = get_glue_par(GluePar::split_top_skip);
 
     /* Tectonic: in semantic pagination mode, we act as if holding_inserts is
      * always active. */
@@ -229,7 +228,10 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
                                         s = *LLIST_link(s) as usize;
                                     }
                                     *LLIST_link(s) = None.tex_int();
-                                    *GLUEPAR(GluePar::split_top_skip) = p_ins.split_top_ptr();
+                                    set_glue_par(
+                                        GluePar::split_top_skip,
+                                        GlueSpec(p_ins.split_top_ptr() as usize),
+                                    );
                                     p_ins.set_ins_ptr(prune_page_top(r.broken_ptr().opt(), false));
 
                                     if p_ins.ins_ptr().opt().is_some() {
@@ -322,7 +324,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
         prev_p = p;
         popt = llist_link(prev_p);
     }
-    *GLUEPAR(GluePar::split_top_skip) = save_split_top_skip;
+    set_glue_par(GluePar::split_top_skip, save_split_top_skip);
 
     /*1052: "Break the current page at node p, put it in box 255, and put the
      * remaining nodes on the contribution list". */
@@ -727,35 +729,32 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                         }
                         _ => {}
                     }
-                    let q = g.glue_ptr() as usize;
-                    let q_spec = GlueSpec(q);
-                    page_so_far[2 + q_spec.stretch_order() as usize] += q_spec.stretch();
-                    page_so_far[6] += q_spec.shrink();
-                    let width = if q_spec.shrink_order() != GlueOrder::Normal
-                        && q_spec.shrink() != Scaled::ZERO
-                    {
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
+                    let q = GlueSpec(g.glue_ptr() as usize);
+                    page_so_far[2 + q.stretch_order() as usize] += q.stretch();
+                    page_so_far[6] += q.shrink();
+                    let width =
+                        if q.shrink_order() != GlueOrder::Normal && q.shrink() != Scaled::ZERO {
+                            if file_line_error_style_p != 0 {
+                                print_file_line();
+                            } else {
+                                print_nl_cstr("! ");
+                            }
+                            print_cstr("Infinite glue shrinkage found on current page");
+                            help!(
+                                "The page about to be output contains some infinitely",
+                                "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
+                                "Such glue doesn\'t belong there; but you can safely proceed,",
+                                "since the offensive shrinkability has been made finite."
+                            );
+                            error();
+                            let mut r = new_spec(&q);
+                            r.set_shrink_order(GlueOrder::Normal);
+                            delete_glue_ref(q.ptr());
+                            g.set_glue_ptr(Some(r.ptr()).tex_int());
+                            r.size()
                         } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Infinite glue shrinkage found on current page");
-                        help!(
-                            "The page about to be output contains some infinitely",
-                            "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
-                            "Such glue doesn\'t belong there; but you can safely proceed,",
-                            "since the offensive shrinkability has been made finite."
-                        );
-                        error();
-                        let r = new_spec(q);
-                        let mut r_spec = GlueSpec(r);
-                        r_spec.set_shrink_order(GlueOrder::Normal);
-                        delete_glue_ref(q);
-                        g.set_glue_ptr(Some(r).tex_int());
-                        r_spec.size()
-                    } else {
-                        q_spec.size()
-                    };
+                            q.size()
+                        };
                     page_so_far[1] += page_so_far[7] + width;
                     page_so_far[7] = Scaled::ZERO;
                     contribute(g.ptr());

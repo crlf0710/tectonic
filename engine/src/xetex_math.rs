@@ -123,14 +123,14 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
         } else {
             line_break(true);
             // 1528:
-            j = Some(if *GLUEPAR(GluePar::right_skip) == 0 {
-                new_kern(Scaled::ZERO)
+            j = Some(if get_glue_par(GluePar::right_skip).ptr() == 0 {
+                new_kern(Scaled::ZERO).ptr()
             } else {
                 new_param_glue(GluePar::right_skip)
             });
 
-            let p = if *GLUEPAR(GluePar::left_skip) == 0 {
-                new_kern(Scaled::ZERO)
+            let p = if get_glue_par(GluePar::left_skip).ptr() == 0 {
+                new_kern(Scaled::ZERO).ptr()
             } else {
                 new_param_glue(GluePar::left_skip)
             };
@@ -164,14 +164,15 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
             } else {
                 v = -v - jb.width();
                 let p = new_math(Scaled::ZERO, MathType::Eq(BE::Begin, MathMode::Left));
-                *LLIST_link(TEMP_HEAD) = p as i32;
+                *LLIST_link(TEMP_HEAD) = Some(p.ptr()).tex_int();
                 just_copy(
                     jb.list_ptr().opt(),
-                    p,
-                    new_math(Scaled::ZERO, MathType::Eq(BE::End, MathMode::Left)) as i32,
+                    p.ptr(),
+                    Some(new_math(Scaled::ZERO, MathType::Eq(BE::End, MathMode::Left)).ptr())
+                        .tex_int(),
                 );
                 cur_dir = LR::RightToLeft;
-                Some(p)
+                Some(p.ptr())
             };
             v = v + Scaled(
                 FONT_INFO
@@ -893,8 +894,8 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
         let r;
         let t;
         if j.is_none() {
-            r = new_kern(Scaled::ZERO);
-            t = new_kern(Scaled::ZERO);
+            r = new_kern(Scaled::ZERO).ptr();
+            t = new_kern(Scaled::ZERO).ptr();
         } else {
             r = b.list_ptr() as usize;
             t = *LLIST_link(r) as usize;
@@ -903,7 +904,7 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
         let j = if let TxtNode::Glue(t) = TxtNode::from(r) {
             let (j, mut tmp_ptr) = new_skip_param(GluePar::right_skip);
             *LLIST_link(q as usize) = Some(j).tex_int();
-            *LLIST_link(j) = Some(u).tex_int();
+            *LLIST_link(j) = Some(u.ptr()).tex_int();
             let j = GlueSpec(t.glue_ptr() as usize);
             tmp_ptr
                 .set_stretch_order(j.stretch_order())
@@ -911,18 +912,18 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
                 .set_size(e - j.size())
                 .set_stretch(-j.stretch())
                 .set_shrink(-j.shrink());
-            *LLIST_link(u) = Some(t.ptr()).tex_int();
+            *LLIST_link(u.ptr()) = Some(t.ptr()).tex_int();
             Some(j.ptr())
         } else {
             MEM[t + 1].b32.s1 = e.0;
-            *LLIST_link(t) = Some(u).tex_int();
+            *LLIST_link(t) = Some(u.ptr()).tex_int();
             *LLIST_link(q as usize) = Some(t).tex_int();
             j
         };
         let u = new_math(Scaled::ZERO, MathType::Eq(BE::Begin, MathMode::Middle));
         if let TxtNode::Glue(r) = TxtNode::from(r) {
             let (j, mut tmp_ptr) = new_skip_param(GluePar::left_skip);
-            *LLIST_link(u) = Some(j).tex_int();
+            *LLIST_link(u.ptr()) = Some(j).tex_int();
             *LLIST_link(j) = Some(p).tex_int();
             let j = GlueSpec(r.glue_ptr() as usize);
             tmp_ptr
@@ -931,16 +932,16 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
                 .set_size(d - j.size())
                 .set_stretch(-j.stretch())
                 .set_shrink(-j.shrink());
-            *LLIST_link(r.ptr()) = Some(u).tex_int();
+            *LLIST_link(r.ptr()) = Some(u.ptr()).tex_int();
         } else {
             MEM[r + 1].b32.s1 = d.0;
             *LLIST_link(r) = Some(p).tex_int();
-            *LLIST_link(u) = Some(r).tex_int();
+            *LLIST_link(u.ptr()) = Some(r).tex_int();
             if j.is_none() {
-                b = hpack(Some(u), Scaled::ZERO, PackMode::Additional);
+                b = hpack(Some(u.ptr()), Scaled::ZERO, PackMode::Additional);
                 b.set_shift_amount(s);
             } else {
-                b.set_list_ptr(Some(u).tex_int());
+                b.set_list_ptr(Some(u.ptr()).tex_int());
             }
         }
     }
@@ -1090,8 +1091,8 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
     if m.0 == true {
         // 1231:
         let m = new_math(*DIMENPAR(DimenPar::math_surround), MathType::Before);
-        *LLIST_link(cur_list.tail) = Some(m).tex_int();
-        cur_list.tail = m;
+        *LLIST_link(cur_list.tail) = Some(m.ptr()).tex_int();
+        cur_list.tail = m.ptr();
         cur_mlist = p;
         cur_style = (MathStyle::Text, 0);
         mlist_penalties = cur_list.mode.0 == false;
@@ -1100,9 +1101,9 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         while let Some(next) = LLIST_link(cur_list.tail).opt() {
             cur_list.tail = next;
         }
-        *LLIST_link(cur_list.tail) =
-            new_math(*DIMENPAR(DimenPar::math_surround), MathType::After) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let m = new_math(*DIMENPAR(DimenPar::math_surround), MathType::After);
+        *LLIST_link(cur_list.tail) = Some(m.ptr()).tex_int();
+        cur_list.tail = m.ptr();
         cur_list.aux.b32.s0 = 1000;
         unsave(input);
     } else {
@@ -1180,8 +1181,9 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         }
         let mut g1;
         let mut g2;
-        *LLIST_link(cur_list.tail) = new_penalty(*INTPAR(IntPar::pre_display_penalty)) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let pen = new_penalty(*INTPAR(IntPar::pre_display_penalty));
+        *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
+        cur_list.tail = pen.ptr();
         if d + s <= *DIMENPAR(DimenPar::pre_display_size) || l {
             g1 = GluePar::above_display_skip;
             g2 = Some(GluePar::below_display_skip);
@@ -1192,8 +1194,8 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         if l && e == Scaled::ZERO {
             app_display(j, a.unwrap(), Scaled::ZERO);
             let pen = new_penalty(INF_PENALTY);
-            *LLIST_link(cur_list.tail) = Some(pen).tex_int();
-            cur_list.tail = pen;
+            *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
+            cur_list.tail = pen.ptr();
         } else {
             let pg = new_param_glue(g1);
             *LLIST_link(cur_list.tail) = Some(pg).tex_int();
@@ -1203,21 +1205,22 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
             let a = a.unwrap();
             let r = new_kern(z - w - e - d);
             if l {
-                *LLIST_link(a.ptr()) = Some(r).tex_int();
-                *LLIST_link(r) = Some(b.ptr()).tex_int();
+                *LLIST_link(a.ptr()) = Some(r.ptr()).tex_int();
+                *LLIST_link(r.ptr()) = Some(b.ptr()).tex_int();
                 b = a;
                 d = Scaled::ZERO;
             } else {
-                *LLIST_link(b.ptr()) = Some(r).tex_int();
-                *LLIST_link(r) = Some(a.ptr()).tex_int();
+                *LLIST_link(b.ptr()) = Some(r.ptr()).tex_int();
+                *LLIST_link(r.ptr()) = Some(a.ptr()).tex_int();
             }
             b = hpack(Some(b.ptr()), Scaled::ZERO, PackMode::Additional);
         }
         app_display(j, b, d);
         if let Some(a) = a {
             if e == Scaled::ZERO && !l {
-                *LLIST_link(cur_list.tail) = new_penalty(INF_PENALTY) as i32;
-                cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+                let pen = new_penalty(INF_PENALTY);
+                *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
+                cur_list.tail = pen.ptr();
                 let w = a.width();
                 app_display(j, a, z - w);
                 g2 = None;
@@ -1231,8 +1234,9 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
             *LLIST_link(cur_list.tail) = *LLIST_link(PRE_ADJUST_HEAD as usize);
             cur_list.tail = pre_t;
         }
-        *LLIST_link(cur_list.tail) = new_penalty(*INTPAR(IntPar::post_display_penalty)) as i32;
-        cur_list.tail = *LLIST_link(cur_list.tail) as usize;
+        let pen = new_penalty(*INTPAR(IntPar::post_display_penalty));
+        *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
+        cur_list.tail = pen.ptr();
         if let Some(g2) = g2 {
             *LLIST_link(cur_list.tail) = new_param_glue(g2) as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
@@ -1445,13 +1449,13 @@ unsafe fn fraction_rule(t: Scaled) -> Rule {
 }
 unsafe fn overbar(b: List, k: Scaled, t: Scaled) -> List {
     let p = new_kern(k);
-    *LLIST_link(p) = Some(b.ptr()).tex_int();
-    let q = fraction_rule(t).ptr();
-    *LLIST_link(q) = Some(p).tex_int();
+    *LLIST_link(p.ptr()) = Some(b.ptr()).tex_int();
+    let q = fraction_rule(t);
+    *LLIST_link(q.ptr()) = Some(p.ptr()).tex_int();
     let p = new_kern(t);
-    *LLIST_link(p) = Some(q).tex_int();
+    *LLIST_link(p.ptr()) = Some(q.ptr()).tex_int();
     vpackage(
-        Some(p),
+        Some(p.ptr()),
         Scaled::ZERO,
         PackMode::Additional,
         Scaled::MAX_HALFWORD,
@@ -1606,8 +1610,8 @@ unsafe fn make_over(q: &mut Over) {
 unsafe fn make_under(q: &mut Under) {
     let x = clean_box(q.first(), cur_style);
     let p = new_kern(default_rule_thickness() * 3);
-    *LLIST_link(x.ptr()) = Some(p).tex_int();
-    *LLIST_link(p) = Some(fraction_rule(default_rule_thickness()).ptr()).tex_int();
+    *LLIST_link(x.ptr()) = Some(p.ptr()).tex_int();
+    *LLIST_link(p.ptr()) = Some(fraction_rule(default_rule_thickness()).ptr()).tex_int();
     let mut y = vpackage(
         Some(x.ptr()),
         Scaled::ZERO,
@@ -1892,8 +1896,8 @@ unsafe fn make_math_accent(q: &mut Accent) {
             }
             _ => {
                 let p = new_kern(-delta);
-                *LLIST_link(p) = Some(x.ptr()).tex_int();
-                *LLIST_link(y.ptr()) = p as i32;
+                *LLIST_link(p.ptr()) = Some(x.ptr()).tex_int();
+                *LLIST_link(y.ptr()) = Some(p.ptr()).tex_int();
                 y = vpackage(
                     Some(y.ptr()),
                     Scaled::ZERO,
@@ -1903,8 +1907,8 @@ unsafe fn make_math_accent(q: &mut Accent) {
                 if y.height() < h {
                     // 765:
                     let p = new_kern(h - y.height()); /*773:*/
-                    *LLIST_link(p) = y.list_ptr();
-                    y.set_list_ptr(Some(p).tex_int());
+                    *LLIST_link(p.ptr()) = y.list_ptr();
+                    y.set_list_ptr(Some(p.ptr()).tex_int());
                     y.set_height(h);
                 }
             }
@@ -2026,16 +2030,16 @@ unsafe fn make_fraction(q: &mut Fraction) {
         .set_width(x.width());
     if q.thickness() == Scaled::ZERO {
         let p = new_kern(shift_up - x.depth() - (z.height() - shift_down));
-        *LLIST_link(p) = Some(z.ptr()).tex_int();
-        *LLIST_link(x.ptr()) = Some(p).tex_int();
+        *LLIST_link(p.ptr()) = Some(z.ptr()).tex_int();
+        *LLIST_link(x.ptr()) = Some(p.ptr()).tex_int();
     } else {
-        let y = fraction_rule(q.thickness()).ptr();
+        let y = fraction_rule(q.thickness());
         let p = new_kern(axis_height(cur_size) - delta - (z.height() - shift_down));
-        *LLIST_link(y) = Some(p).tex_int();
-        *LLIST_link(p) = Some(z.ptr()).tex_int();
+        *LLIST_link(y.ptr()) = Some(p.ptr()).tex_int();
+        *LLIST_link(p.ptr()) = Some(z.ptr()).tex_int();
         let p = new_kern(shift_up - x.depth() - (axis_height(cur_size) + delta));
-        *LLIST_link(p) = Some(y).tex_int();
-        *LLIST_link(x.ptr()) = Some(p).tex_int();
+        *LLIST_link(p.ptr()) = Some(y.ptr()).tex_int();
+        *LLIST_link(x.ptr()) = Some(p.ptr()).tex_int();
     }
     v.set_list_ptr(Some(x.ptr()).tex_int());
     // :774
@@ -2191,11 +2195,11 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                 shift_up = big_op_spacing1()
             }
             let p = new_kern(shift_up);
-            *LLIST_link(p) = Some(y.ptr()).tex_int();
-            *LLIST_link(x.ptr()) = p as i32;
+            *LLIST_link(p.ptr()) = Some(y.ptr()).tex_int();
+            *LLIST_link(x.ptr()) = Some(p.ptr()).tex_int();
             let p = new_kern(big_op_spacing5());
-            *LLIST_link(p) = Some(x.ptr()).tex_int();
-            v.set_list_ptr(p as i32);
+            *LLIST_link(p.ptr()) = Some(x.ptr()).tex_int();
+            v.set_list_ptr(Some(p.ptr()).tex_int());
             let h = v.height();
             v.set_height(h + big_op_spacing5() + x.height() + x.depth() + shift_up);
         }
@@ -2207,10 +2211,10 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                 shift_down = big_op_spacing2()
             }
             let p = new_kern(shift_down);
-            *LLIST_link(y.ptr()) = Some(p).tex_int();
-            *LLIST_link(p) = Some(z.ptr()).tex_int();
+            *LLIST_link(y.ptr()) = Some(p.ptr()).tex_int();
+            *LLIST_link(p.ptr()) = Some(z.ptr()).tex_int();
             let p = new_kern(big_op_spacing5());
-            *LLIST_link(z.ptr()) = Some(p).tex_int();
+            *LLIST_link(z.ptr()) = Some(p.ptr()).tex_int();
             let d = v.depth();
             v.set_depth(d + big_op_spacing5() + z.height() + z.depth() + shift_down);
         }
@@ -2277,8 +2281,8 @@ unsafe fn make_ord(q: &mut Ord) {
                                 .b32
                                 .s1,
                         ));
-                        *LLIST_link(p) = *LLIST_link(q.ptr());
-                        *LLIST_link(q.ptr()) = Some(p).tex_int();
+                        *LLIST_link(p.ptr()) = *LLIST_link(q.ptr());
+                        *LLIST_link(q.ptr()) = Some(p.ptr()).tex_int();
                         return;
                     } else {
                         match cur_i.s1 as i32 {
@@ -2327,9 +2331,9 @@ unsafe fn attach_hkern_to_new_hlist(q: &mut BaseMath, mut delta: Scaled) -> usiz
         while let Some(next) = llist_link(y) {
             y = next;
         }
-        *LLIST_link(y) = Some(z).tex_int();
+        *LLIST_link(y) = Some(z.ptr()).tex_int();
     } else {
-        MEM[q.ptr() + 1].b32.s1 = Some(z).tex_int();
+        MEM[q.ptr() + 1].b32.s1 = Some(z.ptr()).tex_int();
     }
     MEM[q.ptr() + 1].b32.s1 as usize
 }
@@ -2598,8 +2602,8 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: Scaled) {
             }
             x.set_shift_amount(sup_kern + delta - sub_kern);
             let p = new_kern(shift_up - x.depth() - (y.height() - shift_down));
-            *LLIST_link(x.ptr()) = Some(p).tex_int();
-            *LLIST_link(p) = Some(y.ptr()).tex_int();
+            *LLIST_link(x.ptr()) = Some(p.ptr()).tex_int();
+            *LLIST_link(p.ptr()) = Some(y.ptr()).tex_int();
             x = vpackage(
                 Some(x.ptr()),
                 Scaled::ZERO,
@@ -2748,7 +2752,7 @@ unsafe fn mlist_to_hlist() {
                                     delta = Scaled::ZERO;
                                 }
                                 if q.third().typ == MathCell::Empty && delta != Scaled::ZERO {
-                                    *LLIST_link(p.ptr()) = Some(new_kern(delta)).tex_int();
+                                    *LLIST_link(p.ptr()) = Some(new_kern(delta).ptr()).tex_int();
                                     delta = Scaled::ZERO;
                                 }
                                 Some(p.ptr())
@@ -2762,7 +2766,7 @@ unsafe fn mlist_to_hlist() {
                                     delta = Scaled::ZERO;
                                 }
                                 if q.third().typ == MathCell::Empty && delta != Scaled::ZERO {
-                                    *LLIST_link(p.unwrap()) = Some(new_kern(delta)).tex_int();
+                                    *LLIST_link(p.unwrap()) = Some(new_kern(delta).ptr()).tex_int();
                                     delta = Scaled::ZERO;
                                 }
                                 p
@@ -3026,7 +3030,7 @@ unsafe fn mlist_to_hlist() {
             };
             if x != 0 {
                 let y = math_glue(&GlueSpec(EQTB[GLUE_BASE + x as usize].val as usize), cur_mu);
-                let z = new_glue(y);
+                let z = new_glue(&GlueSpec(y));
                 *LLIST_link(y) = None.tex_int();
                 *LLIST_link(p) = Some(z).tex_int();
                 p = z;
@@ -3051,8 +3055,8 @@ unsafe fn mlist_to_hlist() {
                         Node::Text(TxtNode::Penalty(_)) | Node::Math(MathNode::Rel) => {}
                         _ => {
                             let z = new_penalty(pen);
-                            *LLIST_link(p) = Some(z).tex_int();
-                            p = z
+                            *LLIST_link(p) = Some(z.ptr()).tex_int();
+                            p = z.ptr();
                         }
                     }
                 }
@@ -3320,9 +3324,9 @@ unsafe fn stack_glyph_into_box(b: &mut List, mut f: internal_font_number, mut g:
     };
 }
 unsafe fn stack_glue_into_box(b: &mut List, mut min: Scaled, mut max: Scaled) {
-    let q = new_spec(0);
-    GlueSpec(q).set_size(min).set_stretch(max - min);
-    let p = new_glue(q);
+    let mut q = new_spec(&GlueSpec(0));
+    q.set_size(min).set_stretch(max - min);
+    let p = new_glue(&q);
     if b.is_horizontal() {
         if let Some(mut q) = b.list_ptr().opt() {
             while let Some(next) = llist_link(q) {
@@ -3480,16 +3484,16 @@ unsafe fn rebox(mut b: List, mut w: Scaled) -> List {
             let f = p.font() as usize;
             let v = *FONT_CHARACTER_WIDTH(f, effective_char(true, f, p.character()) as usize);
             if v != b.width() {
-                *LLIST_link(p.ptr()) = new_kern(b.width() - v) as i32;
+                *LLIST_link(p.ptr()) = new_kern(b.width() - v).ptr() as i32;
             }
         }
         free_node(b.ptr(), BOX_NODE_SIZE);
-        let g = new_glue(12);
+        let g = new_glue(&GlueSpec(12));
         *LLIST_link(g) = Some(p).tex_int();
         while let Some(next) = llist_link(p) {
             p = next;
         }
-        *LLIST_link(p) = new_glue(12) as i32;
+        *LLIST_link(p) = new_glue(&GlueSpec(12)) as i32;
         hpack(Some(g), w, PackMode::Exactly)
     } else {
         b.set_width(w);

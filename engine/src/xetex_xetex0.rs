@@ -447,21 +447,20 @@ pub(crate) unsafe fn copy_native_glyph_info(src: &NativeWord, dest: &mut NativeW
         dest.set_glyph_count(glyph_count as u16);
     };
 }
-pub(crate) unsafe fn new_math(w: Scaled, s: MathType) -> usize {
+pub(crate) unsafe fn new_math(w: Scaled, s: MathType) -> Math {
     let mut p = Math(get_node(MEDIUM_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::Math);
     p.set_subtype(s).set_width(w);
-    p.ptr()
+    p
 }
-pub(crate) unsafe fn new_spec(other: usize) -> usize {
-    let other = GlueSpec(other);
+pub(crate) unsafe fn new_spec(other: &GlueSpec) -> GlueSpec {
     let mut q = GlueSpec(get_node(GLUE_SPEC_SIZE));
     MEM[q.ptr()] = MEM[other.ptr()];
     q.rc_none();
     q.set_size(other.size())
         .set_stretch(other.stretch())
         .set_shrink(other.shrink());
-    q.ptr()
+    q
 }
 pub(crate) unsafe fn new_param_glue(n: GluePar) -> usize {
     let mut p = Glue(get_node(MEDIUM_NODE_SIZE));
@@ -472,35 +471,35 @@ pub(crate) unsafe fn new_param_glue(n: GluePar) -> usize {
     GlueSpec(q).rc_inc();
     p.ptr()
 }
-pub(crate) unsafe fn new_glue(q: usize) -> usize {
+pub(crate) unsafe fn new_glue(q: &GlueSpec) -> usize {
     let mut p = Glue(get_node(MEDIUM_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::Glue);
     p.set_param(NORMAL as _)
         .set_leader_ptr(None.tex_int())
-        .set_glue_ptr(q as i32);
-    GlueSpec(q).rc_inc();
+        .set_glue_ptr(Some(q.ptr()).tex_int());
+    q.rc_inc();
     p.ptr()
 }
 pub(crate) unsafe fn new_skip_param(n: GluePar) -> (usize, GlueSpec) {
-    let mut tmp_ptr = GlueSpec(new_spec(
+    let mut tmp = new_spec(&GlueSpec(
         EQTB[(GLUE_BASE as i32 + n as i32) as usize].val as usize,
     )); // 232
-    let p = new_glue(tmp_ptr.ptr());
-    tmp_ptr.rc_none();
+    let p = new_glue(&tmp);
+    tmp.rc_none();
     MEM[p].b16.s0 = n as u16 + 1;
-    (p, tmp_ptr)
+    (p, tmp)
 }
-pub(crate) unsafe fn new_kern(w: Scaled) -> usize {
+pub(crate) unsafe fn new_kern(w: Scaled) -> Kern {
     let mut p = Kern(get_node(MEDIUM_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::Kern);
     p.set_subtype(KernType::Normal).set_width(w);
-    p.ptr()
+    p
 }
-pub(crate) unsafe fn new_penalty(mut m: i32) -> usize {
-    let p = get_node(MEDIUM_NODE_SIZE);
-    set_NODE_type(p, TextNode::Penalty);
-    MEM[p].b16.s0 = 0;
-    MEM[p + 1].b32.s1 = m;
+pub(crate) unsafe fn new_penalty(m: i32) -> Penalty {
+    let mut p = Penalty(get_node(MEDIUM_NODE_SIZE));
+    set_NODE_type(p.ptr(), TextNode::Penalty);
+    MEM[p.ptr()].b16.s0 = 0;
+    p.set_penalty(m);
     p
 }
 /*:165*/
@@ -6232,10 +6231,10 @@ pub(crate) unsafe fn scan_something_internal(
                         match val_level {
                             ValLevel::Int | ValLevel::Dimen => val = -val,
                             _ => {
-                                let m = val as usize;
-                                let mut spec = GlueSpec(new_spec(m));
+                                let m = GlueSpec(val as usize);
+                                let mut spec = new_spec(&m);
                                 val = spec.ptr() as i32;
-                                delete_glue_ref(m);
+                                delete_glue_ref(m.ptr());
                                 spec.set_size(-spec.size());
                                 spec.set_stretch(-spec.stretch());
                                 spec.set_shrink(-spec.shrink());
@@ -6741,7 +6740,7 @@ pub(crate) unsafe fn scan_something_internal(
         match val_level {
             ValLevel::Int | ValLevel::Dimen => -val,
             _ => {
-                let mut spec = GlueSpec(new_spec(val as usize));
+                let mut spec = new_spec(&GlueSpec(val as usize));
                 let val = spec.ptr() as i32;
                 spec.set_size(-spec.size());
                 spec.set_stretch(-spec.stretch());
@@ -7344,7 +7343,7 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i3
             val
         }
     };
-    let mut q = GlueSpec(new_spec(0));
+    let mut q = new_spec(&GlueSpec(0));
     q.set_size(val);
     if scan_keyword(input, b"plus") {
         let val = scan_dimen(input, mu, true, None);
@@ -7595,13 +7594,13 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
                 } {
                     arith_error = true;
                     delete_glue_ref(f as usize);
-                    f = new_spec(0) as i32
+                    f = new_spec(&GlueSpec(0)).ptr() as i32
                 }
                 match s {
                     Expr::None => {
                         /*1579: */
                         t = if l >= ValLevel::Glue && o != Expr::None {
-                            let mut t = GlueSpec(new_spec(f as usize));
+                            let mut t = new_spec(&GlueSpec(f as usize));
                             delete_glue_ref(f as usize);
                             if t.stretch() == Scaled::ZERO {
                                 t.set_stretch_order(GlueOrder::Normal);
@@ -7813,12 +7812,6 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i3
     val
 }
 pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
-    let mut w: b16x4 = b16x4 {
-        s0: 0,
-        s1: 0,
-        s2: 0,
-        s3: 0,
-    };
     let _ = scan_general_text(input, cs);
     let old_setting = selector;
     selector = Selector::NEW_STRING;
@@ -7850,29 +7843,37 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
         while sz > 2 {
             sz -= 1;
             r += 1;
-            w.s3 = str_pool[m as usize];
-            w.s2 = str_pool[(m + 1) as usize];
-            w.s1 = str_pool[(m + 2) as usize];
-            w.s0 = str_pool[(m + 3) as usize];
+            let w = b16x4 {
+                s3: str_pool[m as usize],
+                s2: str_pool[(m + 1) as usize],
+                s1: str_pool[(m + 2) as usize],
+                s0: str_pool[(m + 3) as usize],
+            };
             MEM[r].b16 = w;
             m = m + 4
         }
-        w.s3 = ' ' as i32 as u16;
-        w.s2 = ' ' as i32 as u16;
-        w.s1 = ' ' as i32 as u16;
-        w.s0 = ' ' as i32 as u16;
-        if l > m {
-            w.s3 = str_pool[m as usize];
-            if l > m + 1 {
-                w.s2 = str_pool[(m + 1) as usize];
-                if l > m + 2 {
-                    w.s1 = str_pool[(m + 2) as usize];
-                    if l > m + 3 {
-                        w.s0 = str_pool[(m + 3) as usize]
-                    }
-                }
-            }
-        }
+        let w = b16x4 {
+            s3: if l > m {
+                str_pool[m as usize]
+            } else {
+                ' ' as i32 as u16
+            },
+            s2: if l > m + 1 {
+                str_pool[(m + 1) as usize]
+            } else {
+                ' ' as i32 as u16
+            },
+            s1: if l > m + 2 {
+                str_pool[(m + 2) as usize]
+            } else {
+                ' ' as i32 as u16
+            },
+            s0: if l > m + 3 {
+                str_pool[(m + 3) as usize]
+            } else {
+                ' ' as i32 as u16
+            },
+        };
         MEM[r + 1].b16 = w;
         if str_pool[l as usize] as i32 == nl {
             l += 1
@@ -9677,7 +9678,7 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
 
         nwn.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
     } else {
-        use_skip = *GLUEPAR(GluePar::xetex_linebreak_skip) != 0;
+        use_skip = get_glue_par(GluePar::xetex_linebreak_skip).ptr() != 0;
         use_penalty = *INTPAR(IntPar::xetex_linebreak_penalty) != 0 || !use_skip;
         linebreak_start(
             main_f,
@@ -9693,8 +9694,8 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                 if prevOffs != 0 {
                     if use_penalty {
                         let pen = new_penalty(*INTPAR(IntPar::xetex_linebreak_penalty));
-                        *LLIST_link(cur_list.tail) = Some(pen).tex_int();
-                        cur_list.tail = pen as usize;
+                        *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
+                        cur_list.tail = pen.ptr();
                     }
                     if use_skip {
                         let pg = new_param_glue(GluePar::xetex_linebreak_skip);
@@ -10234,8 +10235,9 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
                 } /*:673 */
                 loop {
                     let tmp_ptr = q;
-                    q = new_math(Scaled::ZERO, Math(LR_ptr as usize).subtype_i32());
-                    *LLIST_link(tmp_ptr) = Some(q).tex_int();
+                    let m = new_math(Scaled::ZERO, Math(LR_ptr as usize).subtype_i32());
+                    q = m.ptr();
+                    *LLIST_link(tmp_ptr) = Some(m.ptr()).tex_int();
                     LR_problems = LR_problems + 10000;
                     let tmp_ptr = LR_ptr as usize;
                     LR_ptr = *LLIST_link(tmp_ptr);
@@ -10459,13 +10461,9 @@ pub(crate) unsafe fn append_to_vlist(b: List) {
     upwards = *INTPAR(IntPar::xetex_upwards) > 0;
     if cur_list.aux.b32.s1 > IGNORE_DEPTH {
         let d = if upwards {
-            Scaled(MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1)
-                - Scaled(cur_list.aux.b32.s1)
-                - b.depth()
+            get_glue_par(GluePar::baseline_skip).size() - Scaled(cur_list.aux.b32.s1) - b.depth()
         } else {
-            Scaled(MEM[(*GLUEPAR(GluePar::baseline_skip) + 1) as usize].b32.s1)
-                - Scaled(cur_list.aux.b32.s1)
-                - b.height()
+            get_glue_par(GluePar::baseline_skip).size() - Scaled(cur_list.aux.b32.s1) - b.height()
         };
         let p = if d < *DIMENPAR(DimenPar::line_skip_limit) {
             new_param_glue(GluePar::line_skip)
@@ -10737,7 +10735,9 @@ pub(crate) unsafe fn init_row() {
     } else {
         cur_list.aux.b32.s1 = 0;
     }
-    let g = new_glue(MEM[(*LLIST_link(ALIGN_HEAD) + 1) as usize].b32.s0 as usize);
+    let g = new_glue(&GlueSpec(
+        MEM[(*LLIST_link(ALIGN_HEAD) + 1) as usize].b32.s0 as usize,
+    ));
     *LLIST_link(cur_list.tail) = Some(g).tex_int();
     cur_list.tail = g;
     MEM[cur_list.tail].b16.s0 = GluePar::tab_skip as u16 + 1;
@@ -10797,7 +10797,7 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
             MEM[nb + 2].b32.s1 = *LLIST_link(HOLD_HEAD);
             let cl = *LLIST_link(cl) as usize;
             cur_loop = Some(cl);
-            *LLIST_link(nb) = new_glue(MEM[cl + 1].b32.s0 as usize) as i32;
+            *LLIST_link(nb) = new_glue(&GlueSpec(MEM[cl + 1].b32.s0 as usize)) as i32;
         } else {
             if file_line_error_style_p != 0 {
                 print_file_line();
@@ -10900,7 +10900,9 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
         pop_nest();
         *LLIST_link(cur_list.tail) = Some(u.ptr()).tex_int();
         cur_list.tail = u.ptr();
-        let g = new_glue(MEM[(*LLIST_link(ca) + 1) as usize].b32.s0 as usize);
+        let g = new_glue(&GlueSpec(
+            MEM[(*LLIST_link(ca) + 1) as usize].b32.s0 as usize,
+        ));
         *LLIST_link(cur_list.tail) = Some(g).tex_int();
         cur_list.tail = g;
         MEM[cur_list.tail].b16.s0 = 12;
@@ -11117,7 +11119,7 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
                         n -= 1;
                         s = *LLIST_link(s) as usize;
                         let v = GlueSpec(Glue(s).glue_ptr() as usize);
-                        let g = new_glue(v.ptr());
+                        let g = new_glue(&v);
                         *LLIST_link(u) = Some(g).tex_int();
                         u = g;
                         MEM[u].b16.s0 = GluePar::tab_skip as u16 + 1;
@@ -11292,8 +11294,8 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
         flush_node_list(cur_list.eTeX_aux);
         pop_nest();
         let pen = new_penalty(*INTPAR(IntPar::pre_display_penalty));
-        *LLIST_link(cur_list.tail) = Some(pen).tex_int();
-        cur_list.tail = pen;
+        *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
+        cur_list.tail = pen.ptr();
         let pg = new_param_glue(GluePar::above_display_skip);
         *LLIST_link(cur_list.tail) = Some(pg).tex_int();
         cur_list.tail = pg;
@@ -11302,8 +11304,8 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
             cur_list.tail = q;
         }
         let pen = new_penalty(*INTPAR(IntPar::post_display_penalty));
-        *LLIST_link(cur_list.tail) = Some(pen).tex_int();
-        cur_list.tail = pen;
+        *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
+        cur_list.tail = pen.ptr();
         let pg = new_param_glue(GluePar::below_display_skip);
         *LLIST_link(cur_list.tail) = Some(pg).tex_int();
         cur_list.tail = pg;
@@ -11633,7 +11635,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: Scaled, mut d: Scaled) -> i32
                                 "since the offensive shrinkability has been made finite."
                             );
                             error();
-                            let mut r = GlueSpec(new_spec(q.ptr()));
+                            let mut r = new_spec(&q);
                             r.set_shrink_order(GlueOrder::Normal);
                             delete_glue_ref(q.ptr());
                             g.set_glue_ptr(Some(r.ptr()).tex_int());
@@ -11904,28 +11906,29 @@ pub(crate) unsafe fn box_error(mut n: u8) {
 }
 pub(crate) unsafe fn app_space() {
     let q;
-    if cur_list.aux.b32.s0 >= 2000 && *GLUEPAR(GluePar::xspace_skip) != 0 {
+    if cur_list.aux.b32.s0 >= 2000 && get_glue_par(GluePar::xspace_skip).ptr() != 0 {
         q = new_param_glue(GluePar::xspace_skip)
     } else {
-        let mut main_p = if *GLUEPAR(GluePar::space_skip) != 0 {
-            *GLUEPAR(GluePar::space_skip) as usize
+        let mut main_p = if get_glue_par(GluePar::space_skip).ptr() != 0 {
+            get_glue_par(GluePar::space_skip)
         } else {
             /*1077: */
             FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize]
                 .opt()
+                .map(|g| GlueSpec(g))
                 .unwrap_or_else(|| {
                     /*:1079 */
-                    let main_p = new_spec(0);
+                    let mut main_p = new_spec(&GlueSpec(0));
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
-                    GlueSpec(main_p)
+                    main_p
                         .set_size(Scaled(FONT_INFO[main_k as usize].b32.s1))
                         .set_stretch(Scaled(FONT_INFO[(main_k + 1) as usize].b32.s1))
                         .set_shrink(Scaled(FONT_INFO[(main_k + 2) as usize].b32.s1));
-                    FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
+                    FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p.ptr()).tex_int();
                     main_p
                 })
         };
-        let mut main_p = GlueSpec(new_spec(main_p));
+        let mut main_p = new_spec(&main_p);
         if cur_list.aux.b32.s0 >= 2000 {
             main_p.set_size(
                 main_p.size()
@@ -11939,7 +11942,7 @@ pub(crate) unsafe fn app_space() {
         }
         main_p.set_stretch(xn_over_d(main_p.stretch(), Scaled(cur_list.aux.b32.s0), 1000).0);
         main_p.set_shrink(xn_over_d(main_p.shrink(), Scaled(1000), cur_list.aux.b32.s0).0);
-        q = new_glue(main_p.ptr());
+        q = new_glue(&main_p);
         main_p.rc_none();
     }
     *LLIST_link(cur_list.tail) = Some(q).tex_int();
@@ -11998,12 +12001,12 @@ pub(crate) unsafe fn its_all_over(input: &mut input_state_t, tok: i32, cmd: Cmd,
         *LLIST_link(cur_list.tail) = Some(nb).tex_int();
         cur_list.tail = nb;
         MEM[cur_list.tail + 1].b32.s1 = (*DIMENPAR(DimenPar::hsize)).0;
-        let g = new_glue(8);
+        let g = new_glue(&GlueSpec(8));
         *LLIST_link(cur_list.tail) = Some(g).tex_int();
         cur_list.tail = g;
         let p = new_penalty(NULL_FLAG.0);
-        *LLIST_link(cur_list.tail) = Some(p).tex_int();
-        cur_list.tail = p;
+        *LLIST_link(cur_list.tail) = Some(p.ptr()).tex_int();
+        cur_list.tail = p.ptr();
         build_page(input);
     }
     false
@@ -12011,18 +12014,18 @@ pub(crate) unsafe fn its_all_over(input: &mut input_state_t, tok: i32, cmd: Cmd,
 pub(crate) unsafe fn append_glue(input: &mut input_state_t, chr: i32) {
     let s = SkipCode::n(chr as u8).unwrap();
     let val = match s {
-        SkipCode::Fil => 4,
-        SkipCode::Fill => 8,
-        SkipCode::Ss => 12,
-        SkipCode::FilNeg => 16,
-        SkipCode::Skip => scan_glue(input, ValLevel::Glue),
-        SkipCode::MSkip => scan_glue(input, ValLevel::Mu),
+        SkipCode::Fil => GlueSpec(4),
+        SkipCode::Fill => GlueSpec(8),
+        SkipCode::Ss => GlueSpec(12),
+        SkipCode::FilNeg => GlueSpec(16),
+        SkipCode::Skip => GlueSpec(scan_glue(input, ValLevel::Glue) as usize),
+        SkipCode::MSkip => GlueSpec(scan_glue(input, ValLevel::Mu) as usize),
     };
-    let g = new_glue(val as usize);
+    let g = new_glue(&val);
     *LLIST_link(cur_list.tail) = Some(g).tex_int();
     cur_list.tail = g;
     if s == SkipCode::Skip || s == SkipCode::MSkip {
-        MEM[val as usize].b32.s1 -= 1;
+        MEM[val.ptr()].b32.s1 -= 1;
         if s == SkipCode::MSkip {
             MEM[g].b16.s0 = MU_GLUE;
         }
@@ -12032,8 +12035,8 @@ pub(crate) unsafe fn append_kern(input: &mut input_state_t, chr: i32) {
     let s = chr as u16;
     let val = scan_dimen(input, s == KernType::Math as u16, false, None);
     let k = new_kern(val);
-    *LLIST_link(cur_list.tail) = Some(k).tex_int();
-    cur_list.tail = k;
+    *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
+    cur_list.tail = k.ptr();
     MEM[cur_list.tail].b16.s0 = s;
 }
 pub(crate) unsafe fn off_save(
@@ -12650,8 +12653,8 @@ pub(crate) unsafe fn make_mark(input: &mut input_state_t, chr: i32, cs: i32) {
 pub(crate) unsafe fn append_penalty(input: &mut input_state_t) {
     let val = scan_int(input);
     let p = new_penalty(val);
-    *LLIST_link(cur_list.tail) = Some(p).tex_int();
-    cur_list.tail = p;
+    *LLIST_link(cur_list.tail) = Some(p.ptr()).tex_int();
+    cur_list.tail = p.ptr();
     if cur_list.mode == (false, ListMode::VMode) {
         build_page(input);
     };
@@ -12818,13 +12821,13 @@ pub(crate) unsafe fn append_italic_correction() {
             CharOrText::Text(TxtNode::WhatsIt(p)) => {
                 match p {
                     WhatsIt::NativeWord(nw) => {
-                        let mut k = Kern(new_kern(nw.italic_correction()));
+                        let mut k = new_kern(nw.italic_correction());
                         *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
                         cur_list.tail = k.ptr();
                         k.set_subtype(KernType::Explicit);
                     }
                     WhatsIt::Glyph(g) => {
-                        let mut k = Kern(new_kern(g.italic_correction()));
+                        let mut k = new_kern(g.italic_correction());
                         *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
                         cur_list.tail = k.ptr();
                         k.set_subtype(KernType::Explicit);
@@ -12836,10 +12839,10 @@ pub(crate) unsafe fn append_italic_correction() {
             _ => return,
         };
         f = p.font() as internal_font_number;
-        let mut k = Kern(new_kern(*FONT_CHARINFO_ITALCORR(
+        let mut k = new_kern(*FONT_CHARINFO_ITALCORR(
             f,
             FONT_CHARACTER_INFO(f, effective_char(true, f, p.character()) as usize),
-        )));
+        ));
         *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
         cur_list.tail = k.ptr();
         k.set_subtype(KernType::Explicit);
@@ -13017,11 +13020,11 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
                 }
                 _ => tex_round((w - a).0 as f64 / 2. + h.0 as f64 * t - x.0 as f64 * s),
             };
-            let mut r = Kern(new_kern(delta));
+            let mut r = new_kern(delta);
             r.set_subtype(KernType::AccKern);
             *LLIST_link(cur_list.tail) = Some(r.ptr()).tex_int();
             *LLIST_link(r.ptr()) = Some(p).tex_int();
-            let mut k = Kern(new_kern(-a - delta));
+            let mut k = new_kern(-a - delta);
             cur_list.tail = k.ptr();
             k.set_subtype(KernType::AccKern);
             *LLIST_link(p) = Some(k.ptr()).tex_int();
@@ -13397,14 +13400,12 @@ pub(crate) unsafe fn get_r_token(input: &mut input_state_t) -> (i32, Cmd, i32, i
     }
     (tok, cmd, chr, cs)
 }
-pub(crate) unsafe fn trap_zero_glue(val: i32) -> i32 {
-    if MEM[(val + 1) as usize].b32.s1 == 0
-        && MEM[(val + 2) as usize].b32.s1 == 0
-        && MEM[(val + 3) as usize].b32.s1 == 0
-    {
-        GlueSpec(0).rc_inc(); // TODO: check
-        delete_glue_ref(val as usize);
-        0
+pub(crate) unsafe fn trap_zero_glue(val: GlueSpec) -> GlueSpec {
+    if val.size() == Scaled::ZERO && val.stretch() == Scaled::ZERO && val.shrink() == Scaled::ZERO {
+        let zero = GlueSpec(0);
+        zero.rc_inc();
+        delete_glue_ref(val.ptr());
+        zero
     } else {
         val
     }
@@ -13519,7 +13520,7 @@ pub(crate) unsafe fn do_register_command(
                 let val = scan_glue(input, p);
                 if q == Cmd::Advance {
                     /*1274:*/
-                    let mut q = GlueSpec(new_spec(val as usize));
+                    let mut q = new_spec(&GlueSpec(val as usize));
                     let r = GlueSpec(s as usize);
                     delete_glue_ref(val as usize);
                     q.set_size(q.size() + r.size());
@@ -13562,7 +13563,7 @@ pub(crate) unsafe fn do_register_command(
             }
             _ => {
                 let s_spec = GlueSpec(s as usize);
-                let mut r = GlueSpec(new_spec(s as usize));
+                let mut r = new_spec(&s_spec);
                 if q == Cmd::Multiply {
                     r.set_size(s_spec.size().mul_add(val, Scaled::ZERO))
                         .set_stretch(s_spec.stretch().mul_add(val, Scaled::ZERO))
@@ -13606,17 +13607,17 @@ pub(crate) unsafe fn do_register_command(
             eq_word_define(l as usize, val);
         }
     } else {
-        let val = trap_zero_glue(val);
+        let val = trap_zero_glue(GlueSpec(val as usize));
         if e {
             if a >= 4 {
-                gsa_def(l as usize, val.opt());
+                gsa_def(l as usize, Some(val.ptr()));
             } else {
-                sa_def(l as usize, val.opt());
+                sa_def(l as usize, Some(val.ptr()));
             }
         } else if a >= 4 {
-            geq_define(l as usize, Cmd::GlueRef, val.opt());
+            geq_define(l as usize, Cmd::GlueRef, Some(val.ptr()));
         } else {
-            eq_define(l as usize, Cmd::GlueRef, val.opt());
+            eq_define(l as usize, Cmd::GlueRef, Some(val.ptr()));
         }
     };
 }
@@ -14340,8 +14341,8 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
         }
         GroupCode::Insert => {
             end_graf();
-            let q = *GLUEPAR(GluePar::split_top_skip) as usize;
-            GlueSpec(q).rc_inc();
+            let q = get_glue_par(GluePar::split_top_skip);
+            q.rc_inc();
             let d = *DIMENPAR(DimenPar::split_max_depth);
             let f = *INTPAR(IntPar::floating_penalty);
             unsave(input);
@@ -14360,7 +14361,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
                 i.set_box_reg(SAVE_STACK[SAVE_PTR + 0].val as u16)
                     .set_height(p.height() + p.depth())
                     .set_ins_ptr(p.list_ptr())
-                    .set_split_top_ptr(Some(q).tex_int())
+                    .set_split_top_ptr(Some(q.ptr()).tex_int())
                     .set_depth(d)
                     .set_float_cost(f);
             } else {
@@ -14369,7 +14370,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
                 cur_list.tail = a.ptr();
                 MEM[cur_list.tail].b16.s0 = SAVE_STACK[SAVE_PTR + 1].val as u16;
                 MEM[cur_list.tail + 1].b32.s1 = p.list_ptr();
-                delete_glue_ref(q);
+                delete_glue_ref(q.ptr());
             }
             free_node(p.ptr(), BOX_NODE_SIZE);
             if NEST_PTR == 0 {
@@ -14838,8 +14839,8 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     (MMode, Cmd::ItalCorr) => {
                         // 251
                         let k = new_kern(Scaled::ZERO);
-                        *LLIST_link(cur_list.tail) = Some(k).tex_int();
-                        cur_list.tail = k;
+                        *LLIST_link(cur_list.tail) = Some(k.ptr()).tex_int();
+                        cur_list.tail = k.ptr();
                     }
                     (HMode, Cmd::Discretionary) | (MMode, Cmd::Discretionary) => {
                         // 151 | 254
@@ -14870,8 +14871,8 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         if cur_chr > 0 {
                             if eTeX_enabled(*INTPAR(IntPar::texxet) > 0, cur_cmd, cur_chr) {
                                 let m = new_math(Scaled::ZERO, MathType::from(cur_chr as u16));
-                                *LLIST_link(cur_list.tail) = Some(m).tex_int();
-                                cur_list.tail = m;
+                                *LLIST_link(cur_list.tail) = Some(m.ptr()).tex_int();
+                                cur_list.tail = m.ptr();
                             }
                         } else {
                             init_align(input, cur_cs);
@@ -15039,7 +15040,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                     (MMode, Cmd::NonScript) => {
                         // 262
-                        let g = new_glue(0);
+                        let g = new_glue(&GlueSpec(0));
                         *LLIST_link(cur_list.tail) = Some(g).tex_int();
                         cur_list.tail = g;
                         MEM[cur_list.tail].b16.s0 = COND_MATH_GLUE;
@@ -15599,14 +15600,9 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 tmp_ptr.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
                                 let t = tmp_ptr.width() - native_pp.width() - native_tail.width();
                                 tmp_ptr.free();
-                                if t != Scaled(
-                                    MEM[(FONT_GLUE[main_f as usize] + 1) as usize].b32.s1,
-                                ) {
-                                    let mut tmp_ptr = Kern(new_kern(
-                                        t - Scaled(
-                                            MEM[(FONT_GLUE[main_f as usize] + 1) as usize].b32.s1,
-                                        ),
-                                    ));
+                                let fg = GlueSpec(FONT_GLUE[main_f as usize] as usize);
+                                if t != fg.size() {
+                                    let mut tmp_ptr = new_kern(t - fg.size());
                                     tmp_ptr.set_subtype(KernType::SpaceAdjustment);
                                     *LLIST_link(tmp_ptr.ptr()) = *LLIST_link(main_p);
                                     *LLIST_link(main_p) = Some(tmp_ptr.ptr()).tex_int();
@@ -15796,6 +15792,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                             .b32
                                             .s1,
                                     ))
+                                    .ptr()
                                         as i32;
                                     cur_list.tail = *LLIST_link(cur_list.tail) as usize;
                                     current_block = 2772858075894446251;
@@ -16208,20 +16205,21 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                 return;
             }
         }
-        let tmp_ptr = if *GLUEPAR(GluePar::space_skip) == 0 {
+        let tmp_ptr = if get_glue_par(GluePar::space_skip).ptr() == 0 {
             let mut main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize]
                 .opt()
+                .map(|g| GlueSpec(g))
                 .unwrap_or_else(|| {
-                    let main_p = new_spec(0);
+                    let mut main_p = new_spec(&GlueSpec(0));
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
-                    GlueSpec(main_p)
+                    main_p
                         .set_size(Scaled(FONT_INFO[main_k as usize].b32.s1))
                         .set_stretch(Scaled(FONT_INFO[(main_k + 1) as usize].b32.s1))
                         .set_shrink(Scaled(FONT_INFO[(main_k + 2) as usize].b32.s1));
-                    FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p).tex_int();
+                    FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize] = Some(main_p.ptr()).tex_int();
                     main_p
                 });
-            new_glue(main_p as usize)
+            new_glue(&main_p)
         } else {
             new_param_glue(GluePar::space_skip)
         };

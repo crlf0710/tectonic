@@ -3,6 +3,7 @@ use crate::xetex_ini::EQTB;
 
 use crate::xetex_scaledmath::Scaled;
 
+use crate::node::GlueSpec;
 pub(crate) type placeholdertype = i32;
 pub(crate) const MIN_HALFWORD: placeholdertype = -0x0FFFFFFF;
 pub(crate) const MAX_HALFWORD: placeholdertype = 0x3FFFFFFF;
@@ -123,8 +124,12 @@ pub(crate) enum GluePar {
 
 pub(crate) const GLUE_PARS: usize = 19;
 
-pub(crate) unsafe fn GLUEPAR(s: GluePar) -> &'static mut i32 {
-    &mut EQTB[GLUE_BASE + s as usize].val
+pub(crate) unsafe fn set_glue_par(s: GluePar, g: GlueSpec) {
+    EQTB[GLUE_BASE + s as usize].val = g.ptr() as i32;
+}
+
+pub(crate) unsafe fn get_glue_par(s: GluePar) -> GlueSpec {
+    GlueSpec(EQTB[GLUE_BASE + s as usize].val as usize)
 }
 
 pub(crate) const SKIP_BASE: usize = GLUE_BASE + GLUE_PARS;

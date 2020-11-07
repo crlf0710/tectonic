@@ -1944,10 +1944,10 @@ pub(crate) unsafe fn prefixed_command(
             } else {
                 scan_glue(input, ValLevel::Glue)
             };
-            let val = trap_zero_glue(val);
+            let val = trap_zero_glue(GlueSpec(val as usize));
             if a >= 4 {
-                geq_define(p, Cmd::GlueRef, val.opt());
-            } else { eq_define(p, Cmd::GlueRef, val.opt()); }
+                geq_define(p, Cmd::GlueRef, Some(val.ptr()));
+            } else { eq_define(p, Cmd::GlueRef, Some(val.ptr())); }
         }
         Cmd::XetexDefCode => {
             if ochr == SF_CODE_BASE as i32 {
