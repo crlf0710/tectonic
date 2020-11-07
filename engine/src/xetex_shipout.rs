@@ -96,13 +96,13 @@ unsafe fn dvi_out(c: u8) {
 pub(crate) unsafe fn ship_out(mut p: List) {
     const output_comment: &[u8] = b"tectonic";
 
-    synctex_sheet(*INTPAR(IntPar::mag));
+    synctex_sheet(get_int_par(IntPar::mag));
 
     if job_name == 0 {
         open_log_file();
     }
 
-    if *INTPAR(IntPar::tracing_output) > 0 {
+    if get_int_par(IntPar::tracing_output) > 0 {
         print_nl_cstr("");
         print_ln();
         print_cstr("Completed box being shipped out");
@@ -116,12 +116,12 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
     print_chr('[');
     let mut j = 9;
-    while j > 0 && *COUNT_REG(j as _) == 0 {
+    while j > 0 && get_count_reg(j as _) == 0 {
         j -= 1;
     }
 
     for k in 0..=j {
-        print_int(*COUNT_REG(k as _));
+        print_int(get_count_reg(k as _));
         if k < j {
             print_chr('.');
         }
@@ -129,7 +129,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
     rust_stdout.as_mut().unwrap().flush().unwrap();
 
-    if *INTPAR(IntPar::tracing_output) > 0 {
+    if get_int_par(IntPar::tracing_output) > 0 {
         print_chr(']');
         diagnostic(true, || show_box(Some(p.ptr())));
     }
@@ -140,8 +140,8 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
     if p.height() > Scaled::MAX_HALFWORD
         || p.depth() > Scaled::MAX_HALFWORD
-        || p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > Scaled::MAX_HALFWORD
-        || p.width() + *DIMENPAR(DimenPar::h_offset) > Scaled::MAX_HALFWORD
+        || p.height() + p.depth() + get_dimen_par(DimenPar::v_offset) > Scaled::MAX_HALFWORD
+        || p.width() + get_dimen_par(DimenPar::h_offset) > Scaled::MAX_HALFWORD
     {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -155,40 +155,36 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         );
         error();
 
-        if *INTPAR(IntPar::tracing_output) <= 0 {
+        if get_int_par(IntPar::tracing_output) <= 0 {
             diagnostic(true, || {
                 print_nl_cstr("The following box has been deleted:");
                 show_box(Some(p.ptr()));
             });
         }
     } else {
-        if p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset) > max_v {
-            max_v = p.height() + p.depth() + *DIMENPAR(DimenPar::v_offset);
-        }
-        if p.width() + *DIMENPAR(DimenPar::h_offset) > max_h {
-            max_h = p.width() + *DIMENPAR(DimenPar::h_offset);
-        }
+        max_v = (p.height() + p.depth() + get_dimen_par(DimenPar::v_offset)).max(max_v);
+        max_h = (p.width() + get_dimen_par(DimenPar::h_offset)).max(max_h);
 
         /*637: "Initialize variables as ship_out begins." */
 
         dvi_h = Scaled::ZERO;
         dvi_v = Scaled::ZERO;
-        cur_h = *DIMENPAR(DimenPar::h_offset);
+        cur_h = get_dimen_par(DimenPar::h_offset);
         dvi_f = 0;
 
         /*1405: "Calculate page dimensions and margins" */
         /* 4736287 = round(0xFFFF * 72.27) ; i.e., 1 inch expressed as a Scaled */
         const S_72_27: Scaled = Scaled(4736287);
-        cur_h_offset = *DIMENPAR(DimenPar::h_offset) + S_72_27;
-        cur_v_offset = *DIMENPAR(DimenPar::v_offset) + S_72_27;
+        cur_h_offset = get_dimen_par(DimenPar::h_offset) + S_72_27;
+        cur_v_offset = get_dimen_par(DimenPar::v_offset) + S_72_27;
 
-        if *DIMENPAR(DimenPar::pdf_page_width) != Scaled::ZERO {
-            cur_page_width = *DIMENPAR(DimenPar::pdf_page_width);
+        if get_dimen_par(DimenPar::pdf_page_width) != Scaled::ZERO {
+            cur_page_width = get_dimen_par(DimenPar::pdf_page_width);
         } else {
             cur_page_width = p.width() + cur_h_offset * 2;
         }
-        if *DIMENPAR(DimenPar::pdf_page_height) != Scaled::ZERO {
-            cur_page_height = *DIMENPAR(DimenPar::pdf_page_height);
+        if get_dimen_par(DimenPar::pdf_page_height) != Scaled::ZERO {
+            cur_page_height = get_dimen_par(DimenPar::pdf_page_height);
         } else {
             cur_page_height = p.height() + p.depth() + cur_v_offset * 2;
         }
@@ -222,7 +218,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
             dvi_four(Scaled(473628672).0); /* 7227 magic values: conversion ratio for sp */
 
             prepare_mag();
-            dvi_four(*INTPAR(IntPar::mag));
+            dvi_four(get_int_par(IntPar::mag));
 
             let l = output_comment.len();
             dvi_out(l as u8);
@@ -238,7 +234,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         dvi_out(BOP);
 
         for k in 0..10 {
-            dvi_four(*COUNT_REG(k));
+            dvi_four(get_count_reg(k));
         }
 
         dvi_four(last_bop);
@@ -249,19 +245,19 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         let old_setting = selector;
         selector = Selector::NEW_STRING;
         print_cstr("pdf:pagesize ");
-        if *DIMENPAR(DimenPar::pdf_page_width) <= Scaled::ZERO
-            || *DIMENPAR(DimenPar::pdf_page_height) <= Scaled::ZERO
+        if get_dimen_par(DimenPar::pdf_page_width) <= Scaled::ZERO
+            || get_dimen_par(DimenPar::pdf_page_height) <= Scaled::ZERO
         {
             print_cstr("default");
         } else {
             print_cstr("width");
             print(' ' as i32);
-            print_scaled(*DIMENPAR(DimenPar::pdf_page_width));
+            print_scaled(get_dimen_par(DimenPar::pdf_page_width));
             print_cstr("pt");
             print(' ' as i32);
             print_cstr("height");
             print(' ' as i32);
-            print_scaled(*DIMENPAR(DimenPar::pdf_page_height));
+            print_scaled(get_dimen_par(DimenPar::pdf_page_height));
             print_cstr("pt");
         }
         selector = old_setting;
@@ -277,7 +273,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
-        cur_v = p.height() + *DIMENPAR(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
+        cur_v = p.height() + get_dimen_par(DimenPar::v_offset); /*"Does this need changing for upwards mode???"*/
         if p.is_vertical() {
             vlist_out(&p);
         } else {
@@ -307,7 +303,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         confusion("LR3");
     }
 
-    if *INTPAR(IntPar::tracing_output) <= 0 {
+    if get_int_par(IntPar::tracing_output) <= 0 {
         print_chr(']');
     }
 
@@ -322,7 +318,7 @@ unsafe fn hlist_out(this_box: &mut List) {
     let g_order = this_box.glue_order();
     let g_sign = this_box.glue_sign();
 
-    if *INTPAR(IntPar::xetex_interword_space_shaping) > 1 {
+    if get_int_par(IntPar::xetex_interword_space_shaping) > 1 {
         /*640: "Extra stuff for justifiable AAT text..." "Merge sequences of
          * words using native fonts and inter-word spaces into single
          * nodes" */
@@ -1784,7 +1780,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
 
             if log_opened {
                 let old_setting = selector;
-                if *INTPAR(IntPar::tracing_online) <= 0 {
+                if get_int_par(IntPar::tracing_online) <= 0 {
                     selector = Selector::LOG_ONLY
                 } else {
                     selector = Selector::TERM_AND_LOG
@@ -2128,7 +2124,7 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     flush_list(Some(def_ref));
 
     if j == 18 {
-        if *INTPAR(IntPar::tracing_online) <= 0 {
+        if get_int_par(IntPar::tracing_online) <= 0 {
             selector = Selector::LOG_ONLY
         } else {
             selector = Selector::TERM_AND_LOG
@@ -2253,7 +2249,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
     dvi_four(25_400_000); /* magic values: conversion ratio for sp */
     dvi_four(Scaled(473628672).0); /* 7227.0 magic values: conversion ratio for sp */
     prepare_mag();
-    dvi_four(*INTPAR(IntPar::mag));
+    dvi_four(get_int_par(IntPar::mag));
     dvi_four(max_v.0);
     dvi_four(max_h.0);
     dvi_out((max_push / 256) as u8);

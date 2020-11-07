@@ -2,6 +2,7 @@ use crate::cmd::{BoxCode, TopBotMarkCode};
 use crate::xetex_ini::EQTB;
 
 use crate::xetex_scaledmath::Scaled;
+use crate::xetex_xetexd::{TeXInt, TeXOpt};
 
 use crate::node::GlueSpec;
 pub(crate) type placeholdertype = i32;
@@ -15,7 +16,7 @@ pub(crate) const TEX_INFINITY: placeholdertype = 0x7FFFFFFF;
 /// "signifies a missing item" in rule nodes */
 pub(crate) const NULL_FLAG: Scaled = Scaled(-0x4000_0000);
 /// "denotes default_rule_thickness"
-pub(crate) const DEFAULT_CODE: Scaled = Scaled(0x40000000);
+pub(crate) const DEFAULT_CODE: Scaled = Scaled(0x4000_0000);
 
 /* characters
  *
@@ -184,8 +185,11 @@ pub(crate) const DISPLAY_WIDOW_PENALTIES_LOC: usize = ETEX_PEN_BASE + 3;
 pub(crate) const ETEX_PENS: usize = ETEX_PEN_BASE + 4;
 
 pub(crate) const BOX_BASE: usize = ETEX_PENS;
-pub(crate) unsafe fn BOX_REG(n: usize) -> &'static mut i32 {
-    &mut EQTB[BOX_BASE + n].val
+pub(crate) unsafe fn get_box_reg(n: usize) -> Option<usize> {
+    EQTB[BOX_BASE + n].val.opt()
+}
+pub(crate) unsafe fn set_box_reg(n: usize, v: Option<usize>) {
+    EQTB[BOX_BASE + n].val = v.tex_int();
 }
 
 pub(crate) const CUR_FONT_LOC: usize = BOX_BASE + NUMBER_REGS;
@@ -323,14 +327,20 @@ pub(crate) enum IntPar {
 
 pub(crate) const INT_PARS: usize = 85;
 
-pub(crate) unsafe fn INTPAR(x: IntPar) -> &'static mut i32 {
-    &mut EQTB[INT_BASE + x as usize].val
+pub(crate) unsafe fn get_int_par(x: IntPar) -> i32 {
+    EQTB[INT_BASE + x as usize].val
+}
+pub(crate) unsafe fn set_int_par(x: IntPar, v: i32) {
+    EQTB[INT_BASE + x as usize].val = v;
 }
 
 pub(crate) const COUNT_BASE: usize = INT_BASE + INT_PARS;
-pub(crate) unsafe fn COUNT_REG(n: usize) -> &'static mut i32 {
-    &mut EQTB[COUNT_BASE + n].val
+pub(crate) unsafe fn get_count_reg(n: usize) -> i32 {
+    EQTB[COUNT_BASE + n].val
 }
+/*pub(crate) unsafe fn set_count_reg(n: usize, v: i32) {
+    EQTB[COUNT_BASE + n].val = v;
+}*/
 
 pub(crate) const DEL_CODE_BASE: usize = COUNT_BASE + NUMBER_REGS;
 pub(crate) unsafe fn DEL_CODE(n: usize) -> &'static mut i32 {
@@ -371,14 +381,20 @@ pub(crate) enum DimenPar {
 
 pub(crate) const DIMEN_PARS: usize = 23;
 
-pub(crate) fn DIMENPAR(x: DimenPar) -> &'static mut Scaled {
-    unsafe { &mut *(&mut EQTB[DIMEN_BASE + x as usize].val as *mut i32 as *mut Scaled) }
+pub(crate) fn get_dimen_par(x: DimenPar) -> Scaled {
+    unsafe { Scaled(EQTB[DIMEN_BASE + x as usize].val) }
+}
+pub(crate) fn set_dimen_par(x: DimenPar, v: Scaled) {
+    unsafe { EQTB[DIMEN_BASE + x as usize].val = v.0 }
 }
 
 pub(crate) const SCALED_BASE: usize = DIMEN_BASE + DIMEN_PARS;
-pub(crate) unsafe fn SCALED_REG(n: usize) -> &'static mut Scaled {
-    &mut *(&mut EQTB[SCALED_BASE + n].val as *mut i32 as *mut Scaled)
+pub(crate) unsafe fn get_scaled_reg(n: usize) -> Scaled {
+    Scaled(EQTB[SCALED_BASE + n].val)
 }
+/*pub(crate) unsafe fn set_scaled_reg(n: usize, v: Scaled) {
+    EQTB[SCALED_BASE + n].val = v.0
+}*/
 
 pub(crate) const EQTB_SIZE: usize = SCALED_BASE + NUMBER_REGS - 1;
 

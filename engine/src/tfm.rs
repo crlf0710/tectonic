@@ -64,8 +64,8 @@ use crate::xetex_ext::{check_for_tfm_font_mapping, load_tfm_font_mapping};
 use crate::xetex_ext::{find_native_font, NativeFont::*};
 
 use super::xetex_io::tt_xetex_open_input;
+use crate::xetex_consts::get_int_par;
 use crate::xetex_consts::IntPar;
-use crate::xetex_consts::INTPAR;
 use crate::xetex_consts::LIST_TAG;
 use crate::xetex_consts::NON_ADDRESS;
 use crate::xetex_consts::TOO_BIG_CHAR;
@@ -112,7 +112,7 @@ pub(crate) unsafe fn read_font_info(
 ) -> Result<(bool, usize), TfmError> {
     pack_file_name(nom, aire, cur_ext);
 
-    if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
+    if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
             print_nl_cstr("Requested font \"");
             print_c_str(&name_of_file);
@@ -528,8 +528,8 @@ pub(crate) unsafe fn read_font_info(
         FONT_PARAMS[f] = 7
     }
 
-    HYPHEN_CHAR[f] = *INTPAR(IntPar::default_hyphen_char);
-    SKEW_CHAR[f] = *INTPAR(IntPar::default_skew_char);
+    HYPHEN_CHAR[f] = get_int_par(IntPar::default_hyphen_char);
+    SKEW_CHAR[f] = get_int_par(IntPar::default_skew_char);
     if bch_label < nl {
         BCHAR_LABEL[f] = bch_label + LIG_KERN_BASE[f]
     } else {
@@ -568,7 +568,7 @@ pub(crate) unsafe fn bad_tfm(
     s: Scaled,
     file_name_quote_char: Option<u16>,
 ) {
-    if *INTPAR(IntPar::suppress_fontnotfound_error) == 0 {
+    if get_int_par(IntPar::suppress_fontnotfound_error) == 0 {
         /* NOTE: must preserve this path to keep passing the TRIP tests */
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -609,7 +609,7 @@ pub(crate) unsafe fn bad_tfm(
         );
         error();
     }
-    if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
+    if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
             print_nl_cstr(" -> font not found, using \"nullfont\"")
         });
@@ -618,7 +618,7 @@ pub(crate) unsafe fn bad_tfm(
 
 pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
     unsafe {
-        if *INTPAR(IntPar::xetex_tracing_fonts) > 0 {
+        if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
             if ok.0 {
                 diagnostic(false, || {
                     print_nl_cstr(" -> ");
@@ -696,8 +696,8 @@ pub(crate) unsafe fn load_native_font(mut s: Scaled) -> Result<usize, NativeFont
     FONT_BC[FONT_PTR] = 0 as UTF16_code;
     FONT_EC[FONT_PTR] = 65535 as UTF16_code;
     font_used[FONT_PTR] = false;
-    HYPHEN_CHAR[FONT_PTR] = *INTPAR(IntPar::default_hyphen_char);
-    SKEW_CHAR[FONT_PTR] = *INTPAR(IntPar::default_skew_char);
+    HYPHEN_CHAR[FONT_PTR] = get_int_par(IntPar::default_hyphen_char);
+    SKEW_CHAR[FONT_PTR] = get_int_par(IntPar::default_skew_char);
     PARAM_BASE[FONT_PTR] = fmem_ptr - 1;
     FONT_LAYOUT_ENGINE[FONT_PTR] = crate::xetex_ext::Font::Native(font_engine);
     FONT_MAPPING[FONT_PTR] = 0 as *mut libc::c_void;

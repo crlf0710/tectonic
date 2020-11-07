@@ -15,7 +15,7 @@ use std::ffi::CString;
 use std::io::Write;
 
 use crate::node::{Kern, List, TxtNode, BOX_NODE_SIZE, MEDIUM_NODE_SIZE, RULE_NODE_SIZE};
-use crate::xetex_consts::{IntPar, INTPAR};
+use crate::xetex_consts::{get_int_par, set_int_par, IntPar};
 use crate::xetex_ini::{
     cur_h, cur_v, input_state_t, job_name, rule_dp, rule_ht, rule_wd, synctex_enabled, MEM,
     TOTAL_PAGES,
@@ -157,9 +157,9 @@ pub(crate) unsafe fn synctex_init_command() {
     /* Reset state */
     synctex_ctxt = default_synctex_ctxt;
     if synctex_enabled != 0 {
-        *INTPAR(IntPar::synctex) = 1i32
+        set_int_par(IntPar::synctex, 1);
     } else {
-        *INTPAR(IntPar::synctex) = 0i32
+        set_int_par(IntPar::synctex, 0);
         /* \synctex=0 : don't record stuff */
     };
 }
@@ -185,7 +185,7 @@ const synctex_suffix_gz: &str = ".gz";
  *  information for page i alone.
  */
 unsafe fn synctex_dot_open() -> bool {
-    if synctex_ctxt.flags.contains(Flags::OFF) || *INTPAR(IntPar::synctex) == 0 {
+    if synctex_ctxt.flags.contains(Flags::OFF) || get_int_par(IntPar::synctex) == 0 {
         return false;
     }
     if synctex_ctxt.file.is_some() {
@@ -315,7 +315,7 @@ pub(crate) unsafe fn synctex_terminate(mut _log_opened: bool) {
  */
 pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
+        if get_int_par(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
             ttstub_issue_warning(
                 "SyncTeX was disabled -- changing the value of \\synctex has no effect",
@@ -370,7 +370,7 @@ pub(crate) unsafe fn synctex_teehs() {
  *  address of the vlist. We assume that p is really a vlist node! */
 pub(crate) unsafe fn synctex_vlist(this_box: &List) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -393,7 +393,7 @@ pub(crate) unsafe fn synctex_vlist(this_box: &List) {
  *  synctex_vlist sent at the beginning of that procedure.    */
 pub(crate) unsafe fn synctex_tsilv(this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -413,7 +413,7 @@ pub(crate) unsafe fn synctex_tsilv(this_box: usize) {
  *  There is no need to balance a void vlist.  */
 pub(crate) unsafe fn synctex_void_vlist(p: &List, mut _this_box: &List) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -436,7 +436,7 @@ pub(crate) unsafe fn synctex_void_vlist(p: &List, mut _this_box: &List) {
  *  address of the hlist We assume that p is really an hlist node! */
 pub(crate) unsafe fn synctex_hlist(this_box: &List) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -457,7 +457,7 @@ pub(crate) unsafe fn synctex_hlist(this_box: &List) {
  *  synctex_hlist sent at the beginning of that procedure.    */
 pub(crate) unsafe fn synctex_tsilh(this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -477,7 +477,7 @@ pub(crate) unsafe fn synctex_tsilh(this_box: usize) {
  *  There is no need to balance a void hlist.  */
 pub(crate) unsafe fn synctex_void_hlist(p: &List, _this_box: &List) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -505,7 +505,7 @@ pub(crate) unsafe fn synctex_void_hlist(p: &List, _this_box: &List) {
 See: @ @<Output the non-|char_node| |p| for...  */
 pub(crate) unsafe fn synctex_math(p: usize, mut _this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -535,7 +535,7 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
     match TxtNode::from(p) {
         TxtNode::Rule(r) => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || *INTPAR(IntPar::synctex) == 0
+                || get_int_par(IntPar::synctex) == 0
                 || 0i32 >= *SYNCTEX_tag(r.ptr(), RULE_NODE_SIZE)
                 || 0i32 >= *SYNCTEX_line(r.ptr(), RULE_NODE_SIZE)
             {
@@ -544,7 +544,7 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
         }
         TxtNode::Glue(g) => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || *INTPAR(IntPar::synctex) == 0
+                || get_int_par(IntPar::synctex) == 0
                 || 0i32 >= *SYNCTEX_tag(g.ptr(), MEDIUM_NODE_SIZE)
                 || 0i32 >= *SYNCTEX_line(g.ptr(), MEDIUM_NODE_SIZE)
             {
@@ -553,7 +553,7 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
         }
         TxtNode::Kern(k) => {
             if synctex_ctxt.flags.contains(Flags::OFF)
-                || *INTPAR(IntPar::synctex) == 0
+                || get_int_par(IntPar::synctex) == 0
                 || 0i32 >= *SYNCTEX_tag(k.ptr(), MEDIUM_NODE_SIZE)
                 || 0i32 >= *SYNCTEX_line(k.ptr(), MEDIUM_NODE_SIZE)
             {
@@ -600,7 +600,7 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
 See: @ @<Output the non-|char_node| |p| for...    */
 pub(crate) unsafe fn synctex_kern(p: usize, this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || 0i32 >= *SYNCTEX_tag(p, MEDIUM_NODE_SIZE)
         || 0i32 >= *SYNCTEX_line(p, MEDIUM_NODE_SIZE)
     {
@@ -644,7 +644,7 @@ synchronously for the current location    */
 pub(crate) unsafe fn synctex_current() {
     /* magic pt/in conversion */
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return;
@@ -751,7 +751,7 @@ unsafe fn synctex_record_teehs(mut sheet: usize) -> i32 {
  */
 pub(crate) unsafe fn synctex_pdfxform(mut p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
-        if *INTPAR(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
+        if get_int_par(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
             ttstub_issue_warning(
                 "SyncTeX was disabled - changing the value of \\synctex has no effect",
@@ -780,7 +780,7 @@ pub(crate) unsafe fn synctex_pdfrefxform(mut objnum: i32) {
 #[inline]
 unsafe fn synctex_record_pdfxform(mut _form: i32) -> i32 {
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;
@@ -819,7 +819,7 @@ unsafe fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
     synctex_ctxt.curh = cur_h + S_72_27;
     synctex_ctxt.curv = cur_v + S_72_27;
     if synctex_ctxt.flags.contains(Flags::OFF)
-        || *INTPAR(IntPar::synctex) == 0
+        || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
         return 0i32;

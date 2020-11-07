@@ -35,7 +35,6 @@ use crate::xetex_consts::FROZEN_CONTROL_SEQUENCE;
 use crate::xetex_consts::HASH_BASE;
 use crate::xetex_consts::HASH_PRIME;
 use crate::xetex_consts::HI_MEM_STAT_USAGE;
-use crate::xetex_consts::INTPAR;
 use crate::xetex_consts::INT_BASE;
 use crate::xetex_consts::LEVEL_ZERO;
 use crate::xetex_consts::MAX_HALFWORD;
@@ -44,6 +43,7 @@ use crate::xetex_consts::PAGE_HEAD;
 use crate::xetex_consts::PRE_ADJUST_HEAD;
 use crate::xetex_consts::PRIM_SIZE;
 use crate::xetex_consts::TOO_BIG_CHAR;
+use crate::xetex_consts::{get_int_par, set_int_par};
 use crate::xetex_consts::{
     ValLevel, HYPH_PRIME, MAX_FONT_MAX, MIN_HALFWORD, UNDEFINED_CONTROL_SEQUENCE,
 };
@@ -147,11 +147,11 @@ pub(crate) unsafe fn store_fmt_file() {
     print_cstr(" (preloaded format=");
     print(job_name);
     print_chr(' ');
-    print_int(*INTPAR(IntPar::year));
+    print_int(get_int_par(IntPar::year));
     print_chr('.');
-    print_int(*INTPAR(IntPar::month));
+    print_int(get_int_par(IntPar::month));
     print_chr('.');
-    print_int(*INTPAR(IntPar::day));
+    print_int(get_int_par(IntPar::day));
     print_chr(')');
 
     selector = if interaction == InteractionMode::Batch {
@@ -512,7 +512,7 @@ pub(crate) unsafe fn store_fmt_file() {
 
     fmt_out.dump_one(FORMAT_FOOTER_MAGIC);
 
-    *INTPAR(IntPar::tracing_stats) = 0; /*:1361*/
+    set_int_par(IntPar::tracing_stats, 0); /*:1361*/
     ttstub_output_close(fmt_out_owner);
 }
 

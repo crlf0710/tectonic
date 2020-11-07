@@ -1097,12 +1097,12 @@ where
 
 unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
     if trie_not_ready {
-        if *INTPAR(IntPar::language) <= 0 {
+        if get_int_par(IntPar::language) <= 0 {
             cur_lang = 0
-        } else if *INTPAR(IntPar::language) > BIGGEST_LANG {
+        } else if get_int_par(IntPar::language) > BIGGEST_LANG {
             cur_lang = 0
         } else {
-            cur_lang = *INTPAR(IntPar::language) as _;
+            cur_lang = get_int_par(IntPar::language) as _;
         }
         scan_left_brace(input);
         let mut k = 0;
@@ -1230,7 +1230,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
             }
         }
         /*:996*/
-        if *INTPAR(IntPar::saving_hyphs) > 0 {
+        if get_int_par(IntPar::saving_hyphs) > 0 {
             /*1643:*/
             let c = cur_lang as UTF16_code;
             let first_child = false;
@@ -1318,12 +1318,12 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
 unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
     scan_left_brace(input);
 
-    cur_lang = if *INTPAR(IntPar::language) <= 0 {
+    cur_lang = if get_int_par(IntPar::language) <= 0 {
         0
-    } else if *INTPAR(IntPar::language) > BIGGEST_LANG {
+    } else if get_int_par(IntPar::language) > BIGGEST_LANG {
         0
     } else {
-        *INTPAR(IntPar::language) as _
+        get_int_par(IntPar::language) as _
     };
 
     hyph_index = if trie_not_ready {
@@ -1533,7 +1533,7 @@ pub(crate) unsafe fn prefixed_command(
             back_error(input, tok);
             return;
         }
-        if *INTPAR(IntPar::tracing_commands) > 2 {
+        if get_int_par(IntPar::tracing_commands) > 2 {
             show_cur_cmd_chr(ocmd, ochr);
         }
     }
@@ -1563,8 +1563,8 @@ pub(crate) unsafe fn prefixed_command(
         error();
     }
 
-    if *INTPAR(IntPar::global_defs) != 0 {
-        if *INTPAR(IntPar::global_defs) < 0 {
+    if get_int_par(IntPar::global_defs) != 0 {
+        if get_int_par(IntPar::global_defs) < 0 {
             if a >= 4 {
                 a -= 4;
             }
@@ -1582,7 +1582,7 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::Def => {
-            if ochr & 1i32 != 0 && (a as i32) < 4i32 && *INTPAR(IntPar::global_defs) >= 0 {
+            if ochr & 1i32 != 0 && (a as i32) < 4i32 && get_int_par(IntPar::global_defs) >= 0 {
                 a = (a as i32 + 4i32) as i16
             }
             e = ochr >= 2;
@@ -1653,7 +1653,7 @@ pub(crate) unsafe fn prefixed_command(
                 scan_optional_equals(input);
                 let mut n = scan_char_num(input);
                 let val = scan_char_num(input);
-                if *INTPAR(IntPar::tracing_char_sub_def) > 0 {
+                if get_int_par(IntPar::tracing_char_sub_def) > 0 {
                     diagnostic(false, || {
                         print_nl_cstr("New character substitution: ");
                         print(p - CHAR_SUB_CODE_BASE as i32);
@@ -1667,14 +1667,14 @@ pub(crate) unsafe fn prefixed_command(
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data, Some(n as usize));
                 } else { eq_define(p as usize, Cmd::Data, Some(n as usize)); }
-                if (p - CHAR_SUB_CODE_BASE as i32) < *INTPAR(IntPar::char_sub_def_min) {
+                if (p - CHAR_SUB_CODE_BASE as i32) < get_int_par(IntPar::char_sub_def_min) {
                     if a >= 4 {
                         geq_word_define(INT_BASE as usize + IntPar::char_sub_def_min as usize, p - CHAR_SUB_CODE_BASE as i32);
                     } else {
                         eq_word_define(INT_BASE as usize + IntPar::char_sub_def_min as usize, p - CHAR_SUB_CODE_BASE as i32);
                     }
                 }
-                if (p - CHAR_SUB_CODE_BASE as i32) < *INTPAR(IntPar::char_sub_def_max) {
+                if (p - CHAR_SUB_CODE_BASE as i32) < get_int_par(IntPar::char_sub_def_max) {
                     if a >= 4 {
                         geq_word_define(INT_BASE as usize + IntPar::char_sub_def_max as usize, p - CHAR_SUB_CODE_BASE as i32);
                     } else {
@@ -2589,14 +2589,14 @@ unsafe fn initialize_more_initex_variables() {
         EQTB[k].val = 0;
     }
 
-    *INTPAR(IntPar::char_sub_def_min) = 256;
-    *INTPAR(IntPar::char_sub_def_max) = -1;
-    *INTPAR(IntPar::mag) = 1000;
-    *INTPAR(IntPar::tolerance) = 10_000;
-    *INTPAR(IntPar::hang_after) = 1;
-    *INTPAR(IntPar::max_dead_cycles) = 25;
-    *INTPAR(IntPar::escape_char) = '\\' as i32;
-    *INTPAR(IntPar::end_line_char) = '\r' as i32;
+    set_int_par(IntPar::char_sub_def_min, 256);
+    set_int_par(IntPar::char_sub_def_max, -1);
+    set_int_par(IntPar::mag, 1000);
+    set_int_par(IntPar::tolerance, 10_000);
+    set_int_par(IntPar::hang_after, 1);
+    set_int_par(IntPar::max_dead_cycles, 25);
+    set_int_par(IntPar::escape_char, '\\' as i32);
+    set_int_par(IntPar::end_line_char, '\r' as i32);
 
     for k in 0..=(NUMBER_USVS - 1) {
         *DEL_CODE(k) = -1;
@@ -2646,7 +2646,7 @@ unsafe fn initialize_more_initex_variables() {
         sa_root[i] = None;
     }
 
-    *INTPAR(IntPar::xetex_hyphenatable_length) = 63;
+    set_int_par(IntPar::xetex_hyphenatable_length, 63);
 }
 /*:1370*/
 /*1371: */
@@ -4323,25 +4323,25 @@ pub(crate) unsafe fn tt_run_engine(
         }
     }
 
-    if *INTPAR(IntPar::end_line_char) < 0 || *INTPAR(IntPar::end_line_char) < BIGGEST_CHAR {
+    if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) < BIGGEST_CHAR {
         cur_input.limit -= 1
     } else {
-        BUFFER[cur_input.limit as usize] = *INTPAR(IntPar::end_line_char);
+        BUFFER[cur_input.limit as usize] = get_int_par(IntPar::end_line_char);
     }
 
     if in_initex_mode {
         /* TeX initializes with the real date and time, but for format file
          * reproducibility we do this: */
-        *INTPAR(IntPar::time) = 0;
-        *INTPAR(IntPar::day) = 0;
-        *INTPAR(IntPar::month) = 0;
-        *INTPAR(IntPar::year) = 0;
+        set_int_par(IntPar::time, 0);
+        set_int_par(IntPar::day, 0);
+        set_int_par(IntPar::month, 0);
+        set_int_par(IntPar::year, 0);
     } else {
         let (minutes, day, month, year) = get_date_and_time();
-        *INTPAR(IntPar::time) = minutes;
-        *INTPAR(IntPar::day) = day;
-        *INTPAR(IntPar::month) = month;
-        *INTPAR(IntPar::year) = year;
+        set_int_par(IntPar::time, minutes);
+        set_int_par(IntPar::day, day);
+        set_int_par(IntPar::month, month);
+        set_int_par(IntPar::year, year);
     }
     if trie_not_ready {
         trie_trl = vec![0; trie_size as usize + 1];
@@ -4427,7 +4427,7 @@ pub(crate) unsafe fn tt_run_engine(
         Selector::TERM_ONLY
     };
     if semantic_pagination_enabled {
-        *INTPAR(IntPar::xetex_generate_actual_text) = 1;
+        set_int_par(IntPar::xetex_generate_actual_text, 1);
     }
     pdf_files_init();
     synctex_init_command();

@@ -207,7 +207,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     do_last_line_fit = false; /*863:*/
     active_node_size = ACTIVE_NODE_SIZE_NORMAL as _;
-    if *INTPAR(IntPar::last_line_fit) > 0 {
+    if get_int_par(IntPar::last_line_fit) > 0 {
         let llf = Glue(last_line_fill as usize);
         let q = GlueSpec(llf.glue_ptr() as usize);
         if q.stretch() > Scaled::ZERO && q.stretch_order() > GlueOrder::Normal {
@@ -238,30 +238,31 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         second_width = Scaled(MEM[ps + 2 * (last_special_line as usize + 1)].b32.s1);
         second_indent = Scaled(MEM[ps + 2 * last_special_line as usize + 1].b32.s1);
     } else {
-        if *DIMENPAR(DimenPar::hang_indent) == Scaled::ZERO {
+        if get_dimen_par(DimenPar::hang_indent) == Scaled::ZERO {
             last_special_line = 0;
-            second_width = *DIMENPAR(DimenPar::hsize);
+            second_width = get_dimen_par(DimenPar::hsize);
             second_indent = Scaled::ZERO;
         } else {
             /*878:*/
-            last_special_line = (*INTPAR(IntPar::hang_after)).abs();
+            last_special_line = (get_int_par(IntPar::hang_after)).abs();
 
-            if *INTPAR(IntPar::hang_after) < 0 {
-                first_width = *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
-                first_indent = (*DIMENPAR(DimenPar::hang_indent)).max(Scaled::ZERO);
-                second_width = *DIMENPAR(DimenPar::hsize);
+            if get_int_par(IntPar::hang_after) < 0 {
+                first_width =
+                    get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
+                first_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
+                second_width = get_dimen_par(DimenPar::hsize);
                 second_indent = Scaled::ZERO;
             } else {
-                first_width = *DIMENPAR(DimenPar::hsize);
+                first_width = get_dimen_par(DimenPar::hsize);
                 first_indent = Scaled::ZERO;
                 second_width =
-                    *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
-                second_indent = (*DIMENPAR(DimenPar::hang_indent)).max(Scaled::ZERO);
+                    get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
+                second_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
             }
         }
     }
 
-    if *INTPAR(IntPar::looseness) == 0 {
+    if get_int_par(IntPar::looseness) == 0 {
         easy_line = last_special_line
     } else {
         easy_line = MAX_HALFWORD; /*:877*/
@@ -269,15 +270,15 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 
     /* Start finding optimal breakpoints (892) */
 
-    threshold = *INTPAR(IntPar::pretolerance);
+    threshold = get_int_par(IntPar::pretolerance);
     let mut second_pass;
     if threshold >= 0 {
         second_pass = false;
         final_pass = false
     } else {
-        threshold = *INTPAR(IntPar::tolerance);
+        threshold = get_int_par(IntPar::tolerance);
         second_pass = true;
-        final_pass = *DIMENPAR(DimenPar::emergency_stretch) <= Scaled::ZERO;
+        final_pass = get_dimen_par(DimenPar::emergency_stretch) <= Scaled::ZERO;
     }
     loop {
         if threshold > INF_BAD {
@@ -468,10 +469,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             }
                         }
                         active_width.width += disc_width;
-                        try_break(*INTPAR(IntPar::hyphen_penalty), BreakType::Hyphenated);
+                        try_break(get_int_par(IntPar::hyphen_penalty), BreakType::Hyphenated);
                         active_width.width -= disc_width;
                     } else {
-                        try_break(*INTPAR(IntPar::ex_hyphen_penalty), BreakType::Hyphenated);
+                        try_break(
+                            get_int_par(IntPar::ex_hyphen_penalty),
+                            BreakType::Hyphenated,
+                        );
                     }
                     let mut r = d.replace_count() as i32;
                     let mut sopt = llist_link(d.ptr());
@@ -573,7 +577,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                 }
                 best_line = best_bet.line_number();
-                if *INTPAR(IntPar::looseness) == 0 {
+                if get_int_par(IntPar::looseness) == 0 {
                     break;
                 }
 
@@ -584,9 +588,10 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     if let ActiveNode::Active(r) = ActiveNode::from(r as usize) {
                         line_diff = r.line_number() - best_line;
 
-                        if line_diff < actual_looseness && *INTPAR(IntPar::looseness) <= line_diff
+                        if line_diff < actual_looseness
+                            && get_int_par(IntPar::looseness) <= line_diff
                             || line_diff > actual_looseness
-                                && *INTPAR(IntPar::looseness) >= line_diff
+                                && get_int_par(IntPar::looseness) >= line_diff
                         {
                             best_bet = r;
                             actual_looseness = line_diff;
@@ -604,7 +609,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                     }
                 }
                 best_line = best_bet.line_number();
-                if actual_looseness == *INTPAR(IntPar::looseness) || final_pass {
+                if actual_looseness == get_int_par(IntPar::looseness) || final_pass {
                     break;
                 }
             }
@@ -629,11 +634,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         }
         /* ... resuming 892 ... */
         if !second_pass {
-            threshold = *INTPAR(IntPar::tolerance);
+            threshold = get_int_par(IntPar::tolerance);
             second_pass = true;
-            final_pass = *DIMENPAR(DimenPar::emergency_stretch) <= Scaled::ZERO;
+            final_pass = get_dimen_par(DimenPar::emergency_stretch) <= Scaled::ZERO;
         } else {
-            background.stretch0 += *DIMENPAR(DimenPar::emergency_stretch);
+            background.stretch0 += get_dimen_par(DimenPar::emergency_stretch);
             final_pass = true;
         }
     }
@@ -778,7 +783,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             trie_tro[(hyph_index + c) as usize]
                         };
                         if hc[0] != 0 {
-                            if hc[0] == c || *INTPAR(IntPar::uc_hyph) > 0 {
+                            if hc[0] == c || get_int_par(IntPar::uc_hyph) > 0 {
                                 break;
                             } else {
                                 return c;
@@ -869,11 +874,13 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     q.set_actual_text_from(&ha_nw);
                                     q.text_mut().copy_from_slice(&ha_text[l as usize..]);
 
-                                    q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                                    q.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
                                     *LLIST_link(q.ptr()) = *LLIST_link(ha);
                                     *LLIST_link(ha) = Some(q.ptr()).tex_int();
                                     ha_nw.set_length(l as u16);
-                                    ha_nw.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                                    ha_nw.set_metrics(
+                                        get_int_par(IntPar::xetex_use_glyph_metrics) > 0,
+                                    );
                                     break 'restart;
                                 }
                             } else if hn == 0 && l > 0 {
@@ -882,11 +889,11 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 q.set_actual_text_from(&ha_nw);
                                 q.text_mut().copy_from_slice(&ha_text[l as usize..]);
 
-                                q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                                q.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
                                 *LLIST_link(q.ptr()) = *LLIST_link(ha);
                                 *LLIST_link(ha) = Some(q.ptr()).tex_int();
                                 ha_nw.set_length(l as u16);
-                                ha_nw.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                                ha_nw.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
                                 ha = *LLIST_link(ha) as usize;
                                 ha_nw = NativeWord::from(ha);
                                 break;
@@ -1075,7 +1082,7 @@ unsafe fn post_line_break(mut d: bool) {
          * cur_p.cur_break.
          **/
         let cp = Passive(cur_p.unwrap());
-        if *INTPAR(IntPar::texxet) > 0 {
+        if get_int_par(IntPar::texxet) > 0 {
             /*1494:*/
             let mut q = *LLIST_link(TEMP_HEAD);
             if let Some(lr) = LR_ptr {
@@ -1185,9 +1192,9 @@ unsafe fn post_line_break(mut d: bool) {
                 }
                 TxtNode::Math(m) => {
                     m.set_width(Scaled::ZERO);
-                    if *INTPAR(IntPar::texxet) > 0 {
+                    if get_int_par(IntPar::texxet) > 0 {
                         /*1495:*/
-                        let (be, _) = MathType::from(*INTPAR(IntPar::texxet) as u16).equ();
+                        let (be, _) = MathType::from(get_int_par(IntPar::texxet) as u16).equ();
                         let (_, mode) = m.subtype().equ();
                         if be == BE::End {
                             if let Some(lr) = LR_ptr {
@@ -1219,7 +1226,7 @@ unsafe fn post_line_break(mut d: bool) {
         /* "at this point q is the rightmost breakpoint; the only exception is
          * the case of a discretionary break with non-empty pre_break -- then
          * q has been changed to the last node of the pre-break list" */
-        if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
+        if get_int_par(IntPar::xetex_protrude_chars) > 0 {
             let ptmp;
             let p = match (disc_break, CharOrText::from(q)) {
                 (false, _) | (true, CharOrText::Text(TxtNode::Disc(_))) => {
@@ -1250,7 +1257,7 @@ unsafe fn post_line_break(mut d: bool) {
             *LLIST_link(q) = Some(r).tex_int();
             q = r;
         }
-        if *INTPAR(IntPar::texxet) > 0 {
+        if get_int_par(IntPar::texxet) > 0 {
             /*1496:*/
             if let Some(lr) = LR_ptr {
                 let mut s = TEMP_HEAD;
@@ -1280,7 +1287,7 @@ unsafe fn post_line_break(mut d: bool) {
         *LLIST_link(TEMP_HEAD) = r;
         /* "at this point q is the leftmost node; all discardable nodes have been discarded */
         
-        if *INTPAR(IntPar::xetex_protrude_chars) > 0 {
+        if get_int_par(IntPar::xetex_protrude_chars) > 0 {
             let p = find_protchar_left(q as usize, false);
             let w = char_pw(Some(p), Side::Left);
             if w != Scaled::ZERO {
@@ -1340,14 +1347,14 @@ unsafe fn post_line_break(mut d: bool) {
                 let r = cur_line.min(q.penalty()) as usize;
                 Penalty(q.ptr() + r).penalty()
             } else {
-                *INTPAR(IntPar::inter_line_penalty)
+                get_int_par(IntPar::inter_line_penalty)
             };
             if let Some(q) = EQTB[CLUB_PENALTIES_LOC].val.opt() {
                 let q = Penalty(q);
                 let r = (cur_line - cur_list.prev_graf).min(q.penalty()) as usize;
                 pen += Penalty(q.ptr() + r).penalty()
             } else if cur_line == cur_list.prev_graf + 1 {
-                pen += *INTPAR(IntPar::club_penalty)
+                pen += get_int_par(IntPar::club_penalty)
             }
             let q = if d {
                 EQTB[DISPLAY_WIDOW_PENALTIES_LOC].val.opt()
@@ -1360,13 +1367,13 @@ unsafe fn post_line_break(mut d: bool) {
                 pen += Penalty(q.ptr() + r).penalty()
             } else if cur_line + 2 == best_line {
                 if d {
-                    pen += *INTPAR(IntPar::display_widow_penalty)
+                    pen += get_int_par(IntPar::display_widow_penalty)
                 } else {
-                    pen += *INTPAR(IntPar::widow_penalty)
+                    pen += get_int_par(IntPar::widow_penalty)
                 }
             }
             if disc_break {
-                pen += *INTPAR(IntPar::broken_penalty)
+                pen += get_int_par(IntPar::broken_penalty)
             }
             if pen != 0 {
                 let r = new_penalty(pen);
@@ -1397,7 +1404,7 @@ unsafe fn post_line_break(mut d: bool) {
                             TxtNode::Ins(_) | TxtNode::Mark(_) | TxtNode::Adjust(_) |
                             TxtNode::Ligature(_) | TxtNode::Disc(_)  | TxtNode::WhatsIt(_) => break,
                             TxtNode::Kern(k) if k.subtype() != KernType::Explicit && k.subtype() != KernType::SpaceAdjustment => break,
-                            TxtNode::Math(q) if *INTPAR(IntPar::texxet) > 0 => {
+                            TxtNode::Math(q) if get_int_par(IntPar::texxet) > 0 => {
                                 r = q.ptr();
                                 /*1495:*/
                                 let (be, mode) = q.subtype().equ();
@@ -1667,12 +1674,13 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             }
                         }
                         /* ... resuming 865 ... */
-                        if (*INTPAR(IntPar::adj_demerits)).abs() >= MAX_HALFWORD - minimum_demerits
+                        if (get_int_par(IntPar::adj_demerits)).abs()
+                            >= MAX_HALFWORD - minimum_demerits
                         {
                             minimum_demerits = AWFUL_BAD - 1;
                         } else {
                             minimum_demerits =
-                                minimum_demerits + (*INTPAR(IntPar::adj_demerits)).abs()
+                                minimum_demerits + (get_int_par(IntPar::adj_demerits)).abs()
                         }
                         fit_class = VERY_LOOSE_FIT;
                         while fit_class <= TIGHT_FIT {
@@ -1750,7 +1758,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                 } else {
                     artificial_demerits = false;
                     shortfall = line_width - cur_active_width.width;
-                    if *INTPAR(IntPar::xetex_protrude_chars) > 1 {
+                    if get_int_par(IntPar::xetex_protrude_chars) > 1 {
                         shortfall = shortfall + total_pw(&r, cur_p)
                     }
                 }
@@ -1784,9 +1792,9 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                     } else {
                                         arith_error = false;
                                         g = g.fract(r.shortfall(), r.glue());
-                                        if *INTPAR(IntPar::last_line_fit) < 1000 {
+                                        if get_int_par(IntPar::last_line_fit) < 1000 {
                                             g = g.fract(
-                                                Scaled(*INTPAR(IntPar::last_line_fit)),
+                                                Scaled(get_int_par(IntPar::last_line_fit)),
                                                 Scaled(1000),
                                             )
                                         }
@@ -1972,7 +1980,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             d = 0
                         } else {
                             /*888: "Compute the demerits, d, from r to cur_p" */
-                            d = *INTPAR(IntPar::line_penalty) + b;
+                            d = get_int_par(IntPar::line_penalty) + b;
                             d = if d.abs() >= 10_000 {
                                 100_000_000
                             /* algorithmic constant */
@@ -1990,13 +1998,13 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                                 && r.break_type() == BreakType::Hyphenated
                             {
                                 d += if cur_p.is_some() {
-                                    *INTPAR(IntPar::double_hyphen_demerits)
+                                    get_int_par(IntPar::double_hyphen_demerits)
                                 } else {
-                                    *INTPAR(IntPar::final_hyphen_demerits)
+                                    get_int_par(IntPar::final_hyphen_demerits)
                                 };
                             }
                             if (fit_class as i32 - r.fitness() as i32).abs() > 1 {
-                                d += *INTPAR(IntPar::adj_demerits);
+                                d += get_int_par(IntPar::adj_demerits);
                             }
                         }
                         /* resuming 884: */
@@ -2182,7 +2190,7 @@ unsafe fn hyphenate() {
                 q.text_mut()
                     .copy_from_slice(&ha_text[hyphen_passed as usize..j as usize]);
 
-                q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+                q.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
                 *LLIST_link(s) = Some(q.ptr()).tex_int();
                 s = q.ptr();
                 let mut q = Discretionary(new_disc());
@@ -2199,7 +2207,7 @@ unsafe fn hyphenate() {
         q.text_mut()
             .copy_from_slice(&ha_text[(hyphen_passed as usize)..]);
 
-        q.set_metrics(*INTPAR(IntPar::xetex_use_glyph_metrics) > 0);
+        q.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
         *LLIST_link(s) = Some(q.ptr()).tex_int();
         s = q.ptr();
         let q = *LLIST_link(ha);

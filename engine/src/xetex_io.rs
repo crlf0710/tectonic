@@ -704,8 +704,8 @@ pub(crate) unsafe fn open_or_close_in(input: &mut input_state_t, chr: i32) {
         let ufile = u_open_in(
             TTInputFormat::TEX,
             b"rb",
-            UnicodeMode::from(*INTPAR(IntPar::xetex_default_input_mode)),
-            *INTPAR(IntPar::xetex_default_input_encoding),
+            UnicodeMode::from(get_int_par(IntPar::xetex_default_input_mode)),
+            get_int_par(IntPar::xetex_default_input_encoding),
         );
         if ufile.is_some() {
             read_file[n as usize] = ufile;

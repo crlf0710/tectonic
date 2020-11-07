@@ -180,7 +180,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
                     .b32
                     .s1,
             ) * 2;
-            if *INTPAR(IntPar::texxet) > 0 {
+            if get_int_par(IntPar::texxet) > 0 {
                 // 1497:
                 let mut tmp_ptr = Math(get_avail()); /*1523:*/
                 tmp_ptr.set_subtype_i32(MathType::Before); /*:1398 */
@@ -227,7 +227,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
                         }
                         TxtNode::Math(m) => {
                             d = m.width();
-                            if *INTPAR(IntPar::texxet) > 0 {
+                            if get_int_par(IntPar::texxet) > 0 {
                                 /*1525: */
                                 let (be, mode) = m.subtype().equ();
                                 if be == BE::End {
@@ -338,7 +338,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
                 }
                 popt = llist_link(p);
             }
-            if *INTPAR(IntPar::texxet) > 0 {
+            if get_int_par(IntPar::texxet) > 0 {
                 while let Some(l) = LR_ptr.opt() {
                     let tmp_ptr = l;
                     LR_ptr = *LLIST_link(tmp_ptr);
@@ -365,19 +365,19 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
             s = Scaled(MEM[p - 1].b32.s1);
             l = Scaled(MEM[p].b32.s1);
         } else {
-            if *DIMENPAR(DimenPar::hang_indent) != Scaled::ZERO
-                && (*INTPAR(IntPar::hang_after) >= 0
-                    && cur_list.prev_graf + 2 > *INTPAR(IntPar::hang_after)
-                    || cur_list.prev_graf + 1 < -(*INTPAR(IntPar::hang_after) as i32))
+            if get_dimen_par(DimenPar::hang_indent) != Scaled::ZERO
+                && (get_int_par(IntPar::hang_after) >= 0
+                    && cur_list.prev_graf + 2 > get_int_par(IntPar::hang_after)
+                    || cur_list.prev_graf + 1 < -(get_int_par(IntPar::hang_after) as i32))
             {
-                l = *DIMENPAR(DimenPar::hsize) - (*DIMENPAR(DimenPar::hang_indent)).abs();
-                if *DIMENPAR(DimenPar::hang_indent) > Scaled::ZERO {
-                    s = *DIMENPAR(DimenPar::hang_indent)
+                l = get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
+                if get_dimen_par(DimenPar::hang_indent) > Scaled::ZERO {
+                    s = get_dimen_par(DimenPar::hang_indent)
                 } else {
                     s = Scaled::ZERO
                 }
             } else {
-                l = *DIMENPAR(DimenPar::hsize);
+                l = get_dimen_par(DimenPar::hsize);
                 s = Scaled::ZERO
             }
         }
@@ -579,9 +579,10 @@ pub(crate) unsafe fn math_ac(input: &mut input_state_t, cmd: Cmd, chr: i32) {
     };
     acc.fourth_mut().val.chr.character = (val as i64 % 65536) as u16;
     let font = if math_class(val) == 7
-        && (*INTPAR(IntPar::cur_fam) >= 0 && *INTPAR(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
+        && (get_int_par(IntPar::cur_fam) >= 0
+            && get_int_par(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
     {
-        *INTPAR(IntPar::cur_fam) as u16
+        get_int_par(IntPar::cur_fam) as u16
     } else {
         math_fam(val) as u16
     };
@@ -835,13 +836,13 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
     let mut s: Scaled = Scaled::ZERO;
     let mut e: Scaled = Scaled::ZERO;
     let mut x: i32 = 0;
-    s = *DIMENPAR(DimenPar::display_indent);
-    x = *INTPAR(IntPar::pre_display_correction);
+    s = get_dimen_par(DimenPar::display_indent);
+    x = get_int_par(IntPar::pre_display_correction);
     if x == 0 {
         b.set_shift_amount(s + d);
     } else {
         let mut q;
-        z = *DIMENPAR(DimenPar::display_width);
+        z = get_dimen_par(DimenPar::display_width);
         let mut p = b;
         if x > 0 {
             e = z - d - p.width();
@@ -1090,7 +1091,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
     };
     if m.0 == true {
         // 1231:
-        let m = new_math(*DIMENPAR(DimenPar::math_surround), MathType::Before);
+        let m = new_math(get_dimen_par(DimenPar::math_surround), MathType::Before);
         *LLIST_link(cur_list.tail) = Some(m.ptr()).tex_int();
         cur_list.tail = m.ptr();
         cur_mlist = p;
@@ -1101,7 +1102,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         while let Some(next) = LLIST_link(cur_list.tail).opt() {
             cur_list.tail = next;
         }
-        let m = new_math(*DIMENPAR(DimenPar::math_surround), MathType::After);
+        let m = new_math(get_dimen_par(DimenPar::math_surround), MathType::After);
         *LLIST_link(cur_list.tail) = Some(m.ptr()).tex_int();
         cur_list.tail = m.ptr();
         cur_list.aux.b32.s0 = 1000;
@@ -1139,9 +1140,9 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         let pre_t = pre_adjust_tail.unwrap();
         pre_adjust_tail = None;
         let mut w = b.width();
-        let z = *DIMENPAR(DimenPar::display_width);
-        let mut s = *DIMENPAR(DimenPar::display_indent);
-        if *INTPAR(IntPar::pre_display_correction) < 0i32 {
+        let z = get_dimen_par(DimenPar::display_width);
+        let mut s = get_dimen_par(DimenPar::display_indent);
+        if get_int_par(IntPar::pre_display_correction) < 0 {
             s = -s - z
         }
         let (mut e, q) = if danger {
@@ -1181,10 +1182,10 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         }
         let mut g1;
         let mut g2;
-        let pen = new_penalty(*INTPAR(IntPar::pre_display_penalty));
+        let pen = new_penalty(get_int_par(IntPar::pre_display_penalty));
         *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
         cur_list.tail = pen.ptr();
-        if d + s <= *DIMENPAR(DimenPar::pre_display_size) || l {
+        if d + s <= get_dimen_par(DimenPar::pre_display_size) || l {
             g1 = GluePar::above_display_skip;
             g2 = Some(GluePar::below_display_skip);
         } else {
@@ -1234,7 +1235,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
             *LLIST_link(cur_list.tail) = *LLIST_link(PRE_ADJUST_HEAD as usize);
             cur_list.tail = pre_t;
         }
-        let pen = new_penalty(*INTPAR(IntPar::post_display_penalty));
+        let pen = new_penalty(get_int_par(IntPar::post_display_penalty));
         *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
         cur_list.tail = pen.ptr();
         if let Some(g2) = g2 {
@@ -1254,16 +1255,16 @@ pub(crate) unsafe fn resume_after_display(input: &mut input_state_t) {
     push_nest();
     cur_list.mode = (false, ListMode::HMode);
     cur_list.aux.b32.s0 = 1000;
-    if *INTPAR(IntPar::language) <= 0 {
+    if get_int_par(IntPar::language) <= 0 {
         cur_lang = 0;
-    } else if *INTPAR(IntPar::language) > BIGGEST_LANG {
+    } else if get_int_par(IntPar::language) > BIGGEST_LANG {
         cur_lang = 0;
     } else {
-        cur_lang = *INTPAR(IntPar::language) as u8;
+        cur_lang = get_int_par(IntPar::language) as u8;
     }
     cur_list.aux.b32.s1 = cur_lang as i32;
-    cur_list.prev_graf = ((norm_min(*INTPAR(IntPar::left_hyphen_min)) as i32 * 64
-        + norm_min(*INTPAR(IntPar::right_hyphen_min)) as i32) as i64
+    cur_list.prev_graf = ((norm_min(get_int_par(IntPar::left_hyphen_min)) as i32 * 64
+        + norm_min(get_int_par(IntPar::right_hyphen_min)) as i32) as i64
         * 65536
         + cur_lang as i64) as i32;
     let (tok, cmd, ..) = get_x_token(input);
@@ -2378,7 +2379,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: Scaled) {
         );
         cur_f = save_f;
         let w = x.width();
-        x.set_width(w + *DIMENPAR(DimenPar::script_space));
+        x.set_width(w + get_dimen_par(DimenPar::script_space));
         shift_down = shift_down.max(sub1(cur_size));
         clr = match &FONT_LAYOUT_ENGINE[cur_f as usize] {
             Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
@@ -2437,7 +2438,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: Scaled) {
         );
         cur_f = save_f;
         let w = x.width();
-        x.set_width(w + *DIMENPAR(DimenPar::script_space));
+        x.set_width(w + get_dimen_par(DimenPar::script_space));
         clr = if cur_style.1 != 0 {
             sup3(cur_size)
         } else if cur_style.0 == MathStyle::Display {
@@ -2507,7 +2508,7 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: Scaled) {
             );
             cur_f = save_f;
             let w = y.width();
-            y.set_width(w + *DIMENPAR(DimenPar::script_space));
+            y.set_width(w + get_dimen_par(DimenPar::script_space));
             if shift_down < sub2(cur_size) {
                 shift_down = sub2(cur_size)
             }
@@ -2636,8 +2637,8 @@ unsafe fn make_left_right(
     if delta2 > delta1 {
         delta1 = delta2
     }
-    let mut delta = delta1 / 500 * *INTPAR(IntPar::delimiter_factor);
-    let delta2 = delta1 + delta1 - *DIMENPAR(DimenPar::delimiter_shortfall);
+    let mut delta = delta1 / 500 * get_int_par(IntPar::delimiter_factor);
+    let delta2 = delta1 + delta1 - get_dimen_par(DimenPar::delimiter_shortfall);
     if delta < delta2 {
         delta = delta2
     }
@@ -2925,11 +2926,11 @@ unsafe fn mlist_to_hlist() {
                 }
                 MathNode::Bin => {
                     t = MathNode::Bin;
-                    pen = *INTPAR(IntPar::bin_op_penalty);
+                    pen = get_int_par(IntPar::bin_op_penalty);
                 }
                 MathNode::Rel => {
                     t = MathNode::Rel;
-                    pen = *INTPAR(IntPar::rel_penalty);
+                    pen = get_int_par(IntPar::rel_penalty);
                 }
                 MathNode::Ord | MathNode::VCenter | MathNode::Over | MathNode::Under => {}
                 MathNode::Radical => {
@@ -3257,7 +3258,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: Scaled) -> usize {
         }
     } else {
         let mut b = List::from(new_null_box());
-        b.set_width(*DIMENPAR(DimenPar::null_delimiter_space));
+        b.set_width(get_dimen_par(DimenPar::null_delimiter_space));
         b
     };
     b.set_shift_amount((b.height() - b.depth()).half() - axis_height(s));

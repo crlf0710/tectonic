@@ -9,8 +9,8 @@
 )]
 
 use super::xetex_consts::{
-    IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE, INTPAR,
-    NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+    get_int_par, set_int_par, IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT,
+    EQTB_SIZE, HASH_BASE, NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
 };
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
@@ -137,7 +137,7 @@ pub(crate) unsafe fn print_char(s: i32) {
         }
         return;
     }
-    if s == *INTPAR(IntPar::new_line_char) {
+    if s == get_int_par(IntPar::new_line_char) {
         /*:252 */
         if u8::from(selector) < u8::from(Selector::PSEUDO) {
             print_ln();
@@ -200,17 +200,17 @@ pub(crate) unsafe fn print(mut s: i32) {
                     print_char(s);
                     return;
                 }
-                if s == *INTPAR(IntPar::new_line_char) {
+                if s == get_int_par(IntPar::new_line_char) {
                     /*:252 */
                     if u8::from(selector) < u8::from(Selector::PSEUDO) {
                         print_ln();
                         return;
                     }
                 }
-                nl = *INTPAR(IntPar::new_line_char);
-                *INTPAR(IntPar::new_line_char) = -1;
+                nl = get_int_par(IntPar::new_line_char);
+                set_int_par(IntPar::new_line_char, -1);
                 print_char(s);
-                *INTPAR(IntPar::new_line_char) = nl;
+                set_int_par(IntPar::new_line_char, nl);
                 return;
             }
         }
@@ -253,14 +253,14 @@ pub(crate) unsafe fn print_nl_cstr(slice: &str) {
     print_cstr(slice);
 }
 pub(crate) unsafe fn print_esc(mut s: str_number) {
-    let mut c = *INTPAR(IntPar::escape_char);
+    let mut c = get_int_par(IntPar::escape_char);
     if c >= 0 && c <= BIGGEST_USV as i32 {
         print_char(c);
     }
     print(s);
 }
 pub(crate) unsafe fn print_esc_cstr(s: &str) {
-    let mut c = *INTPAR(IntPar::escape_char);
+    let mut c = get_int_par(IntPar::escape_char);
     if c >= 0 && c <= BIGGEST_USV as i32 {
         print_char(c);
     }
