@@ -6199,11 +6199,11 @@ pub(crate) unsafe fn scan_something_internal(
                     /*1568:*/
                     let (mut val, mut val_level) = match m {
                         LastItemCode::MuToGlue => {
-                            let val = scan_mu_glue(input); // 1595:
+                            let val = scan_mu_glue(input).ptr() as i32; // 1595:
                             (val, ValLevel::Glue)
                         }
                         LastItemCode::GlueToMu => {
-                            let val = scan_normal_glue(input); // 1596:
+                            let val = scan_normal_glue(input).ptr() as i32; // 1596:
                             (val, ValLevel::Mu)
                         }
                         _ => {
@@ -6233,12 +6233,8 @@ pub(crate) unsafe fn scan_something_internal(
                             ValLevel::Int | ValLevel::Dimen => val = -val,
                             _ => {
                                 let m = GlueSpec(val as usize);
-                                let mut spec = new_spec(&m);
-                                val = spec.ptr() as i32;
+                                val = (-&m).ptr() as i32;
                                 delete_glue_ref(m.ptr());
-                                spec.set_size(-spec.size());
-                                spec.set_stretch(-spec.stretch());
-                                spec.set_shrink(-spec.shrink());
                             }
                         }
                     }
@@ -6332,7 +6328,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::GlueStretch | LastItemCode::GlueShrink => {
-                            let q = GlueSpec(scan_normal_glue(input) as usize);
+                            let q = scan_normal_glue(input);
                             let val = if m == LastItemCode::GlueStretch {
                                 q.stretch()
                             } else {
@@ -6612,7 +6608,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                         LastItemCode::GlueStretchOrder | LastItemCode::GlueShrinkOrder => {
-                            let q = GlueSpec(scan_normal_glue(input) as usize);
+                            let q = scan_normal_glue(input);
                             let val = if m == LastItemCode::GlueStretchOrder {
                                 q.stretch_order() as i32
                             } else {
@@ -6740,14 +6736,12 @@ pub(crate) unsafe fn scan_something_internal(
     let val = if negative {
         match val_level {
             ValLevel::Int | ValLevel::Dimen => -val,
-            _ => {
-                let mut spec = new_spec(&GlueSpec(val as usize));
-                let val = spec.ptr() as i32;
-                spec.set_size(-spec.size());
-                spec.set_stretch(-spec.stretch());
-                spec.set_shrink(-spec.shrink());
-                val
+            ValLevel::Glue | ValLevel::Mu => {
+                let val = &GlueSpec(val as usize);
+                let spec = -val;
+                spec.ptr() as i32
             }
+            _ => unreachable!(),
         }
     } else {
         if val_level == ValLevel::Glue || val_level == ValLevel::Mu {
@@ -7295,7 +7289,7 @@ pub(crate) unsafe fn scan_dimen(
 pub(crate) unsafe fn scan_decimal(input: &mut input_state_t) -> Scaled {
     xetex_scan_dimen(input, false, false, None, false)
 }
-pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i32 {
+pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> GlueSpec {
     let mut negative: bool = false;
     let mut mu: bool = false;
     mu = level == ValLevel::Mu;
@@ -7329,12 +7323,13 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i3
             } else {
                 val
             }),
-            _ => {
+            ValLevel::Glue | ValLevel::Mu => {
                 if val_level != level {
                     mu_error();
                 }
-                return val;
+                return GlueSpec(val as usize);
             }
+            _ => unreachable!(),
         }
     } else {
         back_input(input, tok);
@@ -7355,7 +7350,7 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> i3
         let val = scan_dimen(input, mu, true, None);
         q.set_shrink(val).set_shrink_order(cur_order);
     }
-    q.ptr() as i32
+    q
     /*:481*/
 }
 pub(crate) unsafe fn add_or_sub(
@@ -7540,8 +7535,8 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
             let mut f = match o {
                 ValLevel::Int => scan_int(input),
                 ValLevel::Dimen => scan_dimen(input, false, false, None).0,
-                ValLevel::Glue => scan_normal_glue(input),
-                _ => scan_mu_glue(input),
+                ValLevel::Glue => scan_normal_glue(input).ptr() as i32,
+                _ => scan_mu_glue(input).ptr() as i32,
             };
             loop {
                 let (tok, cmd, ..) = loop {
@@ -7748,10 +7743,10 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
     *val_level = l;
     e
 }
-pub(crate) unsafe fn scan_normal_glue(input: &mut input_state_t) -> i32 {
+pub(crate) unsafe fn scan_normal_glue(input: &mut input_state_t) -> GlueSpec {
     scan_glue(input, ValLevel::Glue)
 }
-pub(crate) unsafe fn scan_mu_glue(input: &mut input_state_t) -> i32 {
+pub(crate) unsafe fn scan_mu_glue(input: &mut input_state_t) -> GlueSpec {
     scan_glue(input, ValLevel::Mu)
 }
 pub(crate) unsafe fn scan_rule_spec(input: &mut input_state_t, cmd: Cmd) -> Rule {
@@ -10580,13 +10575,13 @@ pub(crate) unsafe fn get_preamble_token(input: &mut input_state_t) -> (i32, Cmd)
             geq_define(
                 (GLUE_BASE as usize) + (GluePar::tab_skip as usize),
                 Cmd::GlueRef,
-                val.opt(),
+                Some(val.ptr()),
             );
         } else {
             eq_define(
                 (GLUE_BASE as usize) + (GluePar::tab_skip as usize),
                 Cmd::GlueRef,
-                val.opt(),
+                Some(val.ptr()),
             );
         }
     }
@@ -12016,8 +12011,8 @@ pub(crate) unsafe fn append_glue(input: &mut input_state_t, chr: i32) {
         SkipCode::Fill => GlueSpec(8),
         SkipCode::Ss => GlueSpec(12),
         SkipCode::FilNeg => GlueSpec(16),
-        SkipCode::Skip => GlueSpec(scan_glue(input, ValLevel::Glue) as usize),
-        SkipCode::MSkip => GlueSpec(scan_glue(input, ValLevel::Mu) as usize),
+        SkipCode::Skip => scan_glue(input, ValLevel::Glue),
+        SkipCode::MSkip => scan_glue(input, ValLevel::Mu),
     };
     let g = new_glue(&val);
     *LLIST_link(cur_list.tail) = Some(g).tex_int();
@@ -13518,9 +13513,9 @@ pub(crate) unsafe fn do_register_command(
                 let val = scan_glue(input, p);
                 if q == Cmd::Advance {
                     /*1274:*/
-                    let mut q = new_spec(&GlueSpec(val as usize));
+                    let mut q = new_spec(&val);
                     let r = GlueSpec(s as usize);
-                    delete_glue_ref(val as usize);
+                    delete_glue_ref(val.ptr());
                     q.set_size(q.size() + r.size());
                     if q.stretch() == Scaled::ZERO {
                         q.set_stretch_order(GlueOrder::Normal);
@@ -13541,7 +13536,7 @@ pub(crate) unsafe fn do_register_command(
                     }
                     q.ptr() as i32
                 } else {
-                    val
+                    val.ptr() as i32
                 }
             }
         }

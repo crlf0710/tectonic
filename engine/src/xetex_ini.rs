@@ -1944,7 +1944,7 @@ pub(crate) unsafe fn prefixed_command(
             } else {
                 scan_glue(input, ValLevel::Glue)
             };
-            let val = trap_zero_glue(GlueSpec(val as usize));
+            let val = trap_zero_glue(val);
             if a >= 4 {
                 geq_define(p, Cmd::GlueRef, Some(val.ptr()));
             } else { eq_define(p, Cmd::GlueRef, Some(val.ptr())); }

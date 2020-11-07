@@ -1266,6 +1266,19 @@ impl GlueSpec {
     }
 }
 
+impl core::ops::Neg for &GlueSpec {
+    type Output = GlueSpec;
+    fn neg(self) -> GlueSpec {
+        unsafe {
+            let mut spec = crate::xetex_xetex0::new_spec(self);
+            spec.set_size(-spec.size());
+            spec.set_stretch(-spec.stretch());
+            spec.set_shrink(-spec.shrink());
+            spec
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct Kern(pub usize);
 impl NodeSize for Kern {
