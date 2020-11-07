@@ -19,10 +19,9 @@ use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
     adjust_tail, avail, cur_c, cur_dir, cur_f, cur_group, cur_i, cur_lang, cur_list,
     file_line_error_style_p, input_state_t, insert_src_special_every_math, just_box, memory_word,
-    pre_adjust_tail, total_shrink, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE,
-    DEPTH_BASE, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS,
-    HEIGHT_BASE, ITALIC_BASE, KERN_BASE, LIG_KERN_BASE, MEM, NEST_PTR, NULL_CHARACTER, PARAM_BASE,
-    SAVE_PTR, SAVE_STACK, SKEW_CHAR, WIDTH_BASE,
+    pre_adjust_tail, total_shrink, xtx_ligature_present, LR_problems, LR_ptr, EQTB, EXTEN_BASE,
+    FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS, KERN_BASE, LIG_KERN_BASE, MEM,
+    NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t};
 use crate::xetex_layout_interface::*;
@@ -46,6 +45,10 @@ use crate::xetex_xetex0::{
 use crate::xetex_xetexd::{
     is_char_node, llist_link, math_NODE_type, math_char, math_class, math_fam, set_NODE_type,
     set_class, set_family, set_math_NODE_type, LLIST_link, TeXInt, TeXOpt,
+};
+use crate::xetex_xetexd::{
+    FONT_CHARACTER_INFO, FONT_CHARACTER_WIDTH, FONT_CHARINFO_DEPTH, FONT_CHARINFO_HEIGHT,
+    FONT_CHARINFO_ITALCORR, FONT_CHARINFO_WIDTH,
 };
 
 /* ***************************************************************************\
@@ -189,14 +192,9 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
                 match CharOrText::from(p) {
                     CharOrText::Char(c) => {
                         let f = c.font() as internal_font_number;
-                        d = Scaled(
-                            FONT_INFO[(WIDTH_BASE[f]
-                                + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c.character()))
-                                    as usize]
-                                    .b16
-                                    .s3 as i32) as usize]
-                                .b32
-                                .s1,
+                        d = *FONT_CHARACTER_WIDTH(
+                            f,
+                            effective_char(true, f, c.character()) as usize,
                         );
                         found = true;
                     }
@@ -1588,7 +1586,7 @@ pub(crate) unsafe fn fetch(a: &mut MCell) {
         cur_i = NULL_CHARACTER
     } else {
         if cur_c >= FONT_BC[cur_f as usize] as i32 && cur_c <= FONT_EC[cur_f as usize] as i32 {
-            cur_i = FONT_INFO[(CHAR_BASE[cur_f as usize] + cur_c) as usize].b16
+            cur_i = FONT_CHARACTER_INFO(cur_f as usize, cur_c as usize);
         } else {
             cur_i = NULL_CHARACTER
         }
@@ -1768,11 +1766,11 @@ unsafe fn make_math_accent(q: &mut Accent) {
         h = x.height();
         while !(i.s1 as i32 % 4 != LIST_TAG) {
             let y = i.s0 as i32;
-            i = FONT_INFO[(CHAR_BASE[f] + y) as usize].b16;
+            i = FONT_CHARACTER_INFO(f, y as usize);
             if !(i.s3 as i32 > 0) {
                 break;
             }
-            if Scaled(FONT_INFO[(WIDTH_BASE[f] + i.s3 as i32) as usize].b32.s1) > w {
+            if *FONT_CHARINFO_WIDTH(f, i) > w {
                 break;
             }
             c = y
@@ -2026,19 +2024,19 @@ unsafe fn make_fraction(q: &mut Fraction) {
     v.set_height(shift_up + x.height())
         .set_depth(z.depth() + shift_down)
         .set_width(x.width());
-    let mut p;
     if q.thickness() == Scaled::ZERO {
-        p = new_kern(shift_up - x.depth() - (z.height() - shift_down));
+        let p = new_kern(shift_up - x.depth() - (z.height() - shift_down));
         *LLIST_link(p) = Some(z.ptr()).tex_int();
+        *LLIST_link(x.ptr()) = Some(p).tex_int();
     } else {
         let y = fraction_rule(q.thickness()).ptr();
-        p = new_kern(axis_height(cur_size) - delta - (z.height() - shift_down));
+        let p = new_kern(axis_height(cur_size) - delta - (z.height() - shift_down));
         *LLIST_link(y) = Some(p).tex_int();
         *LLIST_link(p) = Some(z.ptr()).tex_int();
-        p = new_kern(shift_up - x.depth() - (axis_height(cur_size) + delta));
+        let p = new_kern(shift_up - x.depth() - (axis_height(cur_size) + delta));
         *LLIST_link(p) = Some(y).tex_int();
+        *LLIST_link(x.ptr()) = Some(p).tex_int();
     }
-    *LLIST_link(x.ptr()) = Some(p).tex_int();
     v.set_list_ptr(Some(x.ptr()).tex_int());
     // :774
     let delta = if cur_style.0 == MathStyle::Display {
@@ -2068,18 +2066,14 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
             _ => {
                 if cur_style.0 == MathStyle::Display && cur_i.s1 as i32 % 4 == LIST_TAG {
                     c = cur_i.s0;
-                    let i = FONT_INFO[(CHAR_BASE[cur_f as usize] + c as i32) as usize].b16;
+                    let i = FONT_CHARACTER_INFO(cur_f as usize, c as usize);
                     if i.s3 as i32 > 0 {
                         cur_c = c as i32;
                         cur_i = i;
                         q.first_mut().val.chr.character = c
                     }
                 }
-                delta = Scaled(
-                    FONT_INFO[(ITALIC_BASE[cur_f as usize] + cur_i.s1 as i32 / 4i32) as usize]
-                        .b32
-                        .s1,
-                )
+                delta = *FONT_CHARINFO_ITALCORR(cur_f as usize, cur_i);
             }
         }
         let mut x = clean_box(q.first(), cur_style);
@@ -2759,12 +2753,7 @@ unsafe fn mlist_to_hlist() {
                                 }
                                 Some(p.ptr())
                             } else if cur_i.s3 as i32 > 0 {
-                                delta = Scaled(
-                                    FONT_INFO[(ITALIC_BASE[cur_f as usize] + cur_i.s1 as i32 / 4)
-                                        as usize]
-                                        .b32
-                                        .s1,
-                                );
+                                delta = *FONT_CHARINFO_ITALCORR(cur_f, cur_i);
                                 let p = new_character(cur_f, cur_c as UTF16_code);
                                 if q.first().typ == MathCell::MathTextChar
                                     && FONT_INFO[(2 + PARAM_BASE[cur_f as usize]) as usize].b32.s1
@@ -3140,7 +3129,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: Scaled) -> usize {
                                 && y as i32 <= FONT_EC[g as usize] as i32
                             {
                                 loop {
-                                    q = FONT_INFO[(CHAR_BASE[g as usize] + y as i32) as usize].b16;
+                                    q = FONT_CHARACTER_INFO(g as usize, y as usize);
                                     if !(q.s3 as i32 > 0) {
                                         break;
                                     }
@@ -3149,17 +3138,8 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: Scaled) -> usize {
                                         c = y;
                                         break 's_62;
                                     } else {
-                                        u = Scaled(
-                                            FONT_INFO[(HEIGHT_BASE[g as usize] + q.s2 as i32 / 16)
-                                                as usize]
-                                                .b32
-                                                .s1,
-                                        ) + Scaled(
-                                            FONT_INFO[(DEPTH_BASE[g as usize] + q.s2 as i32 % 16)
-                                                as usize]
-                                                .b32
-                                                .s1,
-                                        );
+                                        u = *FONT_CHARINFO_HEIGHT(g, q)
+                                            + *FONT_CHARINFO_DEPTH(g, q);
                                         if u > w {
                                             f = g;
                                             c = y;
@@ -3218,15 +3198,8 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: Scaled) -> usize {
                     c = r.s0;
                     u = height_plus_depth(f, c);
                     w = Scaled::ZERO;
-                    q = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize].b16;
-                    b.set_width(
-                        Scaled(FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1)
-                            + Scaled(
-                                FONT_INFO[(ITALIC_BASE[f] + q.s1 as i32 / 4) as usize]
-                                    .b32
-                                    .s1,
-                            ),
-                    );
+                    q = FONT_CHARACTER_INFO(f, effective_char(true, f, c) as usize);
+                    b.set_width(*FONT_CHARINFO_WIDTH(f, q) + *FONT_CHARINFO_ITALCORR(f, q));
                     c = r.s1;
                     if c != 0 {
                         w += height_plus_depth(f, c)
@@ -3298,26 +3271,11 @@ unsafe fn char_box(mut f: usize, mut c: i32) -> List {
             .set_depth((p.depth()).max(Scaled::ZERO));
         p.ptr()
     } else {
-        let q = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c as u16)) as usize].b16;
+        let q = FONT_CHARACTER_INFO(f, effective_char(true, f, c as u16) as usize);
         b = List::from(new_null_box());
-        b.set_width(
-            Scaled(FONT_INFO[(WIDTH_BASE[f] + q.s3 as i32) as usize].b32.s1)
-                + Scaled(
-                    FONT_INFO[(ITALIC_BASE[f] + q.s1 as i32 / 4) as usize]
-                        .b32
-                        .s1,
-                ),
-        )
-        .set_height(Scaled(
-            FONT_INFO[(HEIGHT_BASE[f] + q.s2 as i32 / 16) as usize]
-                .b32
-                .s1,
-        ))
-        .set_depth(Scaled(
-            FONT_INFO[(DEPTH_BASE[f] + q.s2 as i32 % 16) as usize]
-                .b32
-                .s1,
-        ));
+        b.set_width(*FONT_CHARINFO_WIDTH(f, q) + *FONT_CHARINFO_ITALCORR(f, q))
+            .set_height(*FONT_CHARINFO_HEIGHT(f, q))
+            .set_depth(*FONT_CHARINFO_DEPTH(f, q));
         let p = get_avail();
         MEM[p].b16.s0 = c as u16;
         MEM[p].b16.s1 = f as u16;
@@ -3333,15 +3291,8 @@ unsafe fn stack_into_box(b: &mut List, f: usize, c: u16) {
     b.set_height(p.height());
 }
 unsafe fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> Scaled {
-    let mut q: b16x4 = FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, c)) as usize].b16;
-    Scaled(
-        FONT_INFO[(HEIGHT_BASE[f] + q.s2 as i32 / 16) as usize]
-            .b32
-            .s1
-            + FONT_INFO[(DEPTH_BASE[f] + q.s2 as i32 % 16) as usize]
-                .b32
-                .s1,
-    )
+    let mut q = FONT_CHARACTER_INFO(f, effective_char(true, f, c) as usize);
+    *FONT_CHARINFO_HEIGHT(f, q) + *FONT_CHARINFO_DEPTH(f, q)
 }
 unsafe fn stack_glyph_into_box(b: &mut List, mut f: internal_font_number, mut g: i32) {
     let mut p = Glyph::new_node();
@@ -3527,14 +3478,7 @@ unsafe fn rebox(mut b: List, mut w: Scaled) -> List {
         if is_char_node(Some(p)) && llist_link(p).is_none() {
             let p = Char(p);
             let f = p.font() as usize;
-            let v = Scaled(
-                FONT_INFO[(WIDTH_BASE[f]
-                    + FONT_INFO[(CHAR_BASE[f] + effective_char(true, f, p.character())) as usize]
-                        .b16
-                        .s3 as i32) as usize]
-                    .b32
-                    .s1,
-            );
+            let v = *FONT_CHARACTER_WIDTH(f, effective_char(true, f, p.character()) as usize);
             if v != b.width() {
                 *LLIST_link(p.ptr()) = new_kern(b.width() - v) as i32;
             }

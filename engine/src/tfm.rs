@@ -13,6 +13,7 @@ use crate::xetex_scaledmath::Scaled;
 
 use crate::xetex_xetexd::print_c_str;
 use crate::xetex_xetexd::TeXInt;
+use crate::xetex_xetexd::FONT_CHARACTER_INFO;
 
 use crate::xetex_ini::cur_ext;
 use crate::xetex_ini::file_line_error_style_p;
@@ -309,7 +310,7 @@ pub(crate) unsafe fn read_font_info(
                     if !(d < k + bc - fmem_ptr) {
                         break;
                     }
-                    let qw = FONT_INFO[(CHAR_BASE[f] + d) as usize].b16;
+                    let qw = FONT_CHARACTER_INFO(f, d as usize);
                     if qw.s1 as i32 % 4 != LIST_TAG {
                         break;
                     }
@@ -397,7 +398,7 @@ pub(crate) unsafe fn read_font_info(
                         return Err(TfmError::BadMetric);
                     }
 
-                    if FONT_INFO[(CHAR_BASE[f] + b) as usize].b16.s3 == 0 {
+                    if FONT_CHARACTER_INFO(f, b as usize).s3 == 0 {
                         return Err(TfmError::BadMetric);
                     }
                 }
@@ -406,7 +407,7 @@ pub(crate) unsafe fn read_font_info(
                     if d < bc || d > ec {
                         return Err(TfmError::BadMetric);
                     }
-                    if FONT_INFO[(CHAR_BASE[f] + d) as usize].b16.s3 == 0 {
+                    if FONT_CHARACTER_INFO(f, d as usize).s3 == 0 {
                         return Err(TfmError::BadMetric);
                     }
                 } else if 256 * (c - 128) + d >= nk {
@@ -460,7 +461,7 @@ pub(crate) unsafe fn read_font_info(
             if a < bc || a > ec {
                 return Err(TfmError::BadMetric);
             }
-            if FONT_INFO[(CHAR_BASE[f] + a) as usize].b16.s3 == 0 {
+            if FONT_CHARACTER_INFO(f, a as usize).s3 == 0 {
                 return Err(TfmError::BadMetric);
             }
         }
@@ -469,7 +470,7 @@ pub(crate) unsafe fn read_font_info(
             if b < bc || b > ec {
                 return Err(TfmError::BadMetric);
             }
-            if FONT_INFO[(CHAR_BASE[f] + b) as usize].b16.s3 == 0 {
+            if FONT_CHARACTER_INFO(f, b as usize).s3 == 0 {
                 return Err(TfmError::BadMetric);
             }
         }
@@ -478,7 +479,7 @@ pub(crate) unsafe fn read_font_info(
             if c < bc || c > ec {
                 return Err(TfmError::BadMetric);
             }
-            if FONT_INFO[(CHAR_BASE[f] + c) as usize].b16.s3 == 0 {
+            if FONT_CHARACTER_INFO(f, c as usize).s3 == 0 {
                 return Err(TfmError::BadMetric);
             }
         }
@@ -486,7 +487,7 @@ pub(crate) unsafe fn read_font_info(
         if d < bc || d > ec {
             return Err(TfmError::BadMetric);
         }
-        if FONT_INFO[(CHAR_BASE[f] + d) as usize].b16.s3 == 0 {
+        if FONT_CHARACTER_INFO(f, d as usize).s3 == 0 {
             return Err(TfmError::BadMetric);
         }
     }
@@ -539,7 +540,7 @@ pub(crate) unsafe fn read_font_info(
 
     if bchar_0 as i32 <= ec {
         if bchar_0 as i32 >= bc {
-            if FONT_INFO[(CHAR_BASE[f] + bchar_0 as i32) as usize].b16.s3 > 0 {
+            if FONT_CHARACTER_INFO(f, bchar_0 as usize).s3 > 0 {
                 FONT_FALSE_BCHAR[f] = TOO_BIG_CHAR;
             }
         }
