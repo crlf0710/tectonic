@@ -42,29 +42,29 @@ pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
 
 use crate::dpx_pdfximage::{load_options, pdf_ximage, xform_info};
-pub(crate) const OP_CURVETO2: C2RustUnnamed_0 = 15;
-pub(crate) const OP_CURVETO1: C2RustUnnamed_0 = 14;
-pub(crate) const OP_GRESTORE: C2RustUnnamed_0 = 13;
-pub(crate) const OP_GSAVE: C2RustUnnamed_0 = 12;
-pub(crate) const OP_NOOP: C2RustUnnamed_0 = 11;
-pub(crate) const OP_MOVETO: C2RustUnnamed_0 = 10;
-pub(crate) const OP_LINETO: C2RustUnnamed_0 = 9;
-pub(crate) const OP_CLOSEPATH: C2RustUnnamed_0 = 8;
-pub(crate) const OP_CURVETO: C2RustUnnamed_0 = 7;
-pub(crate) const OP_RECTANGLE: C2RustUnnamed_0 = 6;
-pub(crate) const OP_SETCOLORSPACE: C2RustUnnamed_0 = 5;
-pub(crate) const OP_CONCATMATRIX: C2RustUnnamed_0 = 4;
-pub(crate) const OP_CLIP: C2RustUnnamed_0 = 3;
-pub(crate) const OP_CLOSEandCLIP: C2RustUnnamed_0 = 2;
-pub(crate) const OP_SETCOLOR: C2RustUnnamed_0 = 1;
+//pub(crate) const OP_CURVETO2: C2RustUnnamed_0 = 15;
+//pub(crate) const OP_CURVETO1: C2RustUnnamed_0 = 14;
+//pub(crate) const OP_GRESTORE: C2RustUnnamed_0 = 13;
+//pub(crate) const OP_GSAVE: C2RustUnnamed_0 = 12;
+//pub(crate) const OP_NOOP: C2RustUnnamed_0 = 11;
+//pub(crate) const OP_MOVETO: C2RustUnnamed_0 = 10;
+//pub(crate) const OP_LINETO: C2RustUnnamed_0 = 9;
+//pub(crate) const OP_CLOSEPATH: C2RustUnnamed_0 = 8;
+//pub(crate) const OP_CURVETO: C2RustUnnamed_0 = 7;
+//pub(crate) const OP_RECTANGLE: C2RustUnnamed_0 = 6;
+//pub(crate) const OP_SETCOLORSPACE: C2RustUnnamed_0 = 5;
+//pub(crate) const OP_CONCATMATRIX: C2RustUnnamed_0 = 4;
+//pub(crate) const OP_CLIP: C2RustUnnamed_0 = 3;
+//pub(crate) const OP_CLOSEandCLIP: C2RustUnnamed_0 = 2;
+//pub(crate) const OP_SETCOLOR: C2RustUnnamed_0 = 1;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct operator {
     pub(crate) token: *const i8,
     pub(crate) opcode: i32,
 }
-pub(crate) type C2RustUnnamed_0 = u32;
-pub(crate) const OP_UNKNOWN: C2RustUnnamed_0 = 16;
+//pub(crate) type C2RustUnnamed_0 = u32;
+//pub(crate) const OP_UNKNOWN: C2RustUnnamed_0 = 16;
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.

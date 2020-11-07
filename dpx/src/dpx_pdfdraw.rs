@@ -959,6 +959,7 @@ pub(crate) unsafe fn pdf_dev_curveto(x0: f64, y0: f64, x1: f64, y1: f64, x2: f64
     cpa.curveto(cpt, p0, p1, p2)
 }
 
+#[allow(unused)]
 pub(crate) unsafe fn pdf_dev_vcurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();
@@ -970,6 +971,7 @@ pub(crate) unsafe fn pdf_dev_vcurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32
     cpa.curveto(cpt, cpt_copy, p0, p1)
 }
 
+#[allow(unused)]
 pub(crate) unsafe fn pdf_dev_ycurveto(x0: f64, y0: f64, x1: f64, y1: f64) -> i32 {
     let gss = unsafe { &mut gs_stack };
     let gs = gss.last_mut().unwrap();

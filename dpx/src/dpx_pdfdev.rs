@@ -937,7 +937,7 @@ unsafe fn handle_multibyte_string(
         let mut inbytesleft = length;
         let mut outbytesleft = 4096;
         CMap_decode(
-            cmap,
+            &*cmap,
             &mut inbuf_0,
             &mut inbytesleft,
             &mut outbuf_0,

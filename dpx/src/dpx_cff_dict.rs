@@ -39,7 +39,7 @@ pub(crate) type s_SID = u16;
 
 /* CFF Data Types */
 
-const CFF_TYPE_UNKNOWN: i32 = 0;
+//const CFF_TYPE_UNKNOWN: i32 = 0;
 const CFF_TYPE_INTEGER: i32 = 1 << 0;
 const CFF_TYPE_REAL: i32 = 1 << 1;
 const CFF_TYPE_NUMBER: i32 = CFF_TYPE_INTEGER | CFF_TYPE_REAL;
