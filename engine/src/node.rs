@@ -1234,13 +1234,13 @@ impl GlueSpec {
     pub(crate) unsafe fn rc(&self) -> i32 {
         MEM[self.ptr()].b32.s1
     }
-    pub(crate) unsafe fn rc_none(&mut self) {
+    pub(crate) unsafe fn rc_none(&self) {
         MEM[self.ptr()].b32.s1 = None.tex_int();
     }
-    pub(crate) unsafe fn rc_inc(&mut self) {
+    pub(crate) unsafe fn rc_inc(&self) {
         MEM[self.ptr()].b32.s1 += 1;
     }
-    pub(crate) unsafe fn rc_dec(&mut self) {
+    pub(crate) unsafe fn rc_dec(&self) {
         MEM[self.ptr()].b32.s1 -= 1;
     }
     pub(crate) unsafe fn size(&self) -> Scaled {
@@ -1263,6 +1263,19 @@ impl GlueSpec {
     pub(crate) unsafe fn set_shrink(&mut self, v: Scaled) -> &mut Self {
         MEM[self.ptr() + 3].b32.s1 = v.0;
         self
+    }
+}
+
+impl core::ops::Neg for &GlueSpec {
+    type Output = GlueSpec;
+    fn neg(self) -> GlueSpec {
+        unsafe {
+            let mut spec = crate::xetex_xetex0::new_spec(self);
+            spec.set_size(-spec.size());
+            spec.set_stretch(-spec.stretch());
+            spec.set_shrink(-spec.shrink());
+            spec
+        }
     }
 }
 
@@ -2247,6 +2260,104 @@ pub(crate) mod math {
         pub s1: u16,
         pub s2: u16,
         pub s3: u16,
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Alignment(pub usize);
+impl NodeSize for Alignment {
+    const SIZE: i32 = ALIGN_STACK_NODE_SIZE;
+}
+impl Alignment {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn span(&self) -> i32 {
+        MEM[self.ptr() + 1].b32.s1
+    }
+    pub(crate) unsafe fn set_span(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn get_loop(&self) -> i32 {
+        MEM[self.ptr() + 2].b32.s1
+    }
+    pub(crate) unsafe fn set_loop(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 2].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn state(&self) -> i32 {
+        MEM[self.ptr() + 3].b32.s1
+    }
+    pub(crate) unsafe fn set_state(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 3].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn head(&self) -> i32 {
+        MEM[self.ptr() + 4].b32.s0
+    }
+    pub(crate) unsafe fn set_head(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s0 = v;
+        self
+    }
+    pub(crate) unsafe fn tail(&self) -> i32 {
+        MEM[self.ptr() + 4].b32.s1
+    }
+    pub(crate) unsafe fn set_tail(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 4].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn pre_head(&self) -> i32 {
+        MEM[self.ptr() + 5].b32.s0
+    }
+    pub(crate) unsafe fn set_pre_head(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 5].b32.s0 = v;
+        self
+    }
+    pub(crate) unsafe fn pre_tail(&self) -> i32 {
+        MEM[self.ptr() + 5].b32.s1
+    }
+    pub(crate) unsafe fn set_pre_tail(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr() + 5].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Span(pub usize);
+impl NodeSize for Span {
+    const SIZE: i32 = SPAN_NODE_SIZE;
+}
+impl Span {
+    pub(crate) const fn ptr(&self) -> usize {
+        self.0
+    }
+    pub(crate) unsafe fn next(&self) -> Span {
+        Span(MEM[self.ptr()].b32.s0 as usize)
+    }
+    pub(crate) unsafe fn set_next(&mut self, v: &Span) -> &mut Self {
+        MEM[self.ptr()].b32.s0 = v.ptr() as i32;
+        self
+    }
+    pub(crate) unsafe fn number(&self) -> i32 {
+        MEM[self.ptr()].b32.s1
+    }
+    pub(crate) unsafe fn set_number(&mut self, v: i32) -> &mut Self {
+        MEM[self.ptr()].b32.s1 = v;
+        self
+    }
+    pub(crate) unsafe fn size(&self) -> Scaled {
+        Scaled(MEM[self.ptr() + 1].b32.s1)
+    }
+    pub(crate) unsafe fn set_size(&mut self, v: Scaled) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v.0;
+        self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
     }
 }
 
