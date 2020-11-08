@@ -126,13 +126,13 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
             j = Some(if get_glue_par(GluePar::right_skip).ptr() == 0 {
                 new_kern(Scaled::ZERO).ptr()
             } else {
-                new_param_glue(GluePar::right_skip)
+                new_param_glue(GluePar::right_skip).ptr()
             });
 
             let p = if get_glue_par(GluePar::left_skip).ptr() == 0 {
                 new_kern(Scaled::ZERO).ptr()
             } else {
-                new_param_glue(GluePar::left_skip)
+                new_param_glue(GluePar::left_skip).ptr()
             };
 
             *LLIST_link(p) = j.tex_int();
@@ -904,8 +904,8 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
         let u = new_math(Scaled::ZERO, MathType::Eq(BE::End, MathMode::Middle));
         let j = if let TxtNode::Glue(t) = TxtNode::from(r) {
             let (j, mut tmp_ptr) = new_skip_param(GluePar::right_skip);
-            *LLIST_link(q as usize) = Some(j).tex_int();
-            *LLIST_link(j) = Some(u.ptr()).tex_int();
+            *LLIST_link(q as usize) = Some(j.ptr()).tex_int();
+            *LLIST_link(j.ptr()) = Some(u.ptr()).tex_int();
             let j = GlueSpec(t.glue_ptr() as usize);
             tmp_ptr
                 .set_stretch_order(j.stretch_order())
@@ -924,8 +924,8 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
         let u = new_math(Scaled::ZERO, MathType::Eq(BE::Begin, MathMode::Middle));
         if let TxtNode::Glue(r) = TxtNode::from(r) {
             let (j, mut tmp_ptr) = new_skip_param(GluePar::left_skip);
-            *LLIST_link(u.ptr()) = Some(j).tex_int();
-            *LLIST_link(j) = Some(p).tex_int();
+            *LLIST_link(u.ptr()) = Some(j.ptr()).tex_int();
+            *LLIST_link(j.ptr()) = Some(p).tex_int();
             let j = GlueSpec(r.glue_ptr() as usize);
             tmp_ptr
                 .set_stretch_order(j.stretch_order())
@@ -1199,8 +1199,8 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
             cur_list.tail = pen.ptr();
         } else {
             let pg = new_param_glue(g1);
-            *LLIST_link(cur_list.tail) = Some(pg).tex_int();
-            cur_list.tail = pg;
+            *LLIST_link(cur_list.tail) = Some(pg.ptr()).tex_int();
+            cur_list.tail = pg.ptr();
         }
         if e != Scaled::ZERO {
             let a = a.unwrap();
@@ -1239,7 +1239,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
         cur_list.tail = pen.ptr();
         if let Some(g2) = g2 {
-            *LLIST_link(cur_list.tail) = new_param_glue(g2) as i32;
+            *LLIST_link(cur_list.tail) = new_param_glue(g2).ptr() as i32;
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
         }
         flush_node_list(j);
@@ -3031,11 +3031,11 @@ unsafe fn mlist_to_hlist() {
             };
             if x != 0 {
                 let y = math_glue(&GlueSpec(EQTB[GLUE_BASE + x as usize].val as usize), cur_mu);
-                let z = new_glue(&GlueSpec(y));
+                let mut z = new_glue(&GlueSpec(y));
                 *LLIST_link(y) = None.tex_int();
-                *LLIST_link(p) = Some(z).tex_int();
-                p = z;
-                MEM[z].b16.s0 = (x + 1) as u16
+                *LLIST_link(p) = Some(z.ptr()).tex_int();
+                p = z.ptr();
+                z.set_param((x + 1) as u16);
             }
         }
         if let Some(mut lst) = MEM[q + 1].b32.s1.opt() {
@@ -3333,15 +3333,15 @@ unsafe fn stack_glue_into_box(b: &mut List, mut min: Scaled, mut max: Scaled) {
             while let Some(next) = llist_link(q) {
                 q = next;
             }
-            *LLIST_link(q) = Some(p).tex_int();
+            *LLIST_link(q) = Some(p.ptr()).tex_int();
         } else {
-            b.set_list_ptr(Some(p).tex_int());
+            b.set_list_ptr(Some(p.ptr()).tex_int());
         }
     } else {
-        *LLIST_link(p) = b.list_ptr();
-        b.set_list_ptr(Some(p).tex_int());
-        b.set_height(Scaled(MEM[p + 3].b32.s1)); // TODO: strange, maybe BUG
-        b.set_width(Scaled(MEM[p + 1].b32.s1));
+        *LLIST_link(p.ptr()) = b.list_ptr();
+        b.set_list_ptr(Some(p.ptr()).tex_int());
+        b.set_height(Scaled(MEM[p.ptr() + 3].b32.s1)); // TODO: strange, maybe BUG
+        b.set_width(Scaled(MEM[p.ptr() + 1].b32.s1));
     };
 }
 unsafe fn build_opentype_assembly(
@@ -3490,12 +3490,12 @@ unsafe fn rebox(mut b: List, mut w: Scaled) -> List {
         }
         free_node(b.ptr(), BOX_NODE_SIZE);
         let g = new_glue(&GlueSpec(12));
-        *LLIST_link(g) = Some(p).tex_int();
+        *LLIST_link(g.ptr()) = Some(p).tex_int();
         while let Some(next) = llist_link(p) {
             p = next;
         }
-        *LLIST_link(p) = new_glue(&GlueSpec(12)) as i32;
-        hpack(Some(g), w, PackMode::Exactly)
+        *LLIST_link(p) = new_glue(&GlueSpec(12)).ptr() as i32;
+        hpack(Some(g.ptr()), w, PackMode::Exactly)
     } else {
         b.set_width(w);
         b

@@ -150,7 +150,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
         }
     }
 
-    *LLIST_link(cur_list.tail) = new_param_glue(GluePar::par_fill_skip as _) as i32;
+    *LLIST_link(cur_list.tail) = new_param_glue(GluePar::par_fill_skip as _).ptr() as i32;
     last_line_fill = *LLIST_link(cur_list.tail);
 
     /* Yet more initialization of various kinds */
@@ -1253,9 +1253,9 @@ unsafe fn post_line_break(mut d: bool) {
         }
         if !glue_break {
             let r = new_param_glue(GluePar::right_skip);
-            *LLIST_link(r) = *LLIST_link(q);
-            *LLIST_link(q) = Some(r).tex_int();
-            q = r;
+            *LLIST_link(r.ptr()) = *LLIST_link(q);
+            *LLIST_link(q) = Some(r.ptr()).tex_int();
+            q = r.ptr();
         }
         if get_int_par(IntPar::texxet) > 0 {
             /*1496:*/
@@ -1298,8 +1298,8 @@ unsafe fn post_line_break(mut d: bool) {
         }
         if get_glue_par(GluePar::left_skip).ptr() != 0 {
             let r = new_param_glue(GluePar::left_skip);
-            *LLIST_link(r) = q;
-            q = r as i32;
+            *LLIST_link(r.ptr()) = q;
+            q = r.ptr() as i32;
         }
         /* 918: q points to the hlist that represents the current line. Pack
          * it up at the right width. */

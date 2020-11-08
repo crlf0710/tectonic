@@ -661,8 +661,8 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                         tmp_ptr.set_size(Scaled::ZERO);
                     }
 
-                    *LLIST_link(q) = Some(b.ptr()).tex_int();
-                    *LLIST_link(CONTRIB_HEAD) = Some(q).tex_int();
+                    *LLIST_link(q.ptr()) = Some(b.ptr()).tex_int();
+                    *LLIST_link(CONTRIB_HEAD) = Some(q.ptr()).tex_int();
                 } else {
                     /*1037: "Prepare to move a box or rule node to the current
                      * page, then goto contribute." */
@@ -692,8 +692,8 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                         tmp_ptr.set_size(Scaled::ZERO);
                     }
 
-                    *LLIST_link(q) = Some(r.ptr()).tex_int();
-                    *LLIST_link(CONTRIB_HEAD) = Some(q).tex_int();
+                    *LLIST_link(q.ptr()) = Some(r.ptr()).tex_int();
+                    *LLIST_link(CONTRIB_HEAD) = Some(q.ptr()).tex_int();
                 } else {
                     /*1037: "Prepare to move a box or rule node to the current
                      * page, then goto contribute." */
