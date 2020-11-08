@@ -481,14 +481,29 @@ pub(crate) const EXT_TAG: placeholdertype = 3;
 
 pub(crate) const NORMAL: u16 = 0;
 
-/* scanner_status values: */
+/// A variable called `scanner_status` tells `\TeX` whether or not to complain
+/// when a subfile ends
+///
+/// If the `scanner_status` is not `Normal`, the variable `warning_index` points
+/// to the `EQTB` location for the relevant control sequence name to print
+/// in an error message.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum ScannerStatus {
+    /// subfile can safely end here without incident
     Normal = 0,
+    /// subfile can safely end here, but not a file,
+    /// because we're reading past some conditional text that was not selected
     Skipping = 1,
+    /// subfile shouldn't end now because a macro is being defined
     Defining = 2,
+    /// subfile shouldn't end now because a macro is being used and
+    /// we are searching for the end of its arguments
     Matching = 3,
+    /// subfile shouldn't end now because we are
+    /// not finished with the preamble of an `\halign` or `\valign`
     Aligning = 4,
+    /// subfile shouldn't end now because we are
+    /// reading a balanced token list for `\message`, `\write`, etc.
     Absorbing = 5,
 }
 
