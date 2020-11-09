@@ -1,129 +1,291 @@
+//! The command codes.
+//!
+//! Before we can go any further, we need to define symbolic names for the internal
+//! code numbers that represent the various commands obeyed by \TeX. These codes
+//! are somewhat arbitrary, but not completely so. For example, the command
+//! codes for character types are fixed by the language, since a user says,
+//! e.g., `\catcode \`${} = 3` to make `\char'44` a math delimiter,
+//! and the command code `math_shift` is equal to 3. Some other codes have
+//! been made adjacent so that `case` statements in the program need not consider
+//! cases that are widely spaced, or so that `case` statements can be replaced
+//! by `if` statements.
+//!
+//! At any rate, here is the list, for future reference. First come the
+//! "catcode" commands, several of which share their numeric codes with
+//! ordinary commands when the catcode cannot emerge from \TeX's scanning routine.
+
 /// Commands
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, enumn::N)]
 pub(crate) enum Cmd {
+    /// do nothing (`\relax`)
     Relax = 0,
+    /// beginning of a group (`{`)
     LeftBrace = 1,
+    /// ending of a group (`}`)
     RightBrace = 2,
+    /// mathematics shift character (`$`)
     MathShift = 3,
+    /// alignment delimiter (`&`, `\span`)
     TabMark = 4,
+    /// end of line (`carriage_return`, `\cr`, `\crcr`)
     CarRet = 5,
+    /// macro parameter symbol (`#`)
     MacParam = 6,
+    /// superscript (`\char'136`)
     SupMark = 7,
+    /// subscript (`\char'137`)
     SubMark = 8,
+    /// end of `<v_j>` list in alignment template
     EndV = 9,
+    /// characters equivalent to blank space (` `)
     Spacer = 10,
+    /// characters regarded as letters (`A..Z`, `a..z`)
     Letter = 11,
+    /// none of the special character types
     OtherChar = 12,
+    /// characters that invoke macros (`\char'\~`)
     ActiveChar = 13,
+    /// characters that introduce comments (`%`)
     Comment = 14,
+    /// specify delimiter numerically (`\delimiter`)
     DelimNum = 15,
+
+    // Next are the ordinary run-of-the-mill command codes.  Codes that are
+    // `min_internal` or more represent internal quantities that might be
+    // expanded by `\the`
+    /// character specified numerically (`\char`)
     CharNum = 16,
+    /// explicit math code (`\mathchar`)
     MathCharNum = 17,
+    /// mark definition (`\mark`)
     Mark = 18,
+    /// peek inside of \TeX (`\show`, `\showbox`, etc.)
     XRay = 19,
+    /// make a box (`\box`, `\copy`, `\hbox`, etc.)
     MakeBox = 20,
+    /// horizontal motion (`\moveleft`, `\moveright`)
     HMove = 21,
+    /// vertical motion (`\raise`, `\lower`)
     VMove = 22,
+    /// unglue a box (`\unhbox`, `\unhcopy`)
     UnHBox = 23,
+    /// unglue a box (`\unvbox`, `\unvcopy`)
+    /// ( or `\pagediscards`, `\splitdiscards`)
     UnVBox = 24,
+    /// nullify last item (`\unpenalty`, `\unkern`, `\unskip`)
     RemoveItem = 25,
+    /// horizontal glue (`\hskip`, `\hfil`, etc.)
     HSkip = 26,
+    /// vertical glue (`\vskip`, `\vfil`, etc.)
     VSkip = 27,
+    /// math glue (`\mskip`)
     MSkip = 28,
+    /// fixed space (`\kern`)
     Kern = 29,
+    /// math kern (`\mkern`)
     MKern = 30,
+    /// use a box (`\shipout`, `\leaders`, etc.)
     LeaderShip = 31,
+    /// horizontal table alignment (`\halign`)
     HAlign = 32,
+    /// vertical table alignment (`\valign`)
+    /// or text direction directives (`\beginL`, etc.)
     VAlign = 33,
+    /// temporary escape from alignment (`\noalign`)
     NoAlign = 34,
+    /// vertical rule (`\vrule`)
     VRule = 35,
+    /// horizontal rule (`\hrule`)
     HRule = 36,
+    /// vlist inserted in box (`\insert`)
     Insert = 37,
+    /// vlist inserted in enclosing paragraph (`\vadjust`)
     VAdjust = 38,
+    /// gobble `spacer` tokens (`\ignorespaces`)
     IgnoreSpaces = 39,
+    /// save till assignment is done (`\afterassignment`)
     AfterAssignment = 40,
+    /// save till group is done (`\aftergroup`)
     AfterGroup = 41,
+    /// additional badness (`\penalty`)
     BreakPenalty = 42,
+    /// begin paragraph (`\indent`, `\noindent`)
     StartPar = 43,
+    /// italic correction (`\/`)
     ItalCorr = 44,
+    /// attach accent in text (`\accent`)
     Accent = 45,
+    /// attach accent in math (`\mathaccent`)
     MathAccent = 46,
+    /// discretionary texts (`\-`, `\discretionary`)
     Discretionary = 47,
+    /// equation number (`\eqno`, `\leqno`)
     EqNo = 48,
+    /// variable delimiter (`\left`, `\right`)
+    /// (or `\middle`)
     LeftRight = 49,
+    /// component of formula (`\mathbin`, etc.)
     MathComp = 50,
+    /// diddle limit conventions (`\displaylimits`, etc.)
     LimitSwitch = 51,
+    /// generalized fraction (`\above`, `\atop`, etc.)
     Above = 52,
+    /// style specification (`\displaystyle`, etc.)
     MathStyle = 53,
+    /// choice specification (`\mathchoice`)
     MathChoice = 54,
+    /// conditional math glue (`\nonscript`)
     NonScript = 55,
+    /// vertically center a vbox (`\vcenter`)
     VCenter = 56,
+    /// force specific case (`\lowercase`, `\uppercase`)
     CaseShift = 57,
+    /// send to user (`\message`, `\errmessage`)
     Message = 58,
+    /// extensions to \TeX (`\write`, `\special`, etc.)
     Extension = 59,
+    /// files for reading (`\openin`, `\closein`)
     InStream = 60,
+    /// begin local grouping (`\begingroup`)
     BeginGroup = 61,
+    /// end local grouping (`\endgroup`)
     EndGroup = 62,
+    /// omit alignment template (`\omit`)
     Omit = 63,
+    /// explicit space (`\ `)
     ExSpace = 64,
+    /// suppress boundary ligatures (`\noboundary`)
     NoBoundary = 65,
+    /// square root and similar signs (`\radical`)
     Radical = 66,
+    /// end control sequence (`\endcsname`)
     EndCSName = 67,
+    /// character code defined by `\chardef`
     CharGiven = 68,
+    /// math code defined by `\mathchardef`
     MathGiven = 69,
+    /// extended math code defined by `\Umathchardef`
     XetexMathGiven = 70,
+    /// most recent item (`\lastpenalty`, `\lastkern`, `\lastskip`)
     LastItem = 71,
+
+    // The next codes are special; they all relate to mode-independent
+    // assignment of values to \TeX's internal registers or tables.
+    // Codes that are `max_internal` or less represent internal quantities
+    // that might be expanded by `\the`.
+    /// token list register (`\toks`)
     ToksRegister = 72,
+    /// special token list (`\output}`, `\everypar`, etc.)
     AssignToks = 73,
+    /// user-defined integer (`\tolerance`, `\day`, etc.)
     AssignInt = 74,
+    /// user-defined length (`\hsize`, etc.)
     AssignDimen = 75,
+    /// user-defined glue (`\baselineskip`, etc.)
     AssignGlue = 76,
+    /// user-defined muglue (`\thinmuskip`, etc.)
     AssignMuGlue = 77,
+    /// user-defined font dimension (`\fontdimen`)
     AssignFontDimen = 78,
+    /// user-defined font integer (`\hyphenchar`, `\skewchar`)
     AssignFontInt = 79,
+    /// specify state info (`\spacefactor`, `\prevdepth`)
     SetAux = 80,
+    /// specify state info (`\prevgraf`)
     SetPrevGraf = 81,
+    /// specify state info (`\pagegoal`, etc.)
     SetPageDimen = 82,
+    /// specify state info (`\deadcycles`, `\insertpenalties`)
+    /// (or `\interactionmode`)
     SetPageInt = 83,
+    /// change dimension of box (`\wd`, `\ht`, `\dp`)
     SetBoxDimen = 84,
+    /// specify fancy paragraph shape (`\parshape`)
+    /// (or `\interlinepenalties`, etc.)
     SetShape = 85,
+    /// define a character code (`\catcode`, etc.)
     DefCode = 86,
+    /// `\Umathcode`, `\Udelcode`
     XetexDefCode = 87,
+    /// declare math fonts (`\textfont`, etc.)
     DefFamily = 88,
+    /// set current font (font identifiers)
     SetFont = 89,
+    /// define a font file (`\font`)
     DefFont = 90,
+    /// internal register (`\count`, `\dimen`, etc.)
     Register = 91,
+    /// advance a register or parameter (`\advance`)
     Advance = 92,
+    /// multiply a register or parameter (`\multiply`)
     Multiply = 93,
+    /// divide a register or parameter (`\divide`)
     Divide = 94,
+    /// qualify a definition (`\global`, `\long`, `\outer`)
+    /// (or `\protected`)
     Prefix = 95,
+    /// assign a command code (`\let`, `\futurelet`)
     Let = 96,
+    /// code definition (`\chardef`, `\countdef`, etc.)
     ShorthandDef = 97,
+    /// read into a control sequence (`\read`)
+    /// ( or `\readline`)
     ReadToCS = 98,
+    /// macro definition (`\def`, `\gdef`, `\xdef`, `\edef`)
     Def = 99,
+    /// set a box (`\setbox`)
     SetBox = 100,
+    /// hyphenation data (`\hyphenation`, `\patterns`)
     HyphData = 101,
+    /// define level of interaction (`\batchmode`, etc.)
     SetInteraction = 102,
+
+    // The remaining command codes are extra special, since they cannot get through
+    // \TeX's scanner to the main control routine. They have been given values higher
+    // than `max_command` so that their special nature is easily discernible.
+    // The "expandable" commands come first.
+    /// initial state of most `EQ_TYPE` fields
     UndefinedCS = 103,
+    /// special expansion (`\expandafter`)
     ExpandAfter = 104,
+    /// special nonexpansion (`\noexpand`)
     NoExpand = 105,
+    /// input a source file (`\input`, `\endinput`)
+    /// (or `\scantokens`)
     Input = 106,
+    /// conditional text (`\if`, `\ifcase`, etc.)
     IfTest = 107,
+    /// delimiters for conditionals (`\else`, etc.)
     FiOrElse = 108,
+    /// make a control sequence from tokens (`\csname`)
     CSName = 109,
+    /// convert to text (`\number`, `\string`, etc.)
     Convert = 110,
+    /// expand an internal quantity (`\the`)
+    /// (or \.{\\unexpanded}, `\detokenize`)
     The = 111,
+    /// inserted mark (`\topmark`, etc.)
     TopBotMark = 112,
+    /// non-long, non-outer control sequence
     Call = 113,
+    /// long, non-outer control sequence
     LongCall = 114,
+    /// non-long, outer control sequence
     OuterCall = 115,
+    /// long, outer control sequence
     LongOuterCall = 116,
+    /// end of an alignment template
     EndTemplate = 117,
+    /// the following token was marked by `\noexpand`
     DontExpand = 118,
+    /// the equivalent points to a glue specification
     GlueRef = 119,
+    /// the equivalent points to a parshape specification
     ShapeRef = 120,
+    /// the equivalent points to a box node, or is `null`
     BoxRef = 121,
+    /// the equivalent is simply a halfword number
     Data = 122,
 }
 
@@ -133,21 +295,32 @@ impl From<u16> for Cmd {
     }
 }
 
+/// escape delimiter (called "\\" in *The \TeX book*)
 pub(crate) const ESCAPE: Cmd = Cmd::Relax;
+/// output a macro parameter
 pub(crate) const OUT_PARAM: Cmd = Cmd::CarRet;
+/// characters to ignore (`^^@@`)
 pub(crate) const IGNORE: Cmd = Cmd::EndV;
-
+/// end of paragraph (`\par`)
 pub(crate) const PAR_END: Cmd = Cmd::ActiveChar;
+/// match a macro parameter
 pub(crate) const MATCH: Cmd = Cmd::ActiveChar;
-
+/// end of parameters to macro
 pub(crate) const END_MATCH: Cmd = Cmd::Comment;
+/// end of job (`\end`, `\dump`)
 pub(crate) const STOP: Cmd = Cmd::Comment;
-
+/// characters that shouldn't appear (`^^?`)
 pub(crate) const INVALID_CHAR: Cmd = Cmd::DelimNum;
 
+/// largest catcode for individual characters
+pub(crate) const MAX_CHAR_CODE: i32 = 15;
+/// largest command code that can't be `\global`
 pub(crate) const MAX_NON_PREFIXED_COMMAND: Cmd = Cmd::LastItem;
+/// the smallest code that can follow `\the`
 pub(crate) const MIN_INTERNAL: Cmd = Cmd::CharGiven;
+/// the largest code that can follow `\the`
 pub(crate) const MAX_INTERNAL: Cmd = Cmd::Register;
+/// the largest command code seen at `big_switch|
 pub(crate) const MAX_COMMAND: Cmd = Cmd::SetInteraction;
 
 #[repr(i32)]

@@ -801,7 +801,6 @@ pub(crate) const VAR_FAM_CLASS: placeholdertype = 7;
 pub(crate) const NATIVE_GLYPH_INFO_SIZE: placeholdertype = 10;
 pub(crate) const TOTAL_MATHEX_PARAMS: placeholdertype = 13;
 pub(crate) const HI_MEM_STAT_USAGE: placeholdertype = 15;
-pub(crate) const MAX_CHAR_CODE: placeholdertype = 15;
 pub(crate) const TOTAL_MATHSY_PARAMS: placeholdertype = 22;
 
 pub(crate) const DIMEN_VAL_LIMIT: u16 = 128;

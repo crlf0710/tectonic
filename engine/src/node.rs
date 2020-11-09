@@ -2279,17 +2279,17 @@ impl Alignment {
         MEM[self.ptr() + 1].b32.s1 = v;
         self
     }
-    pub(crate) unsafe fn get_loop(&self) -> i32 {
+    pub(crate) unsafe fn v_part(&self) -> i32 {
         MEM[self.ptr() + 2].b32.s1
     }
-    pub(crate) unsafe fn set_loop(&mut self, v: i32) -> &mut Self {
+    pub(crate) unsafe fn set_v_part(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 2].b32.s1 = v;
         self
     }
-    pub(crate) unsafe fn state(&self) -> i32 {
+    pub(crate) unsafe fn u_part(&self) -> i32 {
         MEM[self.ptr() + 3].b32.s1
     }
-    pub(crate) unsafe fn set_state(&mut self, v: i32) -> &mut Self {
+    pub(crate) unsafe fn set_u_part(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 3].b32.s1 = v;
         self
     }
@@ -2307,10 +2307,10 @@ impl Alignment {
         MEM[self.ptr() + 4].b32.s1 = v;
         self
     }
-    pub(crate) unsafe fn pre_head(&self) -> i32 {
+    pub(crate) unsafe fn extra_info(&self) -> i32 {
         MEM[self.ptr() + 5].b32.s0
     }
-    pub(crate) unsafe fn set_pre_head(&mut self, v: i32) -> &mut Self {
+    pub(crate) unsafe fn set_extra_info(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 5].b32.s0 = v;
         self
     }
