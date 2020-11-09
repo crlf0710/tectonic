@@ -1203,6 +1203,12 @@ pub(crate) unsafe fn delete_glue_ref(p: usize) {
         MEM[p].b32.s1 -= 1;
     };
 }
+
+/// Erase list of nodes starting at `p`
+///
+/// Now we are ready to delete any node list, recursively.
+/// In practice, the nodes deleted are usually charnodes (about 2/3 of the time),
+/// and they are glue nodes in about half of the remaining cases.
 pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
     let mut q: i32 = 0;
     while let Some(p) = popt {
@@ -1230,6 +1236,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     i.free();
                 }
                 TxtNode::WhatsIt(p) => match p {
+                    // Wipe out the whatsit node `p` and goto `'done`
                     WhatsIt::Open(o) => o.free(),
                     WhatsIt::Write(f) => {
                         delete_token_ref(f.tokens() as usize);
@@ -1289,6 +1296,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     flush_node_list(a.adj_ptr().opt());
                     a.free();
                 }
+                // Cases of `flush_node_list` that arise in mlists only
                 TxtNode::Style(_) => {
                     free_node(p, STYLE_NODE_SIZE);
                 }
@@ -1335,12 +1343,12 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     free_node(p, NOAD_SIZE);
                 }
                 MathNode::Fraction => {
-                    flush_node_list(MEM[p + 2].b32.s0.opt());
-                    flush_node_list(MEM[p + 3].b32.s0.opt());
+                    flush_node_list(MEM[p + 2].b32.s0.opt()); // numerator
+                    flush_node_list(MEM[p + 3].b32.s0.opt()); // denumerator
                     free_node(p, FRACTION_NOAD_SIZE);
                 }
             },
-            Node::Unknown(_) => confusion("flushing"),
+            Node::Unknown(_) => confusion("flushing"), // this can't happen flushing
         }
         popt = q.opt()
     }
@@ -10592,9 +10600,9 @@ pub(crate) unsafe fn new_noad() -> usize {
     MEM[p].b16.s1 = MathNode::Ord as u16;
     MEM[p].b16.s0 = NORMAL;
     let mut p = BaseMath(p);
-    p.first_mut().empty();
-    p.third_mut().empty();
-    p.second_mut().empty();
+    p.nucleus_mut().empty();
+    p.subscr_mut().empty();
+    p.supscr_mut().empty();
     p.ptr()
 }
 pub(crate) unsafe fn new_style(mut s: i16) -> usize {
@@ -15034,7 +15042,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         cur_list.tail = n;
                         back_input(input, cur_tok);
                         let m = BaseMath(cur_list.tail);
-                        scan_math(input, m.first_mut(), cur_list.tail + 1);
+                        scan_math(input, m.nucleus_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::Letter) | (MMode, Cmd::OtherChar) | (MMode, Cmd::CharGiven) => {
                         // 218 | 219 | 275
@@ -15113,7 +15121,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         cur_list.tail = n;
                         set_math_NODE_type(n, MathNode::n(cur_chr as u16).unwrap());
                         let m = BaseMath(cur_list.tail);
-                        scan_math(input, m.first_mut(), cur_list.tail + 1);
+                        scan_math(input, m.nucleus_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::LimitSwitch) => {
                         // 258
