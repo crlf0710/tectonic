@@ -482,17 +482,23 @@ pub(crate) static mut insert_src_special_every_par: bool = false;
 pub(crate) static mut insert_src_special_every_math: bool = false;
 #[no_mangle]
 pub(crate) static mut insert_src_special_every_vbox: bool = false;
-#[no_mangle]
+
+/// the characters
 pub(crate) static mut str_pool: Vec<packed_UTF16_code> = Vec::new();
-#[no_mangle]
+
+/// the starting pointers
 pub(crate) static mut str_start: Vec<pool_pointer> = Vec::new();
-#[no_mangle]
+
+/// first unused position in |str_pool|
 pub(crate) static mut pool_ptr: pool_pointer = 0;
-#[no_mangle]
+
+/// number of the current string being created
 pub(crate) static mut str_ptr: str_number = 0;
-#[no_mangle]
+
+/// the starting value of `pool_ptr`
 pub(crate) static mut init_pool_ptr: pool_pointer = 0;
-#[no_mangle]
+
+/// the starting value of `str_ptr`
 pub(crate) static mut init_str_ptr: str_number = 0;
 #[no_mangle]
 pub(crate) static mut rust_stdout: Option<OutputHandleWrapper> = None;
