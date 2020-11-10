@@ -967,7 +967,6 @@ pub(crate) const EJECT_PENALTY: placeholdertype = -10000;
 pub(crate) const INF_BAD: placeholdertype = 10000;
 pub(crate) const INF_PENALTY: placeholdertype = 10000;
 pub(crate) const DEFAULT_RULE: Scaled = Scaled(26214); // 0.4
-pub(crate) const TOO_BIG_CHAR: placeholdertype = 65536;
 pub(crate) const NO_EXPAND_FLAG: placeholdertype = BIGGEST_USV as i32 + 2;
 
 pub(crate) const ACTIVE_MATH_CHAR: placeholdertype = 0x1FFFFF;

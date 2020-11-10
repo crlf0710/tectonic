@@ -42,11 +42,11 @@ use crate::xetex_consts::MEM_TOP;
 use crate::xetex_consts::PAGE_HEAD;
 use crate::xetex_consts::PRE_ADJUST_HEAD;
 use crate::xetex_consts::PRIM_SIZE;
-use crate::xetex_consts::TOO_BIG_CHAR;
 use crate::xetex_consts::{get_int_par, set_int_par};
 use crate::xetex_consts::{
     ValLevel, HYPH_PRIME, MAX_FONT_MAX, MIN_HALFWORD, UNDEFINED_CONTROL_SEQUENCE,
 };
+use crate::xetex_stringpool::TOO_BIG_CHAR;
 
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
@@ -73,7 +73,7 @@ const sup_hash_extra: i32 = sup_max_strings;
 /// "TTNC" in ASCII
 const FORMAT_HEADER_MAGIC: i32 = 0x54544E43;
 const FORMAT_FOOTER_MAGIC: i32 = 0x0000029A;
-const sup_pool_size: i32 = 40000000;
+const sup_pool_size: usize = 40000000;
 /// magic constant, origin unclear
 const sup_font_mem_size: i32 = 147483647;
 
@@ -201,15 +201,20 @@ pub(crate) unsafe fn store_fmt_file() {
 
     /* string pool */
 
-    fmt_out.dump_one(pool_ptr);
+    fmt_out.dump_one(pool_ptr as i32);
     fmt_out.dump_one(str_ptr);
-    fmt_out.dump(&str_start[..(str_ptr - TOO_BIG_CHAR + 1) as usize]);
-    fmt_out.dump(&str_pool[..(pool_ptr as usize)]);
+    fmt_out.dump(
+        &str_start[..(str_ptr - TOO_BIG_CHAR + 1) as usize]
+            .iter()
+            .map(|p| *p as i32)
+            .collect::<Vec<_>>(),
+    );
+    fmt_out.dump(&str_pool[..pool_ptr]);
 
     print_ln();
     print_int(str_ptr);
     print_cstr(" strings of total length ");
-    print_int(pool_ptr);
+    print_int(pool_ptr as i32);
 
     /* "memory locations" */
 
@@ -635,10 +640,10 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     if x < 0 {
         bad_fmt();
     }
-    if x as i64 > sup_pool_size as i64 - pool_free as i64 {
+    if x as usize > sup_pool_size - pool_free {
         panic!("must increase string_pool_size");
     }
-    pool_ptr = x;
+    pool_ptr = x as usize;
     if pool_size < pool_ptr + pool_free {
         pool_size = pool_ptr + pool_free
     }
@@ -651,29 +656,31 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     }
     str_ptr = x;
 
-    if (max_strings as i32) < str_ptr + strings_free {
-        max_strings = (str_ptr + strings_free) as usize
-    }
+    max_strings = max_strings.max(str_ptr as usize + strings_free);
 
-    str_start = vec![pool_pointer::default(); max_strings + 1];
+    str_start = vec![0; max_strings + 1];
     let mut i: i32 = 0;
-    fmt_in.undump(&mut str_start[..(str_ptr - 65536 + 1) as usize]);
+    let mut v = vec![0_i32; (str_ptr - TOO_BIG_CHAR + 1) as usize];
+    fmt_in.undump(&mut v);
+    for (ind, val) in v.into_iter().enumerate() {
+        str_start[ind] = val as usize;
+    }
     i = 0;
-    while i < str_ptr - 65536 + 1 {
-        if str_start[i as usize] < 0 || str_start[i as usize] > pool_ptr {
+    while i < str_ptr - TOO_BIG_CHAR + 1 {
+        if str_start[i as usize] > pool_ptr {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i,
                 str_start[i as usize] as u64,
-                &mut str_start[0] as *mut pool_pointer as u64,
+                &mut str_start[0] as *mut usize as u64,
                 0,
                 pool_ptr as u64
             );
         }
         i += 1
     }
-    str_pool = vec![0; pool_size as usize + 1];
-    fmt_in.undump(&mut str_pool[..pool_ptr as usize]);
+    str_pool = vec![0; pool_size + 1];
+    fmt_in.undump(&mut str_pool[..pool_ptr]);
     init_str_ptr = str_ptr;
     init_pool_ptr = pool_ptr;
     /* "By sorting the list of available spaces in the variable-size portion

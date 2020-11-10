@@ -26,6 +26,7 @@ use crate::xetex_output::{
     print_nl_cstr, print_raw_char, print_scaled,
 };
 use crate::xetex_scaledmath::{tex_round, Scaled};
+use crate::xetex_stringpool::TOO_BIG_CHAR;
 use crate::xetex_stringpool::{length, PoolString};
 use crate::xetex_synctex::{
     synctex_current, synctex_hlist, synctex_horizontal_rule_or_glue, synctex_kern, synctex_math,
@@ -266,10 +267,10 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         dvi_out(cur_length() as u8);
 
         for s in str_start[(str_ptr - TOO_BIG_CHAR) as usize]..pool_ptr {
-            dvi_out(str_pool[s as usize] as u8);
+            dvi_out(str_pool[s] as u8);
         }
 
-        pool_ptr = str_start[(str_ptr - 65536) as usize];
+        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
@@ -333,7 +334,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         if FONT_LETTER_SPACE[r_nw.font() as usize] == Scaled::ZERO =>
                     {
                         /* "got a word in an AAT font, might be the start of a run" */
-                        let mut k = r_nw.text().len() as i32;
+                        let mut k = r_nw.text().len();
                         let mut qopt = llist_link(p);
                         loop {
                             /*641: "Advance `q` past ignorable nodes." This test is
@@ -400,7 +401,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                                 WhatsIt::NativeWord(q),
                                             ))) if q.font() == r_nw.font() => {
                                                 p = q.ptr();
-                                                k += 1 + q.text().len() as i32;
+                                                k += 1 + q.text().len();
                                                 qopt = llist_link(q.ptr());
                                                 continue;
                                             }
@@ -443,7 +444,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                                     WhatsIt::NativeWord(q),
                                                 ))) if q.font() == r_nw.font() => {
                                                     p = q.ptr();
-                                                    k += (1 + q.text().len()) as i32;
+                                                    k += 1 + q.text().len();
                                                     qopt = llist_link(q.ptr());
                                                 }
                                                 _ => break,
@@ -474,7 +475,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     Node::Text(TxtNode::WhatsIt(q)) => match q {
                                         WhatsIt::NativeWord(q) => {
                                             for j in q.text() {
-                                                str_pool[pool_ptr as usize] = *j;
+                                                str_pool[pool_ptr] = *j;
                                                 pool_ptr += 1;
                                             }
                                             k += q.width();
@@ -482,8 +483,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         _ => {}
                                     },
                                     Node::Text(TxtNode::Glue(q)) => {
-                                        str_pool[pool_ptr as usize] =
-                                            ' ' as i32 as packed_UTF16_code;
+                                        str_pool[pool_ptr] = ' ' as i32 as packed_UTF16_code;
                                         pool_ptr += 1;
                                         let mut g = GlueSpec(q.glue_ptr() as usize);
                                         k += g.size();
@@ -513,14 +513,13 @@ unsafe fn hlist_out(this_box: &mut List) {
                             }
                             let mut nw = new_native_word_node(
                                 r_nw.font() as internal_font_number,
-                                cur_length(),
+                                cur_length() as i32,
                             );
                             nw.set_actual_text_from(&r_nw);
 
                             let start = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-                            nw.text_mut().copy_from_slice(
-                                &str_pool[start as usize..(start + cur_length()) as usize],
-                            );
+                            nw.text_mut()
+                                .copy_from_slice(&str_pool[start..(start + cur_length())]);
 
                             /* "Link q into the list in place of r...p" */
                             nw.set_width(k);
@@ -2039,12 +2038,12 @@ unsafe fn special_out(p: &Special) {
     show_token_list(
         MEM[p.tokens() as usize].b32.s1.opt(),
         None,
-        pool_size - pool_ptr,
+        (pool_size - pool_ptr) as i32,
     );
     selector = old_setting;
 
     if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
+        overflow("pool size", pool_size - init_pool_ptr);
     }
 
     if cur_length() < 256 {
@@ -2052,12 +2051,12 @@ unsafe fn special_out(p: &Special) {
         dvi_out(cur_length() as u8);
     } else {
         dvi_out(XXX4);
-        dvi_four(cur_length());
+        dvi_four(cur_length() as i32);
     }
 
     {
         for k in str_start[(str_ptr - TOO_BIG_CHAR) as usize]..pool_ptr {
-            dvi_out(str_pool[k as usize] as u8);
+            dvi_out(str_pool[k] as u8);
         }
     }
     pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
@@ -2136,7 +2135,7 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
         print_nl_cstr("runsystem(");
         let mut d = 0;
         while d <= cur_length() - 1 {
-            print(str_pool[(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + d) as usize] as i32);
+            print(str_pool[(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + d)] as i32);
             d += 1
         }
         print_cstr(")...");
@@ -2211,12 +2210,12 @@ unsafe fn pic_out(p: &Picture) {
         dvi_out(cur_length() as u8);
     } else {
         dvi_out(XXX4);
-        dvi_four(cur_length());
+        dvi_four(cur_length() as i32);
     }
 
     let mut k = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
     while k < pool_ptr {
-        dvi_out(str_pool[k as usize] as u8);
+        dvi_out(str_pool[k] as u8);
         k += 1
     }
     pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]; /* discard the string we just made */

@@ -85,9 +85,9 @@ use crate::xetex_scaledmath::{
     mult_and_add, round_xn_over_d, tex_round, x_over_n, xn_over_d, Scaled,
 };
 use crate::xetex_shipout::{finalize_dvi_file, new_edge, out_what, ship_out};
-use crate::xetex_stringpool::EMPTY_STRING;
 use crate::xetex_stringpool::{
     append_str, length, make_string, search_string, slow_make_string, str_eq_buf, PoolString,
+    EMPTY_STRING, TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
 use crate::xetex_texmfmp::{
@@ -105,7 +105,6 @@ pub(crate) type CFDictionaryRef = *mut libc::c_void;
 pub(crate) type UTF16_code = u16;
 pub(crate) type UTF8_code = u8;
 pub(crate) type UnicodeScalar = i32;
-pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
 pub(crate) type glue_ord = u8;
@@ -116,8 +115,8 @@ pub(crate) type nine_bits = i32;
 pub(crate) type save_pointer = i32;
 
 #[inline]
-pub(crate) unsafe fn cur_length() -> pool_pointer {
-    pool_ptr - str_start[(str_ptr - 65536) as usize]
+pub(crate) unsafe fn cur_length() -> usize {
+    pool_ptr - str_start[(str_ptr - TOO_BIG_CHAR) as usize]
 }
 
 fn IS_LC_HEX(c: i32) -> bool {
@@ -677,12 +676,12 @@ pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
     };
 }
 pub(crate) unsafe fn print_subsidiary_data(p: usize, mut c: UTF16_code) {
-    if cur_length() >= depth_threshold {
-        if MEM[p as usize].b32.s1 != 0 {
+    if cur_length() as i32 >= depth_threshold {
+        if MEM[p].b32.s1 != 0 {
             print_cstr(" []");
         }
     } else {
-        str_pool[pool_ptr as usize] = c;
+        str_pool[pool_ptr] = c;
         pool_ptr += 1;
         let tmp_ptr = p;
         match MathCell::n(MEM[p].b32.s1).unwrap() {
@@ -740,7 +739,7 @@ pub(crate) unsafe fn print_skip_param(n: GluePar) {
     };
 }
 pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
-    if cur_length() > depth_threshold {
+    if cur_length() as i32 > depth_threshold {
         if popt.is_some() {
             print_cstr(" []");
         }
@@ -800,7 +799,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if p.is_horizontal() && p.lr_mode() == LRMode::DList {
                         print_cstr(", display");
                     }
-                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(p.list_ptr().opt());
                     pool_ptr -= 1
@@ -827,7 +826,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_cstr(", shrink ");
                         print_glue(p.shrink(), p.shrink_order(), "");
                     }
-                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(p.list_ptr().opt());
                     pool_ptr -= 1
@@ -851,7 +850,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     print_scaled(p_ins.depth());
                     print_cstr("); float cost ");
                     print_int(p_ins.float_cost());
-                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(p_ins.ins_ptr().opt());
                     pool_ptr -= 1
@@ -920,7 +919,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         print_cstr("leaders ");
                         print_spec(g.glue_ptr(), "");
-                        str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                        str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list(g.leader_ptr().opt());
                         pool_ptr -= 1
@@ -1025,11 +1024,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_cstr(" replacing ");
                         print_int(d.replace_count() as i32);
                     }
-                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(d.pre_break().opt());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr as usize] = '|' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '|' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(d.post_break().opt());
                     pool_ptr -= 1
@@ -1047,7 +1046,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if a.subtype() != AdjustType::Post {
                         print_cstr(" pre ");
                     }
-                    str_pool[pool_ptr as usize] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(a.adj_ptr().opt());
                     pool_ptr -= 1
@@ -1055,19 +1054,19 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 TxtNode::Style(_) => print_style(MEM[p].b16.s0 as i32),
                 TxtNode::Choice(c) => {
                     print_esc_cstr("mathchoice");
-                    str_pool[pool_ptr as usize] = 'D' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 'D' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(c.display());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr as usize] = 'T' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 'T' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(c.text());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr as usize] = 'S' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 'S' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(c.script());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr as usize] = 's' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 's' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(c.scriptscript());
                     pool_ptr -= 1
@@ -1178,15 +1177,15 @@ pub(crate) unsafe fn show_box(p: Option<usize>) {
     if breadth_max <= 0 {
         breadth_max = 5;
     }
-    if pool_ptr + depth_threshold >= pool_size {
-        depth_threshold = pool_size - pool_ptr - 1;
+    if (pool_ptr as i32) + depth_threshold >= (pool_size as i32) {
+        depth_threshold = (pool_size as i32) - (pool_ptr as i32) - 1;
     }
     show_node_list(p);
     print_ln();
 }
 pub(crate) unsafe fn short_display_n(p: Option<usize>, mut m: i32) {
     breadth_max = m;
-    depth_threshold = pool_size - pool_ptr - 1;
+    depth_threshold = (pool_size as i32) - (pool_ptr as i32) - 1;
     show_node_list(p);
 }
 pub(crate) unsafe fn delete_token_ref(p: usize) {
@@ -2429,8 +2428,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[chr_code as usize] {
                 quote_char = '\"' as i32 as UTF16_code;
                 for n in 0..=length(font_name_str) {
-                    if str_pool[(str_start[(font_name_str as i64 - 65536) as usize] + n) as usize]
-                        as i32
+                    if str_pool[str_start[(font_name_str - TOO_BIG_CHAR) as usize] + n] as i32
                         == '\"' as i32
                     {
                         quote_char = '\'' as i32 as UTF16_code
@@ -2567,8 +2565,7 @@ pub(crate) unsafe fn not_native_font_error(cmd: Cmd, c: i32, f: usize) {
     error();
 }
 /*:1434*/
-pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
-    let mut ll: i32 = 0;
+pub(crate) unsafe fn id_lookup(mut j: usize, mut l: usize) -> i32 {
     let mut h = 0;
     for k in j..=j + l - 1 {
         h = h + h + BUFFER[k as usize];
@@ -2577,7 +2574,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
         }
     }
     let mut p = h + HASH_BASE as i32;
-    ll = l;
+    let mut ll = l;
     for d in 0..=l - 1 {
         if BUFFER[(j + d) as usize] as i64 >= 65536 {
             ll += 1
@@ -2620,7 +2617,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                 let d = cur_length();
                 while pool_ptr > str_start[(str_ptr - TOO_BIG_CHAR) as usize] {
                     pool_ptr -= 1;
-                    str_pool[(pool_ptr + l) as usize] = str_pool[pool_ptr as usize]
+                    str_pool[pool_ptr + l] = str_pool[pool_ptr]
                 }
                 for k in j..=j + l - 1 {
                     let mut b = [0; 2];
@@ -2628,7 +2625,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
                         .unwrap()
                         .encode_utf16(&mut b)
                     {
-                        str_pool[pool_ptr as usize] = *c;
+                        str_pool[pool_ptr] = *c;
                         pool_ptr += 1
                     }
                 }
@@ -2643,7 +2640,7 @@ pub(crate) unsafe fn id_lookup(mut j: i32, mut l: i32) -> i32 {
     p
 }
 pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
-    let mut l: i32 = 0;
+    let mut l = 0;
     let mut p = if s <= BIGGEST_CHAR {
         if s < 0 {
             return UNDEFINED_PRIMITIVE as usize;
@@ -2651,15 +2648,15 @@ pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
             ((s as usize) % PRIM_PRIME) + 1
         }
     } else {
-        let j = str_start[(s as i64 - 65536) as usize];
+        let j = str_start[(s - TOO_BIG_CHAR) as usize];
         if s == str_ptr {
             l = cur_length()
         } else {
             l = length(s)
         }
-        let mut h = str_pool[j as usize] as usize;
+        let mut h = str_pool[j] as usize;
         for k in (j + 1)..(j + l) {
-            h = h + h + str_pool[k as usize] as usize;
+            h = h + h + str_pool[k] as usize;
             while h >= PRIM_PRIME {
                 h = h - 431;
             }
@@ -4329,7 +4326,8 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     }
                                     if k > input.loc + 1 {
                                         // multiletter control sequence has been scanned
-                                        cs = id_lookup(input.loc, k - input.loc);
+                                        cs =
+                                            id_lookup(input.loc as usize, (k - input.loc) as usize);
                                         input.loc = k;
                                         current_block = 10802200937357087535;
                                     } else {
@@ -4346,7 +4344,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     // But if the character code is > 0xFFFF, we treat it like a multiletter name
                                     // for string purposes, because we use UTF-16 in the string pool.
                                     if BUFFER[input.loc as usize] as i64 > 0xffff {
-                                        cs = id_lookup(input.loc, 1i32);
+                                        cs = id_lookup(input.loc as usize, 1);
                                         input.loc += 1;
                                     } else {
                                         cs = SINGLE_BASE as i32 + BUFFER[input.loc as usize];
@@ -5179,7 +5177,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     let cs;
                     if j > first + 1 || BUFFER[first as usize] as i64 > 65535 {
                         no_new_control_sequence = false;
-                        cs = id_lookup(first, j - first);
+                        cs = id_lookup(first as usize, (j - first) as usize);
                         no_new_control_sequence = true
                     } else if j == first {
                         cs = NULL_CS as i32;
@@ -7925,60 +7923,60 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
     let mut s = make_string();
-    str_pool[pool_ptr as usize] = ' ' as i32 as packed_UTF16_code;
-    let mut l = str_start[(s as i64 - 65536) as usize];
+    str_pool[pool_ptr] = ' ' as i32 as packed_UTF16_code;
+    let mut l = str_start[(s - TOO_BIG_CHAR) as usize];
     let mut nl = get_int_par(IntPar::new_line_char);
     let mut p = get_avail();
     let mut q = p;
     while l < pool_ptr {
         let mut m = l;
-        while l < pool_ptr && str_pool[l as usize] as i32 != nl {
+        while l < pool_ptr && str_pool[l] as i32 != nl {
             l += 1
         }
         let mut sz = (l - m + 7) / 4;
         if sz == 1 {
             sz = 2
         }
-        let mut r = get_node(sz);
+        let mut r = get_node(sz as i32);
         *LLIST_link(q) = Some(r).tex_int();
         q = r;
-        MEM[q].b32.s0 = sz;
+        MEM[q].b32.s0 = sz as i32;
         while sz > 2 {
             sz -= 1;
             r += 1;
             let w = b16x4 {
-                s3: str_pool[m as usize],
-                s2: str_pool[(m + 1) as usize],
-                s1: str_pool[(m + 2) as usize],
-                s0: str_pool[(m + 3) as usize],
+                s3: str_pool[m],
+                s2: str_pool[m + 1],
+                s1: str_pool[m + 2],
+                s0: str_pool[m + 3],
             };
             MEM[r].b16 = w;
             m = m + 4
         }
         let w = b16x4 {
             s3: if l > m {
-                str_pool[m as usize]
+                str_pool[m]
             } else {
                 ' ' as i32 as u16
             },
             s2: if l > m + 1 {
-                str_pool[(m + 1) as usize]
+                str_pool[m + 1]
             } else {
                 ' ' as i32 as u16
             },
             s1: if l > m + 2 {
-                str_pool[(m + 2) as usize]
+                str_pool[m + 2]
             } else {
                 ' ' as i32 as u16
             },
             s0: if l > m + 3 {
-                str_pool[(m + 3) as usize]
+                str_pool[m + 3]
             } else {
                 ' ' as i32 as u16
             },
         };
         MEM[r + 1].b16 = w;
-        if str_pool[l as usize] as i32 == nl {
+        if str_pool[l] as i32 == nl {
             l += 1
         }
     }
@@ -7986,7 +7984,7 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     MEM[p].b32.s1 = pseudo_files;
     pseudo_files = p as i32;
     str_ptr -= 1;
-    pool_ptr = str_start[(str_ptr - 65536) as usize];
+    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
     begin_file_reading(input);
     line = 0;
     input.limit = input.start;
@@ -8006,7 +8004,7 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
         input.synctex_tag = 0;
     };
 }
-pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: i16) -> usize {
+pub(crate) unsafe fn str_toks_cat(mut b: usize, mut cat: i16) -> usize {
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
@@ -8014,20 +8012,19 @@ pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: i16) -> usize {
     *LLIST_link(p) = None.tex_int();
     let mut k = b;
     while k < pool_ptr {
-        let mut t = str_pool[k as usize] as i32;
+        let mut t = str_pool[k] as i32;
         if t == ' ' as i32 && cat == 0 {
             t = SPACE_TOKEN
         } else {
             if t >= 0xd800
                 && t < 0xdc00
                 && k + 1 < pool_ptr
-                && str_pool[(k + 1) as usize] as i32 >= 0xdc00
-                && (str_pool[(k + 1) as usize] as i32) < 0xe000
+                && str_pool[k + 1] as i32 >= 0xdc00
+                && (str_pool[k + 1] as i32) < 0xe000
             {
                 k += 1;
-                t = (65536
-                    + ((t - 0xd800) * 1024) as i64
-                    + (str_pool[k as usize] as i32 - 0xdc00) as i64) as i32
+                t = (65536 + ((t - 0xd800) * 1024) as i64 + (str_pool[k] as i32 - 0xdc00) as i64)
+                    as i32
             }
             if cat == 0 {
                 t = OTHER_TOKEN + t
@@ -8050,7 +8047,7 @@ pub(crate) unsafe fn str_toks_cat(mut b: pool_pointer, mut cat: i16) -> usize {
     pool_ptr = b;
     p
 }
-pub(crate) unsafe fn str_toks(mut b: pool_pointer) -> usize {
+pub(crate) unsafe fn str_toks(mut b: usize) -> usize {
     str_toks_cat(b, 0)
 }
 pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> usize {
@@ -8141,7 +8138,7 @@ pub(crate) unsafe fn conv_toks(
     let mut boolvar: bool = false;
     let mut s: str_number = 0;
     let mut u: str_number = 0;
-    let mut b: pool_pointer = 0;
+    let mut b: usize = 0;
     let mut fnt: usize = 0;
     let mut arg1: i32 = 0i32;
     let mut arg2: i32 = 0i32;
@@ -8225,7 +8222,7 @@ pub(crate) unsafe fn conv_toks(
             }
             let old_setting = selector;
             selector = Selector::NEW_STRING;
-            show_token_list(llist_link(def_ref), None, pool_size - pool_ptr);
+            show_token_list(llist_link(def_ref), None, (pool_size - pool_ptr) as i32);
             selector = old_setting;
             s = make_string();
             delete_token_ref(def_ref);
@@ -8339,8 +8336,9 @@ pub(crate) unsafe fn conv_toks(
                 Font::Native(_) => {
                     quote_char = '\"' as i32 as UTF16_code;
                     for i in 0..=(length(font_name_str) - 1) {
-                        if str_pool[(str_start[(font_name_str as i64 - 65536) as usize] + i as i32)
-                            as usize] as i32
+                        if str_pool
+                            [(str_start[(font_name_str - TOO_BIG_CHAR) as usize] + i) as usize]
+                            as i32
                             == '\"' as i32
                         {
                             quote_char = '\'' as i32 as UTF16_code
@@ -9087,7 +9085,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             } else if m == first + 1i32 {
                 SINGLE_BASE as i32 + BUFFER[first as usize]
             } else {
-                id_lookup(first, m - first)
+                id_lookup(first as usize, (m - first) as usize)
             };
 
             flush_list(Some(n));
@@ -9236,8 +9234,8 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 pub(crate) unsafe fn more_name(
     c: UTF16_code,
     stop_at_space_: bool,
-    area_delimiter: &mut pool_pointer,
-    ext_delimiter: &mut pool_pointer,
+    area_delimiter: &mut usize,
+    ext_delimiter: &mut usize,
     quoted_filename: &mut bool,
     file_name_quote_char: &mut Option<u16>,
 ) -> bool {
@@ -9256,7 +9254,7 @@ pub(crate) unsafe fn more_name(
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
-    str_pool[pool_ptr as usize] = c;
+    str_pool[pool_ptr] = c;
     pool_ptr += 1;
     if c == '/' as u16 {
         // IS_DIR_SEP
@@ -9269,7 +9267,7 @@ pub(crate) unsafe fn more_name(
 }
 pub(crate) unsafe fn make_name<F>(mut f: F) -> (bool, Option<u16>)
 where
-    F: FnMut(&mut pool_pointer, &mut pool_pointer, &mut bool, &mut Option<u16>),
+    F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<u16>),
 {
     let mut area_delimiter = 0;
     let mut ext_delimiter = 0;
@@ -9283,7 +9281,7 @@ where
         &mut file_name_quote_char,
     );
 
-    let mut j: pool_pointer = 0;
+    let mut j: usize = 0;
     if str_ptr + 3 > max_strings as i32 {
         overflow("number of strings", max_strings - init_str_ptr as usize);
     }
@@ -9295,15 +9293,15 @@ where
         cur_area = EMPTY_STRING as str_number
     } else {
         cur_area = str_ptr;
-        str_start[((str_ptr + 1) as i64 - 65536) as usize] =
-            str_start[(str_ptr - 65536) as usize] + area_delimiter;
+        str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize] =
+            str_start[(str_ptr - TOO_BIG_CHAR) as usize] + area_delimiter;
         str_ptr += 1;
         if let Some(temp_str) = search_string(cur_area) {
             cur_area = temp_str;
             str_ptr -= 1;
-            j = str_start[((str_ptr + 1) as i64 - 65536) as usize];
+            j = str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize];
             while j <= pool_ptr - 1 {
-                str_pool[(j - area_delimiter) as usize] = str_pool[j as usize];
+                str_pool[(j - area_delimiter) as usize] = str_pool[j];
                 j += 1
             }
             pool_ptr = pool_ptr - area_delimiter
@@ -9317,20 +9315,20 @@ where
         cur_name = slow_make_string()
     } else {
         cur_name = str_ptr;
-        str_start[((str_ptr + 1) as i64 - 65536) as usize] =
-            str_start[(str_ptr - 65536) as usize] + ext_delimiter - area_delimiter - 1;
+        str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize] =
+            str_start[(str_ptr - TOO_BIG_CHAR) as usize] + ext_delimiter - area_delimiter - 1;
         str_ptr += 1;
         cur_ext = make_string();
         str_ptr -= 1;
         if let Some(temp_str) = search_string(cur_name) {
             cur_name = temp_str;
             str_ptr -= 1;
-            j = str_start[((str_ptr + 1) as i64 - 65536) as usize];
+            j = str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize];
             while j <= pool_ptr - 1 {
-                str_pool[(j - ext_delimiter + area_delimiter + 1) as usize] = str_pool[j as usize];
+                str_pool[(j - ext_delimiter + area_delimiter + 1) as usize] = str_pool[j];
                 j += 1
             }
-            pool_ptr = pool_ptr - ext_delimiter + area_delimiter + 1i32
+            pool_ptr = pool_ptr - ext_delimiter + area_delimiter + 1;
         }
         cur_ext = slow_make_string()
     };
@@ -9348,7 +9346,7 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     }
     let name_of_file16: Vec<u16> = name_of_file.encode_utf16().collect();
     for &k in &name_of_file16 {
-        str_pool[pool_ptr as usize] = k;
+        str_pool[pool_ptr] = k;
         pool_ptr += 1;
     }
     let Result: str_number = make_string();
@@ -9471,19 +9469,15 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
                     (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as u32 as u32;
                 if rval > 0xffff_u32 {
                     rval = (rval as u32).wrapping_sub(0x10000_u32) as u32 as u32;
-                    let fresh45 = pool_ptr;
-                    pool_ptr = pool_ptr + 1;
-                    str_pool[fresh45 as usize] = (0xd800_u32)
-                        .wrapping_add(rval.wrapping_div(0x400_u32))
+                    str_pool[pool_ptr] = (0xd800_u32).wrapping_add(rval.wrapping_div(0x400_u32))
                         as packed_UTF16_code;
-                    let fresh46 = pool_ptr;
-                    pool_ptr = pool_ptr + 1;
-                    str_pool[fresh46 as usize] =
-                        (0xdc00_u32).wrapping_add(rval.wrapping_rem(0x400_u32)) as packed_UTF16_code
+                    pool_ptr += 1;
+                    str_pool[pool_ptr] = (0xdc00_u32).wrapping_add(rval.wrapping_rem(0x400_u32))
+                        as packed_UTF16_code;
+                    pool_ptr += 1;
                 } else {
-                    let fresh47 = pool_ptr;
-                    pool_ptr = pool_ptr + 1;
-                    str_pool[fresh47 as usize] = rval as packed_UTF16_code
+                    str_pool[pool_ptr] = rval as packed_UTF16_code;
+                    pool_ptr += 1;
                 }
                 if rval == '/' as i32 as u32 {
                     *area_delimiter = cur_length();
@@ -9548,7 +9542,7 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
         job_name = cur_name; /* this is the "flush_string" macro which discards the most recent string */
         open_log_file(); /* "really a CFDictionaryRef or *mut XeTeXLayoutEngine" */
     } /* = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55) */
-    if term_offset + length(FULL_SOURCE_FILENAME_STACK[IN_OPEN]) > max_print_line - 2 {
+    if term_offset + (length(FULL_SOURCE_FILENAME_STACK[IN_OPEN]) as i32) > max_print_line - 2 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
         print_chr(' ');
@@ -9615,7 +9609,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     s = make_string();
     let chr = gettexstring(s);
     str_ptr -= 1;
-    pool_ptr = str_start[(str_ptr - 0x10000) as usize];
+    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
     ttstub_issue_warning(&format!(
         "could not represent character \"{}\" (0x{:x}) in font \"{}\"",
         chr, c as u32, fn_0
@@ -9658,24 +9652,22 @@ pub(crate) unsafe fn new_native_character(
             if pool_ptr + 2 > pool_size {
                 overflow("pool size", (pool_size - init_pool_ptr) as usize);
             }
-            str_pool[pool_ptr as usize] =
-                ((c as i64 - 65536) / 1024 as i64 + 0xd800) as packed_UTF16_code;
+            str_pool[pool_ptr] = ((c as i64 - 65536) / 1024 as i64 + 0xd800) as packed_UTF16_code;
             pool_ptr += 1;
-            str_pool[pool_ptr as usize] =
-                ((c as i64 - 65536) % 1024 as i64 + 0xdc00) as packed_UTF16_code;
+            str_pool[pool_ptr] = ((c as i64 - 65536) % 1024 as i64 + 0xdc00) as packed_UTF16_code;
             pool_ptr += 1
         } else {
             if pool_ptr + 1 > pool_size {
                 overflow("pool size", (pool_size - init_pool_ptr) as usize);
             }
-            str_pool[pool_ptr as usize] = c as packed_UTF16_code;
+            str_pool[pool_ptr] = c as packed_UTF16_code;
             pool_ptr += 1
         }
 
         let len = apply_mapping(
             FONT_MAPPING[f],
-            &mut str_pool[str_start[(str_ptr - TOO_BIG_CHAR) as usize] as usize],
-            cur_length(),
+            &mut str_pool[str_start[(str_ptr - TOO_BIG_CHAR) as usize]],
+            cur_length() as i32,
         );
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
 
@@ -13995,7 +13987,7 @@ pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32)
     s = make_string();
     if c == 0 {
         /*1315: */
-        if term_offset + length(s) > max_print_line - 2 {
+        if term_offset + (length(s) as i32) > max_print_line - 2 {
             print_ln();
         } else if term_offset > 0 || file_offset > 0 {
             print_chr(' ');
@@ -16385,7 +16377,11 @@ pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
     }
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    show_token_list(LLIST_link(p as usize).opt(), None, pool_size - pool_ptr);
+    show_token_list(
+        LLIST_link(p as usize).opt(),
+        None,
+        (pool_size - pool_ptr) as i32,
+    );
     selector = old_setting;
     make_string()
 }
@@ -16405,17 +16401,17 @@ pub(crate) unsafe fn compare_strings(input: &mut input_state_t, cs: i32) -> i32 
     scan_toks(input, cs, false, true);
     let s2 = tokens_to_string(def_ref as i32);
     delete_token_ref(def_ref);
-    let mut i1 = str_start[(s1 as i64 - 65536) as usize];
-    let j1 = str_start[((s1 + 1i32) as i64 - 65536) as usize];
-    let mut i2 = str_start[(s2 as i64 - 65536) as usize];
-    let j2 = str_start[((s2 + 1i32) as i64 - 65536) as usize];
+    let mut i1 = str_start[(s1 - TOO_BIG_CHAR) as usize];
+    let j1 = str_start[((s1 + 1) - TOO_BIG_CHAR) as usize];
+    let mut i2 = str_start[(s2 - TOO_BIG_CHAR) as usize];
+    let j2 = str_start[((s2 + 1) - TOO_BIG_CHAR) as usize];
     loop {
         if !(i1 < j1 && i2 < j2) {
             break;
         }
-        if (str_pool[i1 as usize] as i32) < str_pool[i2 as usize] as i32 {
+        if (str_pool[i1] as i32) < str_pool[i2] as i32 {
             return done(s1, s2, -1);
-        } else if str_pool[i1 as usize] as i32 > str_pool[i2 as usize] as i32 {
+        } else if str_pool[i1] as i32 > str_pool[i2] as i32 {
             return done(s1, s2, 1);
         } else {
             i1 += 1;

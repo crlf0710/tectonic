@@ -68,7 +68,6 @@ use crate::xetex_consts::get_int_par;
 use crate::xetex_consts::IntPar;
 use crate::xetex_consts::LIST_TAG;
 use crate::xetex_consts::NON_ADDRESS;
-use crate::xetex_consts::TOO_BIG_CHAR;
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
 use crate::xetex_output::print;
@@ -82,6 +81,7 @@ use crate::xetex_stringpool::length;
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::EMPTY_STRING;
+use crate::xetex_stringpool::TOO_BIG_CHAR;
 use crate::xetex_xetex0::diagnostic;
 use crate::xetex_xetex0::new_native_character;
 use crate::xetex_xetex0::pack_file_name;
@@ -643,11 +643,11 @@ pub(crate) unsafe fn load_native_font(mut s: Scaled) -> Result<usize, NativeFont
     } else {
         loaded_font_design_size
     };
-    if (pool_ptr as usize) + name_of_file.as_bytes().len() > (pool_size as usize) {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
+    if pool_ptr + name_of_file.as_bytes().len() > pool_size {
+        overflow("pool size", pool_size - init_pool_ptr);
     }
     for b in name_of_file.bytes() {
-        str_pool[pool_ptr as usize] = b as packed_UTF16_code;
+        str_pool[pool_ptr] = b as packed_UTF16_code;
         pool_ptr = pool_ptr + 1;
     }
 

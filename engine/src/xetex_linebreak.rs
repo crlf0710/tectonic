@@ -27,7 +27,9 @@ use crate::xetex_ini::{
 };
 use crate::xetex_ini::{b16x4, memory_word};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
+
 use crate::xetex_stringpool::length;
+use crate::xetex_stringpool::TOO_BIG_CHAR;
 use crate::xetex_xetex0::{
     append_to_vlist, badness, char_pw, delete_glue_ref, effective_char, flush_list,
     flush_node_list, free_node, get_avail, get_node, hpack, max_hyphenatable_length, new_character,
@@ -44,7 +46,6 @@ use crate::xetex_scaledmath::Scaled;
 
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
-pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
 pub(crate) type font_index = i32;
@@ -2067,7 +2068,7 @@ unsafe fn hyphenate() {
     let mut r_count: i32 = 0;
     let mut z: trie_pointer = 0;
     let mut v: i32 = 0;
-    let mut u: pool_pointer = 0;
+    let mut u: usize = 0;
 
     for j in 0..=hn {
         hyf[j as usize] = 0_u8;
@@ -2084,11 +2085,11 @@ unsafe fn hyphenate() {
             current_block = 10027897684796195291;
             break;
         }
-        if length(k) == hn as i32 {
+        if length(k) == hn as usize {
             let mut j = 1_i16;
-            u = str_start[(k as i64 - 65536) as usize];
+            u = str_start[(k - TOO_BIG_CHAR) as usize];
             loop {
-                if str_pool[u as usize] as i32 != hc[j as usize] {
+                if str_pool[u] as i32 != hc[j as usize] {
                     current_block = 1763490972649755258;
                     break;
                 }
