@@ -626,15 +626,20 @@ pub(crate) static mut prim_eqtb: [EqtbWord; 501] = [EqtbWord {
 }; 501];
 #[no_mangle]
 pub(crate) static mut SAVE_STACK: Vec<EqtbWord> = Vec::new();
-#[no_mangle]
+
+/// first unused entry on |save_stack|
 pub(crate) static mut SAVE_PTR: usize = 0;
-#[no_mangle]
+
+/// maximum usage of save stack
 pub(crate) static mut MAX_SAVE_STACK: usize = 0;
-#[no_mangle]
+
+/// current nesting level for groups
 pub(crate) static mut cur_level: u16 = 0;
-#[no_mangle]
+
+/// current group type
 pub(crate) static mut cur_group: GroupCode = GroupCode::BottomLevel;
-#[no_mangle]
+
+/// where the current level begins
 pub(crate) static mut cur_boundary: i32 = 0;
 #[no_mangle]
 pub(crate) static mut mag_set: i32 = 0;

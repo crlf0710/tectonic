@@ -527,25 +527,54 @@ impl From<i32> for Expr {
     }
 }
 
+/// `save_level` for a level boundary
+///
+/// Here are the group codes that are used to discriminate between different
+/// kinds of groups. They allow \TeX\ to decide what special actions, if any,
+/// should be performed when a group ends.
+/// `\def\grp{\char'173...\char'175}`
+///
+/// Some groups are not supposed to be ended by right braces. For example,
+/// the `$` that begins a math formula causes a `math_shift_group` to
+/// be started, and this should be terminated by a matching `$`. Similarly,
+/// a group that starts with `\left` should end with `\right`, and
+/// one that starts with `\begingroup` should end with `\endgroup`.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum GroupCode {
+    /// group code for the outside world
     BottomLevel = 0,
+    /// group code for local structure only
     Simple = 1,
+    /// code for `\hbox\grp`
     HBox = 2,
+    /// code for `\hbox\grp` in vertical mode
     AdjustedHBox = 3,
+    /// code for `\vbox\grp`
     VBox = 4,
+    /// code for `\vtop\grp`
     VTop = 5,
+    /// code for `\halign\grp`, `\valign\grp`
     Align = 6,
+    /// code for `\noalign\grp`
     NoAlign = 7,
+    /// code for output routine
     Output = 8,
+    /// code for, e.g., `\char'136\grp`
     Math = 9,
+    /// code for `\discretionary\grp\grp\grp`
     Disc = 10,
+    /// code for `\insert\grp`, `\vadjust\grp`
     Insert = 11,
+    /// code for `\vcenter\grp`
     VCenter = 12,
+    /// code for `\mathchoice\grp\grp\grp\grp`
     MathChoice = 13,
+    /// code for `\begingroup...\endgroup`
     SemiSimple = 14,
+    /// code for `$...$`
     MathShift = 15,
+    /// code for `\left...\right'
     MathLeft = 16,
 }
 impl From<u16> for GroupCode {
@@ -666,29 +695,47 @@ impl MathStyle {
     }
 }
 
-/* begin_token_list() types */
-
+/// The `token_type` can take several values, depending on
+/// where the current token list came from:
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
 pub(crate) enum Btl {
+    /// if a parameter is being scanned
     Parameter = 0,
+    /// if the `<u_j>` part of an alignment template is being scanned
     UTemplate = 1,
+    /// if the `<v_j>` part of an alignment template is being scanned
     VTemplate = 2,
+    /// if the token list being scanned has been inserted as "to be read again"
     BackedUp = 3,
+    /// special code for backed-up char from `\XeTeXinterchartoks` hook
     BackedUpChar = 4,
+    /// if the token list being scanned has been inserted as
+    /// the text expansion of a `\count` or similar variable
     Inserted = 5,
+    /// if a user-defined control sequence is being scanned
     Macro = 6,
+    /// if an `\output` routine is being scanned
     OutputText = 7,
+    /// if the text of `\everypar` is being scanned
     EveryParText = 8,
+    /// if the text of `\everymath` is being scanned
     EveryMathText = 9,
+    /// if the text of `\everydisplay` is being scanned;
     EveryDisplayText = 10,
+    /// if the text of `\everyhbox` is being scanned
     EveryHBoxText = 11,
+    /// if the text of `\everyvbox` is being scanned
     EveryVBoxText = 12,
+    /// if the text of `\everyjob` is being scanned
     EveryJobText = 13,
+    /// if the text of `\everycr` is being scanned
     EveryCRText = 14,
+    /// if the text of a `\mark` is being scanned
     MarkText = 15,
     EveryEOFText = 16,
     InterCharText = 17,
+    /// if the text of a `\write` is being scanned
     WriteText = 18,
     TectonicCodaText = 19,
 }
