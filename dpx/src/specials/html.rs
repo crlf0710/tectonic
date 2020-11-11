@@ -34,7 +34,7 @@ use crate::dpx_pdfximage::{
 use super::{spc_begin_annot, spc_end_annot};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_mem::new;
-use crate::dpx_pdfdev::{graphics_mode, transform_info, transform_info_clear, Rect, TMatrix};
+use crate::dpx_pdfdev::{graphics_mode, transform_info, transform_info_clear, TMatrix};
 use crate::dpx_pdfdoc::{
     pdf_doc_add_names, pdf_doc_add_page_content, pdf_doc_add_page_resource,
     pdf_doc_current_page_resources, pdf_doc_get_reference,
@@ -557,7 +557,6 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
         ); /* op: gs */
         error = -1i32
     } else {
-        let mut r = Rect::zero();
         graphics_mode();
         pdf_dev_gsave();
         let a: i32 = (100.0f64 * alpha).round() as i32;
@@ -574,7 +573,7 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
             pdf_doc_add_page_content(b" gs");
         }
         /* ENABLE_HTML_SVG_OPACITY */
-        let M1 = pdf_ximage_scale_image(id, &mut r, &mut ti); /* op: */
+        let (r, M1) = pdf_ximage_scale_image(id, &mut ti); /* op: */
         M = M1.post_transform(&M);
         pdf_dev_concat(&mut M);
         pdf_dev_rectclip(&r);

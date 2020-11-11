@@ -1584,7 +1584,6 @@ pub(crate) unsafe fn pdf_dev_put_image(
     mut ref_x: f64,
     mut ref_y: f64,
 ) -> i32 {
-    let mut r = Rect::zero();
     if let Some(last) = dev_coords.last() {
         ref_x -= last.x;
         ref_y -= last.y;
@@ -1603,7 +1602,7 @@ pub(crate) unsafe fn pdf_dev_put_image(
     }
     graphics_mode();
     pdf_dev_gsave();
-    let M1 = pdf_ximage_scale_image(id, &mut r, p);
+    let (r, M1) = pdf_ximage_scale_image(id, p);
     M = M1.post_transform(&M);
     pdf_dev_concat(&mut M);
     /* Clip */
