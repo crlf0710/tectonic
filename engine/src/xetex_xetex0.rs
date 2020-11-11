@@ -237,6 +237,8 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
         print_esc_cstr("ETC.");
     };
 }
+/// uses `scanner_status` to print a warning message
+/// when a subfile has ended, and at certain other crucial times
 pub(crate) unsafe fn runaway() {
     if scanner_status != ScannerStatus::Normal && scanner_status != ScannerStatus::Skipping {
         let p = match scanner_status {
@@ -1201,6 +1203,12 @@ pub(crate) unsafe fn delete_glue_ref(p: usize) {
         MEM[p].b32.s1 -= 1;
     };
 }
+
+/// Erase list of nodes starting at `p`
+///
+/// Now we are ready to delete any node list, recursively.
+/// In practice, the nodes deleted are usually charnodes (about 2/3 of the time),
+/// and they are glue nodes in about half of the remaining cases.
 pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
     let mut q: i32 = 0;
     while let Some(p) = popt {
@@ -1228,6 +1236,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     i.free();
                 }
                 TxtNode::WhatsIt(p) => match p {
+                    // Wipe out the whatsit node `p` and goto `'done`
                     WhatsIt::Open(o) => o.free(),
                     WhatsIt::Write(f) => {
                         delete_token_ref(f.tokens() as usize);
@@ -1287,6 +1296,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     flush_node_list(a.adj_ptr().opt());
                     a.free();
                 }
+                // Cases of `flush_node_list` that arise in mlists only
                 TxtNode::Style(_) => {
                     free_node(p, STYLE_NODE_SIZE);
                 }
@@ -1333,12 +1343,12 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     free_node(p, NOAD_SIZE);
                 }
                 MathNode::Fraction => {
-                    flush_node_list(MEM[p + 2].b32.s0.opt());
-                    flush_node_list(MEM[p + 3].b32.s0.opt());
+                    flush_node_list(MEM[p + 2].b32.s0.opt()); // numerator
+                    flush_node_list(MEM[p + 3].b32.s0.opt()); // denumerator
                     free_node(p, FRACTION_NOAD_SIZE);
                 }
             },
-            Node::Unknown(_) => confusion("flushing"),
+            Node::Unknown(_) => confusion("flushing"), // this can't happen flushing
         }
         popt = q.opt()
     }
@@ -3660,20 +3670,29 @@ pub(crate) unsafe fn end_file_reading(input: &mut input_state_t) {
     *input = INPUT_STACK[INPUT_PTR]; // pop
     IN_OPEN -= 1;
 }
+
+/// Before getting into |get_next|, let's consider the subroutine that
+/// is called when an `\outer` control sequence has been scanned or
+/// when the end of a file has been reached. These two cases are distinguished
+/// by `cur_cs`, which is zero at the end of a file.
 pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i32) -> bool {
     let mut spacer = false;
     if scanner_status != ScannerStatus::Normal {
         deletions_allowed = false;
+        // Back up an outer control sequence so that it can be reread
         if *cs != 0 {
             if input.state == InputState::TokenList || input.name < 1 || input.name > 17 {
                 let p = get_avail();
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + *cs;
+                // prepare to read the control sequence again
                 begin_token_list(input, p, Btl::BackedUp);
             }
             spacer = true;
         }
         if scanner_status != ScannerStatus::Normal && scanner_status != ScannerStatus::Skipping {
             /*350:*/
+            // Tell the user what has run away...
+            // print a definition, argument, or preamble
             runaway();
             if *cs == 0 {
                 if file_line_error_style_p != 0 {
@@ -3682,6 +3701,7 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
                     print_nl_cstr("! ");
                 }
                 print_cstr("File ended");
+            // File ended while scanning...
             } else {
                 *cs = 0;
                 if file_line_error_style_p != 0 {
@@ -3690,7 +3710,17 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
                     print_nl_cstr("! ");
                 }
                 print_cstr("Forbidden control sequence found");
+                // Forbidden control sequence...
             }
+            // Print either "definition" or "use" or "preamble" or "text",
+            // and insert tokens that should lead to recovery
+            //
+            // The recovery procedure can't be fully understood without knowing more
+            // about the `\TeX` routines that should be aborted, but we can sketch the
+            // ideas here:  For a runaway definition we will insert a right brace; for a
+            // runaway preamble, we will insert a special `\cr` token and a right
+            // brace; and for a runaway argument, we will set `long_state` to
+            // `outer_call` and insert `\par`.
             let mut p = get_avail();
             match scanner_status {
                 ScannerStatus::Defining => {
@@ -3715,7 +3745,7 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
                     print_cstr(" while scanning text");
                     MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
                 }
-                _ => unreachable!(),
+                _ => unreachable!(), // there are no other cases
             }
             begin_token_list(input, p, Btl::Inserted);
             print_cstr(" of ");
@@ -3728,6 +3758,7 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
             );
             error();
         } else {
+            // Tell the user what has run away and try to recover
             if file_line_error_style_p != 0 {
                 print_file_line();
             } else {
@@ -3755,51 +3786,88 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
     }
     spacer
 }
-/* These macros are kinda scary, but convenient */
+
+/// Getting the next token
+///
+/// The heart of \TeX's input mechanism is the `get_next` procedure, which
+/// we shall develop in the next few sections of the program. Perhaps we
+/// shouldn't actually call it the "heart", however, because it really acts
+/// as \TeX's eyes and mouth, reading the source files and gobbling them up.
+/// And it also helps \TeX to regurgitate stored token lists that are to be
+/// processed again.
+///
+/// The main duty of `get_next` is to input one token and to set `cur_cmd`
+/// and `cur_chr` to that token's command code and modifier. Furthermore, if
+/// the input token is a control sequence, the `EQTB` location of that control
+/// sequence is stored in `cur_cs`; otherwise `cur_cs` is set to zero.
+///
+/// Underlying this simple description is a certain amount of complexity
+/// because of all the cases that need to be handled.
+/// However, the inner loop of |get_next| is reasonably short and fast.
+///
+/// When `get_next` is asked to get the next token of a `\read` line,
+/// it sets `cur_cmd=cur_chr=cur_cs=0` in the case that no more tokens
+/// appear on that line. (There might not be any tokens at all, if the
+/// `end_line_char` has `ignore` as its catcode.)
 pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
     let mut ochr = None;
     let mut ocmd = None;
-    'c_63502: loop {
+    // go here to get the next input token
+    'restart: loop {
         let mut current_block: u64;
         let mut cs = 0;
         if input.state != InputState::TokenList {
-            /*355:*/
-            'c_63807: loop
-            /*357:*/
-            {
+            // Input from external file, goto `'restart` if no input found
+            // 355
+            // go here to eat the next character from a file
+            'switch: loop {
+                // 357:
+                // current line not yet finished
                 if input.loc <= input.limit {
                     let mut chr = BUFFER[input.loc as usize];
                     input.loc += 1;
-                    'c_65186: loop {
+                    // go here to digest it again
+                    'reswitch: loop {
                         ochr = Some(chr);
                         let cmd = Cmd::from(*CAT_CODE(chr as usize) as u16);
                         ocmd = Some(cmd);
+                        // Change state if necessary, and goto `'switch` if the
+                        // current character should be ignored,
+                        // or goto `'reswitch` if the current character
+                        // changes to another
                         match (input.state, cmd) {
                             (InputState::MidLine, IGNORE)
                             | (InputState::SkipBlanks, IGNORE)
                             | (InputState::NewLine, IGNORE)
                             | (InputState::SkipBlanks, Cmd::Spacer)
-                            | (InputState::NewLine, Cmd::Spacer) => break,
+                            | (InputState::NewLine, Cmd::Spacer) => {
+                                // Cases where character is ignored
+                                break;
+                            }
                             (InputState::MidLine, ESCAPE)
                             | (InputState::SkipBlanks, ESCAPE)
                             | (InputState::NewLine, ESCAPE) => {
+                                // Scan a control sequence
+                                // and set `state:=skip_blanks` or `mid_line`
                                 if input.loc > input.limit {
                                     current_block = 17833034027772472439;
-                                    break 'c_63807;
+                                    break 'switch;
                                 } else {
                                     current_block = 7720778817628725688;
-                                    break 'c_63807;
+                                    break 'switch;
                                 }
                             }
                             (InputState::MidLine, Cmd::ActiveChar)
                             | (InputState::SkipBlanks, Cmd::ActiveChar)
                             | (InputState::NewLine, Cmd::ActiveChar) => {
+                                // Process an active-character control sequence
                                 cs = chr + 1;
                                 let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
                                 let mut chr = EQTB[cs as usize].val;
                                 input.state = InputState::MidLine;
                                 if cmd >= Cmd::OuterCall {
                                     if check_outer_validity(input, &mut cs) {
+                                        // replace it by a space
                                         cmd = Cmd::Spacer;
                                         chr = ' ' as i32;
                                     }
@@ -3807,51 +3875,49 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 ocmd = Some(cmd);
                                 ochr = Some(chr);
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                             (InputState::MidLine, Cmd::SupMark)
                             | (InputState::SkipBlanks, Cmd::SupMark)
                             | (InputState::NewLine, Cmd::SupMark) => {
+                                // If this `sup_mark` starts an expanded character
+                                // like `^^A` or `^^df`, then goto `'reswitch`,
+                                // otherwise set `state:=mid_line`
                                 if !(chr == BUFFER[input.loc as usize]) {
                                     current_block = 8567661057257693057;
-                                    break 'c_63807;
+                                    break 'switch;
                                 }
                                 if !(input.loc < input.limit) {
                                     current_block = 8567661057257693057;
-                                    break 'c_63807;
+                                    break 'switch;
                                 }
                                 let mut sup_count = 2;
+                                // we have `^^` and another char; check how many `^`s we have altogether, up to a max of 6
                                 while sup_count < 6
                                     && input.loc + 2 * sup_count as i32 - 2 <= input.limit
                                     && chr == BUFFER[(input.loc + sup_count as i32 - 1) as usize]
                                 {
                                     sup_count += 1
                                 }
+                                // check whether we have enough hex chars for the number of `^`s
                                 for d in 1..=sup_count as i32 {
-                                    if !(BUFFER
-                                        [(input.loc + sup_count as i32 - 2 + d as i32) as usize]
-                                        >= '0' as i32
-                                        && BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
-                                            as usize]
-                                            <= '9' as i32
-                                        || BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
-                                            as usize]
-                                            >= 'a' as i32
-                                            && BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
-                                                as usize]
-                                                <= 'f' as i32)
-                                    {
+                                    if !IS_LC_HEX(
+                                        BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
+                                            as usize],
+                                    ) {
+                                        // found a non-hex char, so do single `^^X` style
                                         let c = BUFFER[(input.loc + 1) as usize];
                                         if !(c < 128) {
                                             ochr = Some(chr);
                                             current_block = 8567661057257693057;
-                                            break 'c_63807;
+                                            break 'switch;
                                         }
                                         input.loc = input.loc + 2;
                                         chr = if c < 64 { c + 64 } else { c - 64 };
-                                        continue 'c_65186;
+                                        continue 'reswitch;
                                     }
                                 }
+                                // there were the right number of hex chars, so convert them
                                 chr = 0;
                                 for d in 1..=sup_count as i32 {
                                     let c = BUFFER
@@ -3862,10 +3928,11 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         chr = 16 * chr + c - 'a' as i32 + 10
                                     }
                                 }
+                                // check the resulting value is within the valid range
                                 if chr > BIGGEST_USV as i32 {
                                     ochr = Some(BUFFER[input.loc as usize]);
                                     current_block = 8567661057257693057;
-                                    break 'c_63807;
+                                    break 'switch;
                                 } else {
                                     input.loc += 2 * sup_count as i32 - 1;
                                 }
@@ -3886,20 +3953,20 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 deletions_allowed = false;
                                 error();
                                 deletions_allowed = true;
-                                continue 'c_63502;
+                                continue 'restart;
                             }
                             (InputState::MidLine, Cmd::Spacer) => {
                                 input.state = InputState::SkipBlanks;
                                 ochr = Some(' ' as i32);
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                             (InputState::MidLine, Cmd::CarRet) => {
                                 input.loc = input.limit + 1;
                                 ocmd = Some(Cmd::Spacer);
                                 ochr = Some(' ' as i32);
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                             (InputState::MidLine, Cmd::Comment)
                             | (InputState::SkipBlanks, Cmd::Comment)
@@ -3915,6 +3982,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 let mut chr = EQTB[cs as usize].val;
                                 if cmd >= Cmd::OuterCall {
                                     if check_outer_validity(input, &mut cs) {
+                                        // replace it by a space
                                         cmd = Cmd::Spacer;
                                         chr = ' ' as i32;
                                     }
@@ -3922,31 +3990,31 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 ocmd = Some(cmd);
                                 ochr = Some(chr);
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                             (InputState::MidLine, Cmd::LeftBrace) => {
                                 align_state += 1;
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                             (InputState::SkipBlanks, Cmd::LeftBrace)
                             | (InputState::NewLine, Cmd::LeftBrace) => {
                                 input.state = InputState::MidLine;
                                 align_state += 1;
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                             (InputState::MidLine, Cmd::RightBrace) => {
                                 align_state -= 1;
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                             (InputState::SkipBlanks, Cmd::RightBrace)
                             | (InputState::NewLine, Cmd::RightBrace) => {
                                 input.state = InputState::MidLine;
                                 align_state -= 1;
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                             (InputState::SkipBlanks, Cmd::MathShift)
                             | (InputState::SkipBlanks, Cmd::TabMark)
@@ -3962,46 +4030,52 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             | (InputState::NewLine, Cmd::OtherChar) => {
                                 input.state = InputState::MidLine;
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                             _ => {
                                 current_block = 14956172121224201915;
-                                break 'c_63807;
+                                break 'switch;
                             }
                         }
                     }
                 } else {
                     input.state = InputState::NewLine;
+                    // Move to next line of file, or goto `'restart`...
                     if input.name > 17 {
                         /*374:*/
+                        // Read next line of file into `buffer`, or goto `'restart` if the file has ended
                         line += 1; /*367:*/
                         first = input.start;
                         if !force_eof {
                             if input.name <= 19 {
                                 if pseudo_input(input) {
-                                    input.limit = last
+                                    // not end of file
+                                    input.limit = last;
+                                // this sets `limit`
                                 } else if let Some(l) = LOCAL(Local::every_eof)
                                     .opt()
                                     .filter(|_| !EOF_SEEN[input.index as usize])
                                 {
                                     input.limit = first - 1;
-                                    EOF_SEEN[input.index as usize] = true;
+                                    EOF_SEEN[input.index as usize] = true; // fake one empty line
                                     begin_token_list(input, l, Btl::EveryEOFText);
-                                    continue 'c_63502;
+                                    continue 'restart;
                                 } else {
                                     force_eof = true
                                 }
                             } else if input_line(INPUT_FILE[input.index as usize].as_mut().unwrap())
                             {
-                                input.limit = last
+                                // not end of file
+                                input.limit = last;
+                            // this sets `limit`
                             } else if let Some(l) = LOCAL(Local::every_eof)
                                 .opt()
                                 .filter(|_| !EOF_SEEN[input.index as usize])
                             {
                                 input.limit = first - 1;
-                                EOF_SEEN[input.index as usize] = true;
+                                EOF_SEEN[input.index as usize] = true; // fake one empty line
                                 begin_token_list(input, l, Btl::EveryEOFText);
-                                continue 'c_63502;
+                                continue 'restart;
                             } else {
                                 force_eof = true
                             }
@@ -4012,20 +4086,23 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     || IF_STACK[IN_OPEN] != cond_ptr
                                 {
                                     file_warning(input);
+                                    // give warning for some unfinished groups and/or conditionals
                                 }
                             }
                             if input.name >= 19 {
                                 print_chr(')');
                                 open_parens -= 1;
                                 rust_stdout.as_mut().unwrap().flush().unwrap();
+                                // show user that file has been read
                             }
                             force_eof = false;
-                            end_file_reading(input);
+                            end_file_reading(input); // resume previous level
                             if check_outer_validity(input, &mut cs) {
+                                // replace it by a space
                                 ocmd = Some(Cmd::Spacer);
                                 ochr = Some(' ' as i32);
                             }
-                            continue 'c_63502;
+                            continue 'restart;
                         } else {
                             if get_int_par(IntPar::end_line_char) < 0
                                 || get_int_par(IntPar::end_line_char) > 255
@@ -4039,6 +4116,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                         }
                     } else {
                         if input.name != 0 {
+                            // `\read` line has ended
                             return (Cmd::Relax, 0, cs);
                         }
                         if INPUT_PTR > 0 {
@@ -4056,6 +4134,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                 _ => {
                     match current_block {
                         8567661057257693057 => {
+                            // not_exp: go here when `^^` turned out not to start an expanded code
                             input.state = InputState::MidLine;
                             current_block = 14956172121224201915;
                         }
@@ -4063,19 +4142,25 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             let mut k;
                             let mut cat;
                             let mut chr;
-                            'c_65963: loop {
+                            // go here to start looking for a control sequence
+                            'start_cs: loop {
                                 k = input.loc;
                                 chr = BUFFER[k as usize];
                                 cat = Cmd::from(*CAT_CODE(chr as usize) as u16);
                                 k += 1;
                                 if cat == Cmd::Letter {
-                                    input.state = InputState::SkipBlanks; // TODO: check
+                                    input.state = InputState::SkipBlanks;
                                 } else if cat == Cmd::Spacer {
                                     input.state = InputState::SkipBlanks;
                                 } else {
                                     input.state = InputState::MidLine;
                                 }
                                 if cat == Cmd::Letter && k <= input.limit {
+                                    // Scan ahead in the buffer until finding a nonletter;
+                                    // if an expanded code is encountered, reduce it
+                                    // and goto `start_cs`; otherwise if a multiletter control
+                                    // sequence is found, adjust `cs` and `loc`, and
+                                    // goto `'found`
                                     loop
                                     /*368:*/
                                     {
@@ -4086,6 +4171,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                             break;
                                         }
                                     }
+                                    // If an expanded...
                                     if !(cat == Cmd::SupMark
                                         && BUFFER[k as usize] == chr
                                         && k < input.limit)
@@ -4093,37 +4179,22 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         current_block = 5873035170358615968;
                                         break;
                                     }
-                                    /* Special characters: either ^^X, or up to six
-                                     * ^'s followed by one hex character for each
-                                     * ^. */
                                     let mut sup_count_save: i32 = 0;
-                                    /* How many ^'s are there? */
                                     let mut sup_count = 2;
+                                    // we have `^^` and another char; check how many `^`s we have altogether, up to a max of 6
                                     while sup_count < 6
                                         && k + 2 * sup_count as i32 - 2 <= input.limit
                                         && BUFFER[(k + sup_count as i32 - 1) as usize] == chr
                                     {
                                         sup_count += 1;
                                     }
-                                    /* If they are followed by a sufficient number of
-                                     * hex characters, treat it as an extended ^^^
-                                     * sequence. If not, treat it as original-style
-                                     * ^^X. */
                                     sup_count_save = sup_count as i32;
+                                    // check whether we have enough hex chars for the number of `^`s
                                     for d in 1..=sup_count_save {
-                                        if !(BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize]
-                                            >= '0' as i32
-                                            && BUFFER
-                                                [(k + sup_count as i32 - 2 + d as i32) as usize]
-                                                <= '9' as i32
-                                            || BUFFER
-                                                [(k + sup_count as i32 - 2 + d as i32) as usize]
-                                                >= 'a' as i32
-                                                && BUFFER[(k + sup_count as i32 - 2 + d as i32)
-                                                    as usize]
-                                                    <= 'f' as i32)
-                                        {
-                                            /* Non-hex: do it old style */
+                                        if !IS_LC_HEX(
+                                            BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize],
+                                        ) {
+                                            // found a non-hex char, so do single `^^X` style
                                             let c = BUFFER[(k + 1) as usize];
                                             if c < 128 {
                                                 if c < 64 {
@@ -4138,7 +4209,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                                         BUFFER[(k + d as i32) as usize];
                                                     k += 1
                                                 }
-                                                continue 'c_65963;
+                                                continue 'start_cs;
                                             } else {
                                                 sup_count = 0;
                                             }
@@ -4149,6 +4220,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         break;
                                     }
 
+                                    // there were the right number of hex chars, so convert them
                                     chr = 0;
 
                                     for d in 1..=sup_count as i32 {
@@ -4161,6 +4233,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         };
                                     }
 
+                                    // check the resulting value is within the valid range
                                     if chr > BIGGEST_USV as i32 {
                                         chr = BUFFER[k as usize];
                                         current_block = 5873035170358615968;
@@ -4168,6 +4241,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     } else {
                                         BUFFER[(k - 1) as usize] = chr;
                                         let d = (2 * sup_count as i32 - 1) as i16;
+                                        // shift the rest of the buffer left by `d` chars
                                         input.limit = input.limit - d as i32;
                                         while k <= input.limit {
                                             BUFFER[k as usize] = BUFFER[(k + d as i32) as usize];
@@ -4209,7 +4283,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                                         BUFFER[(k + d as i32) as usize];
                                                     k += 1
                                                 }
-                                                continue 'c_65963;
+                                                continue 'start_cs;
                                             } else {
                                                 sup_count = 0;
                                             }
@@ -4248,10 +4322,13 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             ochr = Some(chr);
                             match current_block {
                                 5873035170358615968 => {
+                                    // If an expanded...
                                     if cat != Cmd::Letter {
-                                        k -= 1
+                                        k -= 1;
+                                        // now `k` points to first nonletter
                                     }
                                     if k > input.loc + 1 {
+                                        // multiletter control sequence has been scanned
                                         cs = id_lookup(input.loc, k - input.loc);
                                         input.loc = k;
                                         current_block = 10802200937357087535;
@@ -4264,25 +4341,30 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             match current_block {
                                 10802200937357087535 => {}
                                 _ => {
-                                    if BUFFER[input.loc as usize] as i64 > 65535 {
+                                    // If an expanded code is present, reduce it and goto `start_cs`>;
+                                    // {At this point, we have a single-character cs name in the buffer.
+                                    // But if the character code is > 0xFFFF, we treat it like a multiletter name
+                                    // for string purposes, because we use UTF-16 in the string pool.
+                                    if BUFFER[input.loc as usize] as i64 > 0xffff {
                                         cs = id_lookup(input.loc, 1i32);
-                                        input.loc += 1
+                                        input.loc += 1;
                                     } else {
-                                        cs = 1i32
-                                            + (0x10ffffi32 + 1i32)
-                                            + BUFFER[input.loc as usize];
-                                        input.loc += 1
+                                        cs = SINGLE_BASE as i32 + BUFFER[input.loc as usize];
+                                        input.loc += 1;
                                     }
                                     current_block = 10802200937357087535;
                                 }
                             }
                         }
                         17833034027772472439 => {
-                            cs = 1i32 + (0x10ffffi32 + 1i32) + (0x10ffffi32 + 1i32);
+                            // `state` is irrelevant in this case
+                            cs = NULL_CS as i32;
                             current_block = 10802200937357087535;
                         }
                         4001239642700071046 => {
+                            // text was inserted during error recovery
                             end_file_reading(input);
+                            // resume previous level
                             continue;
                         }
                         _ =>
@@ -4312,89 +4394,113 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                     match current_block {
                         14956172121224201915 => {}
                         _ => {
-                            // found:
+                            // found: go here when a control sequence has been found
                             let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
                             let mut chr = EQTB[cs as usize].val;
                             if cmd >= Cmd::OuterCall {
                                 if check_outer_validity(input, &mut cs) {
+                                    // replace it by a space
                                     cmd = Cmd::Spacer;
                                     chr = ' ' as i32;
                                 }
                             }
                             ocmd = Some(cmd);
                             ochr = Some(chr);
+
+                            // Whenever we reach the following piece of code, we will have
+                            // `cur_chr=buffer[k-1]` and `k<=limit+1` and `cat=cat_code(cur_chr)`. If an
+                            // expanded code like `^^A` or `^^df` appears in `buffer[(k-1)..(k+1)]`
+                            // or `buffer[(k-1)..(k+2)]`, we
+                            // will store the corresponding code in `buffer[k-1]` and shift the rest of
+                            // the buffer left two or three places.
                         }
                     }
-                }
-            }
-        } else if let Some(loc) = input.loc.opt() {
-            /* if we're inputting from a non-null token list: */
-            let t = MEM[loc].b32.s0;
-            input.loc = *LLIST_link(loc);
-            if t >= CS_TOKEN_FLAG {
-                cs = t - CS_TOKEN_FLAG;
-                let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
-                let mut chr = EQTB[cs as usize].val;
-                if cmd >= Cmd::OuterCall {
-                    if cmd == Cmd::DontExpand {
-                        /*370:*/
-                        cs = MEM[input.loc.opt().unwrap()].b32.s0 - CS_TOKEN_FLAG;
-                        input.loc = None.tex_int();
-                        cmd = Cmd::from(EQTB[cs as usize].cmd);
-                        chr = EQTB[cs as usize].val;
-                        if cmd > MAX_COMMAND {
-                            cmd = Cmd::Relax;
-                            chr = NO_EXPAND_FLAG;
-                        }
-                    } else {
-                        if check_outer_validity(input, &mut cs) {
-                            cmd = Cmd::Spacer;
-                            chr = ' ' as i32;
-                        }
-                    }
-                }
-                ocmd = Some(cmd);
-                ochr = Some(chr);
-            } else {
-                let cmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
-                let chr = t % MAX_CHAR_VAL;
-                ochr = Some(chr);
-                ocmd = Some(cmd);
-                match cmd {
-                    Cmd::LeftBrace => {
-                        align_state += 1;
-                    }
-                    Cmd::RightBrace => {
-                        align_state -= 1;
-                    }
-                    OUT_PARAM => {
-                        begin_token_list(
-                            input,
-                            PARAM_STACK[(input.limit + chr - 1) as usize] as usize,
-                            Btl::Parameter,
-                        );
-                        continue;
-                    }
-                    _ => {}
                 }
             }
         } else {
-            end_token_list(input);
-            continue;
+            // Let's consider now what happens when `get_next` is looking at a token list.
+
+            // Input from token list, goto `'restart` if end of list or
+            // if a parameter needs to be expanded
+            if let Some(loc) = input.loc.opt() {
+                // list not exhausted
+                let t = *LLIST_info(loc);
+                input.loc = *LLIST_link(loc); // move to next
+                if t >= CS_TOKEN_FLAG {
+                    // a control sequence token
+                    cs = t - CS_TOKEN_FLAG;
+                    let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
+                    let mut chr = EQTB[cs as usize].val;
+                    if cmd >= Cmd::OuterCall {
+                        if cmd == Cmd::DontExpand {
+                            // 370:
+                            // Get the next token, suppressing expansion
+                            cs = MEM[input.loc.opt().unwrap()].b32.s0 - CS_TOKEN_FLAG;
+                            input.loc = None.tex_int();
+                            cmd = Cmd::from(EQTB[cs as usize].cmd);
+                            chr = EQTB[cs as usize].val;
+                            if cmd > MAX_COMMAND {
+                                cmd = Cmd::Relax;
+                                chr = NO_EXPAND_FLAG;
+                            }
+                        } else {
+                            if check_outer_validity(input, &mut cs) {
+                                // replace it by a space
+                                cmd = Cmd::Spacer;
+                                chr = ' ' as i32;
+                            }
+                        }
+                    }
+                    ocmd = Some(cmd);
+                    ochr = Some(chr);
+                } else {
+                    let cmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
+                    let chr = t % MAX_CHAR_VAL;
+                    ochr = Some(chr);
+                    ocmd = Some(cmd);
+                    match cmd {
+                        Cmd::LeftBrace => {
+                            align_state += 1;
+                        }
+                        Cmd::RightBrace => {
+                            align_state -= 1;
+                        }
+                        OUT_PARAM => {
+                            // Insert macro parameter and goto `'restart`
+                            begin_token_list(
+                                input,
+                                PARAM_STACK[(input.limit + chr - 1) as usize] as usize,
+                                Btl::Parameter,
+                            );
+                            continue;
+                        }
+                        _ => {}
+                    }
+                }
+            } else {
+                // we are done with this token list
+                end_token_list(input);
+                continue;
+                // resume previous level
+            }
         }
+        // If an alignment entry has just ended, take appropriate action
         let mut cmd = ocmd.unwrap();
         if (cmd == Cmd::CarRet || cmd == Cmd::TabMark) && align_state == 0 {
             /*818:*/
+            // Insert the `(v)<v_j>` template and goto `'restart`
             if scanner_status == ScannerStatus::Aligning {
                 fatal_error("(interwoven alignment preambles are not allowed)");
             }
             if let Some(ca) = cur_align {
-                cmd = Cmd::from(MEM[ca + 5].b32.s0 as u16);
-                MEM[ca + 5].b32.s0 = ochr.unwrap();
+                // interwoven alignment preambles...
+                let mut ca = Alignment(ca);
+                cmd = Cmd::from(ca.extra_info() as u16);
+                ca.set_extra_info(ochr.unwrap());
                 if cmd == Cmd::Omit {
                     begin_token_list(input, OMIT_TEMPLATE, Btl::VTemplate);
                 } else {
-                    begin_token_list(input, MEM[ca + 2].b32.s1 as usize, Btl::VTemplate);
+                    begin_token_list(input, ca.v_part() as usize, Btl::VTemplate);
                 }
                 align_state = 1_000_000;
             } else {
@@ -9321,6 +9427,11 @@ pub(crate) unsafe fn open_log_file() {
     print_ln();
     selector = (u8::from(old_setting) + 2).into();
 }
+
+/// `\TeX` will `\input` something
+///
+/// Let's turn now to the procedure that is used to initiate file reading
+/// when an `\input` command is being processed.
 pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_name: *const i8) {
     let mut format = TTInputFormat::TEX;
     if !primary_input_name.is_null() {
@@ -9425,6 +9536,7 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
     /* *This* variant is a TeX string made out of `name_of_input_file`. */
     FULL_SOURCE_FILENAME_STACK[IN_OPEN] = maketexstring(&name_of_input_file);
     if input.name == str_ptr - 1 {
+        // we can conserve string pool space now
         if let Some(temp_str) = search_string(input.name) {
             input.name = temp_str;
             str_ptr -= 1;
@@ -9447,6 +9559,8 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
     rust_stdout.as_mut().unwrap().flush().unwrap();
     input.state = InputState::NewLine;
     synctex_start_input(input);
+
+    // Read the first line of the new file
     line = 1;
     input_line(INPUT_FILE[input.index as usize].as_mut().unwrap());
     input.limit = last;
@@ -9457,6 +9571,10 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
     }
     first = input.limit + 1;
     input.loc = input.start;
+
+    // Here we have to remember to tell the |input_ln| routine not to
+    // start with a |get|. If the file is empty, it is considered to
+    // contain a single blank line.
 }
 pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16) -> b16x4 {
     if !xtx_ligature_present && !(FONT_MAPPING[f]).is_null() {
@@ -10482,9 +10600,9 @@ pub(crate) unsafe fn new_noad() -> usize {
     MEM[p].b16.s1 = MathNode::Ord as u16;
     MEM[p].b16.s0 = NORMAL;
     let mut p = BaseMath(p);
-    p.first_mut().empty();
-    p.third_mut().empty();
-    p.second_mut().empty();
+    p.nucleus_mut().empty();
+    p.subscr_mut().empty();
+    p.supscr_mut().empty();
     p.ptr()
 }
 pub(crate) unsafe fn new_style(mut s: i16) -> usize {
@@ -10514,11 +10632,11 @@ pub(crate) unsafe fn push_alignment() {
     MEM[p.ptr()].b32.s0 = cur_align.tex_int();
     MEM[p.ptr() + 1].b32.s0 = *LLIST_link(ALIGN_HEAD);
     p.set_span(cur_span.tex_int())
-        .set_loop(cur_loop.tex_int())
-        .set_state(align_state)
+        .set_v_part(cur_loop.tex_int())
+        .set_u_part(align_state)
         .set_head(cur_head.tex_int())
         .set_tail(cur_tail.tex_int())
-        .set_pre_head(cur_pre_head.tex_int())
+        .set_extra_info(cur_pre_head.tex_int())
         .set_pre_tail(cur_pre_tail.tex_int());
     align_ptr = Some(p.ptr());
     cur_head = Some(get_avail());
@@ -10533,9 +10651,9 @@ pub(crate) unsafe fn pop_alignment() {
     cur_tail = p.tail().opt();
     cur_head = p.head().opt();
     cur_pre_tail = p.pre_tail().opt();
-    cur_pre_head = p.pre_head().opt();
-    align_state = p.state();
-    cur_loop = p.get_loop().opt();
+    cur_pre_head = p.extra_info().opt();
+    align_state = p.u_part();
+    cur_loop = p.v_part().opt();
     cur_span = p.span().opt();
     *LLIST_link(ALIGN_HEAD) = MEM[p.ptr() + 1].b32.s0;
     cur_align = MEM[p.ptr()].b32.s0.opt();
@@ -10746,12 +10864,12 @@ pub(crate) unsafe fn init_row() {
 }
 pub(crate) unsafe fn init_col(input: &mut input_state_t, tok: i32, cmd: Cmd) {
     let mut ca = Alignment(cur_align.unwrap());
-    ca.set_pre_head(cmd as i32);
+    ca.set_extra_info(cmd as i32);
     if cmd == Cmd::Omit {
         align_state = 0;
     } else {
         back_input(input, tok);
-        begin_token_list(input, ca.state() as usize, Btl::UTemplate);
+        begin_token_list(input, ca.u_part() as usize, Btl::UTemplate);
     };
 }
 pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
@@ -10761,7 +10879,7 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
         fatal_error("(interwoven alignment preambles are not allowed)");
     }
     let mut p = llist_link(q);
-    if p.is_none() && ca.pre_head() < CR_CODE {
+    if p.is_none() && ca.extra_info() < CR_CODE {
         if let Some(cl) = cur_loop {
             /*822: */
             let nb = new_null_box(); // TODO: ????????
@@ -10810,11 +10928,11 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
                 "in the preamble to the \\halign or \\valign now in progress.",
                 "So I\'ll assume that you meant to type \\cr instead."
             );
-            ca.set_pre_head(CR_CODE);
+            ca.set_extra_info(CR_CODE);
             error();
         }
     }
-    if ca.pre_head() != SPAN_CODE {
+    if ca.extra_info() != SPAN_CODE {
         unsave(input);
         new_save_level(GroupCode::Align);
         let u;
@@ -10905,7 +11023,7 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
         *LLIST_link(cur_list.tail) = Some(g.ptr()).tex_int();
         cur_list.tail = g.ptr();
         g.set_param(GluePar::tab_skip as u16 + 1);
-        if ca.pre_head() >= CR_CODE {
+        if ca.extra_info() >= CR_CODE {
             return true;
         }
         init_span(p);
@@ -14924,7 +15042,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         cur_list.tail = n;
                         back_input(input, cur_tok);
                         let m = BaseMath(cur_list.tail);
-                        scan_math(input, m.first_mut(), cur_list.tail + 1);
+                        scan_math(input, m.nucleus_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::Letter) | (MMode, Cmd::OtherChar) | (MMode, Cmd::CharGiven) => {
                         // 218 | 219 | 275
@@ -15003,7 +15121,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         cur_list.tail = n;
                         set_math_NODE_type(n, MathNode::n(cur_chr as u16).unwrap());
                         let m = BaseMath(cur_list.tail);
-                        scan_math(input, m.first_mut(), cur_list.tail + 1);
+                        scan_math(input, m.nucleus_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::LimitSwitch) => {
                         // 258

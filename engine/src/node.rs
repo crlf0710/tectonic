@@ -1983,22 +1983,25 @@ pub(crate) mod math {
         pub(crate) const fn ptr(&self) -> usize {
             self.0
         }
-        pub(crate) unsafe fn first(&self) -> &MCell {
+        /// the `nucleus` field of a noad
+        pub(crate) unsafe fn nucleus(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 1] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn first_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn nucleus_mut(&self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 1] as *mut memory_word as *mut MCell))
         }
-        pub(crate) unsafe fn second(&self) -> &MCell {
+        /// the `supscr` field of a noad
+        pub(crate) unsafe fn supscr(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 2] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn second_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn supscr_mut(&self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 2] as *mut memory_word as *mut MCell))
         }
-        pub(crate) unsafe fn third(&self) -> &MCell {
+        /// the `subscr` field of a noad
+        pub(crate) unsafe fn subscr(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 3] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn third_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn subscr_mut(&self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 3] as *mut memory_word as *mut MCell))
         }
     }
@@ -2145,16 +2148,16 @@ pub(crate) mod math {
             MEM[self.ptr() + 1].b32.s1 = v.0;
             self
         }
-        pub(crate) unsafe fn second(&self) -> &MCell {
+        pub(crate) unsafe fn numerator(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 2] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn second_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn numerator_mut(&self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 2] as *mut memory_word as *mut MCell))
         }
-        pub(crate) unsafe fn third(&self) -> &MCell {
+        pub(crate) unsafe fn denumerator(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 3] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn third_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn denumerator_mut(&self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 3] as *mut memory_word as *mut MCell))
         }
         pub(crate) unsafe fn left_delimeter(&self) -> &Delimeter {
@@ -2279,17 +2282,17 @@ impl Alignment {
         MEM[self.ptr() + 1].b32.s1 = v;
         self
     }
-    pub(crate) unsafe fn get_loop(&self) -> i32 {
+    pub(crate) unsafe fn v_part(&self) -> i32 {
         MEM[self.ptr() + 2].b32.s1
     }
-    pub(crate) unsafe fn set_loop(&mut self, v: i32) -> &mut Self {
+    pub(crate) unsafe fn set_v_part(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 2].b32.s1 = v;
         self
     }
-    pub(crate) unsafe fn state(&self) -> i32 {
+    pub(crate) unsafe fn u_part(&self) -> i32 {
         MEM[self.ptr() + 3].b32.s1
     }
-    pub(crate) unsafe fn set_state(&mut self, v: i32) -> &mut Self {
+    pub(crate) unsafe fn set_u_part(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 3].b32.s1 = v;
         self
     }
@@ -2307,10 +2310,10 @@ impl Alignment {
         MEM[self.ptr() + 4].b32.s1 = v;
         self
     }
-    pub(crate) unsafe fn pre_head(&self) -> i32 {
+    pub(crate) unsafe fn extra_info(&self) -> i32 {
         MEM[self.ptr() + 5].b32.s0
     }
-    pub(crate) unsafe fn set_pre_head(&mut self, v: i32) -> &mut Self {
+    pub(crate) unsafe fn set_extra_info(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 5].b32.s0 = v;
         self
     }

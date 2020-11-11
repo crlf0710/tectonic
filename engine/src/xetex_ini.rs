@@ -379,12 +379,19 @@ pub(crate) type save_pointer = i32;
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct list_state_record {
+    /// current mode
     pub(crate) mode: (bool, ListMode),
+    /// header node of current list
     pub(crate) head: usize,
+    /// final node on current list
     pub(crate) tail: usize,
+    /// auxiliary data for `\eTeX`
     pub(crate) eTeX_aux: Option<usize>,
+    /// number of paragraph lines accumulated
     pub(crate) prev_graf: i32,
+    /// source file line number at beginning of list
     pub(crate) mode_line: i32,
+    /// auxiliary data about the current list
     pub(crate) aux: memory_word,
 }
 #[derive(Copy, Clone, Default)]
@@ -475,17 +482,23 @@ pub(crate) static mut insert_src_special_every_par: bool = false;
 pub(crate) static mut insert_src_special_every_math: bool = false;
 #[no_mangle]
 pub(crate) static mut insert_src_special_every_vbox: bool = false;
-#[no_mangle]
+
+/// the characters
 pub(crate) static mut str_pool: Vec<packed_UTF16_code> = Vec::new();
-#[no_mangle]
+
+/// the starting pointers
 pub(crate) static mut str_start: Vec<pool_pointer> = Vec::new();
-#[no_mangle]
+
+/// first unused position in |str_pool|
 pub(crate) static mut pool_ptr: pool_pointer = 0;
-#[no_mangle]
+
+/// number of the current string being created
 pub(crate) static mut str_ptr: str_number = 0;
-#[no_mangle]
+
+/// the starting value of `pool_ptr`
 pub(crate) static mut init_pool_ptr: pool_pointer = 0;
-#[no_mangle]
+
+/// the starting value of `str_ptr`
 pub(crate) static mut init_str_ptr: str_number = 0;
 #[no_mangle]
 pub(crate) static mut rust_stdout: Option<OutputHandleWrapper> = None;
@@ -613,15 +626,20 @@ pub(crate) static mut prim_eqtb: [EqtbWord; 501] = [EqtbWord {
 }; 501];
 #[no_mangle]
 pub(crate) static mut SAVE_STACK: Vec<EqtbWord> = Vec::new();
-#[no_mangle]
+
+/// first unused entry on |save_stack|
 pub(crate) static mut SAVE_PTR: usize = 0;
-#[no_mangle]
+
+/// maximum usage of save stack
 pub(crate) static mut MAX_SAVE_STACK: usize = 0;
-#[no_mangle]
+
+/// current nesting level for groups
 pub(crate) static mut cur_level: u16 = 0;
-#[no_mangle]
+
+/// current group type
 pub(crate) static mut cur_group: GroupCode = GroupCode::BottomLevel;
-#[no_mangle]
+
+/// where the current level begins
 pub(crate) static mut cur_boundary: i32 = 0;
 #[no_mangle]
 pub(crate) static mut mag_set: i32 = 0;
@@ -641,47 +659,81 @@ pub(crate) static mut INPUT_PTR: usize = 0;
 pub(crate) static mut MAX_IN_STACK: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_input: input_state_t = input_state_t {
+    /// current scanner state
     state: InputState::TokenList,
+    /// reference for buffer information
     index: Btl::Parameter,
+    /// starting position in `buffer`
     start: 0,
+    /// location of first unread character in `buffer`
     loc: 0,
+    /// end of current line in `buffer`
     limit: 0,
+    /// name of the current file
     name: 0,
     synctex_tag: 0,
 };
 #[no_mangle]
 pub(crate) static mut IN_OPEN: usize = 0;
-#[no_mangle]
+
+/// the number of open text files: 0..MAX_IN_OPEN
 pub(crate) static mut open_parens: i32 = 0;
-#[no_mangle]
+
+/// array[1..max_in_open] of alpha_file
 pub(crate) static mut INPUT_FILE: Vec<Option<Box<UFILE>>> = Vec::new();
-#[no_mangle]
+
+/// current line number in the current source file
 pub(crate) static mut line: i32 = 0;
-#[no_mangle]
+
+/// array[1..max_in_open] of integer
 pub(crate) static mut LINE_STACK: Vec<i32> = Vec::new();
+
 #[no_mangle]
 pub(crate) static mut SOURCE_FILENAME_STACK: Vec<str_number> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FULL_SOURCE_FILENAME_STACK: Vec<str_number> = Vec::new();
-#[no_mangle]
+
+/// can a subfile end now?
 pub(crate) static mut scanner_status: ScannerStatus = ScannerStatus::Normal;
-#[no_mangle]
+
+/// identifier relevant to non-|normal| scanner status
 pub(crate) static mut warning_index: i32 = 0;
-#[no_mangle]
+
+/// reference count of token list being defined
 pub(crate) static mut def_ref: usize = 0;
-#[no_mangle]
+
+/// token list pointers for parameters: array [0..PARAM_SIZE] of pointer
+///
+/// The `PARAM_STACK` is an auxiliary array used to hold pointers to the token
+/// lists for parameters at the current level and subsidiary levels of input.
+/// This stack is maintained with convention (2), and it grows at a different
+/// rate from the others.
 pub(crate) static mut PARAM_STACK: Vec<i32> = Vec::new();
-#[no_mangle]
+
+/// first unused entry in `PARAM_STACK`: 0..PARAM_SIZE
 pub(crate) static mut PARAM_PTR: usize = 0;
-#[no_mangle]
+
+/// largest value of `PARAM_PTR`, will be `<=PARAM_SIZE+9`: integer
 pub(crate) static mut MAX_PARAM_STACK: usize = 0;
-#[no_mangle]
+
+/// group level with respect to current alignment
 pub(crate) static mut align_state: i32 = 0;
-#[no_mangle]
+
+/// location of `\par` in `EQTB`: pointer
+///
+/// The value of `par_loc` is the `EQTB` address of `\par`. This quantity
+/// is needed because a blank line of input is supposed to be exactly equivalent
+/// to the appearance of `\par`; we must set `cur_cs:=par_loc`
+/// when detecting a blank line.
 pub(crate) static mut par_loc: i32 = 0;
-#[no_mangle]
+
+/// token representing `\par`: halfword
 pub(crate) static mut par_token: i32 = 0;
-#[no_mangle]
+
+/// should the next `\input` be aborted early?
+///
+/// The global variable `force_eof` is normally `false`; it is set `true`
+/// by an `\endinput` command.
 pub(crate) static mut force_eof: bool = false;
 #[no_mangle]
 pub(crate) static mut expand_depth_count: i32 = 0;

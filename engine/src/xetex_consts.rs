@@ -229,85 +229,159 @@ pub(crate) unsafe fn CHAR_SUB_CODE(n: usize) -> &'static mut i32 {
     &mut EQTB[CHAR_SUB_CODE_BASE + n].val
 }
 
-/* "region 5": current fullword integers like hyphenation penalty */
-
+/// Region 5 of `EQTB` contains the integer parameters and registers defined
+/// here, as well as the `del_code` table. The latter table differs from the
+/// |cat_code..math_code| tables that precede it, since delimiter codes are
+/// fullword integers while the other kinds of codes occupy at most a
+/// halfword. This is what makes region~5 different from region~4. We will
+/// store the `eq_level` information in an auxiliary array of quarterwords
+/// that will be defined later.
 pub(crate) const INT_BASE: usize = CHAR_SUB_CODE_BASE + NUMBER_USVS;
 
 #[repr(i32)]
 #[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum IntPar {
+    /// badness tolerance before hyphenation
     pretolerance = 0,
+    /// badness tolerance after hyphenation
     tolerance = 1,
+    /// added to the badness of every line
     line_penalty = 2,
+    /// penalty for break after discretionary hyphen
     hyphen_penalty = 3,
+    /// penalty for break after explicit hyphen
     ex_hyphen_penalty = 4,
+    /// penalty for creating a club line
     club_penalty = 5,
+    /// penalty for creating a widow line
     widow_penalty = 6,
+    /// ditto, just before a display
     display_widow_penalty = 7,
+    /// penalty for breaking a page at a broken line
     broken_penalty = 8,
+    /// penalty for breaking after a binary operation
     bin_op_penalty = 9,
+    /// penalty for breaking after a relation
     rel_penalty = 10,
+    /// penalty for breaking just before a displayed formula
     pre_display_penalty = 11,
+    /// penalty for breaking just after a displayed formula
     post_display_penalty = 12,
+    /// additional penalty between lines
     inter_line_penalty = 13,
+    /// demerits for double hyphen break
     double_hyphen_demerits = 14,
+    /// demerits for final hyphen break
     final_hyphen_demerits = 15,
+    /// demerits for adjacent incompatible lines
     adj_demerits = 16,
+    /// magnification ratio
     mag = 17,
+    /// ratio for variable-size delimiters
     delimiter_factor = 18,
+    /// change in number of lines for a paragraph
     looseness = 19,
+    /// current time of day
     time = 20,
+    /// current day of the month
     day = 21,
+    /// current month of the year
     month = 22,
+    /// current year of our Lord
     year = 23,
+    /// nodes per level in `show_box`
     show_box_breadth = 24,
+    /// maximum level in `show_box`
     show_box_depth = 25,
+    /// hboxes exceeding this badness will be shown by `hpack`
     hbadness = 26,
+    /// vboxes exceeding this badness will be shown by `vpack`
     vbadness = 27,
+    /// pause after each line is read from a file
     pausing = 28,
+    /// show diagnostic output on terminal
     tracing_online = 29,
+    /// show macros as they are being expanded
     tracing_macros = 30,
+    /// show memory usage if \TeX knows it
     tracing_stats = 31,
+    /// show line-break calculations
     tracing_paragraphs = 32,
+    /// show page-break calculations
     tracing_pages = 33,
+    /// show boxes when they are shipped out
     tracing_output = 34,
+    /// show characters that aren't in the font
     tracing_lost_chars = 35,
+    /// show command codes at `big_switch`
     tracing_commands = 36,
+    /// show equivalents when they are restored
     tracing_restores = 37,
+    /// hyphenate words beginning with a capital letter
     uc_hyph = 38,
+    /// penalty found at current page break
     output_penalty = 39,
+    /// bound on consecutive dead cycles of output
     max_dead_cycles = 40,
+    /// hanging indentation changes after this many lines
     hang_after = 41,
+    /// penalty for insertions heldover after a split
     floating_penalty = 42,
+    /// override `\global` specifications
     global_defs = 43,
+    /// current family
     cur_fam = 44,
+    /// escape character for token output
     escape_char = 45,
+    /// value of `\hyphenchar` when a font is loaded
     default_hyphen_char = 46,
+    /// value of `\skewchar` when a font is loaded
     default_skew_char = 47,
+    /// character placed at the right end of the buffer
     end_line_char = 48,
+    /// character that prints as `print_ln`
     new_line_char = 49,
+    /// current hyphenation table
     language = 50,
+    /// minimum left hyphenation fragment size
     left_hyphen_min = 51,
+    /// minimum right hyphenation fragment size
     right_hyphen_min = 52,
+    /// do not remove insertion nodes from `\box255`
     holding_inserts = 53,
+    /// maximum intermediate line pairs shown
     error_context_lines = 54,
-    /// TEX_INT_PARS = WEB2C_INT_BASE
+    // total number of \TeX's integer parameters
+    // TEX_INT_PARS = WEB2C_INT_BASE
     char_sub_def_min = 55,
     char_sub_def_max = 56,
     tracing_char_sub_def = 57,
-    /// = WEB2C_INT_PARS = ETEX_INT_BASE
+    // = WEB2C_INT_PARS = ETEX_INT_BASE
+    /// show assignments
     tracing_assigns = 58,
+    /// show save/restore groups
     tracing_groups = 59,
+    /// show conditionals}
     tracing_ifs = 60,
+    /// show pseudo file open and close
     tracing_scan_tokens = 61,
+    /// how incomplete groups and ifs within files
     tracing_nesting = 62,
+    /// ext direction preceding a display
     pre_display_correction = 63,
+    /// adjustment for last line of paragraph
     last_line_fit = 64,
+    ///save items discarded from vlists
     saving_vdiscards = 65,
+    /// save hyphenation codes for languages
     saving_hyphs = 66,
+    /// suppress errors for missing fonts
     suppress_fontnotfound_error = 67,
+    /// string number of locale to use for linebreak locations
     xetex_linebreak_locale = 68,
+    /// penalty to use at locale-dependent linebreak locations
     xetex_linebreak_penalty = 69,
+    /// protrude chars at left/right edge of paragraphs
     xetex_protrude_chars = 70,
     texxet = 71,
     xetex_dash_break = 72,
@@ -349,36 +423,62 @@ pub(crate) unsafe fn DEL_CODE(n: usize) -> &'static mut i32 {
 
 /* "region 6": current fullword dimensions like hsize */
 
+/// The final region of `EQTB` contains the dimension parameters defined
+/// here, and the `number_regs` `\dimen` registers.
 pub(crate) const DIMEN_BASE: usize = DEL_CODE_BASE + NUMBER_USVS;
 
 #[repr(i32)]
 #[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum DimenPar {
+    /// indentation of paragraphs
     par_indent = 0,
+    /// space around math in text
     math_surround = 1,
+    /// threshold for `line_skip` instead of |baseline_skip|
     line_skip_limit = 2,
+    /// line width in horizontal mode
     hsize = 3,
+    /// page height in vertical mode
     vsize = 4,
+    /// maximum depth of boxes on main pages
     max_depth = 5,
+    /// maximum depth of boxes on split pages
     split_max_depth = 6,
+    /// maximum depth of explicit vboxes
     box_max_depth = 7,
+    /// tolerance for overfull hbox messages
     hfuzz = 8,
+    /// tolerance for overfull vbox messages
     vfuzz = 9,
+    /// maximum amount uncovered by variable delimiters
     delimiter_shortfall = 10,
+    /// blank space in null delimiters
     null_delimiter_space = 11,
+    /// extra space after subscript or superscript
     script_space = 12,
+    /// length of text preceding a display
     pre_display_size = 13,
+    /// length of line for displayed equation
     display_width = 14,
+    /// indentation of line for displayed equation
     display_indent = 15,
+    /// width of rule that identifies overfull hboxes
     overfull_rule = 16,
+    /// amount of hanging indentation
     hang_indent = 17,
+    /// amount of horizontal offset when shipping pages out
     h_offset = 18,
+    /// amount of vertical offset when shipping pages out
     v_offset = 19,
+    /// reduces badnesses on final pass of line-breaking
     emergency_stretch = 20,
+    /// page width of the PDF output
     pdf_page_width = 21,
+    /// page height of the PDF output
     pdf_page_height = 22,
 }
 
+/// total number of dimension parameters
 pub(crate) const DIMEN_PARS: usize = 23;
 
 pub(crate) fn get_dimen_par(x: DimenPar) -> Scaled {
@@ -388,6 +488,7 @@ pub(crate) fn set_dimen_par(x: DimenPar, v: Scaled) {
     unsafe { EQTB[DIMEN_BASE + x as usize].val = v.0 }
 }
 
+/// table of `number_regs` user-defined `\dimen` registers
 pub(crate) const SCALED_BASE: usize = DIMEN_BASE + DIMEN_PARS;
 pub(crate) unsafe fn get_scaled_reg(n: usize) -> Scaled {
     Scaled(EQTB[SCALED_BASE + n].val)
@@ -396,6 +497,7 @@ pub(crate) unsafe fn get_scaled_reg(n: usize) -> Scaled {
     EQTB[SCALED_BASE + n].val = v.0
 }*/
 
+/// largest subscript of `EQTB`
 pub(crate) const EQTB_SIZE: usize = SCALED_BASE + NUMBER_REGS - 1;
 
 /// "really" MIN_QUARTERWORD
@@ -425,25 +527,54 @@ impl From<i32> for Expr {
     }
 }
 
+/// `save_level` for a level boundary
+///
+/// Here are the group codes that are used to discriminate between different
+/// kinds of groups. They allow \TeX\ to decide what special actions, if any,
+/// should be performed when a group ends.
+/// `\def\grp{\char'173...\char'175}`
+///
+/// Some groups are not supposed to be ended by right braces. For example,
+/// the `$` that begins a math formula causes a `math_shift_group` to
+/// be started, and this should be terminated by a matching `$`. Similarly,
+/// a group that starts with `\left` should end with `\right`, and
+/// one that starts with `\begingroup` should end with `\endgroup`.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, enumn::N)]
 pub(crate) enum GroupCode {
+    /// group code for the outside world
     BottomLevel = 0,
+    /// group code for local structure only
     Simple = 1,
+    /// code for `\hbox\grp`
     HBox = 2,
+    /// code for `\hbox\grp` in vertical mode
     AdjustedHBox = 3,
+    /// code for `\vbox\grp`
     VBox = 4,
+    /// code for `\vtop\grp`
     VTop = 5,
+    /// code for `\halign\grp`, `\valign\grp`
     Align = 6,
+    /// code for `\noalign\grp`
     NoAlign = 7,
+    /// code for output routine
     Output = 8,
+    /// code for, e.g., `\char'136\grp`
     Math = 9,
+    /// code for `\discretionary\grp\grp\grp`
     Disc = 10,
+    /// code for `\insert\grp`, `\vadjust\grp`
     Insert = 11,
+    /// code for `\vcenter\grp`
     VCenter = 12,
+    /// code for `\mathchoice\grp\grp\grp\grp`
     MathChoice = 13,
+    /// code for `\begingroup...\endgroup`
     SemiSimple = 14,
+    /// code for `$...$`
     MathShift = 15,
+    /// code for `\left...\right'
     MathLeft = 16,
 }
 impl From<u16> for GroupCode {
@@ -481,14 +612,29 @@ pub(crate) const EXT_TAG: placeholdertype = 3;
 
 pub(crate) const NORMAL: u16 = 0;
 
-/* scanner_status values: */
+/// A variable called `scanner_status` tells `\TeX` whether or not to complain
+/// when a subfile ends
+///
+/// If the `scanner_status` is not `Normal`, the variable `warning_index` points
+/// to the `EQTB` location for the relevant control sequence name to print
+/// in an error message.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum ScannerStatus {
+    /// subfile can safely end here without incident
     Normal = 0,
+    /// subfile can safely end here, but not a file,
+    /// because we're reading past some conditional text that was not selected
     Skipping = 1,
+    /// subfile shouldn't end now because a macro is being defined
     Defining = 2,
+    /// subfile shouldn't end now because a macro is being used and
+    /// we are searching for the end of its arguments
     Matching = 3,
+    /// subfile shouldn't end now because we are
+    /// not finished with the preamble of an `\halign` or `\valign`
     Aligning = 4,
+    /// subfile shouldn't end now because we are
+    /// reading a balanced token list for `\message`, `\write`, etc.
     Absorbing = 5,
 }
 
@@ -549,29 +695,47 @@ impl MathStyle {
     }
 }
 
-/* begin_token_list() types */
-
+/// The `token_type` can take several values, depending on
+/// where the current token list came from:
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, PartialEq, enumn::N)]
 pub(crate) enum Btl {
+    /// if a parameter is being scanned
     Parameter = 0,
+    /// if the `<u_j>` part of an alignment template is being scanned
     UTemplate = 1,
+    /// if the `<v_j>` part of an alignment template is being scanned
     VTemplate = 2,
+    /// if the token list being scanned has been inserted as "to be read again"
     BackedUp = 3,
+    /// special code for backed-up char from `\XeTeXinterchartoks` hook
     BackedUpChar = 4,
+    /// if the token list being scanned has been inserted as
+    /// the text expansion of a `\count` or similar variable
     Inserted = 5,
+    /// if a user-defined control sequence is being scanned
     Macro = 6,
+    /// if an `\output` routine is being scanned
     OutputText = 7,
+    /// if the text of `\everypar` is being scanned
     EveryParText = 8,
+    /// if the text of `\everymath` is being scanned
     EveryMathText = 9,
+    /// if the text of `\everydisplay` is being scanned;
     EveryDisplayText = 10,
+    /// if the text of `\everyhbox` is being scanned
     EveryHBoxText = 11,
+    /// if the text of `\everyvbox` is being scanned
     EveryVBoxText = 12,
+    /// if the text of `\everyjob` is being scanned
     EveryJobText = 13,
+    /// if the text of `\everycr` is being scanned
     EveryCRText = 14,
+    /// if the text of a `\mark` is being scanned
     MarkText = 15,
     EveryEOFText = 16,
     InterCharText = 17,
+    /// if the text of a `\write` is being scanned
     WriteText = 18,
     TectonicCodaText = 19,
 }
@@ -786,7 +950,6 @@ pub(crate) const VAR_FAM_CLASS: placeholdertype = 7;
 pub(crate) const NATIVE_GLYPH_INFO_SIZE: placeholdertype = 10;
 pub(crate) const TOTAL_MATHEX_PARAMS: placeholdertype = 13;
 pub(crate) const HI_MEM_STAT_USAGE: placeholdertype = 15;
-pub(crate) const MAX_CHAR_CODE: placeholdertype = 15;
 pub(crate) const TOTAL_MATHSY_PARAMS: placeholdertype = 22;
 
 pub(crate) const DIMEN_VAL_LIMIT: u16 = 128;
