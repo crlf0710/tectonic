@@ -15,8 +15,7 @@ use super::xetex_consts::{
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
 use crate::xetex_scaledmath::Scaled;
-use crate::xetex_stringpool::PoolString;
-use crate::xetex_stringpool::TOO_BIG_CHAR;
+use crate::xetex_stringpool::{PoolString, BIGGEST_CHAR, TOO_BIG_CHAR};
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
@@ -194,7 +193,7 @@ pub(crate) unsafe fn print(mut s: i32) {
     if s >= str_ptr {
         return print_cstr("???");
     } else {
-        if s < 0xffff {
+        if s <= BIGGEST_CHAR {
             if s < 0 {
                 return print_cstr("???");
             } else {
@@ -217,19 +216,8 @@ pub(crate) unsafe fn print(mut s: i32) {
             }
         }
     }
-    let mut pool_idx: i32 = s - 0x10000;
 
-    // TODO: fix this bug workaround
-    let start = (if pool_idx as usize > crate::xetex_ini::max_strings {
-        0
-    } else {
-        str_start[pool_idx as usize]
-    }) as usize;
-    for c in std::char::decode_utf16(
-        str_pool[start..(str_start[(pool_idx + 1) as usize] as usize)]
-            .iter()
-            .cloned(),
-    ) {
+    for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
         print_char(c.unwrap() as i32)
     }
 }

@@ -28,8 +28,7 @@ use crate::xetex_ini::{
 use crate::xetex_ini::{b16x4, memory_word};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
 
-use crate::xetex_stringpool::length;
-use crate::xetex_stringpool::TOO_BIG_CHAR;
+use crate::xetex_stringpool::{length, BIGGEST_CHAR, TOO_BIG_CHAR};
 use crate::xetex_xetex0::{
     append_to_vlist, badness, char_pw, delete_glue_ref, effective_char, flush_list,
     flush_node_list, free_node, get_avail, get_node, hpack, max_hyphenatable_length, new_character,

@@ -26,9 +26,9 @@ use crate::xetex_output::{
 };
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
-use crate::xetex_stringpool::EMPTY_STRING;
-use crate::xetex_stringpool::TOO_BIG_CHAR;
-use crate::xetex_stringpool::{length, load_pool_strings, make_string};
+use crate::xetex_stringpool::{
+    length, load_pool_strings, make_string, BIGGEST_CHAR, EMPTY_STRING, TOO_BIG_CHAR,
+};
 use crate::xetex_synctex::synctex_init_command;
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{

@@ -87,7 +87,7 @@ use crate::xetex_scaledmath::{
 use crate::xetex_shipout::{finalize_dvi_file, new_edge, out_what, ship_out};
 use crate::xetex_stringpool::{
     append_str, length, make_string, search_string, slow_make_string, str_eq_buf, PoolString,
-    EMPTY_STRING, TOO_BIG_CHAR,
+    BIGGEST_CHAR, EMPTY_STRING, TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
 use crate::xetex_texmfmp::{

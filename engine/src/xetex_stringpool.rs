@@ -14,6 +14,7 @@ use crate::xetex_ini::{
     BUFFER,
 };
 
+pub(crate) const BIGGEST_CHAR: i32 = u16::MAX as i32;
 pub(crate) const TOO_BIG_CHAR: i32 = 0x10000;
 pub(crate) const EMPTY_STRING: i32 = TOO_BIG_CHAR + 1;
 
