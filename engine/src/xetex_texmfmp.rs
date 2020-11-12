@@ -8,9 +8,8 @@
     unused_mut
 )]
 
-use crate::xetex_ini::{pool_ptr, pool_size, str_pool, str_start};
-use crate::xetex_stringpool::make_string;
-use crate::xetex_stringpool::TOO_BIG_CHAR;
+use crate::xetex_ini::{pool_ptr, pool_size, str_pool};
+use crate::xetex_stringpool::{make_string, PoolString, EMPTY_STRING, TOO_BIG_CHAR};
 use bridge::ttstub_get_file_md5;
 use std::ffi::CString;
 
@@ -59,7 +58,7 @@ unsafe fn checkpool_pointer(mut pool_ptr_0: usize, mut len: size_t) {
 }
 pub(crate) unsafe fn maketexstring(s: &str) -> i32 {
     if s.is_empty() {
-        return (65536 + 1i32 as i64) as i32;
+        return EMPTY_STRING;
     }
     let len = s.as_bytes().len();
     checkpool_pointer(pool_ptr, len as _);
@@ -70,12 +69,8 @@ pub(crate) unsafe fn maketexstring(s: &str) -> i32 {
     make_string()
 }
 pub(crate) unsafe fn gettexstring(s: str_number) -> String {
-    if s >= 65536 {
-        String::from_utf16(
-            &str_pool[(str_start[(s - TOO_BIG_CHAR) as usize])
-                ..(str_start[(s + 1 - TOO_BIG_CHAR) as usize])],
-        )
-        .unwrap()
+    if s >= TOO_BIG_CHAR {
+        String::from_utf16(PoolString::from(s).as_slice()).unwrap()
     } else {
         String::new()
     }

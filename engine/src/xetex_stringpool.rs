@@ -45,24 +45,31 @@ impl std::cmp::PartialEq for PoolString {
 }
 
 impl PoolString {
+    // gets (str_start[s - TOO_BIG_CHAR])
+    unsafe fn str_offset(s: StrNumber) -> Option<usize> {
+        let offset: usize = (s - TOO_BIG_CHAR).try_into().ok()?;
+        Some(str_start[offset])
+    }
     /// Get the string which begins at str_pool[str_start[s - TOO_BIG_CHAR]]
     pub fn from(s: StrNumber) -> Self {
-        // gets (str_start[s - TOO_BIG_CHAR])
-        unsafe fn str_offset(s: StrNumber) -> Option<usize> {
-            let offset: usize = (s - TOO_BIG_CHAR).try_into().ok()?;
-            Some(str_start[offset])
-        }
-
         unsafe fn str_slice(s: StrNumber) -> Option<&'static [Utf16]> {
-            let offset = str_offset(s)?;
-            let len = str_offset(s + 1)? - offset;
+            let offset = PoolString::str_offset(s)?;
+            let len = PoolString::str_offset(s + 1)? - offset;
             Some(&str_pool[offset..offset + len])
         }
 
         if let Some(slice) = unsafe { str_slice(s) } {
-            PoolString::Span(slice)
+            Self::Span(slice)
         } else {
-            PoolString::Char(s as _)
+            Self::Char(s as _)
+        }
+    }
+
+    pub fn current() -> Self {
+        unsafe {
+            let offset = Self::str_offset(str_ptr).unwrap();
+            let len = pool_ptr - offset;
+            Self::Span(&str_pool[offset..offset + len])
         }
     }
 
@@ -81,20 +88,12 @@ impl PoolString {
             PoolString::Span(s) => s,
         }
     }
-}
 
-pub fn length(s: StrNumber) -> usize {
-    // I have no idea what these cases do and why these specific numbers are used
-    if let PoolString::Span(string) = PoolString::from(s) {
-        string.len() as _
-    } else if s >= 32 && s < 127 {
-        1
-    } else if s <= 127 {
-        3
-    } else if s < 256 {
-        4
-    } else {
-        8
+    pub fn len(&self) -> usize {
+        match self {
+            PoolString::Span(s) => s.len(),
+            PoolString::Char(_) => todo!(),
+        }
     }
 }
 
@@ -125,54 +124,43 @@ pub(crate) unsafe fn make_string() -> str_number {
     str_ptr - 1
 }
 pub(crate) unsafe fn append_str(mut s: str_number) {
-    let mut i = length(s);
-    if pool_ptr + i > pool_size {
+    let ps = PoolString::from(s);
+    if pool_ptr + ps.len() > pool_size {
         overflow("pool size", pool_size - init_pool_ptr);
     }
-    let mut j = str_start[(s - TOO_BIG_CHAR) as usize];
-    while i > 0 {
-        str_pool[pool_ptr] = str_pool[j];
+    for &c in ps.as_slice() {
+        str_pool[pool_ptr] = c;
         pool_ptr += 1;
-        j += 1;
-        i -= 1
     }
 }
-pub(crate) unsafe fn str_eq_buf(mut s: str_number, mut k: usize) -> bool {
-    let mut j = str_start[s as usize - TOO_BIG_CHAR as usize];
-    while j < str_start[s as usize + 1 - TOO_BIG_CHAR as usize] {
+pub(crate) unsafe fn str_eq_buf(s: &PoolString, mut k: usize) -> bool {
+    for &j in s.as_slice() {
         let mut b = [0; 2];
         for c16 in std::char::from_u32(BUFFER[k] as u32)
             .unwrap()
             .encode_utf16(&mut b)
         {
-            if str_pool[j] != *c16 {
+            if j != *c16 {
                 return false;
             }
-            j += 1
         }
         k += 1
     }
     true
 }
 pub(crate) unsafe fn search_string(mut search: str_number) -> Option<str_number> {
-    let mut len = length(search);
-    if len == 0 {
+    let ps = PoolString::from(search);
+    if ps.len() == 0 {
         return Some(EMPTY_STRING);
     } else {
         for s in (TOO_BIG_CHAR..search).rev() {
-            if length(s) == len {
-                if PoolString::from(s) == PoolString::from(search) {
-                    return Some(s);
-                }
+            if PoolString::from(s) == ps {
+                return Some(s);
             }
         }
     }
     None
 }
-/* tectonic/xetex-stringpool.h: preloaded "string pool" constants
-   Copyright 2017 the Tectonic Project
-   Licensed under the MIT License.
-*/
 pub(crate) unsafe fn slow_make_string() -> str_number {
     let mut t = make_string();
     if let Some(s) = search_string(t) {

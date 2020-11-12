@@ -26,8 +26,8 @@ use crate::xetex_output::{
     print_nl_cstr, print_raw_char, print_scaled,
 };
 use crate::xetex_scaledmath::{tex_round, Scaled};
+use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::TOO_BIG_CHAR;
-use crate::xetex_stringpool::{length, PoolString};
 use crate::xetex_synctex::{
     synctex_current, synctex_hlist, synctex_horizontal_rule_or_glue, synctex_kern, synctex_math,
     synctex_sheet, synctex_teehs, synctex_tsilh, synctex_tsilv, synctex_vlist, synctex_void_hlist,
@@ -35,11 +35,11 @@ use crate::xetex_synctex::{
 };
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
-    begin_token_list, cur_length, diagnostic, effective_char, end_token_list, flush_list,
-    flush_node_list, free_node, get_avail, get_node, get_token, internal_font_number,
-    make_name_string, new_kern, new_math, new_native_word_node, open_log_file, pack_file_name,
-    pack_job_name, packed_UTF16_code, prepare_mag, scan_toks, show_box, show_token_list,
-    str_number, token_show, UTF16_code,
+    begin_token_list, diagnostic, effective_char, end_token_list, flush_list, flush_node_list,
+    free_node, get_avail, get_node, get_token, internal_font_number, make_name_string, new_kern,
+    new_math, new_native_word_node, open_log_file, pack_file_name, pack_job_name,
+    packed_UTF16_code, prepare_mag, scan_toks, show_box, show_token_list, str_number, token_show,
+    UTF16_code,
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
@@ -264,7 +264,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         selector = old_setting;
 
         dvi_out(XXX1);
-        dvi_out(cur_length() as u8);
+        dvi_out(PoolString::current().len() as u8);
 
         for s in str_start[(str_ptr - TOO_BIG_CHAR) as usize]..pool_ptr {
             dvi_out(str_pool[s] as u8);
@@ -513,13 +513,12 @@ unsafe fn hlist_out(this_box: &mut List) {
                             }
                             let mut nw = new_native_word_node(
                                 r_nw.font() as internal_font_number,
-                                cur_length() as i32,
+                                PoolString::current().len() as i32,
                             );
                             nw.set_actual_text_from(&r_nw);
 
-                            let start = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
                             nw.text_mut()
-                                .copy_from_slice(&str_pool[start..(start + cur_length())]);
+                                .copy_from_slice(PoolString::current().as_slice());
 
                             /* "Link q into the list in place of r...p" */
                             nw.set_width(k);
@@ -1763,7 +1762,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
             cur_name = p.name();
             cur_area = p.area();
             cur_ext = p.ext();
-            if length(cur_ext) == 0 {
+            if PoolString::from(cur_ext).len() == 0 {
                 cur_ext = maketexstring(".tex")
             }
 
@@ -1846,17 +1845,19 @@ unsafe fn dvi_font_def(f: internal_font_number) {
         dvi_out(FONT_CHECK[f].s0 as u8);
         dvi_four(FONT_SIZE[f].0);
         dvi_four(FONT_DSIZE[f].0);
-        dvi_out(length(FONT_AREA[f]) as u8);
-        let l = PoolString::from(FONT_NAME[f])
+        let area = PoolString::from(FONT_AREA[f]);
+        let name = PoolString::from(FONT_NAME[f]);
+        dvi_out(area.len() as u8);
+        let l = name
             .as_slice()
             .iter()
             .position(|&x| x == ':' as u16)
-            .unwrap_or_else(|| length(FONT_NAME[f]) as usize);
+            .unwrap_or_else(|| name.len() as usize);
         dvi_out(l as u8);
-        for k in PoolString::from(FONT_AREA[f]).as_slice() {
+        for k in area.as_slice() {
             dvi_out(*k as u8);
         }
-        for k in PoolString::from(FONT_NAME[f]).as_slice() {
+        for k in name.as_slice() {
             dvi_out(*k as u8);
         }
     };
@@ -2046,17 +2047,19 @@ unsafe fn special_out(p: &Special) {
         overflow("pool size", pool_size - init_pool_ptr);
     }
 
-    if cur_length() < 256 {
+    let cur_str = PoolString::current();
+    let len = cur_str.len();
+    if len < 256 {
         dvi_out(XXX1);
-        dvi_out(cur_length() as u8);
+        dvi_out(len as u8);
     } else {
         dvi_out(XXX4);
-        dvi_four(cur_length() as i32);
+        dvi_four(len as i32);
     }
 
     {
-        for k in str_start[(str_ptr - TOO_BIG_CHAR) as usize]..pool_ptr {
-            dvi_out(str_pool[k] as u8);
+        for &k in cur_str.as_slice() {
+            dvi_out(k as u8);
         }
     }
     pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
@@ -2133,10 +2136,8 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
         }
 
         print_nl_cstr("runsystem(");
-        let mut d = 0;
-        while d <= cur_length() - 1 {
-            print(str_pool[(str_start[(str_ptr - TOO_BIG_CHAR) as usize] + d)] as i32);
-            d += 1
+        for &d in PoolString::current().as_slice() {
+            print(d as i32);
         }
         print_cstr(")...");
         if !shell_escape_enabled {
@@ -2205,18 +2206,18 @@ unsafe fn pic_out(p: &Picture) {
     print(')' as i32);
 
     selector = old_setting;
-    if cur_length() < 256 {
+    let cur_str = PoolString::current();
+    let len = cur_str.len();
+    if len < 256 {
         dvi_out(XXX1);
-        dvi_out(cur_length() as u8);
+        dvi_out(len as u8);
     } else {
         dvi_out(XXX4);
-        dvi_four(cur_length() as i32);
+        dvi_four(len as i32);
     }
 
-    let mut k = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-    while k < pool_ptr {
-        dvi_out(str_pool[k] as u8);
-        k += 1
+    for &k in cur_str.as_slice() {
+        dvi_out(k as u8);
     }
     pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]; /* discard the string we just made */
 }

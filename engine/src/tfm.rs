@@ -77,7 +77,6 @@ use crate::xetex_output::sprint_cs;
 use crate::xetex_output::{
     print_char, print_chr, print_cstr, print_int, print_nl_cstr, print_scaled,
 };
-use crate::xetex_stringpool::length;
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::EMPTY_STRING;
@@ -136,7 +135,7 @@ pub(crate) unsafe fn read_font_info(
         }
     }
 
-    let name_too_long = length(nom) > 255 || length(aire) > 255;
+    let name_too_long = PoolString::from(nom).len() > 255 || PoolString::from(aire).len() > 255;
     if name_too_long {
         return Err(TfmError::LongName);
     }

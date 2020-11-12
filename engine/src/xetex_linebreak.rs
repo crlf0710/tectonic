@@ -21,14 +21,14 @@ use crate::xetex_ini::{
     file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, hf, hu, hyf,
     hyph_index, hyphen_passed, init_lft, init_lig, init_list, just_box, last_leftmost_char,
     last_rightmost_char, lft_hit, lig_stack, ligature_present, pack_begin_line, pre_adjust_tail,
-    rt_hit, semantic_pagination_enabled, str_pool, str_start, xtx_ligature_present, BCHAR_LABEL,
-    CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD,
-    KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
+    rt_hit, semantic_pagination_enabled, xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB,
+    FONT_BCHAR, FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE,
+    MEM, WIDTH_BASE,
 };
 use crate::xetex_ini::{b16x4, memory_word};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
 
-use crate::xetex_stringpool::{length, BIGGEST_CHAR, TOO_BIG_CHAR};
+use crate::xetex_stringpool::{PoolString, BIGGEST_CHAR, TOO_BIG_CHAR};
 use crate::xetex_xetex0::{
     append_to_vlist, badness, char_pw, delete_glue_ref, effective_char, flush_list,
     flush_node_list, free_node, get_avail, get_node, hpack, max_hyphenatable_length, new_character,
@@ -2059,7 +2059,7 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
     }
 }
 unsafe fn hyphenate() {
-    let mut current_block: u64;
+    let mut current_block: u64 = 0;
     let mut l: i16 = 0;
     let mut bchar: i32 = 0;
     let mut c: UnicodeScalar = 0i32;
@@ -2067,7 +2067,6 @@ unsafe fn hyphenate() {
     let mut r_count: i32 = 0;
     let mut z: trie_pointer = 0;
     let mut v: i32 = 0;
-    let mut u: usize = 0;
 
     for j in 0..=hn {
         hyf[j as usize] = 0_u8;
@@ -2078,38 +2077,26 @@ unsafe fn hyphenate() {
     for j in 2..=hn {
         h = ((h as i32 + h as i32 + hc[j as usize]) % HYPH_PRIME) as hyph_pointer;
     }
-    loop {
+    'hyph: loop {
         let k = HYPH_WORD[h as usize];
         if k == 0 {
             current_block = 10027897684796195291;
             break;
         }
-        if length(k) == hn as usize {
-            let mut j = 1_i16;
-            u = str_start[(k - TOO_BIG_CHAR) as usize];
-            loop {
-                if str_pool[u] as i32 != hc[j as usize] {
-                    current_block = 1763490972649755258;
+        let ks = PoolString::from(k);
+        if ks.len() == hn as usize {
+            for (j, &kc) in ks.as_slice().iter().enumerate() {
+                if kc as i32 != hc[j + 1] {
                     break;
                 }
-                j += 1;
-                u += 1;
-                if j as i32 > hn as i32 {
-                    current_block = 3275366147856559585;
-                    break;
-                }
-            }
-            match current_block {
-                1763490972649755258 => {}
-                _ => {
+                if j + 1 >= hn as usize {
                     let mut sopt = HYPH_LIST[h as usize];
                     while let Some(s) = sopt {
                         hyf[MEM[s].b32.s0 as usize] = 1_u8;
                         sopt = llist_link(s);
                     }
                     hn -= 1;
-                    current_block = 15736053877802236303;
-                    break;
+                    break 'hyph;
                 }
             }
         }

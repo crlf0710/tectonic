@@ -125,19 +125,6 @@ pub(crate) unsafe fn print_c_str(string: &str) {
     }
 }
 
-/*
-static inline pool_pointer
-cur_length(void) {
-    /*41: The length of the current string in the pool */
-    return pool_ptr - str_start[str_ptr - TOO_BIG_CHAR];
-}
-
-
-/* Tectonic related functions */
-tt_history_t tt_run_engine(char *dump_name, char *input_file_name, time_t build_date);
-
-*/
-
 /* easier to do the bit-twiddling here than in Pascal */
 /* read fields from a 32-bit math code */
 pub(crate) fn math_fam(x: i32) -> u32 {

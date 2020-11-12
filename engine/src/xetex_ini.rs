@@ -27,7 +27,7 @@ use crate::xetex_output::{
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
 use crate::xetex_stringpool::{
-    length, load_pool_strings, make_string, BIGGEST_CHAR, EMPTY_STRING, TOO_BIG_CHAR,
+    load_pool_strings, make_string, PoolString, BIGGEST_CHAR, EMPTY_STRING, TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::synctex_init_command;
 use crate::xetex_texmfmp::maketexstring;
@@ -1475,22 +1475,10 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
 
                     while HYPH_WORD[h as usize] != 0 {
                         let mut k = HYPH_WORD[h as usize];
-                        let mut not_found = false;
-                        if length(k) == length(s) {
-                            let mut u = str_start[(k - TOO_BIG_CHAR) as usize];
-                            let mut v = str_start[(s - TOO_BIG_CHAR) as usize];
-                            loop {
-                                if str_pool[u] as i32 != str_pool[v] as i32 {
-                                    not_found = true;
-                                    break;
-                                }
-                                u += 1;
-                                v += 1;
-                                if u == str_start[((k + 1) - TOO_BIG_CHAR) as usize] {
-                                    break;
-                                }
-                            }
-                            if !not_found {
+                        let hyph = PoolString::from(k);
+                        let string = PoolString::from(s);
+                        if hyph.len() == string.len() {
+                            if string.as_slice().starts_with(hyph.as_slice()) {
                                 str_ptr -= 1;
                                 pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
                                 s = HYPH_WORD[h as usize];
@@ -1500,7 +1488,6 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                         }
                         /*:975*/
                         /*:976*/
-                        // not_found
                         if HYPH_LINK[h as usize] == 0 {
                             HYPH_LINK[h as usize] = HYPH_NEXT as hyph_pointer;
                             if HYPH_NEXT >= HYPH_SIZE {
@@ -3649,7 +3636,6 @@ unsafe fn get_strings_started() {
 /* Inlines */
 /* Strings printed this way will end up in the .log as well
  * as the terminal output. */
-/*41: The length of the current string in the pool */
 /* Tectonic related functions */
 /*:1001*/
 pub(crate) unsafe fn tt_cleanup() {

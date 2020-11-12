@@ -15,12 +15,12 @@ use super::xetex_consts::{
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
 use crate::xetex_scaledmath::Scaled;
-use crate::xetex_stringpool::{PoolString, BIGGEST_CHAR, TOO_BIG_CHAR};
+use crate::xetex_stringpool::{PoolString, BIGGEST_CHAR};
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
     dig, doing_special, error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr,
-    pool_size, rust_stdout, selector, str_pool, str_ptr, str_start, tally, term_offset, trick_buf,
+    pool_size, rust_stdout, selector, str_pool, str_ptr, tally, term_offset, trick_buf,
     trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 use bridge::ttstub_output_putc;
@@ -531,10 +531,8 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
     }
 }
 pub(crate) unsafe fn print_current_string() {
-    let mut j = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-    while j < pool_ptr {
-        print_char(str_pool[j] as i32);
-        j += 1
+    for &c in PoolString::current().as_slice() {
+        print_char(c as i32);
     }
 }
 pub(crate) unsafe fn print_scaled(s: Scaled) {
