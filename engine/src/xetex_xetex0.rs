@@ -7980,34 +7980,18 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
         input.synctex_tag = 0;
     };
 }
-pub(crate) unsafe fn str_toks_cat(mut b: usize, mut cat: i16) -> usize {
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
+pub(crate) unsafe fn str_toks_cat(mut buf: &[u16], mut cat: i16) -> usize {
     let mut p = TEMP_HEAD;
     *LLIST_link(p) = None.tex_int();
-    let mut k = b;
-    while k < pool_ptr {
-        let mut t = str_pool[k] as i32;
-        if t == ' ' as i32 && cat == 0 {
-            t = SPACE_TOKEN
+    for c in std::char::decode_utf16(buf.iter().cloned()) {
+        let c = c.unwrap();
+        let t = if c == ' ' && cat == 0 {
+            SPACE_TOKEN
+        } else if cat == 0 {
+            OTHER_TOKEN + c as i32
         } else {
-            if t >= 0xd800
-                && t < 0xdc00
-                && k + 1 < pool_ptr
-                && str_pool[k + 1] as i32 >= 0xdc00
-                && (str_pool[k + 1] as i32) < 0xe000
-            {
-                k += 1;
-                t = (65536 + ((t - 0xd800) * 1024) as i64 + (str_pool[k] as i32 - 0xdc00) as i64)
-                    as i32
-            }
-            if cat == 0 {
-                t = OTHER_TOKEN + t
-            } else {
-                t = MAX_CHAR_VAL * cat as i32 + t
-            }
-        }
+            MAX_CHAR_VAL * cat as i32 + c as i32
+        };
         let q = if let Some(q) = avail {
             avail = llist_link(q);
             *LLIST_link(q) = None.tex_int();
@@ -8018,13 +8002,16 @@ pub(crate) unsafe fn str_toks_cat(mut b: usize, mut cat: i16) -> usize {
         *LLIST_link(p) = Some(q).tex_int();
         MEM[q].b32.s0 = t;
         p = q;
-        k += 1;
     }
-    pool_ptr = b;
     p
 }
 pub(crate) unsafe fn str_toks(mut b: usize) -> usize {
-    str_toks_cat(b, 0)
+    if pool_ptr + 1 > pool_size {
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
+    }
+    let p = str_toks_cat(&str_pool[b..pool_ptr], 0);
+    pool_ptr = b;
+    p
 }
 pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> usize {
     if chr & 1 != 0 {
@@ -8422,7 +8409,11 @@ pub(crate) unsafe fn conv_toks(
         _ => {}
     }
     selector = old_setting;
-    *LLIST_link(GARBAGE) = str_toks_cat(b, cat) as i32;
+    if pool_ptr + 1 > pool_size {
+        overflow("pool size", (pool_size - init_pool_ptr) as usize);
+    }
+    *LLIST_link(GARBAGE) = str_toks_cat(&str_pool[b..pool_ptr], cat) as i32;
+    pool_ptr = b;
     begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
 pub(crate) unsafe fn scan_toks(
@@ -9615,19 +9606,15 @@ pub(crate) unsafe fn new_native_character(
     let mut p;
     let nf = FONT_LAYOUT_ENGINE[f].as_native();
     if !(FONT_MAPPING[f]).is_null() {
-        if c as i64 > 65535 {
-            if pool_ptr + 2 > pool_size {
-                overflow("pool size", (pool_size - init_pool_ptr) as usize);
-            }
-            str_pool[pool_ptr] = ((c as i64 - 65536) / 1024 as i64 + 0xd800) as packed_UTF16_code;
-            pool_ptr += 1;
-            str_pool[pool_ptr] = ((c as i64 - 65536) % 1024 as i64 + 0xdc00) as packed_UTF16_code;
-            pool_ptr += 1
-        } else {
-            if pool_ptr + 1 > pool_size {
-                overflow("pool size", (pool_size - init_pool_ptr) as usize);
-            }
-            str_pool[pool_ptr] = c as packed_UTF16_code;
+        let mut buf = [0; 2];
+        let b = std::char::from_u32(c as u32)
+            .unwrap()
+            .encode_utf16(&mut buf);
+        if pool_ptr + b.len() > pool_size {
+            overflow("pool size", pool_size - init_pool_ptr);
+        }
+        for c16 in b {
+            str_pool[pool_ptr] = *c16;
             pool_ptr += 1
         }
 
