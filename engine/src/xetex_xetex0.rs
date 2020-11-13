@@ -46,7 +46,7 @@ use crate::xetex_ini::{
     interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
     last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
     ligature_present, line, lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set,
-    main_f, main_h, main_i, main_j, main_k, main_s, mapped_text, max_buf_stack, max_print_line,
+    main_f, main_h, main_i, main_j, main_k, main_s, max_buf_stack, max_print_line,
     max_reg_help_line, max_reg_num, max_strings, mem_end, name_in_progress, name_of_file,
     native_len, native_text, native_text_size, no_new_control_sequence, open_parens, output_active,
     pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
@@ -9618,7 +9618,7 @@ pub(crate) unsafe fn new_native_character(
             pool_ptr += 1
         }
 
-        let len = apply_mapping(
+        let mapped_text = apply_mapping(
             FONT_MAPPING[f],
             &mut str_pool[str_start[(str_ptr - TOO_BIG_CHAR) as usize]],
             PoolString::current().len() as i32,
@@ -9627,28 +9627,23 @@ pub(crate) unsafe fn new_native_character(
 
         let mut i = 0;
 
-        while i < len {
-            if *mapped_text.offset(i as isize) as i32 >= 0xd800
-                && (*mapped_text.offset(i as isize) as i32) < 0xdc00
-            {
-                c = (*mapped_text.offset(i as isize) as i32 - 0xd800) * 1024
-                    + *mapped_text.offset((i + 1) as isize) as i32
-                    + 9216;
+        while i < mapped_text.len() {
+            if mapped_text[i] as i32 >= 0xd800 && (mapped_text[i] as i32) < 0xdc00 {
+                c = (mapped_text[i] as i32 - 0xd800) * 1024 + mapped_text[i + 1] as i32 + 9216;
                 if map_char_to_glyph(nf, c) == 0 {
                     char_warning(f, c);
                 }
                 i += 2;
             } else {
-                if map_char_to_glyph(nf, *mapped_text.offset(i as isize) as i32) == 0 {
-                    char_warning(f, *mapped_text.offset(i as isize) as i32);
+                if map_char_to_glyph(nf, mapped_text[i] as i32) == 0 {
+                    char_warning(f, mapped_text[i] as i32);
                 }
                 i += 1;
             }
         }
 
-        p = new_native_word_node(f, len);
-        let slice = std::slice::from_raw_parts(mapped_text, len as usize);
-        p.text_mut().copy_from_slice(&slice[..len as usize]);
+        p = new_native_word_node(f, mapped_text.len() as _);
+        p.text_mut().copy_from_slice(&mapped_text[..]);
     } else {
         if get_int_par(IntPar::tracing_lost_chars) > 0 {
             if map_char_to_glyph(nf, c) == 0 {
@@ -15376,9 +15371,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
             }
             /*collected */
             if !(FONT_MAPPING[main_f as usize]).is_null() {
-                main_k = apply_mapping(FONT_MAPPING[main_f as usize], native_text, native_len);
+                let mapped_text =
+                    apply_mapping(FONT_MAPPING[main_f as usize], native_text, native_len);
+                main_k = mapped_text.len() as _;
                 native_len = 0;
-                while native_text_size <= native_len + main_k {
+                while native_text_size <= native_len + mapped_text.len() as i32 {
                     native_text_size = native_text_size + 128;
                     native_text = xrealloc(
                         native_text as *mut libc::c_void,
@@ -15388,15 +15385,13 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     ) as *mut UTF16_code
                 }
                 main_h = 0;
-                for main_p in 0..main_k {
-                    *native_text.offset(native_len as isize) = *mapped_text.offset(main_p as isize);
+                for main_p in 0..mapped_text.len() {
+                    *native_text.offset(native_len as isize) = mapped_text[main_p];
                     native_len += 1;
                     if main_h == 0
-                        && (*mapped_text.offset(main_p as isize) as i32
-                            == HYPHEN_CHAR[main_f as usize]
+                        && (mapped_text[main_p] as i32 == HYPHEN_CHAR[main_f as usize]
                             || get_int_par(IntPar::xetex_dash_break) > 0
-                                && (*mapped_text.offset(main_p as isize) == 8212
-                                    || *mapped_text.offset(main_p as isize) == 8211))
+                                && (mapped_text[main_p] == 8212 || mapped_text[main_p] == 8211))
                     {
                         main_h = native_len
                     }

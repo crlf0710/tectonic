@@ -837,8 +837,6 @@ pub(crate) static mut loaded_font_letter_space: Scaled = Scaled::ZERO;
 #[no_mangle]
 pub(crate) static mut loaded_font_design_size: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut mapped_text: *mut UTF16_code = ptr::null_mut();
-#[no_mangle]
 pub(crate) static mut CHAR_BASE: Vec<i32> = Vec::new();
 #[no_mangle]
 pub(crate) static mut WIDTH_BASE: Vec<i32> = Vec::new();
