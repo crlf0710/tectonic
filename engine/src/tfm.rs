@@ -24,7 +24,6 @@ use crate::xetex_ini::loaded_font_flags;
 use crate::xetex_ini::loaded_font_letter_space;
 use crate::xetex_ini::loaded_font_mapping;
 use crate::xetex_ini::pool_ptr;
-use crate::xetex_ini::str_ptr;
 use crate::xetex_ini::BCHAR_LABEL;
 use crate::xetex_ini::DEPTH_BASE;
 use crate::xetex_ini::FONT_AREA;
@@ -57,7 +56,6 @@ use crate::xetex_ini::init_pool_ptr;
 use crate::xetex_ini::name_of_file;
 use crate::xetex_ini::pool_size;
 use crate::xetex_ini::str_pool;
-use crate::xetex_ini::str_start;
 
 use crate::xetex_ext::ot_get_font_metrics;
 use crate::xetex_ext::{check_for_tfm_font_mapping, load_tfm_font_mapping};
@@ -657,8 +655,7 @@ pub(crate) unsafe fn load_native_font(mut s: Scaled) -> Result<usize, NativeFont
             && PoolString::from(FONT_NAME[f]) == PoolString::from(full_name)
             && FONT_SIZE[f] == actual_size
         {
-            str_ptr -= 1;
-            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+            PoolString::flush();
             return Ok(f);
         }
     }

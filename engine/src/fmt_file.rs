@@ -46,7 +46,7 @@ use crate::xetex_consts::{get_int_par, set_int_par};
 use crate::xetex_consts::{
     ValLevel, HYPH_PRIME, MAX_FONT_MAX, MIN_HALFWORD, UNDEFINED_CONTROL_SEQUENCE,
 };
-use crate::xetex_stringpool::TOO_BIG_CHAR;
+use crate::xetex_stringpool::{make_string, PoolString, EMPTY_STRING, TOO_BIG_CHAR};
 
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
@@ -55,8 +55,6 @@ use crate::xetex_output::{
     print, print_chr, print_cstr, print_esc, print_file_line, print_int, print_ln, print_nl_cstr,
     print_scaled,
 };
-use crate::xetex_stringpool::make_string;
-use crate::xetex_stringpool::EMPTY_STRING;
 use crate::xetex_xetexd::llist_link;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
 
@@ -178,8 +176,7 @@ pub(crate) unsafe fn store_fmt_file() {
     print_nl_cstr("Beginning to dump on file ");
     print(make_name_string());
 
-    str_ptr -= 1;
-    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+    PoolString::flush();
 
     print_nl_cstr("");
     print(format_ident);

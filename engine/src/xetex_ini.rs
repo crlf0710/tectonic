@@ -1112,7 +1112,7 @@ where
     let len = b_ident.len();
     let mut val;
     if len > 1 {
-        let mut s: str_number = maketexstring(ident);
+        let mut s = maketexstring(ident);
         if first as usize + len > BUF_SIZE + 1 {
             overflow("buffer size", BUF_SIZE);
         }
@@ -1120,8 +1120,7 @@ where
             BUFFER[first as usize + i] = b_ident[i] as UnicodeScalar;
         }
         val = id_lookup(first as usize, len);
-        str_ptr -= 1;
-        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+        PoolString::flush();
         (*hash.offset(val as isize)).s1 = s;
         prim_val = prim_lookup(s)
     } else {
@@ -1469,8 +1468,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                         let string = PoolString::from(s);
                         if hyph.len() == string.len() {
                             if string.as_slice().starts_with(hyph.as_slice()) {
-                                str_ptr -= 1;
-                                pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+                                PoolString::flush();
                                 s = HYPH_WORD[h as usize];
                                 HYPH_COUNT -= 1;
                                 break;

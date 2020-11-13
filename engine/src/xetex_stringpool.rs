@@ -95,6 +95,11 @@ impl PoolString {
             PoolString::Char(_) => todo!(),
         }
     }
+
+    pub unsafe fn flush() {
+        str_ptr -= 1;
+        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+    }
 }
 
 const string_constants: [&str; 2] = ["this marks the start of the stringpool", ""];

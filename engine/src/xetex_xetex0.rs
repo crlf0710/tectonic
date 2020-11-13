@@ -7959,8 +7959,7 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     MEM[p].b32.s0 = MEM[p].b32.s1;
     MEM[p].b32.s1 = pseudo_files;
     pseudo_files = p as i32;
-    str_ptr -= 1;
-    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+    PoolString::flush();
     begin_file_reading(input);
     line = 0;
     input.limit = input.start;
@@ -8189,8 +8188,7 @@ pub(crate) unsafe fn conv_toks(
             getmd5sum(s, boolvar);
             *LLIST_link(GARBAGE as usize) = Some(str_toks(b)).tex_int();
             if s == str_ptr - 1 {
-                str_ptr -= 1;
-                pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+                PoolString::flush();
             }
             begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
             if u != 0 {
@@ -9490,8 +9488,7 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
         // we can conserve string pool space now
         if let Some(temp_str) = search_string(input.name) {
             input.name = temp_str;
-            str_ptr -= 1;
-            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+            PoolString::flush();
         }
     }
     /* Finally we start really doing stuff with the newly-opened file. */
@@ -9566,8 +9563,7 @@ pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
     selector = prev_selector;
     let s = make_string();
     let chr = gettexstring(s);
-    str_ptr -= 1;
-    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+    PoolString::flush();
     ttstub_issue_warning(&format!(
         "could not represent character \"{}\" (0x{:x}) in font \"{}\"",
         chr, c as u32, fn_0
@@ -13857,8 +13853,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
         append_str(cur_name);
         append_str(cur_ext);
         if PoolString::from(FONT_NAME[f]) == PoolString::from(make_string()) {
-            str_ptr -= 1;
-            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+            PoolString::flush();
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
                 if s > Scaled::ZERO {
                     if s == FONT_SIZE[f] {
@@ -13869,8 +13864,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
                 }
             }
         } else {
-            str_ptr -= 1;
-            pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+            PoolString::flush();
         }
     }
 
@@ -13960,8 +13954,7 @@ pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32)
         error();
         use_err_help = false
     }
-    str_ptr -= 1;
-    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+    PoolString::flush();
 }
 pub(crate) unsafe fn shift_case(input: &mut input_state_t, chr: i32, cs: i32) {
     let b = chr;
@@ -16248,8 +16241,7 @@ pub(crate) unsafe fn close_files_and_terminate() {
 }
 pub(crate) unsafe fn flush_str(mut s: str_number) {
     if s == str_ptr - 1 {
-        str_ptr -= 1;
-        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+        PoolString::flush();
     };
 }
 pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
