@@ -192,17 +192,12 @@ static mut brkLocaleStrNum: i32 = 0i32;
 /* info for each glyph is location (FixedPoint) + glyph ID (u16) */
 /* glyph ID field in a glyph_node */
 /* For Unicode encoding form interpretation... */
-pub(crate) unsafe fn linebreak_start(
-    f: usize,
-    mut localeStrNum: i32,
-    mut text: *mut u16,
-    mut textLength: i32,
-) {
+pub(crate) unsafe fn linebreak_start(f: usize, mut localeStrNum: i32, text: &[u16]) {
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
     let mut locale = gettexstring(localeStrNum);
     match &FONT_LAYOUT_ENGINE[f] {
         Font::Native(Otgr(engine)) if locale == "G" => {
-            if initGraphiteBreaking(engine, text, textLength) {
+            if initGraphiteBreaking(engine, text) {
                 /* user asked for Graphite line breaking and the font supports it */
                 return;
             }
@@ -251,7 +246,12 @@ pub(crate) unsafe fn linebreak_start(
             status as i32
         );
     }
-    icu::ubrk_setText(brkIter, text as *mut icu::UChar, textLength, &mut status);
+    icu::ubrk_setText(
+        brkIter,
+        text.as_ptr() as *const icu::UChar,
+        text.len() as _,
+        &mut status,
+    );
 }
 
 pub(crate) unsafe fn linebreak_next() -> i32 {
@@ -1357,25 +1357,21 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     }
     buf
 }
-pub(crate) unsafe fn apply_mapping(
-    mut pCnv: *mut libc::c_void,
-    mut txtPtr: *mut u16,
-    mut txtLen: i32,
-) -> Vec<u16> {
+pub(crate) unsafe fn apply_mapping(mut pCnv: *mut libc::c_void, txt: &[u16]) -> Vec<u16> {
     let mut cnv = pCnv as teckit::TECkit_Converter;
     let mut inUsed: u32 = 0;
     let mut outUsed: u32 = 0;
     let mut status: teckit::TECkit_Status = 0;
     let _2 = std::mem::size_of::<UniChar>();
-    let mut out_length = (txtLen as usize) * _2 + 32;
+    let mut out_length = txt.len() * _2 + 32;
     let mut mapped_text = vec![0_u16; out_length / 2];
     loop
     /* try the mapping */
     {
         status = teckit::TECkit_ConvertBuffer(
             cnv,
-            txtPtr as *mut u8,
-            ((txtLen as usize) * _2) as u32,
+            txt.as_ptr() as *const u8,
+            (txt.len() * _2) as u32,
             &mut inUsed,
             mapped_text.as_mut_ptr() as *mut u8,
             out_length as _,
@@ -1388,7 +1384,7 @@ pub(crate) unsafe fn apply_mapping(
                 return mapped_text;
             }
             1 => {
-                out_length += (txtLen as usize) * _2 + 32;
+                out_length += txt.len() * _2 + 32;
                 mapped_text = vec![0_u16; out_length / 2];
             }
             _ => return Vec::new(),

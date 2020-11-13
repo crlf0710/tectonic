@@ -15,7 +15,7 @@ use std::ptr;
 use super::xetex_ini::{input_state_t, EqtbWord, Selector};
 use super::xetex_io::{bytesFromUTF8, name_of_input_file, offsetsFromUTF8, u_open_in};
 use crate::cmd::*;
-use crate::core_memory::{mfree, xmalloc_array, xrealloc};
+use crate::core_memory::{mfree, xmalloc_array};
 use crate::help;
 use crate::node::*;
 #[cfg(target_os = "macos")]
@@ -48,21 +48,21 @@ use crate::xetex_ini::{
     ligature_present, line, lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set,
     main_f, main_h, main_i, main_j, main_k, main_s, max_buf_stack, max_print_line,
     max_reg_help_line, max_reg_num, max_strings, mem_end, name_in_progress, name_of_file,
-    native_len, native_text, native_text_size, no_new_control_sequence, open_parens, output_active,
-    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
-    pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used,
-    pseudo_files, pstack, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
-    sa_root, save_native_len, scanner_status, selector, set_box_allowed, shown_mode, skip_line,
-    space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, texmf_log_name,
-    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
-    warning_index, write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL,
-    BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE,
-    FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
-    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
-    GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE,
-    LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK,
-    MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK,
-    SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE,
+    no_new_control_sequence, open_parens, output_active, pack_begin_line, page_contents,
+    page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos, pool_ptr,
+    pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack,
+    read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status,
+    selector, set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, str_pool,
+    str_ptr, str_start, tally, term_offset, texmf_log_name, total_shrink, total_stretch, trick_buf,
+    trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
+    xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, EOF_SEEN, EQTB,
+    EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE,
+    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS,
+    FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE,
+    INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN,
+    MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE,
+    PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
+    SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding};
@@ -9618,11 +9618,7 @@ pub(crate) unsafe fn new_native_character(
             pool_ptr += 1
         }
 
-        let mapped_text = apply_mapping(
-            FONT_MAPPING[f],
-            &mut str_pool[str_start[(str_ptr - TOO_BIG_CHAR) as usize]],
-            PoolString::current().len() as i32,
-        );
+        let mapped_text = apply_mapping(FONT_MAPPING[f], PoolString::current().as_slice());
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
 
         let mut i = 0;
@@ -9719,29 +9715,22 @@ pub(crate) unsafe fn graphite_warning() {
         print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
     });
 }
-pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
+pub(crate) unsafe fn do_locale_linebreaks(text: &[u16]) {
     let mut offs: i32 = 0;
     let mut prevOffs: i32 = 0;
     let mut use_penalty: bool = false;
     let mut use_skip: bool = false;
-    if get_int_par(IntPar::xetex_linebreak_locale) == 0 || len == 1 {
-        let mut nwn = new_native_word_node(main_f, len);
+    if get_int_par(IntPar::xetex_linebreak_locale) == 0 || text.len() == 1 {
+        let mut nwn = new_native_word_node(main_f, text.len() as _);
         *LLIST_link(cur_list.tail) = Some(nwn.ptr()).tex_int();
         cur_list.tail = nwn.ptr();
         let tail_text = nwn.text_mut();
-        let slice = std::slice::from_raw_parts(native_text.offset(s as isize), len as usize);
-        tail_text.copy_from_slice(&slice[..len as usize]);
-
+        tail_text.copy_from_slice(text);
         nwn.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
     } else {
         use_skip = get_glue_par(GluePar::xetex_linebreak_skip).ptr() != 0;
         use_penalty = get_int_par(IntPar::xetex_linebreak_penalty) != 0 || !use_skip;
-        linebreak_start(
-            main_f,
-            get_int_par(IntPar::xetex_linebreak_locale),
-            native_text.offset(s as isize),
-            len,
-        );
+        linebreak_start(main_f, get_int_par(IntPar::xetex_linebreak_locale), text);
         offs = 0;
         loop {
             prevOffs = offs;
@@ -9764,9 +9753,7 @@ pub(crate) unsafe fn do_locale_linebreaks(mut s: i32, mut len: i32) {
                 cur_list.tail = nwn.ptr();
 
                 let tail_text = nwn.text_mut();
-                let slice =
-                    std::slice::from_raw_parts(native_text.offset(s as isize), offs as usize);
-                tail_text.copy_from_slice(&slice[prevOffs as usize..offs as usize]);
+                tail_text.copy_from_slice(&text[prevOffs as usize..offs as usize]);
 
                 nwn.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
             }
@@ -15229,7 +15216,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
             }
             main_h = 0;
             main_f = EQTB[CUR_FONT_LOC].val as usize;
-            native_len = 0;
+            let mut native_text = Vec::with_capacity(128);
             let lab72 = loop {
                 // lab71: collect_native
                 main_s = (*SF_CODE(cur_chr as usize) as i64 % 65536) as i32;
@@ -15291,39 +15278,16 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     prev_class = space_class
                 }
                 if cur_chr as i64 > 65535 {
-                    while native_text_size <= native_len + 2 {
-                        native_text_size = native_text_size + 128;
-                        native_text = xrealloc(
-                            native_text as *mut libc::c_void,
-                            (native_text_size as u64)
-                                .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
-                                as _,
-                        ) as *mut UTF16_code
-                    }
-                    *native_text.offset(native_len as isize) =
-                        ((cur_chr as i64 - 65536) / 1024 + 0xd800) as UTF16_code;
-                    native_len += 1;
-                    *native_text.offset(native_len as isize) =
-                        ((cur_chr as i64 - 65536) % 1024 + 0xdc00) as UTF16_code;
-                    native_len += 1
+                    native_text.push(((cur_chr as i64 - 65536) / 1024 + 0xd800) as UTF16_code);
+                    native_text.push(((cur_chr as i64 - 65536) % 1024 + 0xdc00) as UTF16_code);
                 } else {
-                    while native_text_size <= native_len + 1 {
-                        native_text_size = native_text_size + 128;
-                        native_text = xrealloc(
-                            native_text as *mut libc::c_void,
-                            (native_text_size as u64)
-                                .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
-                                as _,
-                        ) as *mut UTF16_code
-                    }
-                    *native_text.offset(native_len as isize) = cur_chr as UTF16_code;
-                    native_len += 1
+                    native_text.push(cur_chr as UTF16_code);
                 }
                 is_hyph = cur_chr == HYPHEN_CHAR[main_f as usize]
                     || get_int_par(IntPar::xetex_dash_break) > 0
                         && (cur_chr == 8212 || cur_chr == 8211);
                 if main_h == 0 && is_hyph {
-                    main_h = native_len
+                    main_h = native_text.len() as _;
                 }
                 let (cmd, chr, cs) = get_next(input);
                 cur_cmd = cmd;
@@ -15372,39 +15336,29 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
             /*collected */
             if !(FONT_MAPPING[main_f as usize]).is_null() {
                 let mapped_text =
-                    apply_mapping(FONT_MAPPING[main_f as usize], native_text, native_len);
+                    apply_mapping(FONT_MAPPING[main_f as usize], native_text.as_slice());
                 main_k = mapped_text.len() as _;
-                native_len = 0;
-                while native_text_size <= native_len + mapped_text.len() as i32 {
-                    native_text_size = native_text_size + 128;
-                    native_text = xrealloc(
-                        native_text as *mut libc::c_void,
-                        (native_text_size as u64)
-                            .wrapping_mul(::std::mem::size_of::<UTF16_code>() as u64)
-                            as _,
-                    ) as *mut UTF16_code
-                }
+                native_text.clear();
                 main_h = 0;
                 for main_p in 0..mapped_text.len() {
-                    *native_text.offset(native_len as isize) = mapped_text[main_p];
-                    native_len += 1;
+                    native_text.push(mapped_text[main_p]);
                     if main_h == 0
                         && (mapped_text[main_p] as i32 == HYPHEN_CHAR[main_f as usize]
                             || get_int_par(IntPar::xetex_dash_break) > 0
                                 && (mapped_text[main_p] == 8212 || mapped_text[main_p] == 8211))
                     {
-                        main_h = native_len
+                        main_h = native_text.len() as _;
                     }
                 }
             }
             if get_int_par(IntPar::tracing_lost_chars) > 0 {
                 let mut tmp_ptr = 0;
-                while tmp_ptr < native_len as usize {
-                    main_k = *native_text.offset(tmp_ptr as isize) as font_index;
+                while tmp_ptr < native_text.len() {
+                    main_k = native_text[tmp_ptr] as font_index;
                     tmp_ptr += 1;
                     if main_k >= 0xd800 && main_k < 0xdc00 {
                         main_k = (65536 + ((main_k - 0xd800) * 1024) as i64) as font_index;
-                        main_k = main_k + *native_text.offset(tmp_ptr as isize) as i32 - 0xdc00;
+                        main_k = main_k + native_text[tmp_ptr] as i32 - 0xdc00;
                         tmp_ptr += 1;
                     }
                     if map_char_to_glyph(nf, main_k) == 0 {
@@ -15412,7 +15366,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                 }
             }
-            main_k = native_len;
+            main_k = native_text.len() as _;
             let mut main_pp = cur_list.tail;
             if cur_list.mode == (false, ListMode::HMode) {
                 let mut main_ppp = cur_list.head;
@@ -15445,44 +15399,26 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         {
                             let native_pp = NativeWord::from(main_pp);
                             main_k = main_h + native_pp.length() as i32;
-                            while native_text_size <= native_len + main_k {
-                                native_text_size = native_text_size + 128;
-                                native_text = xrealloc(
-                                    native_text as *mut libc::c_void,
-                                    (native_text_size as u64).wrapping_mul(::std::mem::size_of::<
-                                        UTF16_code,
-                                    >(
-                                    )
-                                        as u64) as _,
-                                ) as *mut UTF16_code
-                            }
-                            save_native_len = native_len;
+                            let save_native_len = native_text.len();
                             for c in native_pp.text() {
-                                *native_text.offset(native_len as isize) = *c;
-                                native_len += 1;
+                                native_text.push(*c);
                             }
                             for main_p in 0..main_h {
-                                *native_text.offset(native_len as isize) =
-                                    *native_text.offset((tmp_ptr as isize) + (main_p as isize));
-                                native_len += 1;
+                                native_text.push(native_text[tmp_ptr + (main_p as usize)]);
                             }
-                            do_locale_linebreaks(save_native_len, main_k);
-                            native_len = save_native_len;
-                            main_k = native_len - main_h - (tmp_ptr as i32);
+                            do_locale_linebreaks(
+                                &native_text[save_native_len..save_native_len + (main_k as usize)],
+                            );
+                            native_text.truncate(save_native_len);
+                            main_k = (native_text.len() as i32) - main_h - (tmp_ptr as i32);
                             tmp_ptr = main_h as usize;
                             main_h = 0;
                             while main_h < main_k
-                                && *native_text.offset((tmp_ptr as isize) + (main_h as isize))
-                                    as i32
+                                && native_text[tmp_ptr + (main_h as usize)] as i32
                                     != HYPHEN_CHAR[main_f as usize]
                                 && (!(get_int_par(IntPar::xetex_dash_break) > 0)
-                                    || *native_text.offset((tmp_ptr as isize) + (main_h as isize))
-                                        as i32
-                                        != 8212
-                                        && *native_text
-                                            .offset((tmp_ptr as isize) + (main_h as isize))
-                                            as i32
-                                            != 8211)
+                                    || native_text[tmp_ptr + (main_h as usize)] as i32 != 8212
+                                        && native_text[tmp_ptr + (main_h as usize)] as i32 != 8211)
                             {
                                 main_h += 1
                             }
@@ -15498,22 +15434,18 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             }
                         }
                         _ => {
-                            do_locale_linebreaks(tmp_ptr as i32, main_h);
+                            do_locale_linebreaks(
+                                &native_text[tmp_ptr..tmp_ptr + (main_h as usize)],
+                            );
                             tmp_ptr = tmp_ptr + main_h as usize;
                             main_k = main_k - main_h;
                             main_h = 0;
                             while main_h < main_k
-                                && *native_text.offset((tmp_ptr as isize) + (main_h as isize))
-                                    as i32
+                                && native_text[tmp_ptr + (main_h as usize)] as i32
                                     != HYPHEN_CHAR[main_f as usize]
                                 && (!(get_int_par(IntPar::xetex_dash_break) > 0)
-                                    || *native_text.offset((tmp_ptr as isize) + (main_h as isize))
-                                        as i32
-                                        != 8212
-                                        && *native_text
-                                            .offset((tmp_ptr as isize) + (main_h as isize))
-                                            as i32
-                                            != 8211)
+                                    || native_text[tmp_ptr + (main_h as usize)] as i32 != 8212
+                                        && native_text[tmp_ptr + (main_h as usize)] as i32 != 8211)
                             {
                                 main_h += 1
                             }
@@ -15565,8 +15497,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         let tail_text = nwn.text_mut();
                         tail_text[..text.len()].copy_from_slice(text);
 
-                        let slice = std::slice::from_raw_parts(native_text, main_k as usize);
-                        tail_text[text.len()..].copy_from_slice(slice);
+                        tail_text[text.len()..].copy_from_slice(&native_text[..main_k as usize]);
 
                         nwn.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
                         let mut main_p = cur_list.head;
@@ -15584,8 +15515,8 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         *LLIST_link(main_pp) = Some(nwn.ptr()).tex_int();
                         cur_list.tail = nwn.ptr();
 
-                        let slice = std::slice::from_raw_parts(native_text, main_k as usize);
-                        nwn.text_mut().copy_from_slice(slice);
+                        nwn.text_mut()
+                            .copy_from_slice(&native_text[..main_k as usize]);
 
                         nwn.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
                     }

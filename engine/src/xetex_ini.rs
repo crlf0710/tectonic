@@ -12,7 +12,7 @@ use std::ptr;
 
 use super::xetex_texmfmp::{get_date_and_time, to_rust_string};
 use crate::cmd::*;
-use crate::core_memory::{xmalloc, xmalloc_array};
+use crate::core_memory::xmalloc_array;
 use crate::fmt_file::{load_fmt_file, store_fmt_file};
 use crate::help;
 use crate::node::*;
@@ -522,14 +522,6 @@ pub(crate) static mut trick_count: i32 = 0;
 pub(crate) static mut first_count: i32 = 0;
 #[no_mangle]
 pub(crate) static mut doing_special: bool = false;
-#[no_mangle]
-pub(crate) static mut native_text: *mut UTF16_code = ptr::null_mut();
-#[no_mangle]
-pub(crate) static mut native_text_size: i32 = 0;
-#[no_mangle]
-pub(crate) static mut native_len: i32 = 0;
-#[no_mangle]
-pub(crate) static mut save_native_len: i32 = 0;
 #[no_mangle]
 pub(crate) static mut interaction: InteractionMode = InteractionMode::Batch;
 #[no_mangle]
@@ -2356,10 +2348,6 @@ unsafe fn init_io(input: &mut input_state_t) {
 }
 unsafe fn initialize_more_variables() {
     doing_special = false;
-    native_text_size = 128;
-    native_text = xmalloc(
-        (native_text_size as u64).wrapping_mul(::std::mem::size_of::<UTF16_code>() as _) as _,
-    ) as *mut UTF16_code;
 
     interaction = InteractionMode::ErrorStop;
 
@@ -3668,9 +3656,6 @@ pub(crate) unsafe fn tt_cleanup() {
     HYPH_WORD = Vec::new();
     HYPH_LIST = Vec::new();
     HYPH_LINK = Vec::new();
-
-    // initialize_more_variables @ 3277
-    free(native_text as *mut libc::c_void);
 
     // Free arrays allocated in load_fmt_file
     free(yhash as *mut libc::c_void);
