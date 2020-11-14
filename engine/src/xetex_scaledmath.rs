@@ -9,7 +9,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use crate::xetex_ini::arith_error;
@@ -88,7 +87,7 @@ impl Scaled {
         }
     }
 
-    pub(crate) unsafe fn add_or_sub(mut self, mut y: Self, mut negative: bool) -> Self {
+    pub(crate) unsafe fn add_or_sub(self, mut y: Self, negative: bool) -> Self {
         let max_answer = Self::MAX_HALFWORD;
         let mut a = Self::ZERO;
         if negative {
@@ -156,7 +155,7 @@ impl core::ops::Rem for Scaled {
     }
 }
 
-pub(crate) unsafe fn tex_round(mut r: f64) -> Scaled {
+pub(crate) unsafe fn tex_round(r: f64) -> Scaled {
     /* We must reproduce very particular rounding semantics to pass the TRIP
      * test. Specifically, values within the 32-bit range of TeX integers are
      * rounded to the nearest integer with half-integral values going away
@@ -192,7 +191,7 @@ pub(crate) unsafe fn tex_round(mut r: f64) -> Scaled {
     }
     Scaled((r - 0.5) as i32)
 }
-pub(crate) unsafe fn mult_and_add(mut n: i32, mut x: i32, mut y: i32, mut max_answer: i32) -> i32 {
+pub(crate) unsafe fn mult_and_add(mut n: i32, mut x: i32, y: i32, max_answer: i32) -> i32 {
     if n < 0 {
         x = -x;
         n = -n
@@ -256,7 +255,7 @@ pub(crate) unsafe fn xn_over_d(x: Scaled, n: Scaled, d: i32) -> (Scaled, i32) {
         (Scaled(-u), -(v % d))
     }
 }
-pub(crate) unsafe fn round_xn_over_d(x: Scaled, mut n: i32, mut d: i32) -> Scaled {
+pub(crate) unsafe fn round_xn_over_d(x: Scaled, n: i32, d: i32) -> Scaled {
     let mut x = x.0;
     let positive = if x >= 0i32 {
         true

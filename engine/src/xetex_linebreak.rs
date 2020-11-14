@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use crate::help;
@@ -16,6 +15,7 @@ use crate::trie::{
 };
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
+use crate::xetex_ini::b16x4;
 use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, cur_l, cur_lang, cur_list, cur_q, cur_r,
     file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, hf, hu, hyf,
@@ -25,7 +25,6 @@ use crate::xetex_ini::{
     FONT_BCHAR, FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE,
     MEM, WIDTH_BASE,
 };
-use crate::xetex_ini::{b16x4, memory_word};
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
 
 use crate::xetex_stringpool::{PoolString, BIGGEST_CHAR, TOO_BIG_CHAR};
@@ -100,15 +99,10 @@ static mut fill_width: [Scaled; 3] = [Scaled::ZERO; 3];
 static mut best_pl_short: [Scaled; 4] = [Scaled::ZERO; 4];
 static mut best_pl_glue: [Scaled; 4] = [Scaled::ZERO; 4];
 #[inline]
-unsafe fn get_native_usv(p: usize, i: usize) -> UnicodeScalar {
-    let mut c: u16 =
-        *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset(i as isize);
+unsafe fn get_native_usv(t: &[u16], i: usize) -> UnicodeScalar {
+    let c: u16 = t[i];
     if c as i32 >= 0xd800 && (c as i32) < 0xdc00 {
-        return 0x10000
-            + (c as i32 - 0xd800) * 0x400
-            + *(&mut MEM[(p + 6) as usize] as *mut memory_word as *mut u16).offset((i + 1) as isize)
-                as i32
-            - 0xdc00;
+        return 0x10000 + (c as i32 - 0xd800) * 0x400 + t[i + 1] as i32 - 0xdc00;
     }
     c as UnicodeScalar
 }
@@ -124,7 +118,7 @@ unsafe fn get_native_usv(p: usize, i: usize) -> UnicodeScalar {
  * completion, `just_box` will point to the final box created.
  */
 
-pub(crate) unsafe fn line_break(mut d: bool) {
+pub(crate) unsafe fn line_break(d: bool) {
     let mut c: UnicodeScalar = 0;
     pack_begin_line = cur_list.mode_line; /* "this is for over/underfull box messages" */
     *LLIST_link(TEMP_HEAD as usize) = *LLIST_link(cur_list.head);
@@ -661,7 +655,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
     /* Clean up by removing break nodes (894, again) */
     let mut q = llist_link(ACTIVE_LIST).unwrap();
     while q != ACTIVE_LIST {
-        let mut next = llist_link(q);
+        let next = llist_link(q);
         match ActiveNode::from(q) {
             ActiveNode::Delta(q) => q.free(),
             ActiveNode::Active(q) => free_node(q.ptr(), active_node_size as i32),
@@ -741,7 +735,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                 WhatsIt::NativeWord(s) => {
                                     let mut l = 0;
                                     while l < s.text().len() as i32 {
-                                        c = get_native_usv(s.ptr(), l as usize);
+                                        c = get_native_usv(s.text(), l as usize);
                                         if *LC_CODE(c as usize) != 0 {
                                             hf = s.font() as usize;
                                             prev_s = s.ptr();
@@ -859,7 +853,8 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             if !(l < for_end_1) {
                                 break 'restart;
                             }
-                            c = get_native_usv(ha, l as usize);
+                            let ha_text = ha_nw.text();
+                            c = get_native_usv(ha_text, l as usize);
                             hc[0] = if hyph_index == 0 || c > 255 {
                                 *LC_CODE(c as usize)
                             } else if trie_trc[(hyph_index + c) as usize] as i32 != c {
@@ -869,7 +864,6 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                             };
                             if hc[0] == 0 {
                                 if hn > 0 {
-                                    let ha_text = ha_nw.text();
                                     let mut q = new_native_word_node(hf, ha_text.len() as i32 - l);
                                     q.set_actual_text_from(&ha_nw);
                                     q.text_mut().copy_from_slice(&ha_text[l as usize..]);
@@ -884,7 +878,6 @@ pub(crate) unsafe fn line_break(mut d: bool) {
                                     break 'restart;
                                 }
                             } else if hn == 0 && l > 0 {
-                                let ha_text = ha_nw.text();
                                 let mut q = new_native_word_node(hf, ha_text.len() as i32 - l);
                                 q.set_actual_text_from(&ha_nw);
                                 q.text_mut().copy_from_slice(&ha_text[l as usize..]);
@@ -1058,7 +1051,7 @@ pub(crate) unsafe fn line_break(mut d: bool) {
 }
 /* This was just separated out to prevent line_break() from becoming
  * proposterously long. */
-unsafe fn post_line_break(mut d: bool) {
+unsafe fn post_line_break(d: bool) {
     let mut LR_ptr = cur_list.eTeX_aux;
     /* Reverse the list of break nodes (907) */
     let mut q = Passive(best_bet.break_node() as usize); /*:907*/
@@ -1363,7 +1356,7 @@ unsafe fn post_line_break(mut d: bool) {
             };
             if let Some(q) = q {
                 let q = Penalty(q);
-                let mut r = (best_line - cur_line - 1).min(q.penalty()) as usize;
+                let r = (best_line - cur_line - 1).min(q.penalty()) as usize;
                 pen += Penalty(q.ptr() + r).penalty()
             } else if cur_line + 2 == best_line {
                 if d {
@@ -1456,7 +1449,7 @@ unsafe fn post_line_break(mut d: bool) {
  * or UNHYPHENATED, depending on whether or not the current break is at a
  * disc_node. The end of a paragraph is also regarded as hyphenated; this case
  * is distinguishable by the condition cur_p = null." */
-unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
+unsafe fn try_break(mut pi: i32, break_type: BreakType) {
     let mut prev_prev_r = None;
     let mut node_r_stays_active: bool = false;
     let mut line_width = Scaled::ZERO;
@@ -1883,34 +1876,23 @@ unsafe fn try_break(mut pi: i32, mut break_type: BreakType) {
                             }
                         }
                     } else {
-                        let mut current_block_230: u64;
-                        if shortfall > Scaled(7230584) {
-                            // 110.33: magic number in original WEB code
-                            if cur_active_width.stretch0 < Scaled(1663497) {
-                                // 25.38: magic number in original WEB code
-                                b = INF_BAD;
-                                fit_class = VERY_LOOSE_FIT;
-                                current_block_230 = 4001239642700071046;
-                            } else {
-                                current_block_230 = 15455430299222214173;
-                            }
+                        if shortfall > Scaled(7230584)
+                            && cur_active_width.stretch0 < Scaled(1663497)
+                        {
+                            // 110.33; 25.38: magic number in original WEB code
+                            b = INF_BAD;
+                            fit_class = VERY_LOOSE_FIT;
                         } else {
-                            current_block_230 = 15455430299222214173;
-                        }
-                        match current_block_230 {
-                            15455430299222214173 => {
-                                b = badness(shortfall, cur_active_width.stretch0);
-                                fit_class = if b > 12 {
-                                    if b > 99 {
-                                        VERY_LOOSE_FIT
-                                    } else {
-                                        LOOSE_FIT
-                                    }
+                            b = badness(shortfall, cur_active_width.stretch0);
+                            fit_class = if b > 12 {
+                                if b > 99 {
+                                    VERY_LOOSE_FIT
                                 } else {
-                                    DECENT_FIT
-                                };
-                            }
-                            _ => {}
+                                    LOOSE_FIT
+                                }
+                            } else {
+                                DECENT_FIT
+                            };
                         }
                         current_block = 8633396468472091231;
                     }
@@ -2149,7 +2131,7 @@ unsafe fn hyphenate() {
         hyf[(hn as i32 - j as i32) as usize] = 0_u8;
     }
     let mut j = l_hyf as i16;
-    let mut for_end_4 = hn as i32 - r_hyf;
+    let for_end_4 = hn as i32 - r_hyf;
     if j as i32 > for_end_4 {
         return;
     };
@@ -2417,7 +2399,7 @@ unsafe fn finite_shrink(p: GlueSpec) -> GlueSpec {
     delete_glue_ref(p.ptr());
     q
 }
-unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -> i16 {
+unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i16 {
     let mut current_block: u64;
     let mut q: b16x4 = b16x4 {
         s0: 0,
@@ -2704,7 +2686,7 @@ unsafe fn reconstitute(mut j: i16, mut n: i16, mut bchar: i32, mut hchar: i32) -
     j
 }
 unsafe fn total_pw(q: &Active, p: Option<usize>) -> Scaled {
-    let mut lopt = if let Some(r) = q.break_node().opt() {
+    let lopt = if let Some(r) = q.break_node().opt() {
         Passive(r).cur_break().opt()
     } else {
         first_p.opt()
@@ -2741,7 +2723,7 @@ unsafe fn total_pw(q: &Active, p: Option<usize>) -> Scaled {
     let l = find_protchar_left(l, true);
     char_pw(Some(l), Side::Left) + char_pw(r, Side::Right)
 }
-unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
+unsafe fn find_protchar_left(mut l: usize, d: bool) -> usize {
     let mut run: bool = false;
     match (llist_link(l), CharOrText::from(l)) {
         (Some(next), CharOrText::Text(TxtNode::List(n))) if n.is_empty() => l = next,
@@ -2820,7 +2802,7 @@ unsafe fn find_protchar_left(mut l: usize, mut d: bool) -> usize {
     }
     l
 }
-unsafe fn find_protchar_right(mut l: Option<usize>, mut r: Option<usize>) -> Option<usize> {
+unsafe fn find_protchar_right(mut l: Option<usize>, r: Option<usize>) -> Option<usize> {
     let mut run: bool = false;
     if r.is_none() {
         return None;

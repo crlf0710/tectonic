@@ -36,7 +36,6 @@ authorization from the copyright holders.
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use crate::core_memory::xmalloc;
@@ -99,11 +98,11 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-pub(crate) unsafe fn get_ot_math_constant(mut f: usize, mut n: libc::c_int) -> Scaled {
-    let mut constant: hb_ot_math_constant_t = n as hb_ot_math_constant_t;
+pub(crate) unsafe fn get_ot_math_constant(f: usize, n: libc::c_int) -> Scaled {
+    let constant = n as hb_ot_math_constant_t;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        let mut hbFont: *mut hb_font_t = font.get_hb_font();
+        let hbFont = font.get_hb_font();
         let rval = hb_ot_math_get_constant(hbFont, constant);
         /* scale according to font size, except the ones that are percentages */
         match constant as libc::c_uint {
@@ -143,7 +142,7 @@ pub(crate) static mut TeX_sym_to_OT_map: [hb_ot_math_constant_t; 23] = [
     HB_OT_MATH_CONSTANT_AXIS_HEIGHT,
 ];
 
-pub(crate) unsafe fn get_native_mathsy_param(mut f: usize, mut n: libc::c_int) -> Scaled {
+pub(crate) unsafe fn get_native_mathsy_param(f: usize, n: libc::c_int) -> Scaled {
     let mut rval = Scaled::ZERO;
     if n == 6 {
         rval = FONT_SIZE[f as usize];
@@ -157,7 +156,7 @@ pub(crate) unsafe fn get_native_mathsy_param(mut f: usize, mut n: libc::c_int) -
             .wrapping_div(::std::mem::size_of::<hb_ot_math_constant_t>() as libc::c_ulong)
             as libc::c_int
     {
-        let mut ot_index: hb_ot_math_constant_t = TeX_sym_to_OT_map[n as usize];
+        let ot_index = TeX_sym_to_OT_map[n as usize];
         if ot_index as libc::c_uint != 4294967295 as hb_ot_math_constant_t as libc::c_uint {
             rval = get_ot_math_constant(f, ot_index as libc::c_int)
         }
@@ -189,7 +188,7 @@ pub(crate) static mut TeX_ext_to_OT_map: [hb_ot_math_constant_t; 14] = [
     HB_OT_MATH_CONSTANT_LOWER_LIMIT_BASELINE_DROP_MIN,
     HB_OT_MATH_CONSTANT_STACK_GAP_MIN,
 ];
-pub(crate) unsafe fn get_native_mathex_param(mut f: usize, mut n: libc::c_int) -> Scaled {
+pub(crate) unsafe fn get_native_mathex_param(f: usize, n: libc::c_int) -> Scaled {
     let mut rval = Scaled::ZERO;
     if n == 6i32 {
         rval = FONT_SIZE[f as usize];
@@ -198,7 +197,7 @@ pub(crate) unsafe fn get_native_mathex_param(mut f: usize, mut n: libc::c_int) -
             .wrapping_div(::std::mem::size_of::<hb_ot_math_constant_t>() as libc::c_ulong)
             as libc::c_int
     {
-        let mut ot_index: hb_ot_math_constant_t = TeX_ext_to_OT_map[n as usize];
+        let ot_index = TeX_ext_to_OT_map[n as usize];
         if ot_index as libc::c_uint != 4294967295 as hb_ot_math_constant_t as libc::c_uint {
             rval = get_ot_math_constant(f, ot_index as libc::c_int)
         }
@@ -207,17 +206,17 @@ pub(crate) unsafe fn get_native_mathex_param(mut f: usize, mut n: libc::c_int) -
     rval
 }
 pub(crate) unsafe fn get_ot_math_variant(
-    mut f: usize,
-    mut g: i32,
-    mut v: i32,
-    mut adv: &mut Scaled,
-    mut horiz: i32,
+    f: usize,
+    g: i32,
+    v: i32,
+    adv: &mut Scaled,
+    horiz: i32,
 ) -> i32 {
     let mut rval = g as hb_codepoint_t;
     *adv = Scaled(-1);
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        let mut hbFont: *mut hb_font_t = font.get_hb_font();
+        let hbFont = font.get_hb_font();
         let mut variant: [hb_ot_math_glyph_variant_t; 1] = [hb_ot_math_glyph_variant_t {
             glyph: 0,
             advance: 0,
@@ -243,15 +242,15 @@ pub(crate) unsafe fn get_ot_math_variant(
     rval as i32
 }
 pub(crate) unsafe fn get_ot_assembly_ptr(
-    mut f: usize,
-    mut g: libc::c_int,
-    mut horiz: libc::c_int,
+    f: usize,
+    g: libc::c_int,
+    horiz: libc::c_int,
 ) -> *mut libc::c_void {
     let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        let mut hbFont: *mut hb_font_t = font.get_hb_font();
-        let mut count: libc::c_uint = hb_ot_math_get_glyph_assembly(
+        let hbFont = font.get_hb_font();
+        let count = hb_ot_math_get_glyph_assembly(
             hbFont,
             g as hb_codepoint_t,
             (if horiz != 0 {
@@ -264,7 +263,7 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
             0 as *mut hb_ot_math_glyph_part_t,
             0 as *mut hb_position_t,
         );
-        if count > 0i32 as libc::c_uint {
+        if count > 0 {
             let mut a: *mut GlyphAssembly =
                 xmalloc(::std::mem::size_of::<GlyphAssembly>() as _) as *mut GlyphAssembly;
             (*a).count = count;
@@ -291,37 +290,37 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
     }
     return rval;
 }
-pub(crate) unsafe fn free_ot_assembly(mut a: *mut GlyphAssembly) {
+pub(crate) unsafe fn free_ot_assembly(a: *mut GlyphAssembly) {
     if a.is_null() {
         return;
     }
     free((*a).parts as *mut libc::c_void);
     free(a as *mut libc::c_void);
 }
-pub(crate) unsafe fn get_ot_math_ital_corr(mut f: usize, mut g: libc::c_int) -> Scaled {
+pub(crate) unsafe fn get_ot_math_ital_corr(f: usize, g: libc::c_int) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        let mut hbFont: *mut hb_font_t = font.get_hb_font();
+        let hbFont = font.get_hb_font();
         let rval = hb_ot_math_get_glyph_italics_correction(hbFont, g as hb_codepoint_t);
         D2Fix(font.units_to_points(rval as f32) as f64)
     } else {
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn get_ot_math_accent_pos(mut f: usize, mut g: libc::c_int) -> Scaled {
+pub(crate) unsafe fn get_ot_math_accent_pos(f: usize, g: libc::c_int) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        let mut hbFont: *mut hb_font_t = font.get_hb_font();
+        let hbFont = font.get_hb_font();
         let rval = hb_ot_math_get_glyph_top_accent_attachment(hbFont, g as hb_codepoint_t);
         D2Fix(font.units_to_points(rval as f32) as f64)
     } else {
         Scaled::INFINITY
     }
 }
-pub(crate) unsafe fn ot_min_connector_overlap(mut f: usize) -> Scaled {
+pub(crate) unsafe fn ot_min_connector_overlap(f: usize) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        let mut hbFont: *mut hb_font_t = font.get_hb_font();
+        let hbFont = font.get_hb_font();
         let rval = hb_ot_math_get_min_connector_overlap(hbFont, HB_DIRECTION_RTL);
         D2Fix(font.units_to_points(rval as f32) as f64)
     } else {
@@ -329,14 +328,14 @@ pub(crate) unsafe fn ot_min_connector_overlap(mut f: usize) -> Scaled {
     }
 }
 unsafe fn getMathKernAt(
-    mut f: usize,
-    mut g: libc::c_int,
-    mut side: hb_ot_math_kern_t,
-    mut height: libc::c_int,
+    f: usize,
+    g: libc::c_int,
+    side: hb_ot_math_kern_t,
+    height: libc::c_int,
 ) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        let mut hbFont: *mut hb_font_t = font.get_hb_font();
+        let hbFont = font.get_hb_font();
         Scaled(hb_ot_math_get_glyph_kerning(
             hbFont,
             g as hb_codepoint_t,
@@ -347,7 +346,7 @@ unsafe fn getMathKernAt(
         Scaled::ZERO
     }
 }
-unsafe fn glyph_height(mut f: usize, g: i32) -> f32 {
+unsafe fn glyph_height(f: usize, g: i32) -> f32 {
     if let Font::Native(Otgr(engine)) = &FONT_LAYOUT_ENGINE[f] {
         let (rval, _) = engine.get_glyph_height_depth(g as u32);
         rval
@@ -355,7 +354,7 @@ unsafe fn glyph_height(mut f: usize, g: i32) -> f32 {
         0.
     }
 }
-unsafe fn glyph_depth(mut f: usize, g: i32) -> f32 {
+unsafe fn glyph_depth(f: usize, g: i32) -> f32 {
     if let Font::Native(Otgr(engine)) = &FONT_LAYOUT_ENGINE[f] {
         let (_, rval) = engine.get_glyph_height_depth(g as u32);
         rval
@@ -364,11 +363,11 @@ unsafe fn glyph_depth(mut f: usize, g: i32) -> f32 {
     }
 }
 pub(crate) unsafe fn get_ot_math_kern(
-    mut f: usize,
-    mut g: libc::c_int,
-    mut sf: usize,
-    mut sg: libc::c_int,
-    mut cmd: libc::c_int,
+    f: usize,
+    g: libc::c_int,
+    sf: usize,
+    sg: libc::c_int,
+    cmd: libc::c_int,
     shift: Scaled,
 ) -> Scaled {
     let mut rval = 0_i32;
@@ -459,21 +458,21 @@ pub(crate) unsafe fn get_ot_math_kern(
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn ot_part_count(mut a: *const GlyphAssembly) -> libc::c_int {
+pub(crate) unsafe fn ot_part_count(a: *const GlyphAssembly) -> libc::c_int {
     return (*a).count as libc::c_int;
 }
-pub(crate) unsafe fn ot_part_glyph(mut a: *const GlyphAssembly, mut i: libc::c_int) -> libc::c_int {
+pub(crate) unsafe fn ot_part_glyph(a: *const GlyphAssembly, i: libc::c_int) -> libc::c_int {
     return (*(*a).parts.offset(i as isize)).glyph as libc::c_int;
 }
-pub(crate) unsafe fn ot_part_is_extender(mut a: *const GlyphAssembly, mut i: libc::c_int) -> bool {
+pub(crate) unsafe fn ot_part_is_extender(a: *const GlyphAssembly, i: libc::c_int) -> bool {
     return (*(*a).parts.offset(i as isize)).flags as libc::c_uint
         & HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER as libc::c_int as libc::c_uint
         != 0i32 as libc::c_uint;
 }
 pub(crate) unsafe fn ot_part_start_connector(
-    mut f: usize,
-    mut a: *const GlyphAssembly,
-    mut i: libc::c_int,
+    f: usize,
+    a: *const GlyphAssembly,
+    i: libc::c_int,
 ) -> Scaled {
     let mut rval = Scaled::ZERO;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
@@ -486,9 +485,9 @@ pub(crate) unsafe fn ot_part_start_connector(
     return rval;
 }
 pub(crate) unsafe fn ot_part_end_connector(
-    mut f: usize,
-    mut a: *const GlyphAssembly,
-    mut i: libc::c_int,
+    f: usize,
+    a: *const GlyphAssembly,
+    i: libc::c_int,
 ) -> Scaled {
     let mut rval = Scaled::ZERO;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
@@ -501,9 +500,9 @@ pub(crate) unsafe fn ot_part_end_connector(
     return rval;
 }
 pub(crate) unsafe fn ot_part_full_advance(
-    mut f: usize,
-    mut a: *const GlyphAssembly,
-    mut i: libc::c_int,
+    f: usize,
+    a: *const GlyphAssembly,
+    i: libc::c_int,
 ) -> Scaled {
     let mut rval = Scaled::ZERO;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f as usize] {

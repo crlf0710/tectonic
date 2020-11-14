@@ -190,14 +190,14 @@ pub(crate) unsafe fn read_font_info(
         ec = 0
     }
 
-    let mut nw;
-    let mut nh;
-    let mut nd;
-    let mut ni;
-    let mut nl;
-    let mut nk;
-    let mut ne;
-    let mut np;
+    let nw;
+    let nh;
+    let nd;
+    let ni;
+    let nl;
+    let nk;
+    let ne;
+    let np;
     READFIFTEEN!(nw);
     READFIFTEEN!(nh);
     READFIFTEEN!(nd);
@@ -627,7 +627,7 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
     ok.1
 }
 
-pub(crate) unsafe fn load_native_font(mut s: Scaled) -> Result<usize, NativeFontError> {
+pub(crate) unsafe fn load_native_font(s: Scaled) -> Result<usize, NativeFontError> {
     let font_engine = find_native_font(&name_of_file, s);
     if font_engine.is_none() {
         return Err(NativeFontError::NotFound);

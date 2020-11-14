@@ -485,7 +485,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     Node::Text(TxtNode::Glue(q)) => {
                                         str_pool[pool_ptr] = ' ' as i32 as packed_UTF16_code;
                                         pool_ptr += 1;
-                                        let mut g = GlueSpec(q.glue_ptr() as usize);
+                                        let g = GlueSpec(q.glue_ptr() as usize);
                                         k += g.size();
                                         if g_sign != GlueSign::Normal {
                                             if g_sign == GlueSign::Stretching {
@@ -861,7 +861,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                 }
                 TxtNode::Glue(mut p) => {
                     /*647: "Move right or output leaders" */
-                    let mut g = GlueSpec(p.glue_ptr() as usize);
+                    let g = GlueSpec(p.glue_ptr() as usize);
                     rule_wd =
                         g.size() -
                             cur_g;
@@ -1516,7 +1516,7 @@ unsafe fn vlist_out(this_box: &List) {
 unsafe fn reverse(
     this_box: &List,
     tmp_ptr: usize,
-    mut t: Option<usize>,
+    t: Option<usize>,
     cur_g: &mut Scaled,
     cur_glue: &mut f64,
 ) -> i32 {
@@ -1580,7 +1580,7 @@ unsafe fn reverse(
                     },
                     TxtNode::Glue(mut p) => {
                         /*1486: "Handle a glue node for mixed direction typesetting" */
-                        let mut g = GlueSpec(p.glue_ptr() as usize); /* "will never match" */
+                        let g = GlueSpec(p.glue_ptr() as usize); /* "will never match" */
                         rule_wd = g.size() - *cur_g; /* = mem[char(tmp_ptr)] */
 
                         match g_sign {
@@ -1742,7 +1742,7 @@ pub(crate) unsafe fn new_edge(s: LR, w: Scaled) -> usize {
 }
 
 pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
-    let mut j: i16;
+    let j: i16;
     match p {
         WhatsIt::Open(p) => {
             if doing_leaders {
@@ -1863,9 +1863,9 @@ unsafe fn dvi_font_def(f: internal_font_number) {
     };
 }
 
-unsafe fn movement(w: Scaled, mut o: u8) {
+unsafe fn movement(w: Scaled, o: u8) {
     let mut k: i32 = 0;
-    let mut q = get_node(MOVEMENT_NODE_SIZE);
+    let q = get_node(MOVEMENT_NODE_SIZE);
     MEM[q + 1].b32.s1 = w.0;
     MEM[q + 2].b32.s1 = (dvi_offset + dvi_ptr) as i32;
     if o == DOWN1 {
@@ -2069,7 +2069,7 @@ unsafe fn special_out(p: &Special) {
 unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     let q = get_avail();
     MEM[q].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
-    let mut r = get_avail();
+    let r = get_avail();
     *LLIST_link(q) = Some(r).tex_int();
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
     begin_token_list(input, q, Btl::Inserted);
@@ -2293,7 +2293,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
         write_to_dvi(0, dvi_ptr as usize - 1);
     }
 
-    let mut k = ttstub_output_close(dvi_file.take().unwrap()) as u8;
+    let k = ttstub_output_close(dvi_file.take().unwrap()) as u8;
 
     if k == 0 {
         print_nl_cstr("Output written on ");

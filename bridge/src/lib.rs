@@ -409,22 +409,6 @@ pub(crate) unsafe fn ttstub_input_seek(
     rv
 }
 
-pub unsafe fn ttstub_input_read(
-    mut handle: rust_input_handle_t,
-    mut data: *mut i8,
-    mut len: size_t,
-) -> ssize_t {
-    let res = (*tectonic_global_bridge)
-        .input_read
-        .expect("non-null function pointer")(
-        (*tectonic_global_bridge).context, handle, data, len
-    );
-    match res {
-        Some(x) if x == len => len as ssize_t,
-        _ => -1,
-    }
-}
-
 pub unsafe fn ttstub_input_read_rust_style(
     mut handle: rust_input_handle_t,
     mut data: *mut i8,

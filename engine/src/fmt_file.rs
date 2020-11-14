@@ -1092,7 +1092,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         panic!("must increase trie_size");
     }
 
-    let mut j = x;
+    let j = x;
     trie_max = j;
 
     fmt_in.undump_one(&mut x);

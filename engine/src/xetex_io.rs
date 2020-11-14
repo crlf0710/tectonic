@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use bridge::{stub_errno as errno, ttstub_input_getc, InFile, TTInputFormat};
@@ -223,7 +222,7 @@ pub(crate) struct UFILE {
 */
 #[no_mangle]
 pub(crate) static mut name_of_input_file: String = String::new();
-pub(crate) unsafe fn tt_xetex_open_input(mut filefmt: TTInputFormat) -> Option<InFile> {
+pub(crate) unsafe fn tt_xetex_open_input(filefmt: TTInputFormat) -> Option<InFile> {
     let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
         InFile::open_primary()
     } else {
@@ -256,11 +255,7 @@ pub(crate) const bytesFromUTF8: [u8; 256] = [
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
 ];
-pub(crate) unsafe fn set_input_file_encoding(
-    f: &mut UFILE,
-    mode: UnicodeMode,
-    mut encodingData: i32,
-) {
+pub(crate) unsafe fn set_input_file_encoding(f: &mut UFILE, mode: UnicodeMode, encodingData: i32) {
     if f.encodingMode as i32 == 5i32 && !f.conversionData.is_null() {
         icu::ucnv_close(f.conversionData as *mut icu::UConverter);
     }
@@ -270,10 +265,10 @@ pub(crate) unsafe fn set_input_file_encoding(
             f.encodingMode = mode
         }
         UnicodeMode::ICUMapping => {
-            let mut name = gettexstring(encodingData);
+            let name = gettexstring(encodingData);
             let mut err: UErrorCode = U_ZERO_ERROR;
             let cname = CString::new(name.as_str()).unwrap();
-            let mut cnv = icu::ucnv_open(cname.as_ptr(), &mut err);
+            let cnv = icu::ucnv_open(cname.as_ptr(), &mut err);
             if cnv.is_null() {
                 diagnostic(true, || {
                     print_nl('E' as i32);
@@ -293,10 +288,10 @@ pub(crate) unsafe fn set_input_file_encoding(
     };
 }
 pub(crate) unsafe fn u_open_in(
-    mut filefmt: TTInputFormat,
+    filefmt: TTInputFormat,
     mut _fopen_mode: &[u8],
     mut mode: UnicodeMode,
-    mut encodingData: i32,
+    encodingData: i32,
 ) -> Option<Box<UFILE>> {
     let mut B1: i32 = 0;
     let mut B2: i32 = 0;
@@ -327,7 +322,7 @@ pub(crate) unsafe fn u_open_in(
             mode = UnicodeMode::Utf16le;
             handle.seek(SeekFrom::Start(0)).unwrap();
         } else if B1 == 0xef && B2 == 0xbb {
-            let mut B3: i32 = ttstub_input_getc(handle);
+            let B3 = ttstub_input_getc(handle);
             if B3 == 0xbf {
                 mode = UnicodeMode::Utf8;
             }
@@ -340,10 +335,10 @@ pub(crate) unsafe fn u_open_in(
     set_input_file_encoding(&mut ufile, mode, encodingData);
     Some(ufile)
 }
-unsafe extern "C" fn buffer_overflow() {
+unsafe fn buffer_overflow() {
     panic!("unable to read an entire line (buf_size={})", BUF_SIZE,);
 }
-unsafe extern "C" fn conversion_error(mut errcode: i32) {
+unsafe fn conversion_error(errcode: i32) {
     diagnostic(true, || {
         print_nl('U' as i32);
         print_c_str(&"nicode conversion failed (ICU error code = "[..]);
@@ -351,15 +346,14 @@ unsafe extern "C" fn conversion_error(mut errcode: i32) {
         print_c_str(&") discarding any remaining text"[..]);
     });
 }
-unsafe extern "C" fn apply_normalization(mut buf: *mut u32, mut len: i32, mut norm: i32) {
+unsafe fn apply_normalization(buf: *mut u32, len: i32, norm: i32) {
     static mut normalizers: [teckit::TECkit_Converter; 2] =
         [0 as teckit::TECkit_Converter, 0 as teckit::TECkit_Converter];
     let mut status: teckit::TECkit_Status = 0;
     let mut inUsed: u32 = 0;
     let mut outUsed: u32 = 0;
-    let mut normPtr: *mut teckit::TECkit_Converter =
-        &mut *normalizers.as_mut_ptr().offset((norm - 1i32) as isize)
-            as *mut teckit::TECkit_Converter;
+    let normPtr = &mut *normalizers.as_mut_ptr().offset((norm - 1i32) as isize)
+        as *mut teckit::TECkit_Converter;
     if (*normPtr).is_null() {
         status = teckit::TECkit_CreateConverter(
             0 as *mut u8,
@@ -399,7 +393,7 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
     static mut utf32Buf: *mut u32 = ptr::null_mut();
     let mut i;
     let mut tmpLen: i32 = 0;
-    let mut norm: i32 = get_input_normalization_state();
+    let norm = get_input_normalization_state();
     if f.handle.is_none() {
         /* NULL 'handle' means this: */
         panic!("reads from synthetic \"terminal\" file #0 should never happen");
@@ -613,7 +607,7 @@ pub(crate) unsafe fn get_uni_c(f: &mut UFILE) -> i32 {
             rval = ttstub_input_getc(handle);
             c = rval;
             if rval != -1 {
-                let mut extraBytes: u16 = bytesFromUTF8[rval as usize] as u16;
+                let extraBytes = bytesFromUTF8[rval as usize] as u16;
                 match extraBytes {
                     0..=3 => {
                         for _ in 0..extraBytes {

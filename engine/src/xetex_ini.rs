@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use std::ptr;
@@ -1110,9 +1109,9 @@ where
     let mut prim_val = 0;
     let b_ident = ident.as_bytes();
     let len = b_ident.len();
-    let mut val;
+    let val;
     if len > 1 {
-        let mut s = maketexstring(ident);
+        let s = maketexstring(ident);
         if first as usize + len > BUF_SIZE + 1 {
             overflow("buffer size", BUF_SIZE);
         }
@@ -1463,7 +1462,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                     HYPH_COUNT += 1;
 
                     while HYPH_WORD[h as usize] != 0 {
-                        let mut k = HYPH_WORD[h as usize];
+                        let k = HYPH_WORD[h as usize];
                         let hyph = PoolString::from(k);
                         let string = PoolString::from(s);
                         if hyph.len() == string.len() {
@@ -1672,7 +1671,7 @@ pub(crate) unsafe fn prefixed_command(
             } else { eq_define(p as usize, cmd, chr.opt()); }
         }
         Cmd::ShorthandDef => {
-            let mut n = ShorthandDefCode::n(ochr as u8).unwrap();
+            let n = ShorthandDefCode::n(ochr as u8).unwrap();
             if n == ShorthandDefCode::CharSub {
                 let val = scan_char_num(input);
                 let p = CHAR_SUB_CODE_BASE as i32 + val;
@@ -1824,7 +1823,7 @@ pub(crate) unsafe fn prefixed_command(
             } else { eq_define(p as usize, Cmd::Call, val.opt()); }
         }
         Cmd::ToksRegister | Cmd::AssignToks => {
-            let mut q = ocs;
+            let q = ocs;
             e = false;
             if ocmd == Cmd::ToksRegister {
                 if ochr == 0 {
@@ -2254,7 +2253,7 @@ pub(crate) unsafe fn prefixed_command(
 }
 
 unsafe fn final_cleanup(input: &mut input_state_t) {
-    let mut c = cur_chr as usize;
+    let c = cur_chr as usize;
     if job_name == 0 {
         open_log_file();
     }
@@ -3699,10 +3698,7 @@ pub(crate) unsafe fn tt_cleanup() {
     read_open = [OpenMode::Closed; 17];
 }
 
-pub(crate) unsafe fn tt_run_engine(
-    mut dump_name: *const i8,
-    mut input_file_name: *const i8,
-) -> TTHistory {
+pub(crate) unsafe fn tt_run_engine(dump_name: *const i8, input_file_name: *const i8) -> TTHistory {
     /* Miscellaneous initializations that were mostly originally done in the
      * main() driver routines. */
     /* Get our stdout handle */

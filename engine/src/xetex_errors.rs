@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use std::io::Write;
@@ -68,7 +67,7 @@ unsafe fn pre_error_message() {
     };
 }
 /*82: */
-unsafe fn post_error_message(mut need_to_print_it: i32) {
+unsafe fn post_error_message(need_to_print_it: i32) {
     if interaction == InteractionMode::ErrorStop {
         interaction = InteractionMode::Scroll;
     }
@@ -161,7 +160,7 @@ pub(crate) unsafe fn confusion(s: &str) -> ! {
     panic!("halted on confusion()");
 }
 /* xetex-errors */
-pub(crate) unsafe fn pdf_error(t: &str, mut p: &str) -> ! {
+pub(crate) unsafe fn pdf_error(t: &str, p: &str) -> ! {
     pre_error_message();
     print_cstr("Error");
     if !t.is_empty() {

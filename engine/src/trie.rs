@@ -41,7 +41,7 @@ pub(crate) static mut trie_min: [trie_pointer; 65536] = [0; 65536];
 pub(crate) static mut trie_max: trie_pointer = 0;
 pub(crate) static mut trie_not_ready: bool = false;
 
-pub(crate) unsafe fn new_trie_op(mut d: i16, mut n: i16, mut v: trie_opcode) -> trie_opcode {
+pub(crate) unsafe fn new_trie_op(d: i16, n: i16, v: trie_opcode) -> trie_opcode {
     let mut h: i32 = 0;
     let mut u: trie_opcode = 0;
     h = ((n as i32 + 313 * d as i32 + 361 * v as i32 + 1009 * cur_lang as i32).abs() as i64
@@ -85,7 +85,7 @@ pub(crate) unsafe fn new_trie_op(mut d: i16, mut n: i16, mut v: trie_opcode) -> 
         }
     }
 }
-pub(crate) unsafe fn trie_node(mut p: trie_pointer) -> trie_pointer {
+pub(crate) unsafe fn trie_node(p: trie_pointer) -> trie_pointer {
     let mut h = ((trie_c[p as usize] as u32
         + 1009 * trie_o[p as usize] as u32
         + 2718 * trie_l[p as usize] as u32
@@ -111,7 +111,7 @@ pub(crate) unsafe fn trie_node(mut p: trie_pointer) -> trie_pointer {
         }
     }
 }
-pub(crate) unsafe fn compress_trie(mut p: trie_pointer) -> trie_pointer {
+pub(crate) unsafe fn compress_trie(p: trie_pointer) -> trie_pointer {
     if p == 0 {
         0
     } else {
@@ -122,7 +122,7 @@ pub(crate) unsafe fn compress_trie(mut p: trie_pointer) -> trie_pointer {
 }
 pub(crate) unsafe fn first_fit(p: trie_pointer) {
     let mut h;
-    let mut c = trie_c[p as usize];
+    let c = trie_c[p as usize];
     let mut z = trie_min[c as usize];
     's_31: loop {
         h = z - c as i32;

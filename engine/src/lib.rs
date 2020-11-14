@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut,
     unused_unsafe,
     unused_attributes
 )]
@@ -39,21 +38,21 @@ pub use bridge::tt_get_error_message;
 pub use xetex_engine_interface::tt_xetex_set_int_variable;
 
 pub unsafe fn tex_simple_main(
-    mut api: *const tt_bridge_api_t,
-    mut dump_name: *const i8,
-    mut input_file_name: *const i8,
+    api: *const tt_bridge_api_t,
+    dump_name: *const i8,
+    input_file_name: *const i8,
 ) -> i32 {
     bridge::tt_with_bridge(api, || tt_run_engine(dump_name, input_file_name) as i32)
         .unwrap_or(TTHistory::FATAL_ERROR as i32)
 }
 
 pub unsafe fn dvipdfmx_simple_main(
-    mut api: *const tt_bridge_api_t,
+    api: *const tt_bridge_api_t,
     dpx_config: &XdvipdfmxConfig,
     dviname: &str,
     pdfname: &str,
-    mut compress: bool,
-    mut deterministic_tags: bool,
+    compress: bool,
+    deterministic_tags: bool,
 ) -> i32 {
     bridge::tt_with_bridge(api, || {
         dvipdfmx_main(
@@ -73,9 +72,9 @@ pub unsafe fn dvipdfmx_simple_main(
 }
 
 pub unsafe fn bibtex_simple_main(
-    mut api: *const tt_bridge_api_t,
+    api: *const tt_bridge_api_t,
     bibtex_config: &BibtexConfig,
-    mut aux_file_name: *const i8,
+    aux_file_name: *const i8,
 ) -> i32 {
     bridge::tt_with_bridge(api, || bibtex_main(bibtex_config, aux_file_name) as i32).unwrap_or(99)
 }
@@ -100,10 +99,10 @@ mod core_memory {
     You should have received a copy of the GNU Lesser General Public License
     along with this library; if not, see <http://www.gnu.org/licenses/>.  */
     #[no_mangle]
-    pub(crate) unsafe fn xcalloc(mut nelem: size_t, mut elsize: size_t) -> *mut libc::c_void {
+    pub(crate) unsafe fn xcalloc(nelem: size_t, elsize: size_t) -> *mut libc::c_void {
         let nelem = nelem as libc::size_t; //FIXME
         let elsize = elsize as libc::size_t; //FIXME
-        let mut new_mem: *mut libc::c_void = libc::calloc(
+        let new_mem: *mut libc::c_void = libc::calloc(
             if nelem != 0 { nelem } else { 1 },
             if elsize != 0 { elsize } else { 1 },
         );
@@ -116,20 +115,17 @@ mod core_memory {
         new_mem
     }
     #[no_mangle]
-    pub(crate) unsafe fn xmalloc(mut size: size_t) -> *mut libc::c_void {
+    pub(crate) unsafe fn xmalloc(size: size_t) -> *mut libc::c_void {
         let size = size as libc::size_t; //FIXME
 
-        let mut new_mem: *mut libc::c_void = libc::malloc(if size != 0 { size } else { 1 });
+        let new_mem: *mut libc::c_void = libc::malloc(if size != 0 { size } else { 1 });
         if new_mem.is_null() {
             panic!("xmalloc request for {} bytes failed", size,);
         }
         new_mem
     }
     #[no_mangle]
-    pub(crate) unsafe fn xrealloc(
-        mut old_ptr: *mut libc::c_void,
-        mut size: size_t,
-    ) -> *mut libc::c_void {
+    pub(crate) unsafe fn xrealloc(old_ptr: *mut libc::c_void, size: size_t) -> *mut libc::c_void {
         let size = size as libc::size_t; //FIXME
         let mut new_mem: *mut libc::c_void = 0 as *mut libc::c_void;
         if old_ptr.is_null() {
@@ -142,8 +138,8 @@ mod core_memory {
         }
         new_mem
     }
-    pub(crate) unsafe fn strdup(mut s: &str) -> *mut i8 {
-        let mut new_string: *mut i8 = xmalloc((s.len() + 1) as size_t) as *mut i8;
+    pub(crate) unsafe fn strdup(s: &str) -> *mut i8 {
+        let new_string = xmalloc((s.len() + 1) as size_t) as *mut i8;
         let s = std::ffi::CString::new(s).unwrap();
         libc::strcpy(new_string, s.as_ptr())
     }

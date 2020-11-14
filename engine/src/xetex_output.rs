@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use super::xetex_consts::{
@@ -65,7 +64,7 @@ pub(crate) unsafe fn print_ln() {
         }
     };
 }
-pub(crate) unsafe fn print_raw_char(mut s: UTF16_code, mut incr_offset: bool) {
+pub(crate) unsafe fn print_raw_char(s: UTF16_code, incr_offset: bool) {
     match selector {
         Selector::TERM_AND_LOG => {
             let stdout = rust_stdout.as_mut().unwrap();
@@ -188,7 +187,7 @@ pub(crate) unsafe fn print_char(s: i32) {
         print_raw_char((128 + s % 64) as UTF16_code, true);
     };
 }
-pub(crate) unsafe fn print(mut s: i32) {
+pub(crate) unsafe fn print(s: i32) {
     let mut nl: i32 = 0;
     if s >= str_ptr {
         return print_cstr("???");
@@ -226,7 +225,7 @@ pub(crate) unsafe fn print_cstr(slice: &str) {
         print_char(s as i32);
     }
 }
-pub(crate) unsafe fn print_nl(mut s: str_number) {
+pub(crate) unsafe fn print_nl(s: str_number) {
     if term_offset > 0 && u8::from(selector) & 1 != 0
         || file_offset > 0 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
     {
@@ -242,15 +241,15 @@ pub(crate) unsafe fn print_nl_cstr(slice: &str) {
     }
     print_cstr(slice);
 }
-pub(crate) unsafe fn print_esc(mut s: str_number) {
-    let mut c = get_int_par(IntPar::escape_char);
+pub(crate) unsafe fn print_esc(s: str_number) {
+    let c = get_int_par(IntPar::escape_char);
     if c >= 0 && c <= BIGGEST_USV as i32 {
         print_char(c);
     }
     print(s);
 }
 pub(crate) unsafe fn print_esc_cstr(s: &str) {
-    let mut c = get_int_par(IntPar::escape_char);
+    let c = get_int_par(IntPar::escape_char);
     if c >= 0 && c <= BIGGEST_USV as i32 {
         print_char(c);
     }
@@ -296,7 +295,7 @@ pub(crate) unsafe fn print_int(mut n: i32) {
     }
     print_the_digs(k);
 }
-pub(crate) unsafe fn print_cs(mut p: i32) {
+pub(crate) unsafe fn print_cs(p: i32) {
     if p < HASH_BASE as i32 {
         if p >= SINGLE_BASE as i32 {
             if p == NULL_CS as i32 {
@@ -324,7 +323,7 @@ pub(crate) unsafe fn print_cs(mut p: i32) {
         print_chr(' ');
     };
 }
-pub(crate) unsafe fn sprint_cs(mut p: i32) {
+pub(crate) unsafe fn sprint_cs(p: i32) {
     if p < HASH_BASE as i32 {
         if p < SINGLE_BASE as i32 {
             print_char(p - 1);
@@ -420,7 +419,7 @@ pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
         print_char(quote_char);
     };
 }
-pub(crate) unsafe fn print_size(mut s: i32) {
+pub(crate) unsafe fn print_size(s: i32) {
     if s == TEXT_SIZE as i32 {
         print_esc_cstr("textfont");
     } else if s == SCRIPT_SIZE as i32 {

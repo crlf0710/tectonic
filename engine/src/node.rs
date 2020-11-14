@@ -342,7 +342,7 @@ impl Insertion {
         self.0
     }
     pub(crate) unsafe fn new_node() -> Self {
-        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+        let p = crate::xetex_xetex0::get_node(Self::SIZE);
         MEM[p].b16.s1 = Self::NODE;
         Self(p)
     }
@@ -456,7 +456,7 @@ impl Adjust {
         self.0
     }
     pub(crate) unsafe fn new_node() -> Self {
-        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+        let p = crate::xetex_xetex0::get_node(Self::SIZE);
         MEM[p].b16.s1 = Self::NODE;
         Self(p)
     }
@@ -542,7 +542,7 @@ impl Discretionary {
         self.0
     }
     pub(crate) unsafe fn new_node() -> Self {
-        let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+        let p = crate::xetex_xetex0::get_node(Self::SIZE);
         MEM[p].b16.s1 = Self::NODE;
         Self(p)
     }
@@ -648,7 +648,7 @@ pub(crate) mod whatsit {
             self.0
         }
         pub(crate) unsafe fn new_node() -> Self {
-            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            let p = crate::xetex_xetex0::get_node(Self::SIZE);
             MEM[p].b16.s1 = Self::NODE;
             MEM[p].b16.s0 = Self::WHATS_IT;
             Self(p)
@@ -698,7 +698,7 @@ pub(crate) mod whatsit {
             self.0
         }
         pub(crate) unsafe fn new_node() -> Self {
-            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            let p = crate::xetex_xetex0::get_node(Self::SIZE);
             MEM[p].b16.s1 = Self::NODE;
             MEM[p].b16.s0 = Self::WHATS_IT;
             Self(p)
@@ -735,7 +735,7 @@ pub(crate) mod whatsit {
             self.0
         }
         pub(crate) unsafe fn new_node() -> Self {
-            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            let p = crate::xetex_xetex0::get_node(Self::SIZE);
             MEM[p].b16.s1 = Self::NODE;
             MEM[p].b16.s0 = Self::WHATS_IT;
             Self(p)
@@ -764,7 +764,7 @@ pub(crate) mod whatsit {
             self.0
         }
         pub(crate) unsafe fn new_node() -> Self {
-            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            let p = crate::xetex_xetex0::get_node(Self::SIZE);
             MEM[p].b16.s1 = Self::NODE;
             MEM[p].b16.s0 = Self::WHATS_IT;
             Self(p)
@@ -810,7 +810,7 @@ pub(crate) mod whatsit {
             self.0
         }
         pub(crate) unsafe fn new_node() -> Self {
-            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            let p = crate::xetex_xetex0::get_node(Self::SIZE);
             MEM[p].b16.s1 = Self::NODE;
             MEM[p].b16.s0 = Self::WHATS_IT;
             Self(p)
@@ -926,7 +926,7 @@ pub(crate) mod whatsit {
             Self(BaseBox(p))
         }
         pub(crate) unsafe fn new_node() -> Self {
-            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            let p = crate::xetex_xetex0::get_node(Self::SIZE);
             MEM[p].b16.s1 = Self::NODE;
             MEM[p].b16.s0 = Self::WHATS_IT;
             Self::from(p)
@@ -967,7 +967,7 @@ pub(crate) mod whatsit {
             Self(BaseBox(p))
         }
         pub(crate) unsafe fn new_pic_node(len: usize) -> Self {
-            let mut p = crate::xetex_xetex0::get_node(Self::total_size(len) as i32);
+            let p = crate::xetex_xetex0::get_node(Self::total_size(len) as i32);
             MEM[p].b16.s1 = Self::NODE;
             MEM[p].b16.s0 = Self::WHATS_IT_PIC;
             let mut n = Self::from(p);
@@ -975,7 +975,7 @@ pub(crate) mod whatsit {
             n
         }
         pub(crate) unsafe fn new_pdf_node(len: usize) -> Self {
-            let mut p = crate::xetex_xetex0::get_node(Self::total_size(len) as i32);
+            let p = crate::xetex_xetex0::get_node(Self::total_size(len) as i32);
             MEM[p].b16.s1 = Self::NODE;
             MEM[p].b16.s0 = Self::WHATS_IT_PDF;
             let mut n = Self::from(p);
@@ -1064,7 +1064,7 @@ pub(crate) mod whatsit {
             self.0
         }
         pub(crate) unsafe fn new_node() -> Self {
-            let mut p = crate::xetex_xetex0::get_node(Self::SIZE);
+            let p = crate::xetex_xetex0::get_node(Self::SIZE);
             MEM[p].b16.s1 = Self::NODE;
             MEM[p].b16.s0 = Self::WHATS_IT;
             Self(p)

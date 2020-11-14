@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use std::ffi::CString;
@@ -118,7 +117,7 @@ fn IS_LC_HEX(c: i32) -> bool {
     (c >= ('0' as i32) && c <= ('9' as i32)) || (c >= ('a' as i32) && c <= ('f' as i32))
 }
 
-unsafe fn int_error(mut n: i32) {
+unsafe fn int_error(n: i32) {
     print_cstr(" (");
     print_int(n);
     print_chr(')');
@@ -152,7 +151,7 @@ pub(crate) unsafe fn badness(t: Scaled, s: Scaled) -> i32 {
 
 /*:112*/
 /*118:*/
-pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, mut l: i32) {
+pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
     let mut n: UTF16_code = 0;
     let mut match_chr = '#' as i32;
     n = '0' as UTF16_code;
@@ -294,7 +293,7 @@ pub(crate) unsafe fn flush_list(p: Option<usize>) {
         avail = Some(p);
     };
 }
-pub(crate) unsafe fn get_node(mut s: i32) -> usize {
+pub(crate) unsafe fn get_node(s: i32) -> usize {
     'restart: loop {
         let mut p = rover;
         loop {
@@ -374,7 +373,7 @@ pub(crate) unsafe fn get_node(mut s: i32) -> usize {
         r
     }
 }
-pub(crate) unsafe fn free_node(p: usize, mut s: i32) {
+pub(crate) unsafe fn free_node(p: usize, s: i32) {
     MEM[p].b32.s0 = s;
     *LLIST_link(p) = MAX_HALFWORD;
     let q = MEM[(rover + 1) as usize].b32.s0;
@@ -406,7 +405,7 @@ pub(crate) unsafe fn new_rule() -> Rule {
         .set_height(NULL_FLAG);
     p
 }
-pub(crate) unsafe fn new_ligature(mut f: internal_font_number, mut c: u16, mut q: i32) -> usize {
+pub(crate) unsafe fn new_ligature(f: internal_font_number, c: u16, q: i32) -> usize {
     let mut p = Ligature(get_node(SMALL_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::Ligature);
     p.set_font(f as u16)
@@ -415,7 +414,7 @@ pub(crate) unsafe fn new_ligature(mut f: internal_font_number, mut c: u16, mut q
         .set_hits(false, false);
     p.ptr()
 }
-pub(crate) unsafe fn new_lig_item(mut c: u16) -> usize {
+pub(crate) unsafe fn new_lig_item(c: u16) -> usize {
     let p = get_node(SMALL_NODE_SIZE);
     MEM[p].b16.s0 = c;
     MEM[p + 1].b32.s1 = None.tex_int();
@@ -599,7 +598,7 @@ pub(crate) unsafe fn print_font_and_char(p: usize) {
         print(MEM[p].b16.s0 as i32);
     };
 }
-pub(crate) unsafe fn print_mark(mut p: i32) {
+pub(crate) unsafe fn print_mark(p: i32) {
     print_chr('{');
     if p < hi_mem_min || p > mem_end {
         print_esc_cstr("CLOBBERED.");
@@ -670,7 +669,7 @@ pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
         print_hex(a);
     };
 }
-pub(crate) unsafe fn print_subsidiary_data(p: usize, mut c: UTF16_code) {
+pub(crate) unsafe fn print_subsidiary_data(p: usize, c: UTF16_code) {
     if PoolString::current().len() as i32 >= depth_threshold {
         if MEM[p].b32.s1 != 0 {
             print_cstr(" []");
@@ -1178,7 +1177,7 @@ pub(crate) unsafe fn show_box(p: Option<usize>) {
     show_node_list(p);
     print_ln();
 }
-pub(crate) unsafe fn short_display_n(p: Option<usize>, mut m: i32) {
+pub(crate) unsafe fn short_display_n(p: Option<usize>, m: i32) {
     breadth_max = m;
     depth_threshold = (pool_size as i32) - (pool_ptr as i32) - 1;
     show_node_list(p);
@@ -1256,7 +1255,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     WhatsIt::PdfSavePos(p) => p.free(),
                 },
                 TxtNode::Glue(p) => {
-                    let mut g = GlueSpec(p.glue_ptr() as usize);
+                    let g = GlueSpec(p.glue_ptr() as usize);
                     if let Some(_rc) = g.rc().opt() {
                         g.rc_dec();
                     } else {
@@ -1487,7 +1486,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
     avail = Some(h);
     q
 }
-pub(crate) unsafe fn print_mode(mut m: (bool, ListMode)) {
+pub(crate) unsafe fn print_mode(m: (bool, ListMode)) {
     match m {
         (_, ListMode::NoMode) => print_cstr("no mode"),
         (false, ListMode::VMode) => print_cstr("vertical mode"),
@@ -1538,7 +1537,7 @@ pub(crate) unsafe fn show_activities() {
     let for_end = 0;
     if p >= for_end {
         loop {
-            let mut m = NEST[p].mode;
+            let m = NEST[p].mode;
             let a = NEST[p].aux;
             print_nl_cstr("### ");
             print_mode(m);
@@ -1766,7 +1765,7 @@ where
     selector = oldsetting;
 }
 
-pub(crate) unsafe fn print_length_param(mut n: DimenPar) {
+pub(crate) unsafe fn print_length_param(n: DimenPar) {
     use DimenPar::*;
     match n {
         par_indent => print_esc_cstr("parindent"),
@@ -1794,7 +1793,7 @@ pub(crate) unsafe fn print_length_param(mut n: DimenPar) {
         pdf_page_height => print_esc_cstr("pdfpageheight"),
     }
 }
-pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
+pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
     let mut font_name_str: str_number = 0;
     let mut quote_char: UTF16_code = 0;
     match cmd {
@@ -2506,7 +2505,7 @@ pub(crate) unsafe fn print_cmd_chr(mut cmd: Cmd, mut chr_code: i32) {
         _ => print_cstr("[unknown command code!]"),
     };
 }
-pub(crate) unsafe fn not_aat_font_error(cmd: Cmd, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_aat_font_error(cmd: Cmd, c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2519,7 +2518,7 @@ pub(crate) unsafe fn not_aat_font_error(cmd: Cmd, mut c: i32, f: usize) {
     print_cstr("; not an AAT font");
     error();
 }
-pub(crate) unsafe fn not_aat_gr_font_error(cmd: Cmd, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_aat_gr_font_error(cmd: Cmd, c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2532,7 +2531,7 @@ pub(crate) unsafe fn not_aat_gr_font_error(cmd: Cmd, mut c: i32, f: usize) {
     print_cstr("; not an AAT or Graphite font");
     error();
 }
-pub(crate) unsafe fn not_ot_font_error(cmd: Cmd, mut c: i32, f: usize) {
+pub(crate) unsafe fn not_ot_font_error(cmd: Cmd, c: i32, f: usize) {
     if file_line_error_style_p != 0 {
         print_file_line();
     } else {
@@ -2559,7 +2558,7 @@ pub(crate) unsafe fn not_native_font_error(cmd: Cmd, c: i32, f: usize) {
     error();
 }
 /*:1434*/
-pub(crate) unsafe fn id_lookup(mut j: usize, mut l: usize) -> i32 {
+pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
     let mut h = 0;
     for k in j..=j + l - 1 {
         h = h + h + BUFFER[k as usize];
@@ -2634,7 +2633,7 @@ pub(crate) unsafe fn id_lookup(mut j: usize, mut l: usize) -> i32 {
     }
     p
 }
-pub(crate) unsafe fn prim_lookup(mut s: str_number) -> usize {
+pub(crate) unsafe fn prim_lookup(s: str_number) -> usize {
     let mut l = 0;
     let mut p = if s <= BIGGEST_CHAR {
         if s < 0 {
@@ -2784,7 +2783,7 @@ pub(crate) unsafe fn pseudo_input(input: &mut input_state_t) -> bool {
     }
 }
 pub(crate) unsafe fn pseudo_close() {
-    let mut p = MEM[pseudo_files as usize].b32.s1;
+    let p = MEM[pseudo_files as usize].b32.s1;
     let mut q = MEM[pseudo_files as usize].b32.s0.opt();
     MEM[pseudo_files as usize].b32.s1 = avail.tex_int();
     avail = pseudo_files.opt();
@@ -2952,7 +2951,7 @@ pub(crate) unsafe fn delete_sa_ref(mut q: usize) {
 /*:1609*/
 /*1611: */
 pub(crate) unsafe fn sa_save(p: usize) {
-    let mut q: usize;
+    let q: usize;
     let mut i: u16 = 0;
     if cur_level as i32 != sa_level as i32 {
         if SAVE_PTR > MAX_SAVE_STACK {
@@ -3015,7 +3014,7 @@ pub(crate) unsafe fn sa_def(p: usize, e: Option<usize>) {
     }
     delete_sa_ref(p);
 }
-pub(crate) unsafe fn sa_w_def(p: usize, mut w: i32) {
+pub(crate) unsafe fn sa_w_def(p: usize, w: i32) {
     MEM[p + 1].b32.s0 += 1;
     if !(MEM[p + 2].b32.s1 == w) {
         if MEM[p].b16.s0 as i32 != cur_level as i32 {
@@ -3164,7 +3163,7 @@ pub(crate) unsafe fn geq_word_define(p: usize, w: i32) {
     EQTB[p].val = w;
     _xeq_level_array[p - (INT_BASE as usize)] = LEVEL_ONE;
 }
-pub(crate) unsafe fn save_for_after(mut t: i32) {
+pub(crate) unsafe fn save_for_after(t: i32) {
     if cur_level > LEVEL_ONE {
         if SAVE_PTR > MAX_SAVE_STACK {
             MAX_SAVE_STACK = SAVE_PTR;
@@ -4871,7 +4870,7 @@ pub(crate) unsafe fn new_index(i: u16, q: Option<usize>) -> usize {
     }
     p.ptr()
 }
-pub(crate) unsafe fn find_sa_element(t: ValLevel, mut n: i32, mut w: bool) {
+pub(crate) unsafe fn find_sa_element(t: ValLevel, n: i32, w: bool) {
     cur_ptr = sa_root[t as usize];
     if cur_ptr.is_none() {
         if w {
@@ -5384,7 +5383,7 @@ pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &[u8]) -> bool {
     let mut p = BACKUP_HEAD;
     *LLIST_link(p) = None.tex_int();
     if s.len() == 1 {
-        let mut c: i8 = s[0] as i8;
+        let c: i8 = s[0] as i8;
         loop {
             let (tok, cmd, chr, cs) = get_x_token(input);
             if cs == 0 && (chr == c as i32 || chr == c as i32 - 32) {
@@ -5586,7 +5585,7 @@ pub(crate) unsafe fn scan_xetex_math_char_int(input: &mut input_state_t) -> i32 
 pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usize) {
     let mut c: i32 = 0;
     'c_118470: loop {
-        let (mut tok, mut cmd, mut chr, mut cs) = loop {
+        let (tok, mut cmd, mut chr, mut cs) = loop {
             /*422:*/
             let next = get_x_token(input);
             if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
@@ -5645,7 +5644,7 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
                         let val = scan_usv_num(input);
                         c = c + val;
                     } else {
-                        let mut val = scan_delimiter_int(input);
+                        let val = scan_delimiter_int(input);
                         c = val / 4096;
                         c = set_class(c / 4096) + set_family((c % 4096) / 256) + (c % 256);
                     }
@@ -5674,7 +5673,7 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
     };
     m.val.chr.font = (font as i64 + ((math_char(c) as i64) / 65536) * 256) as u16;
 }
-pub(crate) unsafe fn set_math_char(input: &mut input_state_t, chr: i32, mut c: i32) {
+pub(crate) unsafe fn set_math_char(input: &mut input_state_t, chr: i32, c: i32) {
     let mut ch: UnicodeScalar = 0;
     if math_char(c) == ACTIVE_MATH_CHAR as u32 {
         /*1187: */
@@ -5855,11 +5854,7 @@ pub(crate) unsafe fn get_x_or_protected(input: &mut input_state_t) -> (i32, Cmd,
         expand(input, cmd, chr, cs);
     }
 }
-pub(crate) unsafe fn effective_char(
-    mut _err_p: bool,
-    mut f: internal_font_number,
-    mut c: u16,
-) -> i32 {
+pub(crate) unsafe fn effective_char(mut _err_p: bool, f: internal_font_number, mut c: u16) -> i32 {
     if !xtx_ligature_present && !(FONT_MAPPING[f]).is_null() {
         c = apply_tfm_font_mapping(FONT_MAPPING[f], c as i32) as u16
     }
@@ -5902,7 +5897,7 @@ pub(crate) unsafe fn find_font_dimen(input: &mut input_state_t, writing: bool) -
     let mut n: i32 = 0;
     n = scan_int(input);
     let val = scan_font_ident(input);
-    let mut f = val as usize;
+    let f = val as usize;
     let val = if n <= 0 {
         fmem_ptr
     } else {
@@ -5960,7 +5955,7 @@ pub(crate) unsafe fn scan_something_internal(
     cmd: Cmd,
     chr: i32,
     level: ValLevel,
-    mut negative: bool,
+    negative: bool,
 ) -> (i32, ValLevel) {
     let (mut val, mut val_level) = match cmd {
         Cmd::DefCode => {
@@ -7024,10 +7019,10 @@ unsafe fn round_decimals(mut k: i16) -> Scaled {
 }
 pub(crate) unsafe fn xetex_scan_dimen(
     input: &mut input_state_t,
-    mut mu: bool,
-    mut inf: bool,
+    mu: bool,
+    inf: bool,
     shortcut: Option<i32>,
-    mut requires_units: bool,
+    requires_units: bool,
 ) -> Scaled {
     let mut f = Scaled::ZERO;
     arith_error = false;
@@ -7380,8 +7375,8 @@ pub(crate) unsafe fn xetex_scan_dimen(
 }
 pub(crate) unsafe fn scan_dimen(
     input: &mut input_state_t,
-    mut mu: bool,
-    mut inf: bool,
+    mu: bool,
+    inf: bool,
     shortcut: Option<i32>,
 ) -> Scaled {
     xetex_scan_dimen(input, mu, inf, shortcut, true)
@@ -7453,12 +7448,7 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> Gl
     q
     /*:481*/
 }
-pub(crate) unsafe fn add_or_sub(
-    mut x: i32,
-    mut y: i32,
-    mut max_answer: i32,
-    mut negative: bool,
-) -> i32 {
+pub(crate) unsafe fn add_or_sub(x: i32, mut y: i32, max_answer: i32, negative: bool) -> i32 {
     let mut a = 0;
     if negative {
         y = -y
@@ -7507,7 +7497,7 @@ pub(crate) unsafe fn quotient(mut n: i32, mut d: i32) -> i32 {
     }
     a
 }
-pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, mut max_answer: i32) -> i32 {
+pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) -> i32 {
     fn too_big() -> i32 {
         unsafe {
             arith_error = true;
@@ -7609,7 +7599,7 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
     let mut t: i32 = 0;
     let mut n: i32 = 0;
     let mut l = *val_level;
-    let mut a = arith_error;
+    let a = arith_error;
     let mut b = false;
     let mut p = None.tex_int();
     'c_78022: loop {
@@ -7871,9 +7861,9 @@ pub(crate) unsafe fn scan_rule_spec(input: &mut input_state_t, cmd: Cmd) -> Rule
 }
 pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i32 {
     let mut unbalance: i32 = 0;
-    let mut s = scanner_status;
-    let mut w = warning_index;
-    let mut d = def_ref;
+    let s = scanner_status;
+    let w = warning_index;
+    let d = def_ref;
     scanner_status = ScannerStatus::Absorbing;
     warning_index = cs;
     def_ref = get_avail();
@@ -7918,11 +7908,11 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
-    let mut s = make_string();
+    let s = make_string();
     str_pool[pool_ptr] = ' ' as i32 as packed_UTF16_code;
     let ps = PoolString::from(s);
-    let mut nl = get_int_par(IntPar::new_line_char);
-    let mut p = get_avail();
+    let nl = get_int_par(IntPar::new_line_char);
+    let p = get_avail();
     let mut q = p;
 
     for chunk in ps.as_slice().split(|&c| c as i32 == nl) {
@@ -7979,7 +7969,7 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
         input.synctex_tag = 0;
     };
 }
-pub(crate) unsafe fn str_toks_cat(mut buf: &[u16], mut cat: i16) -> usize {
+pub(crate) unsafe fn str_toks_cat(buf: &[u16], cat: i16) -> usize {
     let mut p = TEMP_HEAD;
     *LLIST_link(p) = None.tex_int();
     for c in std::char::decode_utf16(buf.iter().cloned()) {
@@ -8004,7 +7994,7 @@ pub(crate) unsafe fn str_toks_cat(mut buf: &[u16], mut cat: i16) -> usize {
     }
     p
 }
-pub(crate) unsafe fn str_toks(mut b: usize) -> usize {
+pub(crate) unsafe fn str_toks(b: usize) -> usize {
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
@@ -8417,8 +8407,8 @@ pub(crate) unsafe fn conv_toks(
 pub(crate) unsafe fn scan_toks(
     input: &mut input_state_t,
     cs: i32,
-    mut macro_def: bool,
-    mut xpand: bool,
+    macro_def: bool,
+    xpand: bool,
 ) -> usize {
     let mut s: i32 = 0;
     let mut unbalance: i32 = 0;
@@ -8619,12 +8609,7 @@ pub(crate) unsafe fn scan_toks(
         }
     }
 }
-pub(crate) unsafe fn read_toks(
-    input: &mut input_state_t,
-    mut n: i32,
-    mut r: i32,
-    mut j: i32,
-) -> i32 {
+pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32) -> i32 {
     let mut s: i32 = 0;
     let mut m: i16 = 0;
     scanner_status = ScannerStatus::Defining;
@@ -8789,7 +8774,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
         }
     }
 
-    let mut p = get_node(IF_NODE_SIZE);
+    let p = get_node(IF_NODE_SIZE);
     *LLIST_link(p) = cond_ptr.tex_int();
     MEM[p].b16.s1 = if_limit as u16;
     MEM[p].b16.s0 = cur_if as u16;
@@ -8799,9 +8784,9 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
     if_limit = FiOrElseCode::If;
     if_line = line;
 
-    let mut save_cond_ptr = cond_ptr;
-    let mut is_unless = chr >= UNLESS_CODE;
-    let mut this_if = IfTestCode::n((chr % UNLESS_CODE) as u8).unwrap();
+    let save_cond_ptr = cond_ptr;
+    let is_unless = chr >= UNLESS_CODE;
+    let this_if = IfTestCode::n((chr % UNLESS_CODE) as u8).unwrap();
 
     match this_if {
         IfTestCode::IfChar | IfTestCode::IfCat => {
@@ -9385,7 +9370,7 @@ pub(crate) unsafe fn open_log_file() {
 ///
 /// Let's turn now to the procedure that is used to initiate file reading
 /// when an `\input` command is being processed.
-pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_name: *const i8) {
+pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: *const i8) {
     let mut format = TTInputFormat::TEX;
     if !primary_input_name.is_null() {
         /* If this is the case, we're opening the primary input file, and the
@@ -9410,7 +9395,7 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
                     break;
                 }
                 cp = cp.offset(1);
-                let mut extraBytes: u16 = bytesFromUTF8[rval as usize] as u16;
+                let extraBytes: u16 = bytesFromUTF8[rval as usize] as u16;
                 if extraBytes < 6 {
                     for _ in 0..extraBytes {
                         rval <<= 6i32;
@@ -9526,14 +9511,14 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, mut primary_input_na
     // start with a |get|. If the file is empty, it is considered to
     // contain a single blank line.
 }
-pub(crate) unsafe fn effective_char_info(mut f: internal_font_number, mut c: u16) -> b16x4 {
+pub(crate) unsafe fn effective_char_info(f: internal_font_number, mut c: u16) -> b16x4 {
     if !xtx_ligature_present && !(FONT_MAPPING[f]).is_null() {
         c = apply_tfm_font_mapping(FONT_MAPPING[f], c as i32) as u16
     }
     xtx_ligature_present = false;
     FONT_CHARACTER_INFO(f, c as usize)
 }
-pub(crate) unsafe fn char_warning(mut f: internal_font_number, mut c: i32) {
+pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
     if get_int_par(IntPar::tracing_lost_chars) > 0 {
         let old_setting = get_int_par(IntPar::tracing_online);
         if get_int_par(IntPar::tracing_lost_chars) > 1 {
@@ -9680,7 +9665,7 @@ pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u
         print_cstr("\'.");
     });
 }
-pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, mut warningType: i32) {
+pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) {
     diagnostic(false, || {
         if warningType == 0i32 {
             print_nl_cstr("Loaded mapping `");
@@ -9782,10 +9767,7 @@ pub(crate) unsafe fn get_tracing_fonts_state() -> i32 {
     get_int_par(IntPar::xetex_tracing_fonts)
 }
 
-pub(crate) unsafe fn new_character(
-    mut f: internal_font_number,
-    mut c: UTF16_code,
-) -> Option<usize> {
+pub(crate) unsafe fn new_character(f: internal_font_number, c: UTF16_code) -> Option<usize> {
     let mut ec: u16 = 0;
     if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
         return Some(new_native_character(f, c as UnicodeScalar).ptr());
@@ -9804,11 +9786,7 @@ pub(crate) unsafe fn new_character(
     char_warning(f, c as i32);
     None
 }
-pub(crate) unsafe fn scan_spec(
-    input: &mut input_state_t,
-    c: GroupCode,
-    mut three_codes: bool,
-) -> Cmd {
+pub(crate) unsafe fn scan_spec(input: &mut input_state_t, c: GroupCode, three_codes: bool) -> Cmd {
     let mut s: i32 = 0;
     let mut spec_code: PackMode = PackMode::Exactly;
     if three_codes {
@@ -10313,8 +10291,8 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
 pub(crate) unsafe fn vpackage(
     mut popt: Option<usize>,
     mut h: Scaled,
-    mut m: PackMode,
-    mut l: Scaled,
+    m: PackMode,
+    l: Scaled,
 ) -> List {
     last_badness = 0;
     let mut r = List::from(get_node(BOX_NODE_SIZE) as usize);
@@ -10523,13 +10501,13 @@ pub(crate) unsafe fn new_noad() -> usize {
     let p = get_node(NOAD_SIZE);
     MEM[p].b16.s1 = MathNode::Ord as u16;
     MEM[p].b16.s0 = NORMAL;
-    let mut p = BaseMath(p);
+    let p = BaseMath(p);
     p.nucleus_mut().empty();
     p.subscr_mut().empty();
     p.supscr_mut().empty();
     p.ptr()
 }
-pub(crate) unsafe fn new_style(mut s: i16) -> usize {
+pub(crate) unsafe fn new_style(s: i16) -> usize {
     let p = get_node(STYLE_NODE_SIZE);
     set_NODE_type(p, TextNode::Style);
     MEM[p].b16.s0 = s as u16;
@@ -11393,7 +11371,7 @@ pub(crate) unsafe fn align_peek(input: &mut input_state_t) {
 pub(crate) unsafe fn max_hyphenatable_length() -> usize {
     (get_int_par(IntPar::xetex_hyphenatable_length) as usize).min(HYPHENATABLE_LENGTH_LIMIT)
 }
-pub(crate) unsafe fn eTeX_enabled(mut b: bool, j: Cmd, mut k: i32) -> bool {
+pub(crate) unsafe fn eTeX_enabled(b: bool, j: Cmd, k: i32) -> bool {
     if !b {
         if file_line_error_style_p != 0 {
             print_file_line();
@@ -11608,7 +11586,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
         a = new_a;
     }
 }
-pub(crate) unsafe fn vert_break(mut p: i32, mut h: Scaled, mut d: Scaled) -> i32 {
+pub(crate) unsafe fn vert_break(mut p: i32, h: Scaled, d: Scaled) -> i32 {
     let mut best_place = None;
     let mut prev_p = p;
     let mut least_cost = MAX_HALFWORD;
@@ -11650,7 +11628,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: Scaled, mut d: Scaled) -> i32
                         }
                         _ => {}
                     }
-                    let mut q = GlueSpec(g.glue_ptr() as usize); /*:1011 */
+                    let q = GlueSpec(g.glue_ptr() as usize); /*:1011 */
                     match q.stretch_order() {
                         GlueOrder::Normal => active_width.stretch0 += q.stretch(),
                         GlueOrder::Fil => active_width.stretch1 += q.stretch(),
@@ -11791,7 +11769,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, mut h: Scaled, mut d: Scaled) -> i32
         false
     }
 }
-pub(crate) unsafe fn vsplit(mut n: i32, mut h: Scaled) -> Option<usize> {
+pub(crate) unsafe fn vsplit(n: i32, h: Scaled) -> Option<usize> {
     let val = n;
     let v = if val < 256 {
         get_box_reg(val as usize)
@@ -11934,7 +11912,7 @@ pub(crate) unsafe fn print_totals() {
         print_scaled(page_so_far[6]);
     };
 }
-pub(crate) unsafe fn box_error(mut n: u8) {
+pub(crate) unsafe fn box_error(n: u8) {
     error();
     diagnostic(true, || {
         print_nl_cstr("The following box has been deleted:");
@@ -11948,7 +11926,7 @@ pub(crate) unsafe fn app_space() {
     if cur_list.aux.b32.s0 >= 2000 && get_glue_par(GluePar::xspace_skip).ptr() != 0 {
         q = new_param_glue(GluePar::xspace_skip)
     } else {
-        let mut main_p = if get_glue_par(GluePar::space_skip).ptr() != 0 {
+        let main_p = if get_glue_par(GluePar::space_skip).ptr() != 0 {
             get_glue_par(GluePar::space_skip)
         } else {
             /*1077: */
@@ -12189,7 +12167,7 @@ pub(crate) unsafe fn normal_paragraph() {
  * a `\setbox<N>`; (3) GLOBAL_BOX_FLAG+N, signifying `\global\setbox<N>`; (4)
  * SHIP_OUT_FLAG, signifying `\shipout`; or (5) LEADER_FLAG+k, signifying (in
  * order) `\leaders`, `\cleaders`, or `\xleaders`. */
-pub(crate) unsafe fn box_end(input: &mut input_state_t, mut box_context: i32) {
+pub(crate) unsafe fn box_end(input: &mut input_state_t, box_context: i32) {
     if box_context < BOX_FLAG {
         /*1111:*/
         if let Some(mut cb) = cur_box {
@@ -12285,12 +12263,7 @@ pub(crate) unsafe fn box_end(input: &mut input_state_t, mut box_context: i32) {
         }
     };
 }
-pub(crate) unsafe fn begin_box(
-    input: &mut input_state_t,
-    cmd: Cmd,
-    chr: i32,
-    mut box_context: i32,
-) {
+pub(crate) unsafe fn begin_box(input: &mut input_state_t, cmd: Cmd, chr: i32, box_context: i32) {
     match BoxCode::n(chr as u8).unwrap() {
         BoxCode::Box => {
             let val = scan_register_num(input);
@@ -12461,7 +12434,7 @@ pub(crate) unsafe fn begin_box(
     }
     box_end(input, box_context);
 }
-pub(crate) unsafe fn scan_box(input: &mut input_state_t, mut box_context: i32) {
+pub(crate) unsafe fn scan_box(input: &mut input_state_t, box_context: i32) {
     let (tok, cmd, chr, _) = loop {
         let next = get_x_token(input);
         if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
@@ -12536,7 +12509,7 @@ pub(crate) unsafe fn package(input: &mut input_state_t, c: i16) {
     pop_nest();
     box_end(input, SAVE_STACK[SAVE_PTR + 0].val);
 }
-pub(crate) unsafe fn norm_min(mut h: i32) -> i16 {
+pub(crate) unsafe fn norm_min(h: i32) -> i16 {
     (if h <= 0 {
         1
     } else if h >= 63 {
@@ -12545,7 +12518,7 @@ pub(crate) unsafe fn norm_min(mut h: i32) -> i16 {
         h
     }) as i16
 }
-pub(crate) unsafe fn new_graf(input: &mut input_state_t, mut indented: bool) {
+pub(crate) unsafe fn new_graf(input: &mut input_state_t, indented: bool) {
     cur_list.prev_graf = 0;
     if cur_list.mode == (false, ListMode::VMode) || cur_list.head != cur_list.tail {
         let pg = new_param_glue(GluePar::par_skip);
@@ -13038,8 +13011,8 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
         };
         if let Some(q) = q {
             /*1160: */
-            let mut h;
-            let mut w;
+            let h;
+            let w;
             let t = FONT_INFO[(SLANT_CODE + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.;
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
                 w = NativeWord::from(q).width();
@@ -13209,7 +13182,7 @@ pub(crate) unsafe fn push_math(c: GroupCode) {
     cur_list.aux.b32.s1 = None.tex_int();
     new_save_level(c);
 }
-pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, mut t: i32) {
+pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, t: i32) {
     while let Some(p) = popt {
         let mut r = 0;
         let mut words = 1;
@@ -13455,11 +13428,11 @@ pub(crate) unsafe fn do_register_command(
     input: &mut input_state_t,
     ocmd: Cmd,
     mut ochr: i32,
-    mut a: i16,
+    a: i16,
 ) {
     let mut l: i32 = None.tex_int();
     let mut p = ValLevel::Int;
-    let mut q = ocmd;
+    let q = ocmd;
     let mut e = false;
 
     let mut flag = true;
@@ -13542,7 +13515,7 @@ pub(crate) unsafe fn do_register_command(
         scan_keyword(input, b"by");
     }
     arith_error = false;
-    let mut val = if q < Cmd::Multiply {
+    let val = if q < Cmd::Multiply {
         /*1273:*/
         match p {
             ValLevel::Int | ValLevel::Dimen => {
@@ -13759,13 +13732,13 @@ pub(crate) unsafe fn alter_box_dimen(input: &mut input_state_t, chr: i32) {
         MEM[b + c].b32.s1 = val.0;
     };
 }
-pub(crate) unsafe fn new_font(input: &mut input_state_t, mut a: i16) {
+pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
     let mut s: Scaled = Scaled::ZERO;
     if job_name == 0 {
         open_log_file();
     }
     let u = get_r_token(input).3 as usize;
-    let mut t = if u >= HASH_BASE {
+    let t = if u >= HASH_BASE {
         (*hash.offset(u as isize)).s1
     } else if u >= SINGLE_BASE {
         if u == NULL_CS {
@@ -14299,7 +14272,7 @@ pub(crate) unsafe fn do_extension(
     };
 }
 pub(crate) unsafe fn fix_language() {
-    let mut l: UTF16_code = if get_int_par(IntPar::language) <= 0 {
+    let l: UTF16_code = if get_int_par(IntPar::language) <= 0 {
         0
     } else if get_int_par(IntPar::language) > 255 {
         0
@@ -14526,7 +14499,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
             unsave(input);
             SAVE_PTR -= 1;
             MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32.s1 = MathCell::SubMList as _;
-            let mut p = fin_mlist(None);
+            let p = fin_mlist(None);
             MEM[SAVE_STACK[SAVE_PTR + 0].val as usize].b32.s0 = p;
             if let Some(p) = p.opt() {
                 if llist_link(p).is_none() {
@@ -15028,7 +15001,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             let t = t + val;
                             set_math_char(input, cur_chr, t);
                         } else {
-                            let mut val = scan_delimiter_int(input);
+                            let val = scan_delimiter_int(input);
                             let val = val / 4096;
                             set_math_char(
                                 input,
@@ -15574,11 +15547,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             }
                             if main_ppp == cur_list.tail {
                                 let pp_text = native_pp.text();
-                                let mut native_tail = NativeWord::from(cur_list.tail);
+                                let native_tail = NativeWord::from(cur_list.tail);
                                 let tail_text = native_tail.text();
                                 main_k = pp_text.len() as i32 + 1 + tail_text.len() as i32;
                                 let mut tmp_ptr = new_native_word_node(main_f, main_k);
-                                let mut temp_text = tmp_ptr.text_mut();
+                                let temp_text = tmp_ptr.text_mut();
                                 temp_text[..pp_text.len()].copy_from_slice(&pp_text);
                                 temp_text[pp_text.len()] = ' ' as u16;
                                 temp_text[pp_text.len() + 1..].copy_from_slice(&tail_text);
@@ -16193,7 +16166,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
             }
         }
         let tmp = if get_glue_par(GluePar::space_skip).ptr() == 0 {
-            let mut main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize]
+            let main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize]
                 .opt()
                 .map(|g| GlueSpec(g))
                 .unwrap_or_else(|| {
@@ -16239,12 +16212,12 @@ pub(crate) unsafe fn close_files_and_terminate() {
     }
     print_ln();
 }
-pub(crate) unsafe fn flush_str(mut s: str_number) {
+pub(crate) unsafe fn flush_str(s: str_number) {
     if s == str_ptr - 1 {
         PoolString::flush();
     };
 }
-pub(crate) unsafe fn tokens_to_string(mut p: i32) -> str_number {
+pub(crate) unsafe fn tokens_to_string(p: i32) -> str_number {
     if selector == Selector::NEW_STRING {
         pdf_error(
             "tokens",
@@ -16298,7 +16271,7 @@ pub(crate) unsafe fn compare_strings(input: &mut input_state_t, cs: i32) -> i32 
     };
     done(s1, s2, val)
 }
-pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32 {
+pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, s: bool) -> i32 {
     let mut r: i32 = None.tex_int();
     let mut prev_p = TEMP_HEAD;
     *LLIST_link(TEMP_HEAD) = popt.tex_int();
@@ -16351,7 +16324,7 @@ pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, mut s: bool) -> i32
     }
     *LLIST_link(TEMP_HEAD)
 }
-pub(crate) unsafe fn do_marks(a: MarkMode, mut l: i16, q: usize) -> bool {
+pub(crate) unsafe fn do_marks(a: MarkMode, l: i16, q: usize) -> bool {
     if l < 4 {
         let mut qi = Index(q);
         for i in &mut qi.indexes_mut()[0..16] {
