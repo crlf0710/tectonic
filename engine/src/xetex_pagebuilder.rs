@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use crate::help;
@@ -65,7 +64,7 @@ unsafe fn freeze_page_specs(s: PageContents) {
     least_page_cost = MAX_HALFWORD;
 }
 
-unsafe fn ensure_vbox(mut n: u8) {
+unsafe fn ensure_vbox(n: u8) {
     if let Some(p) = get_box_reg(n as _) {
         if List::from(p).is_horizontal() {
             if file_line_error_style_p != 0 {
@@ -849,7 +848,7 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                         x_over_n(r_pins.height(), 1000).0 * get_count_reg(n as _)
                     };
 
-                    let mut q_spec = GlueSpec(q);
+                    let q_spec = GlueSpec(q);
                     page_so_far[0] -= h + q_spec.size();
                     page_so_far[2 + q_spec.stretch_order() as usize] += q_spec.stretch();
                     page_so_far[6] += q_spec.shrink();

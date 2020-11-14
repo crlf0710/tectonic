@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use crate::xetex_scaledmath::Scaled;
@@ -313,7 +312,7 @@ pub(crate) unsafe fn synctex_terminate(mut _log_opened: bool) {
 /*  Recording the "{..." line.  In *tex.web, use synctex_sheet(pdf_output) at
  *  the very beginning of the ship_out procedure.
  */
-pub(crate) unsafe fn synctex_sheet(mut mag: i32) {
+pub(crate) unsafe fn synctex_sheet(mag: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         if get_int_par(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
@@ -690,7 +689,7 @@ unsafe fn synctex_record_preamble() -> i32 {
     -1i32
 }
 #[inline]
-unsafe fn synctex_record_input(mut tag: i32, name: &str) -> i32 {
+unsafe fn synctex_record_input(tag: i32, name: &str) -> i32 {
     let s = format!("Input:{}:{}\n", tag, name);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
@@ -720,7 +719,7 @@ unsafe fn synctex_record_content() -> i32 {
     -1i32
 }
 #[inline]
-unsafe fn synctex_record_sheet(mut sheet: usize) -> i32 {
+unsafe fn synctex_record_sheet(sheet: usize) -> i32 {
     if 0i32 == synctex_record_anchor() {
         let s = format!("{{{}\n", sheet);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -734,7 +733,7 @@ unsafe fn synctex_record_sheet(mut sheet: usize) -> i32 {
 }
 /*  Recording a "}..." or a ">" line  */
 #[inline]
-unsafe fn synctex_record_teehs(mut sheet: usize) -> i32 {
+unsafe fn synctex_record_teehs(sheet: usize) -> i32 {
     if 0i32 == synctex_record_anchor() {
         let s = format!("}}{}\n", sheet);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
@@ -749,7 +748,7 @@ unsafe fn synctex_record_teehs(mut sheet: usize) -> i32 {
 /*  Recording the "<..." line.  In pdftex.web, use synctex_pdfxform(p) at
  *  the very beginning of the pdf_ship_out procedure.
  */
-pub(crate) unsafe fn synctex_pdfxform(mut p: i32) {
+pub(crate) unsafe fn synctex_pdfxform(p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         if get_int_par(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
@@ -771,7 +770,7 @@ pub(crate) unsafe fn synctex_mrofxfdp() {
         synctex_record_mrofxfdp();
     };
 }
-pub(crate) unsafe fn synctex_pdfrefxform(mut objnum: i32) {
+pub(crate) unsafe fn synctex_pdfrefxform(objnum: i32) {
     if !synctex_ctxt.file.is_none() {
         synctex_record_node_pdfrefxform(objnum);
     };
@@ -814,7 +813,7 @@ unsafe fn synctex_record_mrofxfdp() -> i32 {
 }
 /*  Recording a "f..." line  */
 #[inline]
-unsafe fn synctex_record_node_pdfrefxform(mut objnum: i32) -> i32
+unsafe fn synctex_record_node_pdfrefxform(objnum: i32) -> i32
 /* UNUSED form JL */ {
     synctex_ctxt.curh = cur_h + S_72_27;
     synctex_ctxt.curv = cur_v + S_72_27;

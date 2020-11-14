@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use core::ptr;
@@ -627,7 +626,7 @@ pub(crate) unsafe fn fin_mlist(p: Option<usize>) -> i32 {
 }
 pub(crate) unsafe fn build_choices(input: &mut input_state_t) {
     unsave(input);
-    let mut p = fin_mlist(None).opt();
+    let p = fin_mlist(None).opt();
     let mut tail_choice = Choice(cur_list.tail);
     match MathStyle::n(SAVE_STACK[SAVE_PTR - 1].val as i16).unwrap() {
         MathStyle::Display => tail_choice.set_display(p),
@@ -775,7 +774,7 @@ pub(crate) unsafe fn math_left_right(
     chr: i32,
 ) {
     let mut q: i32 = 0;
-    let mut t = chr as i16;
+    let t = chr as i16;
     if t != MathNode::Left as i16 && group != GroupCode::MathLeft {
         /*1227: */
         if group == GroupCode::MathShift {
@@ -843,7 +842,7 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
     } else {
         let mut q;
         z = get_dimen_par(DimenPar::display_width);
-        let mut p = b;
+        let p = b;
         if x > 0 {
             e = z - d - p.width();
         } else {
@@ -1180,7 +1179,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
                 d = Scaled::ZERO;
             }
         }
-        let mut g1;
+        let g1;
         let mut g2;
         let pen = new_penalty(get_int_par(IntPar::pre_display_penalty));
         *LLIST_link(cur_list.tail) = Some(pen.ptr()).tex_int();
@@ -2084,7 +2083,7 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
         let mut x = clean_box(q.nucleus(), cur_style);
         match &FONT_LAYOUT_ENGINE[cur_f as usize] {
             Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
-                if let Some(mut p) = x.list_ptr().opt() {
+                if let Some(p) = x.list_ptr().opt() {
                     if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::Glyph(mut p))) =
                         CharOrText::from(p)
                     {
@@ -2236,7 +2235,7 @@ unsafe fn make_ord(q: &mut Ord) {
         if p.is_none() {
             break;
         }
-        let mut p = p.unwrap();
+        let p = p.unwrap();
         match Node::from(p) {
             Node::Math(m) => match m {
                 MathNode::Ord
@@ -2290,7 +2289,7 @@ unsafe fn make_ord(q: &mut Ord) {
                             1 | 5 => q.nucleus_mut().val.chr.character = cur_i.s0,
                             2 | 6 => p.nucleus_mut().val.chr.character = cur_i.s0,
                             3 | 7 | 11 => {
-                                let mut r = BaseMath(new_noad());
+                                let r = BaseMath(new_noad());
                                 r.nucleus_mut().val.chr.character = cur_i.s0;
                                 r.nucleus_mut().val.chr.font =
                                     (q.nucleus().val.chr.font as i32 % 256) as u16;
@@ -2326,8 +2325,8 @@ unsafe fn make_ord(q: &mut Ord) {
         }
     }
 }
-unsafe fn attach_hkern_to_new_hlist(q: &mut BaseMath, mut delta: Scaled) -> usize {
-    let mut z = new_kern(delta);
+unsafe fn attach_hkern_to_new_hlist(q: &mut BaseMath, delta: Scaled) -> usize {
+    let z = new_kern(delta);
     if let Some(mut y) = MEM[q.ptr() + 1].b32.s1.opt() {
         while let Some(next) = llist_link(y) {
             y = next;
@@ -2338,7 +2337,7 @@ unsafe fn attach_hkern_to_new_hlist(q: &mut BaseMath, mut delta: Scaled) -> usiz
     }
     MEM[q.ptr() + 1].b32.s1 as usize
 }
-unsafe fn make_scripts(q: &mut BaseMath, mut delta: Scaled) {
+unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
     let mut shift_up: Scaled = Scaled::ZERO;
     let mut shift_down: Scaled = Scaled::ZERO;
     let mut clr: Scaled = Scaled::ZERO;
@@ -2624,10 +2623,10 @@ unsafe fn make_scripts(q: &mut BaseMath, mut delta: Scaled) {
     }
 }
 unsafe fn make_left_right(
-    mut q: &mut LeftRight,
-    mut style: (MathStyle, u8),
-    mut max_d: Scaled,
-    mut max_h: Scaled,
+    q: &mut LeftRight,
+    style: (MathStyle, u8),
+    max_d: Scaled,
+    max_h: Scaled,
 ) -> MathNode {
     cur_style = style;
     cur_size = cur_style.0.size();
@@ -3072,7 +3071,7 @@ unsafe fn mlist_to_hlist() {
         free_node(q, s as i32);
     }
 }
-unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: Scaled) -> usize {
+unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
     let mut c: u16 = 0;
     let mut y: u16 = 0;
     let mut n: i32 = 0;
@@ -3265,7 +3264,7 @@ unsafe fn var_delimiter(d: &Delimeter, mut s: usize, mut v: Scaled) -> usize {
     free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
     b.ptr()
 }
-unsafe fn char_box(mut f: usize, mut c: i32) -> List {
+unsafe fn char_box(f: usize, c: i32) -> List {
     let mut b;
     let p = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
         b = List::from(new_null_box());
@@ -3295,11 +3294,11 @@ unsafe fn stack_into_box(b: &mut List, f: usize, c: u16) {
     b.set_list_ptr(Some(p.ptr()).tex_int());
     b.set_height(p.height());
 }
-unsafe fn height_plus_depth(mut f: internal_font_number, mut c: u16) -> Scaled {
-    let mut q = FONT_CHARACTER_INFO(f, effective_char(true, f, c) as usize);
+unsafe fn height_plus_depth(f: internal_font_number, c: u16) -> Scaled {
+    let q = FONT_CHARACTER_INFO(f, effective_char(true, f, c) as usize);
     *FONT_CHARINFO_HEIGHT(f, q) + *FONT_CHARINFO_DEPTH(f, q)
 }
-unsafe fn stack_glyph_into_box(b: &mut List, mut f: internal_font_number, mut g: i32) {
+unsafe fn stack_glyph_into_box(b: &mut List, f: internal_font_number, g: i32) {
     let mut p = Glyph::new_node();
     p.set_font(f as u16).set_glyph(g as u16);
     p.set_metrics(true);
@@ -3324,7 +3323,7 @@ unsafe fn stack_glyph_into_box(b: &mut List, mut f: internal_font_number, mut g:
         b.set_width(w.max(p.width()));
     };
 }
-unsafe fn stack_glue_into_box(b: &mut List, mut min: Scaled, mut max: Scaled) {
+unsafe fn stack_glue_into_box(b: &mut List, min: Scaled, max: Scaled) {
     let mut q = new_spec(&GlueSpec(0));
     q.set_size(min).set_stretch(max - min);
     let p = new_glue(&q);
@@ -3345,16 +3344,16 @@ unsafe fn stack_glue_into_box(b: &mut List, mut min: Scaled, mut max: Scaled) {
     };
 }
 unsafe fn build_opentype_assembly(
-    mut f: internal_font_number,
-    mut a: *mut libc::c_void,
-    mut s: Scaled,
+    f: internal_font_number,
+    a: *mut libc::c_void,
+    s: Scaled,
     dir: ListDir,
 ) -> List {
     let mut b = List::from(new_null_box());
     b.set_list_dir(dir);
     let mut n = -1;
     let mut no_extenders = true;
-    let mut min_o = ot_min_connector_overlap(f);
+    let min_o = ot_min_connector_overlap(f);
     loop {
         n = n + 1;
         let mut s_max = Scaled::ZERO;
@@ -3474,7 +3473,7 @@ unsafe fn build_opentype_assembly(
     }
     b
 }
-unsafe fn rebox(mut b: List, mut w: Scaled) -> List {
+unsafe fn rebox(mut b: List, w: Scaled) -> List {
     if b.width() != w && b.list_ptr().opt().is_some() {
         if b.is_vertical() {
             b = hpack(Some(b.ptr()), Scaled::ZERO, PackMode::Additional);

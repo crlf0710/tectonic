@@ -39,7 +39,6 @@ authorization from the copyright holders.
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use super::{
@@ -76,7 +75,7 @@ pub(crate) struct XeTeXFontMgr_FC {
     pub(crate) cachedAll: bool,
 }
 #[inline]
-unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
+unsafe fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
     let mut self_0: *mut XeTeXFontMgrNameCollection = malloc(::std::mem::size_of::<
         XeTeXFontMgrNameCollection,
     >()) as *mut XeTeXFontMgrNameCollection;
@@ -88,9 +87,7 @@ unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNam
     return self_0;
 }
 #[inline]
-unsafe extern "C" fn XeTeXFontMgrNameCollection_delete(
-    mut self_0: *mut XeTeXFontMgrNameCollection,
-) {
+unsafe fn XeTeXFontMgrNameCollection_delete(self_0: *mut XeTeXFontMgrNameCollection) {
     if self_0.is_null() {
         return;
     }
@@ -102,27 +99,27 @@ unsafe extern "C" fn XeTeXFontMgrNameCollection_delete(
     free(self_0 as *mut libc::c_void);
 }
 #[inline]
-unsafe extern "C" fn XeTeXFontMgr_readNames(
-    mut self_0: *mut XeTeXFontMgr,
-    mut fontRef: PlatformFontRef,
+unsafe fn XeTeXFontMgr_readNames(
+    self_0: *mut XeTeXFontMgr,
+    fontRef: PlatformFontRef,
 ) -> *mut XeTeXFontMgrNameCollection {
     return (*self_0)
         .m_memfnReadNames
         .expect("non-null function pointer")(self_0, fontRef);
 }
 #[inline]
-unsafe extern "C" fn XeTeXFontMgr_cacheFamilyMembers(
-    mut self_0: *mut XeTeXFontMgr,
-    mut familyNames: *const CppStdListOfString,
+unsafe fn XeTeXFontMgr_cacheFamilyMembers(
+    self_0: *mut XeTeXFontMgr,
+    familyNames: *const CppStdListOfString,
 ) {
     XeTeXFontMgr_FC_cacheFamilyMembers(self_0, familyNames);
 }
 static mut macRomanConv: *mut icu::UConverter = 0 as *mut icu::UConverter;
 static mut utf16beConv: *mut icu::UConverter = 0 as *mut icu::UConverter;
 static mut utf8Conv: *mut icu::UConverter = 0 as *mut icu::UConverter;
-unsafe extern "C" fn convertToUtf8(
-    mut conv: *mut icu::UConverter,
-    mut name: *const libc::c_uchar,
+unsafe fn convertToUtf8(
+    conv: *mut icu::UConverter,
+    name: *const libc::c_uchar,
     mut len: libc::c_int,
 ) -> *mut libc::c_char {
     let mut buffer1: *mut libc::c_char = 0 as *mut libc::c_char;
@@ -162,11 +159,11 @@ unsafe extern "C" fn convertToUtf8(
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
-    mut self_0: *mut XeTeXFontMgr,
-    mut pat: *mut FcPattern,
+    self_0: *mut XeTeXFontMgr,
+    pat: *mut FcPattern,
 ) -> *mut XeTeXFontMgrNameCollection {
     use crate::freetype_sys_patch::FT_SfntName;
-    let mut names: *mut XeTeXFontMgrNameCollection = XeTeXFontMgrNameCollection_create();
+    let names = XeTeXFontMgrNameCollection_create();
     let mut pathname: *mut libc::c_char = 0 as *mut libc::c_char;
     if FcPatternGetString(
         pat,
@@ -203,8 +200,8 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
     // for sfnt containers, we'll read the name table ourselves, not rely on Fontconfig
     if (*face).face_flags & 1 << 3i32 != 0 {
         let mut i: libc::c_uint = 0;
-        let mut familyNames: *mut CppStdListOfString = CppStdListOfString_create();
-        let mut subFamilyNames: *mut CppStdListOfString = CppStdListOfString_create();
+        let familyNames = CppStdListOfString_create();
+        let subFamilyNames = CppStdListOfString_create();
         let mut nameRec: FT_SfntName = FT_SfntName {
             platform_id: 0,
             encoding_id: 0,
@@ -321,7 +318,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
             XeTeXFontMgr_appendToList(self_0, (*names).m_styleNames, name);
         }
         if (*(*names).m_fullNames).is_empty() {
-            let mut fullName: *mut CppStdString = CppStdString_create();
+            let fullName = CppStdString_create();
             CppStdString_append_const_char_ptr(fullName, (*(*names).m_familyNames)[0].as_ptr());
             if !(*(*names).m_styleNames).is_empty() {
                 CppStdString_append_const_char_ptr(
@@ -339,13 +336,13 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
-    mut self_0: *mut XeTeXFontMgr,
+    self_0: *mut XeTeXFontMgr,
     mut theFont: *mut XeTeXFontMgrFont,
 ) {
     XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(self_0, theFont);
     if (*theFont).weight as libc::c_int == 0i32 && (*theFont).width as libc::c_int == 0i32 {
         // try to get values from FontConfig, as it apparently wasn't an sfnt
-        let mut pat: *mut FcPattern = (*theFont).fontRef;
+        let pat = (*theFont).fontRef;
         let mut value: libc::c_int = 0;
         if FcPatternGetInteger(
             pat,
@@ -380,17 +377,17 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_cacheFamilyMembers(
-    mut self_0: *mut XeTeXFontMgr,
-    mut familyNames: *const CppStdListOfString,
+pub(crate) unsafe fn XeTeXFontMgr_FC_cacheFamilyMembers(
+    self_0: *mut XeTeXFontMgr,
+    familyNames: *const CppStdListOfString,
 ) {
     use std::ffi::CStr;
-    let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
+    let real_self = self_0 as *mut XeTeXFontMgr_FC;
     if (*familyNames).is_empty() {
         return;
     }
     for f in 0i32..(*(*real_self).allFonts).nfont {
-        let mut pat: *mut FcPattern = *(*(*real_self).allFonts).fonts.offset(f as isize);
+        let pat = *(*(*real_self).allFonts).fonts.offset(f as isize);
         if (*(*self_0).m_platformRefToFont).contains_key(&pat) {
             continue;
         }
@@ -411,7 +408,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_cacheFamilyMembers(
             if !(*familyNames).iter().any(|family_name| &**family_name == s) {
                 continue;
             }
-            let mut names: *mut XeTeXFontMgrNameCollection = XeTeXFontMgr_readNames(self_0, pat);
+            let names = XeTeXFontMgr_readNames(self_0, pat);
             XeTeXFontMgr_addToMaps(self_0, pat, names);
             XeTeXFontMgrNameCollection_delete(names);
             break;
@@ -420,8 +417,8 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_cacheFamilyMembers(
 }
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
-    mut self_0: *mut XeTeXFontMgr,
-    mut name: *const libc::c_char,
+    self_0: *mut XeTeXFontMgr,
+    name: *const libc::c_char,
 ) {
     use std::ffi::CStr;
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
@@ -429,8 +426,8 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
         // we've already loaded everything on an earlier search
         return;
     }
-    let mut famName: *mut CppStdString = CppStdString_create();
-    let mut hyph_pos: *mut libc::c_char = strchr(name, '-' as i32);
+    let famName = CppStdString_create();
+    let hyph_pos = strchr(name, '-' as i32);
     let mut hyph: libc::c_int = 0;
     if !hyph_pos.is_null() {
         hyph = hyph_pos.offset_from(name) as libc::c_long as libc::c_int;
@@ -441,15 +438,14 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
     let mut found = false;
     loop {
         'traverse_fonts: for f in 0..(*(*real_self).allFonts).nfont {
-            let mut pat: *mut FcPattern = *(*(*real_self).allFonts).fonts.offset(f as isize);
+            let pat = *(*(*real_self).allFonts).fonts.offset(f as isize);
             if !(*(*self_0).m_platformRefToFont).contains_key(&pat) {
                 continue;
             }
 
             if (*real_self).cachedAll {
                 // failed to find it via FC; add everything to our maps (potentially slow) as a last resort
-                let mut names: *mut XeTeXFontMgrNameCollection =
-                    XeTeXFontMgr_readNames(self_0, pat);
+                let names = XeTeXFontMgr_readNames(self_0, pat);
                 XeTeXFontMgr_addToMaps(self_0, pat, names);
                 XeTeXFontMgrNameCollection_delete(names);
                 continue;
@@ -465,8 +461,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
             ) == FcResultMatch
             {
                 if CStr::from_ptr(name) == CStr::from_ptr(s) {
-                    let mut names_0: *mut XeTeXFontMgrNameCollection =
-                        XeTeXFontMgr_readNames(self_0, pat);
+                    let names_0 = XeTeXFontMgr_readNames(self_0, pat);
                     XeTeXFontMgr_addToMaps(self_0, pat, names_0);
                     XeTeXFontMgr_cacheFamilyMembers(self_0, (*names_0).m_familyNames);
                     XeTeXFontMgrNameCollection_delete(names_0);
@@ -487,8 +482,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                 if CStr::from_ptr(name) == CStr::from_ptr(s)
                     || hyph != 0 && (&**famName == CStr::from_ptr(s))
                 {
-                    let mut names_1: *mut XeTeXFontMgrNameCollection =
-                        XeTeXFontMgr_readNames(self_0, pat);
+                    let names_1 = XeTeXFontMgr_readNames(self_0, pat);
                     XeTeXFontMgr_addToMaps(self_0, pat, names_1);
                     XeTeXFontMgr_cacheFamilyMembers(self_0, (*names_1).m_familyNames);
                     XeTeXFontMgrNameCollection_delete(names_1);
@@ -505,18 +499,17 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                     &mut t as *mut *mut libc::c_char as *mut *mut u8,
                 ) == FcResultMatch
                 {
-                    let mut full: *mut CppStdString = CppStdString_create();
+                    let full = CppStdString_create();
                     CppStdString_append_const_char_ptr(full, s);
                     CppStdString_append_const_char_ptr(
                         full,
                         b" \x00" as *const u8 as *const libc::c_char,
                     );
                     CppStdString_append_const_char_ptr(full, t);
-                    let mut matched: bool = &**full == CStr::from_ptr(name);
+                    let matched = &**full == CStr::from_ptr(name);
                     CppStdString_delete(full);
                     if matched {
-                        let mut names_2: *mut XeTeXFontMgrNameCollection =
-                            XeTeXFontMgr_readNames(self_0, pat);
+                        let names_2 = XeTeXFontMgr_readNames(self_0, pat);
                         XeTeXFontMgr_addToMaps(self_0, pat, names_2);
                         XeTeXFontMgr_cacheFamilyMembers(self_0, (*names_2).m_familyNames);
                         XeTeXFontMgrNameCollection_delete(names_2);
@@ -537,7 +530,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
     CppStdString_delete(famName);
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTeXFontMgr) {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(self_0: *mut XeTeXFontMgr) {
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
     if FcInit() == 0i32 {
         abort!("fontconfig initialization failed");
@@ -555,9 +548,8 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTe
     if err as u64 != 0 {
         abort!("cannot read font names");
     }
-    let mut pat: *mut FcPattern =
-        FcNameParse(b":outline=true\x00" as *const u8 as *const libc::c_char as *const u8);
-    let mut os = FcObjectSetBuild(
+    let pat = FcNameParse(b":outline=true\x00" as *const u8 as *const libc::c_char as *const u8);
+    let os = FcObjectSetBuild(
         b"family\x00" as *const u8 as *mut u8 as *mut i8,
         b"style\x00" as *const u8 as *mut u8 as *mut i8,
         b"file\x00" as *const u8 as *mut u8 as *mut i8,
@@ -575,7 +567,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(mut self_0: *mut XeTe
     (*real_self).cachedAll = false;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeXFontMgr) {
+pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(self_0: *mut XeTeXFontMgr) {
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
     if !(*real_self).allFonts.is_null() {
         FcFontSetDestroy((*real_self).allFonts);
@@ -597,7 +589,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(mut self_0: *mut XeTeX
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     mut _self_0: *const XeTeXFontMgr,
-    mut font: PlatformFontRef,
+    font: PlatformFontRef,
 ) -> *mut libc::c_char {
     let mut s: *mut u8 = 0 as *mut u8;
     let mut path: *mut libc::c_char = 0 as *mut libc::c_char;
@@ -616,7 +608,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     return path;
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {
+pub(crate) unsafe fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {
     XeTeXFontMgr_base_ctor(&mut (*self_0).super_);
     (*self_0).super_.m_memfnInitialize = Some(XeTeXFontMgr_FC_initialize);
     (*self_0).super_.m_memfnTerminate = Some(XeTeXFontMgr_FC_terminate);
@@ -628,9 +620,8 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontM
     (*self_0).super_.m_memfnReadNames = Some(XeTeXFontMgr_FC_readNames);
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {
-    let mut self_0: *mut XeTeXFontMgr_FC =
-        malloc(::std::mem::size_of::<XeTeXFontMgr_FC>()) as *mut XeTeXFontMgr_FC;
+pub(crate) unsafe fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {
+    let self_0 = malloc(::std::mem::size_of::<XeTeXFontMgr_FC>()) as *mut XeTeXFontMgr_FC;
     XeTeXFontMgr_FC_ctor(self_0);
     return self_0;
 }

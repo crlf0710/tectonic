@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use crate::xetex_ini::{pool_ptr, pool_size, str_pool};
@@ -49,7 +48,7 @@ pub(crate) fn get_date_and_time() -> (i32, i32, i32, i32) {
 
     (minutes as _, day as _, month as _, year)
 }
-unsafe fn checkpool_pointer(mut pool_ptr_0: usize, mut len: size_t) {
+unsafe fn checkpool_pointer(pool_ptr_0: usize, len: size_t) {
     assert!(
         (pool_ptr_0 as u64) + (len as u64) < pool_size as u64,
         "string pool overflow [{} bytes]",
@@ -80,11 +79,11 @@ pub(crate) unsafe fn to_rust_string(string: *const i8) -> String {
         .to_string_lossy()
         .to_string()
 }
-pub(crate) unsafe fn is_new_source(mut srcfilename: str_number, mut lineno: i32) -> bool {
+pub(crate) unsafe fn is_new_source(srcfilename: str_number, lineno: i32) -> bool {
     use std::path::Path;
     Path::new(&gettexstring(srcfilename)) != Path::new(&last_source_name) || lineno != last_lineno
 }
-pub(crate) unsafe fn remember_source_info(mut srcfilename: str_number, mut lineno: i32) {
+pub(crate) unsafe fn remember_source_info(srcfilename: str_number, lineno: i32) {
     last_source_name = gettexstring(srcfilename);
     last_lineno = lineno;
 }
@@ -109,11 +108,11 @@ pub(crate) unsafe fn make_src_special(srcfilename: str_number, lineno: i32) -> u
  * hexadecimal encoded;
  * sizeof(out) should be at least lin*2+1.
  */
-unsafe fn convertStringToHexString(mut in_0: &[u8; 16], out: &mut [u8; 33]) {
+unsafe fn convertStringToHexString(in_0: &[u8; 16], out: &mut [u8; 33]) {
     const HEXCHARS: &[u8] = b"0123456789ABCDEF";
     let mut j = 0;
     for i in 0..16 {
-        let mut c = in_0[i];
+        let c = in_0[i];
         out[j] = HEXCHARS[(c >> 4 & 0xf) as usize];
         j += 1;
         out[j] = HEXCHARS[(c & 0xf) as usize];
@@ -123,8 +122,8 @@ unsafe fn convertStringToHexString(mut in_0: &[u8; 16], out: &mut [u8; 33]) {
 }
 /* Functions originating in texmfmp.c */
 pub(crate) unsafe fn getmd5sum(s: str_number, file: bool) {
-    let mut ret;
-    let mut xname = CString::new(gettexstring(s).as_str()).unwrap();
+    let ret;
+    let xname = CString::new(gettexstring(s).as_str()).unwrap();
     let digest = if file {
         let mut digest: [i8; 16] = [0; 16];
         ret = ttstub_get_file_md5(xname.as_ptr(), digest.as_mut_ptr());

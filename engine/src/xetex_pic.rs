@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use std::ffi::CString;
@@ -57,7 +56,7 @@ unsafe fn pdf_get_rect(
     filename: *const i8,
     handle: InFile,
     mut page_num: i32,
-    mut pdf_box: i32,
+    pdf_box: i32,
 ) -> Result<Rect, ()> {
     let mut dpx_options: i32 = 0;
     let pf = pdf_open(crate::c_pointer_to_str(filename), handle);
@@ -143,7 +142,7 @@ unsafe fn get_image_size_in_inches(handle: &mut InFile) -> Result<(f32, f32), i3
   return full path in *path
   return bounds (tex points) in *bounds
 */
-unsafe fn find_pic_file(mut pdfBoxType: i32, mut page: i32) -> Result<(Rect, String), i32> {
+unsafe fn find_pic_file(pdfBoxType: i32, page: i32) -> Result<(Rect, String), i32> {
     let handle = InFile::open(&name_of_file, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return Err(1);
@@ -285,7 +284,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
                 let ymin = brect.min_y() as f64;
                 let xmax = brect.max_x() as f64;
                 let ymax = brect.max_y() as f64;
-                let mut t2 = if x_size_req == 0. {
+                let t2 = if x_size_req == 0. {
                     Transform::create_scale(y_size_req / (ymax - ymin), y_size_req / (ymax - ymin))
                 } else if y_size_req == 0.0f64 {
                     Transform::create_scale(x_size_req / (xmax - xmin), x_size_req / (xmax - xmin))
@@ -298,7 +297,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
                 y_size_req = 0.0f64;
                 t = t.post_transform(&t2);
             }
-            let mut t2 = Transform::create_rotation(Angle::degrees(Fix2D(val)));
+            let t2 = Transform::create_rotation(Angle::degrees(Fix2D(val)));
 
             corners = t2.transform_rect(&corners.to_f64()).to_f32();
             corners = Rect::from_points(&to_points(&corners));
@@ -313,7 +312,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
         let ymin = brect.min_y() as f64;
         let xmax = brect.max_x() as f64;
         let ymax = brect.max_y() as f64;
-        let mut t2 = if x_size_req == 0.0f64 {
+        let t2 = if x_size_req == 0.0f64 {
             Transform::create_scale(y_size_req / (ymax - ymin), y_size_req / (ymax - ymin))
         } else if y_size_req == 0.0f64 {
             Transform::create_scale(x_size_req / (xmax - xmin), x_size_req / (xmax - xmin))
@@ -333,7 +332,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
     let xmax = brect.max_x() as f64;
     let ymax = brect.max_y() as f64;
 
-    let mut t2 = Transform::create_translation(
+    let t2 = Transform::create_translation(
         (-(xmin as i32) * 72) as f64 / 72.27,
         (-(ymin as i32) * 72) as f64 / 72.27,
     );

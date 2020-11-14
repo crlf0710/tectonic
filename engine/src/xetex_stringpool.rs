@@ -5,7 +5,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut
 )]
 
 use crate::xetex_errors::overflow;
@@ -128,7 +127,7 @@ pub(crate) unsafe fn make_string() -> str_number {
     str_start[(str_ptr - TOO_BIG_CHAR) as usize] = pool_ptr;
     str_ptr - 1
 }
-pub(crate) unsafe fn append_str(mut s: str_number) {
+pub(crate) unsafe fn append_str(s: str_number) {
     let ps = PoolString::from(s);
     if pool_ptr + ps.len() > pool_size {
         overflow("pool size", pool_size - init_pool_ptr);
@@ -153,7 +152,7 @@ pub(crate) unsafe fn str_eq_buf(s: &PoolString, mut k: usize) -> bool {
     }
     true
 }
-pub(crate) unsafe fn search_string(mut search: str_number) -> Option<str_number> {
+pub(crate) unsafe fn search_string(search: str_number) -> Option<str_number> {
     let ps = PoolString::from(search);
     if ps.len() == 0 {
         return Some(EMPTY_STRING);
@@ -167,7 +166,7 @@ pub(crate) unsafe fn search_string(mut search: str_number) -> Option<str_number>
     None
 }
 pub(crate) unsafe fn slow_make_string() -> str_number {
-    let mut t = make_string();
+    let t = make_string();
     if let Some(s) = search_string(t) {
         str_ptr -= 1;
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
