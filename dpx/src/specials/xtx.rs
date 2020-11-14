@@ -21,7 +21,7 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
-use super::util::{spc_util_read_colorspec, spc_util_read_numbers};
+use super::util::spc_util_read_colorspec;
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_fontmap::{
     is_pdfm_mapline, pdf_append_fontmap_record, pdf_init_fontmap_record, pdf_insert_fontmap_record,
@@ -43,6 +43,8 @@ use super::SpcHandler;
 use crate::dpx_pdfdev::Point;
 
 use crate::dpx_pdfdev::TMatrix;
+
+use arrayvec::ArrayVec;
 
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -77,9 +79,9 @@ pub(crate) unsafe fn spc_handler_xtx_do_transform(
     0i32
 }
 unsafe fn spc_handler_xtx_scale(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut values: [f64; 2] = [0.; 2];
-    if spc_util_read_numbers(&mut *values.as_mut_ptr().offset(0), 2i32, args) < 2i32 {
-        return -1i32;
+    let values = super::util::read_numbers::<[_; 2]>(args);
+    if values.len() < 2 {
+        return -1;
     }
     args.cur = &[];
     return spc_handler_xtx_do_transform(
@@ -97,13 +99,12 @@ unsafe fn spc_handler_xtx_scale(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 static mut SCALE_FACTORS: Vec<Point> = Vec::new();
 
 unsafe fn spc_handler_xtx_bscale(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut values: [f64; 2] = [0.; 2];
-
-    if spc_util_read_numbers(&mut *values.as_mut_ptr().offset(0), 2i32, args) < 2i32 {
-        return -1i32;
+    let values: ArrayVec<[_; 2]> = super::util::read_numbers(args);
+    if values.len() < 2 {
+        return -1;
     }
     if values[0].abs() < 1.0e-7f64 || values[1].abs() < 1.0e-7f64 {
-        return -1i32;
+        return -1;
     }
     SCALE_FACTORS.push(Point::new(1i32 as f64 / values[0], 1i32 as f64 / values[1]));
     args.cur = &[];
@@ -118,6 +119,7 @@ unsafe fn spc_handler_xtx_bscale(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         0i32 as f64,
     );
 }
+
 unsafe fn spc_handler_xtx_escale(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let factor = SCALE_FACTORS.pop().unwrap();
     args.cur = &[];
@@ -133,10 +135,11 @@ unsafe fn spc_handler_xtx_escale(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     );
 }
 unsafe fn spc_handler_xtx_rotate(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut value: f64 = 0.;
-    if spc_util_read_numbers(&mut value, 1i32, args) < 1i32 {
-        return -1i32;
+    let values = super::util::read_numbers::<[f64; 1]>(args);
+    if values.len() < 1 {
+        return -1;
     }
+    let value = values[0];
     args.cur = &[];
     let (s, c) = (value * core::f64::consts::PI / 180.).sin_cos();
     spc_handler_xtx_do_transform(
@@ -274,10 +277,11 @@ unsafe fn spc_handler_xtx_clipoverlay(_spe: &mut SpcEnv, args: &mut SpcArg) -> i
     0i32
 }
 unsafe fn spc_handler_xtx_renderingmode(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut value: f64 = 0.;
-    if spc_util_read_numbers(&mut value, 1i32, args) < 1i32 {
+    let values: ArrayVec<[_; 1]> = super::util::read_numbers(args);
+    if values.len() < 1 {
         return -1i32;
     }
+    let value = values[0];
     if (value as i32) < 0i32 || value as i32 > 7i32 {
         spc_warn!(spe, "Invalid text rendering mode {}.\n", value as i32);
         return -1i32;

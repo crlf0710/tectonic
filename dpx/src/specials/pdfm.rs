@@ -486,16 +486,18 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     let mut rect = Rect::zero();
     let mut ident = None;
-    let mut ti = transform_info::new();
     args.cur.skip_white();
     if args.cur[0] == b'@' {
         ident = args.cur.parse_opt_ident();
         args.cur.skip_white();
     }
-    transform_info_clear(&mut ti);
-    if spc_util_read_dimtrns(spe, &mut ti, args, 0i32) < 0i32 {
-        return -1i32;
-    }
+
+    let ti = if let Ok(ti) = spc_util_read_dimtrns(spe, args, 0) {
+        ti
+    } else {
+        return -1;
+    };
+
     if ti.flags & 1i32 << 0i32 != 0
         && (ti.flags & 1i32 << 1i32 != 0 || ti.flags & 1i32 << 2i32 != 0)
     {
@@ -622,11 +624,11 @@ unsafe fn spc_handler_pdfm_ecolor(_spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 
     0i32
 }
 unsafe fn spc_handler_pdfm_btrans(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut ti = transform_info::new();
-    transform_info_clear(&mut ti);
-    if spc_util_read_dimtrns(spe, &mut ti, args, 0i32) < 0i32 {
-        return -1i32;
-    }
+    let ti = if let Ok(ti) = spc_util_read_dimtrns(spe, args, 0) {
+        ti
+    } else {
+        return -1;
+    };
     /* Create transformation matrix */
     let mut M = ti.matrix.clone();
     M.m31 += (1. - M.m11) * spe.x_user - M.m21 * spe.y_user;
@@ -737,7 +739,6 @@ unsafe fn spc_handler_pdfm_article(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 unsafe fn spc_handler_pdfm_bead(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     let article_info;
-    let mut ti = transform_info::new();
     args.cur.skip_white();
     if args.cur[0] != b'@' {
         spc_warn!(spe, "Article identifier expected but not found.");
@@ -750,10 +751,11 @@ unsafe fn spc_handler_pdfm_bead(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     let article_name = article_name.unwrap();
     /* If okay so far, try to get a bounding box */
-    transform_info_clear(&mut ti);
-    if spc_util_read_dimtrns(spe, &mut ti, args, 0i32) < 0i32 {
-        return -1i32;
-    }
+    let ti = if let Ok(ti) = spc_util_read_dimtrns(spe, args, 0) {
+        ti
+    } else {
+        return -1;
+    };
     if ti.flags & 1i32 << 0i32 != 0
         && (ti.flags & 1i32 << 1i32 != 0 || ti.flags & 1i32 << 2i32 != 0)
     {
@@ -823,18 +825,15 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
      * It is for reading "dimensions" and "transformations" and "page" is
      * completely unrelated.
      */
+    let mut page_no = Some(options.page_no);
+    let mut bbox_type = Some(options.bbox_type);
     transform_info_clear(&mut ti);
-    if spc_util_read_blahblah(
-        spe,
-        &mut ti,
-        &mut options.page_no,
-        &mut options.bbox_type,
-        args,
-    ) < 0i32
-    {
+    if spc_util_read_blahblah(spe, &mut ti, &mut page_no, &mut bbox_type, args) < 0i32 {
         spc_warn!(spe, "Reading option field in pdf:image failed.");
         return -1i32;
     }
+    options.page_no = page_no.unwrap();
+    options.bbox_type = bbox_type.unwrap();
     args.cur.skip_white();
     let fspec = args.cur.parse_pdf_object(ptr::null_mut());
     if fspec.is_none() {
@@ -1260,13 +1259,13 @@ unsafe fn spc_handler_pdfm_fstream(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
  * Note that scale, xscale, yscale, xoffset, yoffset options are ignored.
  */
 unsafe fn spc_handler_pdfm_bform(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut ti = transform_info::new();
     args.cur.skip_white();
     if let Some(ident) = args.cur.parse_opt_ident() {
-        transform_info_clear(&mut ti);
-        if spc_util_read_dimtrns(spe, &mut ti, args, 0i32) < 0i32 {
-            return -1i32;
-        }
+        let ti = if let Ok(ti) = spc_util_read_dimtrns(spe, args, 0) {
+            ti
+        } else {
+            return -1;
+        };
         /* A XForm with zero dimension results in a non-invertible transformation
          * matrix. And it may result in unpredictable behaviour. It might be an
          * error in Acrobat. Bounding box with zero dimension may cause division
@@ -1345,7 +1344,6 @@ unsafe fn spc_handler_pdfm_eform(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
  * lower-left corner of the XObject will be put.
  */
 unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut ti = transform_info::new();
     let sd = &mut _PDF_STAT;
     let options: load_options = load_options {
         page_no: 1i32,
@@ -1354,12 +1352,15 @@ unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     };
     args.cur.skip_white();
     if let Some(ident) = args.cur.parse_opt_ident() {
-        transform_info_clear(&mut ti);
-        if !args.cur.is_empty() {
-            if spc_util_read_dimtrns(spe, &mut ti, args, 0i32) < 0i32 {
-                return -1i32;
+        let mut ti = if !args.cur.is_empty() {
+            if let Ok(ti) = spc_util_read_dimtrns(spe, args, 0) {
+                ti
+            } else {
+                return -1;
             }
-        }
+        } else {
+            transform_info::new()
+        };
         /* Dvipdfmx was suddenly changed to use file name to identify
          * external images. We can't use ident to find image resource
          * here.

@@ -101,7 +101,6 @@ unsafe fn parse_filename<'a>(pp: &mut &'a [u8]) -> Option<&'a str> {
 }
 /* =filename ... */
 unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut ti = transform_info::new();
     let options: load_options = load_options {
         page_no: 1i32,
         bbox_type: 0i32,
@@ -114,10 +113,11 @@ unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     args.cur = &args.cur[1..];
     if let Some(filename) = parse_filename(&mut args.cur) {
-        transform_info_clear(&mut ti);
-        if spc_util_read_dimtrns(spe, &mut ti, args, 1i32) < 0i32 {
+        let mut ti = if let Ok(ti) = spc_util_read_dimtrns(spe, args, 1) {
+            ti
+        } else {
             return -1;
-        }
+        };
         let form_id = pdf_ximage_findresource(filename, options);
         if form_id < 0i32 {
             spc_warn!(spe, "Failed to read image file: {}", filename);

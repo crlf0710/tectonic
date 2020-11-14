@@ -612,7 +612,7 @@ pub(crate) unsafe fn pdf_ximage_get_resname(id: i32) -> *const i8 {
  * not as vertical dimension of scaled image. (And there are bugs.)
  * This part contains incompatibile behaviour than dvipdfm!
  */
-unsafe fn scale_to_fit_I(T: &mut TMatrix, p: &mut transform_info, I: &pdf_ximage) {
+fn scale_to_fit_I(T: &mut TMatrix, p: &transform_info, I: &pdf_ximage) {
     let s_x;
     let s_y;
     let d_x;
@@ -670,7 +670,8 @@ unsafe fn scale_to_fit_I(T: &mut TMatrix, p: &mut transform_info, I: &pdf_ximage
         d_y * s_y / yscale - dp,
     );
 }
-unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, I: &pdf_ximage) {
+
+fn scale_to_fit_F(T: &mut TMatrix, p: &transform_info, I: &pdf_ximage) {
     let s_x;
     let s_y;
     let d_x;
@@ -717,12 +718,9 @@ unsafe fn scale_to_fit_F(T: &mut TMatrix, p: &mut transform_info, I: &pdf_ximage
 }
 /* called from pdfdev.c and spc_html.c */
 
-pub(crate) unsafe fn pdf_ximage_scale_image(
-    id: i32,
-    r: &mut Rect,
-    p: &mut transform_info,
-) -> TMatrix
+pub(crate) unsafe fn pdf_ximage_scale_image(id: i32, p: &transform_info) -> (Rect, TMatrix)
 /* argument from specials */ {
+    let mut r = Rect::zero();
     if id < 0 || id >= ximages.len() as i32 {
         panic!("Invalid XObject ID: {}", id);
     }
@@ -762,7 +760,7 @@ pub(crate) unsafe fn pdf_ximage_scale_image(
                 r.max.x = p.bbox.max.x / (I.attr.width as f64 * I.attr.xdensity);
                 r.max.y = p.bbox.max.y / (I.attr.height as f64 * I.attr.ydensity)
             } else {
-                *r = Rect::new(point2(0., 0.), point2(1., 1.));
+                r = Rect::new(point2(0., 0.), point2(1., 1.));
             }
         }
         PdfXObjectType::Form => {
@@ -770,14 +768,14 @@ pub(crate) unsafe fn pdf_ximage_scale_image(
              * the cm operator and W operator, explicitly */
             scale_to_fit_F(&mut M, p, I); /* I->attr.bbox from the image bounding box */
             if p.flags & 1i32 << 0i32 != 0 {
-                *r = p.bbox;
+                r = p.bbox;
             } else {
-                *r = I.attr.bbox;
+                r = I.attr.bbox;
             }
         }
         _ => {}
     }
-    M
+    (r, M)
 }
 /* Migrated from psimage.c */
 

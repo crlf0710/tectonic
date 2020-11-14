@@ -434,6 +434,11 @@ impl ParseCIdent for &[u8] {
 
 pub(crate) trait ParseFloatDecimal {
     fn parse_float_decimal(&mut self) -> Option<CString>;
+
+    fn parse_float_decimal_to_f64(&mut self) -> Option<f64> {
+        self.parse_float_decimal()
+            .map(|f| f.to_str().unwrap().parse().unwrap())
+    }
 }
 
 impl ParseFloatDecimal for &[u8] {

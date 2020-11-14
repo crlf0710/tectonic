@@ -19,104 +19,53 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
-#![allow(non_camel_case_types, non_snake_case)]
 
 use euclid::point2;
 
 use super::{SpcArg, SpcEnv};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
-use crate::dpx_pdfcolor::PdfColor;
+use crate::dpx_pdfcolor::{PdfColor, RgbPdfColor};
 use crate::dpx_pdfdev::{transform_info, Rect, TMatrix};
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 use crate::SkipBlank;
-use libc::atof;
+use arrayvec::ArrayVec;
+use std::convert::TryInto;
+use std::f64::consts::PI;
 
 /* tectonic/core-memory.h: basic dynamic memory helpers
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
 */
 
-pub(crate) unsafe fn spc_util_read_numbers(
-    values: *mut f64,
-    num_values: i32,
-    args: &mut SpcArg,
-) -> i32 {
+/// Read numbers from [`SpcArg`]. The maximum amount read depends on the
+/// capacity of the provided [`Array`] type.
+pub(crate) fn read_numbers<T: arrayvec::Array<Item = f64>>(args: &mut SpcArg) -> ArrayVec<T> {
     args.cur.skip_blank();
-    let mut count = 0;
-    while count < num_values && !args.cur.is_empty() {
-        if let Some(q) = args.cur.parse_float_decimal() {
-            *values.offset(count as isize) = atof(q.as_ptr());
+    let mut vec = ArrayVec::new();
+    let max_values = vec.capacity();
+    for _ in 0..max_values {
+        if args.cur.is_empty() {
+            break;
+        } else if let Some(q) = args.cur.parse_float_decimal_to_f64() {
+            vec.push(q);
             args.cur.skip_blank();
-            count += 1
         } else {
             break;
         }
     }
-    count
+    vec
 }
-unsafe fn rgb_color_from_hsv(h: f64, s: f64, v: f64) -> PdfColor {
-    let mut b = v;
-    let mut g = b;
-    let mut r = g;
-    if s != 0.0f64 {
-        let h6 = h * 6i32 as f64;
-        let i = h6 as i32;
-        let f = h6 - i as f64;
-        let v1 = v * (1i32 as f64 - s);
-        let v2 = v * (1i32 as f64 - s * f);
-        let v3 = v * (1i32 as f64 - s * (1i32 as f64 - f));
-        match i {
-            0 => {
-                r = v;
-                g = v3;
-                b = v1
-            }
-            1 => {
-                r = v2;
-                g = v;
-                b = v1
-            }
-            2 => {
-                r = v1;
-                g = v;
-                b = v3
-            }
-            3 => {
-                r = v1;
-                g = v2;
-                b = v
-            }
-            4 => {
-                r = v3;
-                g = v1;
-                b = v
-            }
-            5 => {
-                r = v;
-                g = v1;
-                b = v2
-            }
-            6 => {
-                r = v;
-                g = v1;
-                b = v2
-            }
-            _ => {}
-        }
-    }
-    PdfColor::from_rgb(r, g, b).unwrap()
-}
-unsafe fn spc_read_color_color(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfColor, ()> {
-    let mut cv: [f64; 4] = [0.; 4];
+
+fn spc_read_color_color(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfColor, ()> {
     let result: Result<PdfColor, ()>;
     if let Some(q) = ap.cur.parse_c_ident() {
         ap.cur.skip_blank();
         match q.as_str() {
             "rgb" => {
                 /* Handle rgb color */
-                let nc = spc_util_read_numbers(cv.as_mut_ptr(), 3i32, ap);
-                if nc != 3i32 {
+                let cv = read_numbers::<[_; 3]>(ap);
+                if cv.len() != 3 {
                     spc_warn!(spe, "Invalid value for RGB color specification.");
                     result = Err(())
                 } else {
@@ -125,8 +74,8 @@ unsafe fn spc_read_color_color(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfC
             }
             "cmyk" => {
                 /* Handle cmyk color */
-                let nc = spc_util_read_numbers(cv.as_mut_ptr(), 4i32, ap);
-                if nc != 4i32 {
+                let cv = read_numbers::<[_; 4]>(ap);
+                if cv.len() != 4 {
                     spc_warn!(spe, "Invalid value for CMYK color specification.");
                     result = Err(())
                 } else {
@@ -136,8 +85,8 @@ unsafe fn spc_read_color_color(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfC
             }
             "gray" => {
                 /* Handle gray */
-                let nc = spc_util_read_numbers(cv.as_mut_ptr(), 1i32, ap);
-                if nc != 1i32 {
+                let cv = read_numbers::<[_; 1]>(ap);
+                if cv.len() != 1 {
                     spc_warn!(spe, "Invalid value for gray color specification.");
                     result = Err(())
                 } else {
@@ -149,8 +98,8 @@ unsafe fn spc_read_color_color(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfC
                 if let Some(color_name) = ap.cur.parse_c_ident() {
                     /* Must be a "named" color */
                     ap.cur.skip_blank();
-                    let nc = spc_util_read_numbers(cv.as_mut_ptr(), 1, ap);
-                    if nc != 1 {
+                    let cv = read_numbers::<[_; 1]>(ap);
+                    if cv.len() != 1 {
                         spc_warn!(spe, "Invalid value for spot color specification.");
                         result = Err(());
                     } else {
@@ -162,31 +111,27 @@ unsafe fn spc_read_color_color(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfC
                 }
             }
             "hsb" => {
-                let nc = spc_util_read_numbers(cv.as_mut_ptr(), 3i32, ap);
-                if nc != 3i32 {
+                let cv = read_numbers::<[_; 3]>(ap);
+                if cv.len() != 3 {
                     spc_warn!(spe, "Invalid value for HSB color specification.");
                     result = Err(());
                 } else {
-                    let color = rgb_color_from_hsv(cv[0], cv[1], cv[2]);
-                    if let &PdfColor::Rgb(r, g, b) = &color {
-                        spc_warn!(
-                            spe,
-                            "HSB color converted to RGB: hsb: <{}, {}, {}> ==> rgb: <{}, {}, {}>",
-                            cv[0],
-                            cv[1],
-                            cv[2],
-                            r,
-                            g,
-                            b
-                        );
-                    } else {
-                        unreachable!();
-                    }
-                    result = Ok(color);
+                    let color = RgbPdfColor::from_hsv(cv[0], cv[1], cv[2]);
+                    spc_warn!(
+                        spe,
+                        "HSB color converted to RGB: hsb: <{}, {}, {}> ==> rgb: <{}, {}, {}>",
+                        cv[0],
+                        cv[1],
+                        cv[2],
+                        color.r(),
+                        color.g(),
+                        color.b()
+                    );
+                    result = Ok(color.into());
                 }
             }
             _ => {
-                result = pdf_color_namedcolor(&q).ok_or(());
+                result = PdfColor::named(&q).ok_or(());
                 if result.is_err() {
                     spc_warn!(spe, "Unrecognized color name: {}", q);
                 }
@@ -198,14 +143,14 @@ unsafe fn spc_read_color_color(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfC
     }
     result
 }
+
 /* Argument for this is PDF_Number or PDF_Array.
  * But we ignore that since we don't want to add
  * dependency to pdfxxx and @foo can not be
  * allowed for color specification. "pdf" here
  * means pdf: special syntax.
  */
-unsafe fn spc_read_color_pdf(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfColor, ()> {
-    let mut cv: [f64; 4] = [0.; 4]; /* at most four */
+fn spc_read_color_pdf(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfColor, ()> {
     let mut isarry: bool = false;
     ap.cur.skip_blank();
     if ap.cur[0] == b'[' {
@@ -213,15 +158,15 @@ unsafe fn spc_read_color_pdf(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfCol
         ap.cur.skip_blank();
         isarry = true
     }
-    let nc = spc_util_read_numbers(cv.as_mut_ptr(), 4i32, ap);
-    let mut result = match nc {
+    let cv = read_numbers::<[_; 4]>(ap);
+    let mut result = match cv.len() {
         1 => PdfColor::from_gray(cv[0]).map_err(|err| err.warn()),
         3 => PdfColor::from_rgb(cv[0], cv[1], cv[2]).map_err(|err| err.warn()),
         4 => PdfColor::from_cmyk(cv[0], cv[1], cv[2], cv[3]).map_err(|err| err.warn()),
         _ => {
             /* Try to read the color names defined in dvipsname.def */
             if let Some(q) = ap.cur.parse_c_ident() {
-                let result = pdf_color_namedcolor(&q).ok_or(());
+                let result = PdfColor::named(&q).ok_or(());
                 if result.is_err() {
                     spc_warn!(
                         spe,
@@ -249,7 +194,7 @@ unsafe fn spc_read_color_pdf(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<PdfCol
 }
 /* This is for reading *single* color specification. */
 
-pub(crate) unsafe fn spc_util_read_colorspec(
+pub(crate) fn spc_util_read_colorspec(
     spe: &mut SpcEnv,
     ap: &mut SpcArg,
     syntax: bool,
@@ -264,7 +209,7 @@ pub(crate) unsafe fn spc_util_read_colorspec(
     }
 }
 
-pub(crate) unsafe fn spc_util_read_pdfcolor(
+pub(crate) fn spc_util_read_pdfcolor(
     spe: &mut SpcEnv,
     ap: &mut SpcArg,
     defaultcolor: Option<&PdfColor>,
@@ -285,17 +230,18 @@ pub(crate) unsafe fn spc_util_read_pdfcolor(
 pub(crate) trait ReadLengthSpc {
     fn read_length(&mut self, spe: &SpcEnv) -> Result<f64, ()>;
 }
+
 impl ReadLengthSpc for &[u8] {
     fn read_length(&mut self, spe: &SpcEnv) -> Result<f64, ()> {
         let mut p = *self; /* inverse magnify */
         let mut u: f64 = 1.0f64;
         let mut error: i32 = 0i32;
-        let q = p.parse_float_decimal();
-        if q.is_none() {
+        let v = p.parse_float_decimal_to_f64();
+        if v.is_none() {
             *self = p;
             return Err(());
         }
-        let v = unsafe { atof(q.unwrap().as_ptr()) };
+        let v = v.unwrap();
         p.skip_white();
         if let Some(q) = p.parse_c_ident() {
             let mut bytes = q.as_str();
@@ -347,7 +293,7 @@ impl ReadLengthSpc for &[u8] {
  * order: scaling, rotate, displacement.
  */
 fn make_transmatrix(
-    M: &mut TMatrix,
+    m: &mut TMatrix,
     xoffset: f64,
     yoffset: f64,
     xscale: f64,
@@ -355,7 +301,7 @@ fn make_transmatrix(
     rotate: f64,
 ) {
     let (s, c) = rotate.sin_cos();
-    *M = TMatrix::row_major(
+    *m = TMatrix::row_major(
         xscale * c,
         xscale * s,
         -yscale * s,
@@ -364,7 +310,9 @@ fn make_transmatrix(
         yoffset,
     );
 }
-unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &mut SpcArg) -> i32 {
+
+fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<transform_info, ()> {
+    let mut t = transform_info::new();
     const _DTKEYS: [&str; 14] = [
         "hoffset", "voffset", "hsize", "vsize", "hscale", "vscale", "angle", "clip", "llx", "lly",
         "urx", "ury", "rwi", "rhi",
@@ -425,44 +373,43 @@ unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &
                     if error != 0 {
                         break;
                     }
-                    if let Some(vp) = vp {
-                        let vp = vp.as_ptr();
+                    if let Some(vp) = vp.map(|vp| vp.to_str().unwrap().parse().unwrap()) {
                         match k {
-                            0 => xoffset = atof(vp),
-                            1 => yoffset = atof(vp),
+                            0 => xoffset = vp,
+                            1 => yoffset = vp,
                             2 => {
-                                t.width = atof(vp);
+                                t.width = vp;
                                 t.flags |= 1 << 1;
                             }
                             3 => {
-                                t.height = atof(vp);
+                                t.height = vp;
                                 t.flags |= 1 << 2;
                             }
-                            4 => xscale = atof(vp) / 100.,
-                            5 => yscale = atof(vp) / 100.,
-                            6 => rotate = std::f64::consts::PI * atof(vp) / 180.,
+                            4 => xscale = vp / 100.,
+                            5 => yscale = vp / 100.,
+                            6 => rotate = std::f64::consts::PI * vp / 180.,
                             8 => {
-                                t.bbox.min.x = atof(vp);
+                                t.bbox.min.x = vp;
                                 t.flags |= 1 << 0;
                             }
                             9 => {
-                                t.bbox.min.y = atof(vp);
+                                t.bbox.min.y = vp;
                                 t.flags |= 1 << 0;
                             }
                             10 => {
-                                t.bbox.max.x = atof(vp);
+                                t.bbox.max.x = vp;
                                 t.flags |= 1 << 0;
                             }
                             11 => {
-                                t.bbox.max.y = atof(vp);
+                                t.bbox.max.y = vp;
                                 t.flags |= 1 << 0;
                             }
                             12 => {
-                                t.width = atof(vp) / 10.;
+                                t.width = vp / 10.;
                                 t.flags |= 1 << 1;
                             }
                             13 => {
-                                t.height = atof(vp) / 10.;
+                                t.height = vp / 10.;
                                 t.flags |= 1 << 2;
                             }
                             _ => {}
@@ -478,15 +425,20 @@ unsafe fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, t: &mut transform_info, ap: &
         }
     }
     make_transmatrix(&mut t.matrix, xoffset, yoffset, xscale, yscale, rotate);
-    error
+    if error == 0 {
+        Ok(t)
+    } else {
+        Err(())
+    }
 }
 /* "page" and "pagebox" are not dimension nor transformation nor
  * something acceptable to put into here.
  * PLEASE DONT ADD HERE!
  */
-unsafe fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, p: &mut transform_info, ap: &mut SpcArg) -> i32 {
+fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<transform_info, ()> {
+    let mut p = transform_info::new();
     let mut error: i32 = 0i32;
-    let mut has_matrix = 0i32;
+    let mut has_matrix = false;
     let mut has_rotate = has_matrix;
     let mut has_scale = has_rotate; /* default: do clipping */
     let mut has_yscale = has_scale;
@@ -526,41 +478,41 @@ unsafe fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, p: &mut transform_info, ap: &m
                     p.flags |= 1 << 2;
                 }
                 "scale" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        yscale = atof(vp.as_ptr());
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        yscale = vp;
                         xscale = yscale;
-                        has_scale = 1;
+                        has_scale = true;
                     } else {
                         error = -1;
                     }
                 }
                 "xscale" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        xscale = atof(vp.as_ptr());
-                        has_xscale = 1;
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        xscale = vp;
+                        has_xscale = true;
                     } else {
                         error = -1;
                     }
                 }
                 "yscale" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        yscale = atof(vp.as_ptr());
-                        has_yscale = 1;
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        yscale = vp;
+                        has_yscale = true;
                     } else {
                         error = -1;
                     }
                 }
                 "rotate" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        rotate = 3.14159265358979323846f64 * atof(vp.as_ptr()) / 180.0f64;
-                        has_rotate = 1;
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        rotate = PI * vp / 180.0f64;
+                        has_rotate = true;
                     } else {
                         error = -1;
                     }
                 }
                 "bbox" => {
-                    let mut v: [f64; 4] = [0.; 4];
-                    if spc_util_read_numbers(v.as_mut_ptr(), 4, ap) != 4 {
+                    let v: ArrayVec<[_; 4]> = read_numbers(ap);
+                    if v.len() != 4 {
                         error = -1;
                     } else {
                         p.bbox = Rect::new(point2(v[0], v[1]), point2(v[2], v[3]));
@@ -568,17 +520,18 @@ unsafe fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, p: &mut transform_info, ap: &m
                     }
                 }
                 "matrix" => {
-                    let mut v_0: [f64; 6] = [0.; 6];
-                    if spc_util_read_numbers(v_0.as_mut_ptr(), 6, ap) != 6 {
+                    let v_0: ArrayVec<[_; 6]> = read_numbers(ap);
+                    if v_0.len() != 6 {
                         error = -1;
                     } else {
+                        let v_0 = v_0.as_slice().try_into().unwrap();
                         p.matrix = TMatrix::from_row_major_array(v_0);
-                        has_matrix = 1;
+                        has_matrix = true;
                     }
                 }
                 "clip" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        if atof(vp.as_ptr()) != 0. {
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        if vp != 0. {
                             p.flags |= 1 << 3;
                         } else {
                             p.flags &= !(1 << 3)
@@ -605,48 +558,46 @@ unsafe fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, p: &mut transform_info, ap: &m
     }
     if error == 0 {
         /* Check consistency */
-        if has_xscale != 0 && p.flags & 1i32 << 1i32 != 0 {
+        if has_xscale && p.flags & 1i32 << 1i32 != 0 {
             spc_warn!(spe, "Can\'t supply both width and xscale. Ignore xscale.");
             xscale = 1.0f64
-        } else if has_yscale != 0 && p.flags & 1i32 << 2i32 != 0 {
+        } else if has_yscale && p.flags & 1i32 << 2i32 != 0 {
             spc_warn!(
                 spe,
                 "Can\'t supply both height/depth and yscale. Ignore yscale."
             );
             yscale = 1.0f64
-        } else if has_scale != 0 && (has_xscale != 0 || has_yscale != 0) {
+        } else if has_scale && (has_xscale || has_yscale) {
             spc_warn!(spe, "Can\'t supply overall scale along with axis scales.");
             error = -1i32
-        } else if has_matrix != 0
-            && (has_scale != 0 || has_xscale != 0 || has_yscale != 0 || has_rotate != 0)
-        {
+        } else if has_matrix && (has_scale || has_xscale || has_yscale || has_rotate) {
             spc_warn!(spe, "Can\'t supply transform matrix along with scales or rotate. Ignore scales and rotate.");
         }
     }
-    if has_matrix == 0 {
-        make_transmatrix(&mut p.matrix, 0.0f64, 0.0f64, xscale, yscale, rotate);
+    if !has_matrix {
+        make_transmatrix(&mut p.matrix, 0.0, 0.0, xscale, yscale, rotate);
     }
     if p.flags & 1i32 << 0i32 == 0 {
         p.flags &= !(1i32 << 3i32)
         /* no clipping needed */
     }
-    error
+    if error == 0 {
+        Ok(p)
+    } else {
+        Err(())
+    }
 }
 
-pub(crate) unsafe fn spc_util_read_dimtrns(
-    spe: *mut SpcEnv,
-    ti: &mut transform_info,
-    args: *mut SpcArg,
+pub(crate) fn spc_util_read_dimtrns(
+    spe: &mut SpcEnv,
+    args: &mut SpcArg,
     syntax: i32,
-) -> i32 {
-    if spe.is_null() || args.is_null() {
-        return -1i32;
-    }
+) -> Result<transform_info, ()> {
     if syntax != 0 {
-        return spc_read_dimtrns_dvips(&mut *spe, ti, &mut *args);
+        spc_read_dimtrns_dvips(spe, args)
     } else {
-        return spc_read_dimtrns_pdfm(&mut *spe, ti, &mut *args);
-    };
+        spc_read_dimtrns_pdfm(spe, args)
+    }
 }
 /* syntax 1: ((rgb|cmyk|hsb|gray) colorvalues)|colorname
  * syntax 0: pdf_number|pdf_array
@@ -654,15 +605,15 @@ pub(crate) unsafe fn spc_util_read_dimtrns(
  * This is for reading *single* color specification.
  */
 
-pub(crate) unsafe fn spc_util_read_blahblah(
+pub(crate) fn spc_util_read_blahblah(
     spe: &mut SpcEnv,
     p: &mut transform_info,
-    page_no: *mut i32,
-    bbox_type: *mut i32,
+    page_no: &mut Option<i32>,
+    bbox_type: &mut Option<i32>,
     ap: &mut SpcArg,
 ) -> i32 {
     let mut error: i32 = 0i32;
-    let mut has_matrix = 0i32; /* default: do clipping */
+    let mut has_matrix = false; /* default: do clipping */
     let mut has_rotate = has_matrix;
     let mut has_scale = has_rotate;
     let mut has_yscale = has_scale;
@@ -702,41 +653,41 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                     p.flags |= 1i32 << 2i32
                 }
                 "scale" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        yscale = atof(vp.as_ptr());
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        yscale = vp;
                         xscale = yscale;
-                        has_scale = 1i32;
+                        has_scale = true;
                     } else {
                         error = -1i32
                     }
                 }
                 "xscale" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        xscale = atof(vp.as_ptr());
-                        has_xscale = 1i32;
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        xscale = vp;
+                        has_xscale = true;
                     } else {
                         error = -1i32
                     }
                 }
                 "yscale" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        yscale = atof(vp.as_ptr());
-                        has_yscale = 1i32;
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        yscale = vp;
+                        has_yscale = true;
                     } else {
                         error = -1i32
                     }
                 }
                 "rotate" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        rotate = 3.14159265358979323846f64 * atof(vp.as_ptr()) / 180.0f64;
-                        has_rotate = 1i32;
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        rotate = PI * vp / 180.0f64;
+                        has_rotate = true;
                     } else {
                         error = -1i32
                     }
                 }
                 "bbox" => {
-                    let mut v: [f64; 4] = [0.; 4];
-                    if spc_util_read_numbers(v.as_mut_ptr(), 4i32, ap) != 4i32 {
+                    let v: ArrayVec<[_; 4]> = read_numbers(ap);
+                    if v.len() != 4 {
                         error = -1i32
                     } else {
                         p.bbox = Rect::new(point2(v[0], v[1]), point2(v[2], v[3]));
@@ -744,17 +695,18 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                     }
                 }
                 "matrix" => {
-                    let mut v_0: [f64; 6] = [0.; 6];
-                    if spc_util_read_numbers(v_0.as_mut_ptr(), 6i32, ap) != 6i32 {
+                    let v_0: ArrayVec<[_; 6]> = read_numbers(ap);
+                    if v_0.len() != 6 {
                         error = -1i32
                     } else {
+                        let v_0 = v_0.as_slice().try_into().unwrap();
                         p.matrix = TMatrix::from_row_major_array(v_0);
-                        has_matrix = 1i32
+                        has_matrix = true
                     }
                 }
                 "clip" => {
-                    if let Some(vp) = ap.cur.parse_float_decimal() {
-                        if atof(vp.as_ptr()) != 0. {
+                    if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
+                        if vp != 0. {
                             p.flags |= 1 << 3
                         } else {
                             p.flags &= !(1 << 3)
@@ -764,28 +716,35 @@ pub(crate) unsafe fn spc_util_read_blahblah(
                     }
                 }
                 "page" => {
-                    let mut page: f64 = 0.;
-                    if !page_no.is_null() && spc_util_read_numbers(&mut page, 1i32, ap) == 1i32 {
-                        *page_no = page as i32
+                    if let Some(page_no) = page_no.as_mut() {
+                        let page: ArrayVec<[_; 1]> = read_numbers(ap);
+                        if page.len() == 1 {
+                            *page_no = page[0] as i32;
+                        } else {
+                            error = -1
+                        }
                     } else {
-                        error = -1i32
+                        error = -1;
                     }
                 }
                 "hide" => p.flags |= 1i32 << 4i32,
                 "pagebox" => {
                     if let Some(q) = ap.cur.parse_c_ident() {
-                        if !bbox_type.is_null() {
+                        // TODO: Maybe remove is_some check
+                        if bbox_type.is_some() {
+                            // TODO: bbox_type can probably be an enum, use try_from
                             match q.to_ascii_lowercase().as_str() {
-                                "cropbox" => *bbox_type = 1,
-                                "mediabox" => *bbox_type = 2,
-                                "artbox" => *bbox_type = 3,
-                                "trimbox" => *bbox_type = 4,
-                                "bleedbox" => *bbox_type = 5,
+                                "cropbox" => *bbox_type = Some(1),
+                                "mediabox" => *bbox_type = Some(2),
+                                "artbox" => *bbox_type = Some(3),
+                                "trimbox" => *bbox_type = Some(4),
+                                "bleedbox" => *bbox_type = Some(5),
                                 _ => {}
                             }
                         }
-                    } else if !bbox_type.is_null() {
-                        *bbox_type = 0;
+                    // TODO: Maybe remove is_some check
+                    } else if bbox_type.is_some() {
+                        *bbox_type = Some(0);
                     }
                 }
                 _ => error = -1,
@@ -805,122 +764,28 @@ pub(crate) unsafe fn spc_util_read_blahblah(
     }
     if error == 0 {
         /* Check consistency */
-        if has_xscale != 0 && p.flags & 1i32 << 1i32 != 0 {
+        if has_xscale && p.flags & 1i32 << 1i32 != 0 {
             spc_warn!(spe, "Can\'t supply both width and xscale. Ignore xscale.");
             xscale = 1.0f64
-        } else if has_yscale != 0 && p.flags & 1i32 << 2i32 != 0 {
+        } else if has_yscale && p.flags & 1i32 << 2i32 != 0 {
             spc_warn!(
                 spe,
                 "Can\'t supply both height/depth and yscale. Ignore yscale."
             );
             yscale = 1.0f64
-        } else if has_scale != 0 && (has_xscale != 0 || has_yscale != 0) {
+        } else if has_scale && (has_xscale || has_yscale) {
             spc_warn!(spe, "Can\'t supply overall scale along with axis scales.");
             error = -1i32
-        } else if has_matrix != 0
-            && (has_scale != 0 || has_xscale != 0 || has_yscale != 0 || has_rotate != 0)
-        {
+        } else if has_matrix && (has_scale || has_xscale || has_yscale || has_rotate) {
             spc_warn!(spe, "Can\'t supply transform matrix along with scales or rotate. Ignore scales and rotate.");
         }
     }
-    if has_matrix == 0 {
-        make_transmatrix(&mut p.matrix, 0.0f64, 0.0f64, xscale, yscale, rotate);
+    if !has_matrix {
+        make_transmatrix(&mut p.matrix, 0.0, 0.0, xscale, yscale, rotate);
     }
     if p.flags & 1i32 << 0i32 == 0 {
         p.flags &= !(1i32 << 3i32)
         /* no clipping needed */
     }
     error
-}
-
-/* Color names */
-struct Colordef {
-    key: &'static str,
-    color: PdfColor,
-}
-
-impl Colordef {
-    const fn new(key: &'static str, color: PdfColor) -> Self {
-        Colordef { key, color }
-    }
-}
-
-const COLORDEFS: [Colordef; 68] = [
-    Colordef::new("GreenYellow", PdfColor::Cmyk(0.15, 0.0, 0.69, 0.0)),
-    Colordef::new("Yellow", PdfColor::Cmyk(0.0, 0.0, 1.0, 0.0)),
-    Colordef::new("Goldenrod", PdfColor::Cmyk(0.0, 0.1, 0.84, 0.0)),
-    Colordef::new("Dandelion", PdfColor::Cmyk(0.0, 0.29, 0.84, 0.0)),
-    Colordef::new("Apricot", PdfColor::Cmyk(0.0, 0.32, 0.52, 0.0)),
-    Colordef::new("Peach", PdfColor::Cmyk(0.0, 0.5, 0.7, 0.0)),
-    Colordef::new("Melon", PdfColor::Cmyk(0.0, 0.46, 0.5, 0.0)),
-    Colordef::new("YellowOrange", PdfColor::Cmyk(0.0, 0.42, 1.0, 0.0)),
-    Colordef::new("Orange", PdfColor::Cmyk(0.0, 0.61, 0.87, 0.0)),
-    Colordef::new("BurntOrange", PdfColor::Cmyk(0.0, 0.51, 1.0, 0.0)),
-    Colordef::new("Bittersweet", PdfColor::Cmyk(0.0, 0.75, 1.0, 0.24)),
-    Colordef::new("RedOrange", PdfColor::Cmyk(0.0, 0.77, 0.87, 0.0)),
-    Colordef::new("Mahogany", PdfColor::Cmyk(0.0, 0.85, 0.87, 0.35)),
-    Colordef::new("Maroon", PdfColor::Cmyk(0.0, 0.87, 0.68, 0.32)),
-    Colordef::new("BrickRed", PdfColor::Cmyk(0.0, 0.89, 0.94, 0.28)),
-    Colordef::new("Red", PdfColor::Cmyk(0.0, 1.0, 1.0, 0.0)),
-    Colordef::new("OrangeRed", PdfColor::Cmyk(0.0, 1.0, 0.5, 0.0)),
-    Colordef::new("RubineRed", PdfColor::Cmyk(0.0, 1.0, 0.13, 0.0)),
-    Colordef::new("WildStrawberry", PdfColor::Cmyk(0.0, 0.96, 0.39, 0.0)),
-    Colordef::new("Salmon", PdfColor::Cmyk(0.0, 0.53, 0.38, 0.0)),
-    Colordef::new("CarnationPink", PdfColor::Cmyk(0.0, 0.63, 0.0, 0.0)),
-    Colordef::new("Magenta", PdfColor::Cmyk(0.0, 1.0, 0.0, 0.0)),
-    Colordef::new("VioletRed", PdfColor::Cmyk(0.0, 0.81, 0.0, 0.0)),
-    Colordef::new("Rhodamine", PdfColor::Cmyk(0.0, 0.82, 0.0, 0.0)),
-    Colordef::new("Mulberry", PdfColor::Cmyk(0.34, 0.90, 0.0, 0.02)),
-    Colordef::new("RedViolet", PdfColor::Cmyk(0.07, 0.9, 0.0, 0.34)),
-    Colordef::new("Fuchsia", PdfColor::Cmyk(0.47, 0.91, 0.0, 0.08)),
-    Colordef::new("Lavender", PdfColor::Cmyk(0.0, 0.48, 0.0, 0.0)),
-    Colordef::new("Thistle", PdfColor::Cmyk(0.12, 0.59, 0.0, 0.0)),
-    Colordef::new("Orchid", PdfColor::Cmyk(0.32, 0.64, 0.0, 0.0)),
-    Colordef::new("DarkOrchid", PdfColor::Cmyk(0.4, 0.8, 0.2, 0.0)),
-    Colordef::new("Purple", PdfColor::Cmyk(0.45, 0.86, 0.0, 0.0)),
-    Colordef::new("Plum", PdfColor::Cmyk(0.50, 1.0, 0.0, 0.0)),
-    Colordef::new("Violet", PdfColor::Cmyk(0.79, 0.88, 0.0, 0.0)),
-    Colordef::new("RoyalPurple", PdfColor::Cmyk(0.75, 0.9, 0.0, 0.0)),
-    Colordef::new("BlueViolet", PdfColor::Cmyk(0.86, 0.91, 0.0, 0.04)),
-    Colordef::new("Periwinkle", PdfColor::Cmyk(0.57, 0.55, 0.0, 0.0)),
-    Colordef::new("CadetBlue", PdfColor::Cmyk(0.62, 0.57, 0.23, 0.0)),
-    Colordef::new("CornflowerBlue", PdfColor::Cmyk(0.65, 0.13, 0.0, 0.0)),
-    Colordef::new("MidnightBlue", PdfColor::Cmyk(0.98, 0.13, 0.0, 0.43)),
-    Colordef::new("NavyBlue", PdfColor::Cmyk(0.94, 0.54, 0.0, 0.0)),
-    Colordef::new("RoyalBlue", PdfColor::Cmyk(1.0, 0.5, 0.0, 0.0)),
-    Colordef::new("Blue", PdfColor::Cmyk(1.0, 1.0, 0.0, 0.0)),
-    Colordef::new("Cerulean", PdfColor::Cmyk(0.94, 0.11, 0.0, 0.0)),
-    Colordef::new("Cyan", PdfColor::Cmyk(1.0, 0.0, 0.0, 0.0)),
-    Colordef::new("ProcessBlue", PdfColor::Cmyk(0.96, 0.0, 0.0, 0.0)),
-    Colordef::new("SkyBlue", PdfColor::Cmyk(0.62, 0.0, 0.12, 0.0)),
-    Colordef::new("Turquoise", PdfColor::Cmyk(0.85, 0.0, 0.20, 0.0)),
-    Colordef::new("TealBlue", PdfColor::Cmyk(0.86, 0.0, 0.34, 0.02)),
-    Colordef::new("Aquamarine", PdfColor::Cmyk(0.82, 0.0, 0.3, 0.0)),
-    Colordef::new("BlueGreen", PdfColor::Cmyk(0.85, 0.0, 0.33, 0.0)),
-    Colordef::new("Emerald", PdfColor::Cmyk(1.0, 0.0, 0.5, 0.0)),
-    Colordef::new("JungleGreen", PdfColor::Cmyk(0.99, 0.0, 0.52, 0.0)),
-    Colordef::new("SeaGreen", PdfColor::Cmyk(0.69, 0.0, 0.5, 0.0)),
-    Colordef::new("Green", PdfColor::Cmyk(1.0, 0.0, 1.0, 0.00f64)),
-    Colordef::new("ForestGreen", PdfColor::Cmyk(0.91, 0.0, 0.88, 0.12)),
-    Colordef::new("PineGreen", PdfColor::Cmyk(0.92, 0.0, 0.59, 0.25)),
-    Colordef::new("LimeGreen", PdfColor::Cmyk(0.5, 0.0, 1.0, 0.0)),
-    Colordef::new("YellowGreen", PdfColor::Cmyk(0.44, 0.0, 0.74, 0.0)),
-    Colordef::new("SpringGreen", PdfColor::Cmyk(0.26, 0.0, 0.76, 0.0)),
-    Colordef::new("OliveGreen", PdfColor::Cmyk(0.64, 0.0, 0.95, 0.40)),
-    Colordef::new("RawSienna", PdfColor::Cmyk(0.0, 0.72, 1.0, 0.45)),
-    Colordef::new("Sepia", PdfColor::Cmyk(0.0, 0.83, 1.0, 0.7)),
-    Colordef::new("Brown", PdfColor::Cmyk(0.0, 0.81, 1.0, 0.6)),
-    Colordef::new("Tan", PdfColor::Cmyk(0.14, 0.42, 0.56, 0.0)),
-    Colordef::new("Gray", PdfColor::Gray(0.5)),
-    Colordef::new("Black", PdfColor::Gray(0.0)),
-    Colordef::new("White", PdfColor::Gray(1.0)),
-];
-
-/* From pdfcolor.c */
-unsafe fn pdf_color_namedcolor(name: &str) -> Option<PdfColor> {
-    COLORDEFS
-        .as_ref()
-        .iter()
-        .find(|&colordef| colordef.key == name)
-        .map(|colordef| colordef.color.clone())
 }

@@ -72,6 +72,82 @@ pub(crate) enum PdfColor {
     Cmyk(f64, f64, f64, f64),
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub(crate) struct RgbPdfColor(f64, f64, f64);
+
+impl RgbPdfColor {
+    pub(crate) fn r(&self) -> f64 {
+        self.0
+    }
+
+    pub(crate) fn g(&self) -> f64 {
+        self.1
+    }
+
+    pub(crate) fn b(&self) -> f64 {
+        self.2
+    }
+
+    pub(crate) fn from_hsv(h: f64, s: f64, v: f64) -> RgbPdfColor {
+        let mut b = v;
+        let mut g = b;
+        let mut r = g;
+        if s != 0.0 {
+            let h6 = h * 6.0;
+            let i = h6 as i32;
+            let f = h6 - i as f64;
+            let v1 = v * (1.0 - s);
+            let v2 = v * (1.0 - s * f);
+            let v3 = v * (1.0 - s * (1.0 - f));
+            match i {
+                0 => {
+                    r = v;
+                    g = v3;
+                    b = v1
+                }
+                1 => {
+                    r = v2;
+                    g = v;
+                    b = v1
+                }
+                2 => {
+                    r = v1;
+                    g = v;
+                    b = v3
+                }
+                3 => {
+                    r = v1;
+                    g = v2;
+                    b = v
+                }
+                4 => {
+                    r = v3;
+                    g = v1;
+                    b = v
+                }
+                5 => {
+                    r = v;
+                    g = v1;
+                    b = v2
+                }
+                6 => {
+                    r = v;
+                    g = v1;
+                    b = v2
+                }
+                _ => {}
+            }
+        }
+        RgbPdfColor(r, g, b)
+    }
+}
+
+impl From<RgbPdfColor> for PdfColor {
+    fn from(RgbPdfColor(r, g, b): RgbPdfColor) -> Self {
+        PdfColor::Rgb(r, g, b)
+    }
+}
+
 pub(crate) const WHITE: PdfColor = PdfColor::Gray(1.0);
 pub(crate) const BLACK: PdfColor = PdfColor::Gray(0.0);
 
@@ -216,7 +292,98 @@ impl PdfColor {
             PdfColor::Gray(g) => values_to_string(&[*g]),
         }
     }
+
+    pub(crate) fn named(name: &str) -> Option<PdfColor> {
+        COLORDEFS
+            .as_ref()
+            .iter()
+            .find(|&colordef| colordef.key == name)
+            .map(|colordef| colordef.color.clone())
+    }
 }
+
+/* Color names */
+struct Colordef {
+    key: &'static str,
+    color: PdfColor,
+}
+
+impl Colordef {
+    const fn new(key: &'static str, color: PdfColor) -> Self {
+        Colordef { key, color }
+    }
+}
+
+const COLORDEFS: [Colordef; 68] = [
+    Colordef::new("GreenYellow", PdfColor::Cmyk(0.15, 0.0, 0.69, 0.0)),
+    Colordef::new("Yellow", PdfColor::Cmyk(0.0, 0.0, 1.0, 0.0)),
+    Colordef::new("Goldenrod", PdfColor::Cmyk(0.0, 0.1, 0.84, 0.0)),
+    Colordef::new("Dandelion", PdfColor::Cmyk(0.0, 0.29, 0.84, 0.0)),
+    Colordef::new("Apricot", PdfColor::Cmyk(0.0, 0.32, 0.52, 0.0)),
+    Colordef::new("Peach", PdfColor::Cmyk(0.0, 0.5, 0.7, 0.0)),
+    Colordef::new("Melon", PdfColor::Cmyk(0.0, 0.46, 0.5, 0.0)),
+    Colordef::new("YellowOrange", PdfColor::Cmyk(0.0, 0.42, 1.0, 0.0)),
+    Colordef::new("Orange", PdfColor::Cmyk(0.0, 0.61, 0.87, 0.0)),
+    Colordef::new("BurntOrange", PdfColor::Cmyk(0.0, 0.51, 1.0, 0.0)),
+    Colordef::new("Bittersweet", PdfColor::Cmyk(0.0, 0.75, 1.0, 0.24)),
+    Colordef::new("RedOrange", PdfColor::Cmyk(0.0, 0.77, 0.87, 0.0)),
+    Colordef::new("Mahogany", PdfColor::Cmyk(0.0, 0.85, 0.87, 0.35)),
+    Colordef::new("Maroon", PdfColor::Cmyk(0.0, 0.87, 0.68, 0.32)),
+    Colordef::new("BrickRed", PdfColor::Cmyk(0.0, 0.89, 0.94, 0.28)),
+    Colordef::new("Red", PdfColor::Cmyk(0.0, 1.0, 1.0, 0.0)),
+    Colordef::new("OrangeRed", PdfColor::Cmyk(0.0, 1.0, 0.5, 0.0)),
+    Colordef::new("RubineRed", PdfColor::Cmyk(0.0, 1.0, 0.13, 0.0)),
+    Colordef::new("WildStrawberry", PdfColor::Cmyk(0.0, 0.96, 0.39, 0.0)),
+    Colordef::new("Salmon", PdfColor::Cmyk(0.0, 0.53, 0.38, 0.0)),
+    Colordef::new("CarnationPink", PdfColor::Cmyk(0.0, 0.63, 0.0, 0.0)),
+    Colordef::new("Magenta", PdfColor::Cmyk(0.0, 1.0, 0.0, 0.0)),
+    Colordef::new("VioletRed", PdfColor::Cmyk(0.0, 0.81, 0.0, 0.0)),
+    Colordef::new("Rhodamine", PdfColor::Cmyk(0.0, 0.82, 0.0, 0.0)),
+    Colordef::new("Mulberry", PdfColor::Cmyk(0.34, 0.90, 0.0, 0.02)),
+    Colordef::new("RedViolet", PdfColor::Cmyk(0.07, 0.9, 0.0, 0.34)),
+    Colordef::new("Fuchsia", PdfColor::Cmyk(0.47, 0.91, 0.0, 0.08)),
+    Colordef::new("Lavender", PdfColor::Cmyk(0.0, 0.48, 0.0, 0.0)),
+    Colordef::new("Thistle", PdfColor::Cmyk(0.12, 0.59, 0.0, 0.0)),
+    Colordef::new("Orchid", PdfColor::Cmyk(0.32, 0.64, 0.0, 0.0)),
+    Colordef::new("DarkOrchid", PdfColor::Cmyk(0.4, 0.8, 0.2, 0.0)),
+    Colordef::new("Purple", PdfColor::Cmyk(0.45, 0.86, 0.0, 0.0)),
+    Colordef::new("Plum", PdfColor::Cmyk(0.50, 1.0, 0.0, 0.0)),
+    Colordef::new("Violet", PdfColor::Cmyk(0.79, 0.88, 0.0, 0.0)),
+    Colordef::new("RoyalPurple", PdfColor::Cmyk(0.75, 0.9, 0.0, 0.0)),
+    Colordef::new("BlueViolet", PdfColor::Cmyk(0.86, 0.91, 0.0, 0.04)),
+    Colordef::new("Periwinkle", PdfColor::Cmyk(0.57, 0.55, 0.0, 0.0)),
+    Colordef::new("CadetBlue", PdfColor::Cmyk(0.62, 0.57, 0.23, 0.0)),
+    Colordef::new("CornflowerBlue", PdfColor::Cmyk(0.65, 0.13, 0.0, 0.0)),
+    Colordef::new("MidnightBlue", PdfColor::Cmyk(0.98, 0.13, 0.0, 0.43)),
+    Colordef::new("NavyBlue", PdfColor::Cmyk(0.94, 0.54, 0.0, 0.0)),
+    Colordef::new("RoyalBlue", PdfColor::Cmyk(1.0, 0.5, 0.0, 0.0)),
+    Colordef::new("Blue", PdfColor::Cmyk(1.0, 1.0, 0.0, 0.0)),
+    Colordef::new("Cerulean", PdfColor::Cmyk(0.94, 0.11, 0.0, 0.0)),
+    Colordef::new("Cyan", PdfColor::Cmyk(1.0, 0.0, 0.0, 0.0)),
+    Colordef::new("ProcessBlue", PdfColor::Cmyk(0.96, 0.0, 0.0, 0.0)),
+    Colordef::new("SkyBlue", PdfColor::Cmyk(0.62, 0.0, 0.12, 0.0)),
+    Colordef::new("Turquoise", PdfColor::Cmyk(0.85, 0.0, 0.20, 0.0)),
+    Colordef::new("TealBlue", PdfColor::Cmyk(0.86, 0.0, 0.34, 0.02)),
+    Colordef::new("Aquamarine", PdfColor::Cmyk(0.82, 0.0, 0.3, 0.0)),
+    Colordef::new("BlueGreen", PdfColor::Cmyk(0.85, 0.0, 0.33, 0.0)),
+    Colordef::new("Emerald", PdfColor::Cmyk(1.0, 0.0, 0.5, 0.0)),
+    Colordef::new("JungleGreen", PdfColor::Cmyk(0.99, 0.0, 0.52, 0.0)),
+    Colordef::new("SeaGreen", PdfColor::Cmyk(0.69, 0.0, 0.5, 0.0)),
+    Colordef::new("Green", PdfColor::Cmyk(1.0, 0.0, 1.0, 0.00f64)),
+    Colordef::new("ForestGreen", PdfColor::Cmyk(0.91, 0.0, 0.88, 0.12)),
+    Colordef::new("PineGreen", PdfColor::Cmyk(0.92, 0.0, 0.59, 0.25)),
+    Colordef::new("LimeGreen", PdfColor::Cmyk(0.5, 0.0, 1.0, 0.0)),
+    Colordef::new("YellowGreen", PdfColor::Cmyk(0.44, 0.0, 0.74, 0.0)),
+    Colordef::new("SpringGreen", PdfColor::Cmyk(0.26, 0.0, 0.76, 0.0)),
+    Colordef::new("OliveGreen", PdfColor::Cmyk(0.64, 0.0, 0.95, 0.40)),
+    Colordef::new("RawSienna", PdfColor::Cmyk(0.0, 0.72, 1.0, 0.45)),
+    Colordef::new("Sepia", PdfColor::Cmyk(0.0, 0.83, 1.0, 0.7)),
+    Colordef::new("Brown", PdfColor::Cmyk(0.0, 0.81, 1.0, 0.6)),
+    Colordef::new("Tan", PdfColor::Cmyk(0.14, 0.42, 0.56, 0.0)),
+    Colordef::new("Gray", PdfColor::Gray(0.5)),
+    Colordef::new("Black", PdfColor::Gray(0.0)),
+    Colordef::new("White", PdfColor::Gray(1.0)),
+];
 
 #[derive(Copy, Clone)]
 #[repr(C)]
