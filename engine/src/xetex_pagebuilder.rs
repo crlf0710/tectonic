@@ -4,7 +4,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use crate::help;
@@ -89,11 +88,6 @@ unsafe fn ensure_vbox(n: u8) {
  * the node that was being contributed to the page when the decision to force
  * an output was made." */
 unsafe fn fire_up(input: &mut input_state_t, c: usize) {
-    let mut s: usize = 0;
-    let mut n: u8 = 0;
-    let mut wait = false;
-    let mut save_vbadness: i32 = 0;
-    let mut save_vfuzz: Scaled = Scaled::ZERO;
     /*1048: "Set the value of output_penalty" */
     let bpb = best_page_break.unwrap();
     if let TxtNode::Penalty(bpb) = &mut TxtNode::from(bpb) {
@@ -174,7 +168,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
         let mut r = PageInsertion(llist_link(PAGE_INS_HEAD).unwrap());
         while r.ptr() != PAGE_INS_HEAD {
             if r.best_ins_ptr().opt().is_some() {
-                n = r.box_reg() as _;
+                let n = r.box_reg() as _;
                 ensure_vbox(n);
 
                 if get_box_reg(n as _).is_none() {
@@ -209,12 +203,13 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
                     while r.box_reg() != p_ins.box_reg() {
                         r = PageInsertion(llist_link(r.ptr()).unwrap());
                     }
+                    let mut wait;
                     if r.best_ins_ptr().opt().is_none() {
                         wait = true
                     } else {
                         wait = false;
 
-                        s = r.last_ins_ptr() as usize;
+                        let mut s = r.last_ins_ptr() as usize;
                         *LLIST_link(s) = p_ins.ins_ptr();
                         if r.best_ins_ptr().opt() == Some(p) {
                             /*1056: "Wrap up the box specified by node r,
@@ -248,7 +243,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
                             }
 
                             r.set_best_ins_ptr(None.tex_int());
-                            n = r.box_reg() as _;
+                            let n = r.box_reg();
                             let b = List::from(get_box_reg(n as usize).unwrap());
                             let tmp_ptr = b.list_ptr().opt();
                             b.free();
@@ -343,9 +338,9 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
     }
 
     /* Temporarily futz some variables to inhibit error messages */
-    save_vbadness = get_int_par(IntPar::vbadness);
+    let save_vbadness = get_int_par(IntPar::vbadness);
     set_int_par(IntPar::vbadness, INF_BAD);
-    save_vfuzz = get_dimen_par(DimenPar::vfuzz);
+    let save_vfuzz = get_dimen_par(DimenPar::vfuzz);
     set_dimen_par(DimenPar::vfuzz, Scaled::MAX_HALFWORD);
     set_box_reg(
         255,

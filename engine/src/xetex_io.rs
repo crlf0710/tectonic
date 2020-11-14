@@ -4,7 +4,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use bridge::{stub_errno as errno, ttstub_input_getc, InFile, TTInputFormat};
@@ -293,8 +292,6 @@ pub(crate) unsafe fn u_open_in(
     mut mode: UnicodeMode,
     encodingData: i32,
 ) -> Option<Box<UFILE>> {
-    let mut B1: i32 = 0;
-    let mut B2: i32 = 0;
     let handle = tt_xetex_open_input(filefmt);
     if handle.is_none() {
         return None;
@@ -309,8 +306,8 @@ pub(crate) unsafe fn u_open_in(
     if mode == UnicodeMode::Auto {
         /* sniff encoding form */
         let handle = ufile.handle.as_mut().unwrap();
-        B1 = ttstub_input_getc(handle);
-        B2 = ttstub_input_getc(handle);
+        let B1 = ttstub_input_getc(handle);
+        let B2 = ttstub_input_getc(handle);
         if B1 == 0xfe && B2 == 0xff {
             mode = UnicodeMode::Utf16be;
         } else if B2 == 0xfe && B1 == 0xff {
@@ -349,13 +346,12 @@ unsafe fn conversion_error(errcode: i32) {
 unsafe fn apply_normalization(buf: *mut u32, len: i32, norm: i32) {
     static mut normalizers: [teckit::TECkit_Converter; 2] =
         [0 as teckit::TECkit_Converter, 0 as teckit::TECkit_Converter];
-    let mut status: teckit::TECkit_Status = 0;
     let mut inUsed: u32 = 0;
     let mut outUsed: u32 = 0;
     let normPtr = &mut *normalizers.as_mut_ptr().offset((norm - 1i32) as isize)
         as *mut teckit::TECkit_Converter;
     if (*normPtr).is_null() {
-        status = teckit::TECkit_CreateConverter(
+        let status = teckit::TECkit_CreateConverter(
             0 as *mut u8,
             0i32 as u32,
             1i32 as u8,
@@ -370,7 +366,7 @@ unsafe fn apply_normalization(buf: *mut u32, len: i32, norm: i32) {
             );
         }
     }
-    status = teckit::TECkit_ConvertBuffer(
+    let status = teckit::TECkit_ConvertBuffer(
         *normPtr,
         buf as *mut u8,
         (len as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as u32,
@@ -392,7 +388,6 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
     static mut byteBuffer: *mut i8 = ptr::null_mut();
     static mut utf32Buf: *mut u32 = ptr::null_mut();
     let mut i;
-    let mut tmpLen: i32 = 0;
     let norm = get_input_normalization_state();
     if f.handle.is_none() {
         /* NULL 'handle' means this: */
@@ -401,8 +396,6 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
     last = first;
     if f.encodingMode == UnicodeMode::ICUMapping {
         let mut bytesRead: u32 = 0_u32;
-        let mut cnv: *mut icu::UConverter = 0 as *mut icu::UConverter;
-        let mut outLen: i32 = 0;
         let mut errorCode: UErrorCode = U_ZERO_ERROR;
         if byteBuffer.is_null() {
             byteBuffer = xmalloc((BUF_SIZE + 1) as size_t) as *mut i8
@@ -442,7 +435,7 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
             buffer_overflow();
         }
         /* now apply the mapping to turn external bytes into Unicode characters in buffer */
-        cnv = f.conversionData as *mut icu::UConverter;
+        let cnv = f.conversionData as *mut icu::UConverter;
         match norm {
             1 | 2 => {
                 // NFC
@@ -451,7 +444,7 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                     utf32Buf =
                         xcalloc(BUF_SIZE as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
                 } // sets 'last' correctly
-                tmpLen = icu::ucnv_toAlgorithmic(
+                let tmpLen = icu::ucnv_toAlgorithmic(
                     icu::UCNV_UTF32_LittleEndian,
                     cnv,
                     utf32Buf as *mut i8,
@@ -472,7 +465,7 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
             }
             _ => {
                 // none
-                outLen = icu::ucnv_toAlgorithmic(
+                let mut outLen = icu::ucnv_toAlgorithmic(
                     icu::UCNV_UTF32_LittleEndian,
                     cnv,
                     &mut BUFFER[first as usize] as *mut UnicodeScalar as *mut i8,
@@ -509,7 +502,7 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                     utf32Buf =
                         xcalloc(BUF_SIZE as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
                 }
-                tmpLen = 0i32;
+                let mut tmpLen = 0i32;
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
                     *utf32Buf.offset(tmpLen as isize) = i as u32;
                     tmpLen += 1;
@@ -594,24 +587,23 @@ impl Drop for UFILE {
 }
 
 pub(crate) unsafe fn get_uni_c(f: &mut UFILE) -> i32 {
-    let mut rval: i32 = 0;
-    let mut c: i32 = 0;
     if f.savedChar != -1 {
-        rval = f.savedChar as i32;
+        let rval = f.savedChar as i32;
         f.savedChar = -1;
         return rval;
     }
     let handle = f.handle.as_mut().unwrap();
+    let mut rval;
     match f.encodingMode {
         UnicodeMode::Utf8 => {
             rval = ttstub_input_getc(handle);
-            c = rval;
+            //c = rval;
             if rval != -1 {
                 let extraBytes = bytesFromUTF8[rval as usize] as u16;
                 match extraBytes {
                     0..=3 => {
                         for _ in 0..extraBytes {
-                            c = ttstub_input_getc(handle);
+                            let c = ttstub_input_getc(handle);
                             if c < 0x80 || c >= 0xC0 {
                                 if c != -1 {
                                     handle.seek(SeekFrom::Current(-1)).unwrap();

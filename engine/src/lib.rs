@@ -4,8 +4,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
-    unused_unsafe,
     unused_attributes
 )]
 #[macro_use]
@@ -127,7 +125,7 @@ mod core_memory {
     #[no_mangle]
     pub(crate) unsafe fn xrealloc(old_ptr: *mut libc::c_void, size: size_t) -> *mut libc::c_void {
         let size = size as libc::size_t; //FIXME
-        let mut new_mem: *mut libc::c_void = 0 as *mut libc::c_void;
+        let new_mem;
         if old_ptr.is_null() {
             new_mem = xmalloc(size as size_t)
         } else {
@@ -308,7 +306,7 @@ pub(crate) mod cf_prelude {
             CFDictionaryRef, CFMutableDictionaryRef,
         },
         number::{CFNumberCompare, CFNumberCreate, CFNumberGetValue, CFNumberRef, CFNumberType},
-        set::{kCFTypeSetCallBacks, CFSetCreate, CFSetRef},
+        set::{kCFTypeSetCallBacks, CFSetCreate},
         string::{
             kCFStringEncodingUTF8, CFStringCompareFlags, CFStringCreateWithBytes,
             CFStringCreateWithCString, CFStringEncoding, CFStringGetCString, CFStringGetLength,
@@ -626,7 +624,7 @@ pub(crate) mod cf_prelude {
     pub(crate) type UniChar = u16;
 
     #[inline(always)]
-    pub(crate) fn CFRangeMake(mut loc: CFIndex, mut len: CFIndex) -> CFRange {
+    pub(crate) fn CFRangeMake(loc: CFIndex, len: CFIndex) -> CFRange {
         let mut range: CFRange = CFRange {
             location: 0,
             length: 0,
@@ -636,8 +634,8 @@ pub(crate) mod cf_prelude {
         range
     }
 
-    pub(crate) unsafe fn cgColorToRGBA32(mut color: CGColorRef) -> u32 {
-        let mut components: *const CGFloat = CGColorGetComponents(color);
+    pub(crate) unsafe fn cgColorToRGBA32(color: CGColorRef) -> u32 {
+        let components = CGColorGetComponents(color);
         let mut rval: u32 = (*components.offset(0) * 255.0f64 + 0.5f64) as u8 as u32;
         rval <<= 8i32;
         rval = (rval as u32).wrapping_add((*components.offset(1) * 255.0f64 + 0.5f64) as u8 as u32);

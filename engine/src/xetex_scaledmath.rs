@@ -8,7 +8,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use crate::xetex_ini::arith_error;
@@ -89,24 +88,22 @@ impl Scaled {
 
     pub(crate) unsafe fn add_or_sub(self, mut y: Self, negative: bool) -> Self {
         let max_answer = Self::MAX_HALFWORD;
-        let mut a = Self::ZERO;
         if negative {
             y = -y
         }
         if self >= Self::ZERO {
             if y <= max_answer - self {
-                a = self + y;
+                self + y
             } else {
                 arith_error = true;
-                a = Self::ZERO;
+                Self::ZERO
             }
         } else if y >= -max_answer - self {
-            a = self + y;
+            self + y
         } else {
             arith_error = true;
-            a = Self::ZERO;
+            Self::ZERO
         }
-        a
     }
 
     pub(crate) unsafe fn quotient(self, d: i32) -> Self {
@@ -231,19 +228,15 @@ pub(crate) unsafe fn x_over_n(x: Scaled, mut n: i32) -> (Scaled, Scaled) {
 pub(crate) unsafe fn xn_over_d(x: Scaled, n: Scaled, d: i32) -> (Scaled, i32) {
     let mut x = x.0;
     let n = n.0;
-    let mut positive: bool = false;
-    let mut t: i32 = 0;
-    let mut u: i32 = 0;
-    let mut v: i32 = 0;
-    if x >= 0i32 {
-        positive = true
+    let positive = if x >= 0 {
+        true
     } else {
         x = x.wrapping_neg(); // TODO: check
-        positive = false
-    }
-    t = (x as i64 % 32768 * n as i64) as i32;
-    u = (x as i64 / 32768 * n as i64 + t as i64 / 32768) as i32;
-    v = ((u % d) as i64 * 32768 + t as i64 % 32768) as i32;
+        false
+    };
+    let t = (x as i64 % 32768 * n as i64) as i32;
+    let mut u = (x as i64 / 32768 * n as i64 + t as i64 / 32768) as i32;
+    let v = ((u % d) as i64 * 32768 + t as i64 % 32768) as i32;
     if (u / d) as i64 >= 32768 {
         arith_error = true
     } else {

@@ -1864,7 +1864,6 @@ unsafe fn dvi_font_def(f: internal_font_number) {
 }
 
 unsafe fn movement(w: Scaled, o: u8) {
-    let mut k: i32 = 0;
     let q = get_node(MOVEMENT_NODE_SIZE);
     MEM[q + 1].b32.s1 = w.0;
     MEM[q + 2].b32.s1 = (dvi_offset + dvi_ptr) as i32;
@@ -1892,7 +1891,7 @@ unsafe fn movement(w: Scaled, o: u8) {
                             return not_found(q, o, w);
                         } else {
                             /*633:*/
-                            k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
+                            let mut k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
                             if k < 0 {
                                 k = k + DVI_BUF_SIZE as i32;
                             }
@@ -1907,7 +1906,7 @@ unsafe fn movement(w: Scaled, o: u8) {
                         if MEM[(p + 2) as usize].b32.s1 < dvi_gone {
                             return not_found(q, o, w);
                         }
-                        k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
+                        let mut k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
                         if k < 0 {
                             k = k + DVI_BUF_SIZE as i32;
                         }

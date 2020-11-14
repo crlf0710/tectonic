@@ -36,7 +36,6 @@ authorization from the copyright holders.
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use crate::c_pointer_to_str;
@@ -77,7 +76,7 @@ pub(crate) struct FloatPoint {
     pub(crate) y: f32,
 }
 
-use crate::core_memory::{xcalloc, xmalloc};
+use crate::core_memory::xcalloc;
 use harfbuzz_sys::*;
 use std::ptr;
 
@@ -501,23 +500,20 @@ fn GlyphId_create(fontNum: usize, code: libc::c_uint) -> GlyphId {
 pub(crate) unsafe fn getProtrusionFactor(side: Side) -> *mut ProtrusionFactor {
     static mut leftProt: *mut ProtrusionFactor = ptr::null_mut();
     static mut rightProt: *mut ProtrusionFactor = ptr::null_mut();
-    let mut container: *mut ProtrusionFactor = 0 as *mut ProtrusionFactor;
     match side {
         Side::Left => {
             if leftProt.is_null() {
                 leftProt = CppStdMap_create()
             }
-            container = leftProt
-            // we should not reach here
+            leftProt // we should not reach here
         }
         Side::Right => {
             if rightProt.is_null() {
                 rightProt = CppStdMap_create()
             }
-            container = rightProt
+            rightProt
         }
     }
-    return container;
 }
 pub(crate) unsafe fn set_cp_code(fontNum: usize, code: libc::c_uint, side: Side, value: i32) {
     let id = GlyphId_create(fontNum, code);
@@ -637,11 +633,7 @@ unsafe fn getLargerScriptListTable(
     font: &XeTeXFontInst,
     scriptList: *mut *mut hb_tag_t,
 ) -> libc::c_uint {
-    use bridge::size_t;
-    let mut rval = 0 as libc::c_uint;
     let face = hb_font_get_face(font.get_hb_font());
-    let mut scriptListSub: *mut hb_tag_t = 0 as *mut hb_tag_t;
-    let mut scriptListPos: *mut hb_tag_t = 0 as *mut hb_tag_t;
     let mut scriptCountSub: libc::c_uint = hb_ot_layout_table_get_script_tags(
         face,
         u32::from_be_bytes([b'G', b'S', b'U', b'B']),
@@ -649,8 +641,8 @@ unsafe fn getLargerScriptListTable(
         0 as *mut libc::c_uint,
         0 as *mut hb_tag_t,
     );
-    scriptListSub = xcalloc(
-        scriptCountSub as size_t,
+    let scriptListSub = xcalloc(
+        scriptCountSub as _,
         ::std::mem::size_of::<*mut hb_tag_t>() as _,
     ) as *mut hb_tag_t;
     hb_ot_layout_table_get_script_tags(
@@ -667,8 +659,8 @@ unsafe fn getLargerScriptListTable(
         0 as *mut libc::c_uint,
         0 as *mut hb_tag_t,
     );
-    scriptListPos = xcalloc(
-        scriptCountPos as size_t,
+    let scriptListPos = xcalloc(
+        scriptCountPos as _,
         ::std::mem::size_of::<*mut hb_tag_t>() as _,
     ) as *mut hb_tag_t;
     hb_ot_layout_table_get_script_tags(
@@ -682,14 +674,13 @@ unsafe fn getLargerScriptListTable(
         if !scriptList.is_null() {
             *scriptList = scriptListSub
         }
-        rval = scriptCountSub
+        scriptCountSub
     } else {
         if !scriptList.is_null() {
             *scriptList = scriptListPos
         }
-        rval = scriptCountPos
+        scriptCountPos
     }
-    rval
 }
 pub(crate) unsafe fn countScripts(font: &XeTeXFontInst) -> libc::c_uint {
     getLargerScriptListTable(font, 0 as *mut *mut hb_tag_t)
@@ -752,9 +743,7 @@ pub(crate) unsafe fn getIndLanguage(
         let mut i: libc::c_uint = 0i32 as libc::c_uint;
         while i < scriptCount {
             if *scriptList.offset(i as isize) == script {
-                let mut langCount: libc::c_uint = 0;
-                let mut langList: *mut hb_tag_t = 0 as *mut hb_tag_t;
-                langCount = hb_ot_layout_script_get_language_tags(
+                let mut langCount = hb_ot_layout_script_get_language_tags(
                     face,
                     u32::from_be_bytes([b'G', b'S', b'U', b'B']),
                     i,
@@ -762,7 +751,7 @@ pub(crate) unsafe fn getIndLanguage(
                     0 as *mut libc::c_uint,
                     0 as *mut hb_tag_t,
                 );
-                langList = xcalloc(
+                let langList = xcalloc(
                     langCount as size_t,
                     ::std::mem::size_of::<*mut hb_tag_t>() as _,
                 ) as *mut hb_tag_t;
@@ -787,7 +776,7 @@ pub(crate) unsafe fn getIndLanguage(
                         0 as *mut libc::c_uint,
                         0 as *mut hb_tag_t,
                     );
-                    langList = xcalloc(
+                    let langList = xcalloc(
                         langCount as size_t,
                         ::std::mem::size_of::<*mut hb_tag_t>() as _,
                     ) as *mut hb_tag_t;
@@ -1024,7 +1013,6 @@ pub(crate) unsafe fn findGraphiteFeature(
     v: *mut i32,
 ) -> bool
 /* s...e is a "feature=setting" string; look for this in the font */ {
-    let mut tmp: libc::c_long = 0;
     *f = 0i32 as hb_tag_t;
     *v = 0i32;
     while b" \t".contains(&s[0]) {
@@ -1034,7 +1022,7 @@ pub(crate) unsafe fn findGraphiteFeature(
     while !cp.is_empty() && cp[0] != b'=' {
         cp = &cp[1..];
     }
-    tmp = findGraphiteFeatureNamed(engine, &s[..s.len() - cp.len()]);
+    let tmp = findGraphiteFeatureNamed(engine, &s[..s.len() - cp.len()]);
     *f = tmp as hb_tag_t;
     if tmp == -1i32 as libc::c_long {
         return false;
@@ -1054,7 +1042,6 @@ pub(crate) unsafe fn findGraphiteFeatureNamed(
     engine: &XeTeXLayoutEngine,
     name: &[u8],
 ) -> libc::c_long {
-    use bridge::size_t;
     let mut rval = -1i32 as libc::c_long;
     let hbFace = hb_font_get_face(engine.font.get_hb_font());
     let grFace = hb_graphite2_face_get_gr_face(hbFace);
@@ -1066,8 +1053,7 @@ pub(crate) unsafe fn findGraphiteFeatureNamed(
             let mut langID: u16 = 0x409i32 as u16;
             // the first call is to get the length of the string
             gr_fref_label(feature, &mut langID, gr_utf8, &mut len);
-            let mut label: *mut libc::c_char = xmalloc(len as size_t) as *mut libc::c_char;
-            label = gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut libc::c_char;
+            let label = gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut libc::c_char;
             if std::ffi::CStr::from_ptr(label).to_bytes() == name {
                 rval = gr_fref_id(feature) as libc::c_long;
                 gr_label_destroy(label as *mut libc::c_void);
@@ -1085,7 +1071,6 @@ pub(crate) unsafe fn findGraphiteFeatureSettingNamed(
     id: u32,
     name: &[u8],
 ) -> libc::c_long {
-    use bridge::size_t;
     let mut rval: libc::c_long = -1i32 as libc::c_long;
     let hbFace = hb_font_get_face(engine.font.get_hb_font());
     let grFace = hb_graphite2_face_get_gr_face(hbFace);
@@ -1097,8 +1082,7 @@ pub(crate) unsafe fn findGraphiteFeatureSettingNamed(
             let mut langID: u16 = 0x409i32 as u16;
             // the first call is to get the length of the string
             gr_fref_value_label(feature, i as gr_uint16, &mut langID, gr_utf8, &mut len);
-            let mut label: *mut libc::c_char = xmalloc(len as size_t) as *mut libc::c_char;
-            label = gr_fref_value_label(feature, i as gr_uint16, &mut langID, gr_utf8, &mut len)
+            let label = gr_fref_value_label(feature, i as gr_uint16, &mut langID, gr_utf8, &mut len)
                 as *mut libc::c_char;
             if std::ffi::CStr::from_ptr(label).to_bytes() == name {
                 rval = gr_fref_value(feature, i as gr_uint16) as libc::c_long;
@@ -1210,9 +1194,6 @@ impl XeTeXLayoutEngine {
         count: i32,
         rightToLeft: bool,
     ) -> i32 {
-        use bridge::size_t;
-        let mut res: bool = false;
-        let mut script: hb_script_t = HB_SCRIPT_INVALID;
         let mut direction: hb_direction_t = HB_DIRECTION_LTR;
         let mut segment_props: hb_segment_properties_t = hb_segment_properties_t {
             direction: HB_DIRECTION_INVALID,
@@ -1221,7 +1202,6 @@ impl XeTeXLayoutEngine {
             reserved1: 0 as *mut libc::c_void,
             reserved2: 0 as *mut libc::c_void,
         };
-        let mut shape_plan: *mut hb_shape_plan_t = 0 as *mut hb_shape_plan_t;
         let hbFont = self.font.get_hb_font();
         let hbFace = hb_font_get_face(hbFont);
         if self.font.get_layout_dir_vertical() {
@@ -1229,7 +1209,7 @@ impl XeTeXLayoutEngine {
         } else if rightToLeft {
             direction = HB_DIRECTION_RTL
         }
-        script = hb_ot_tag_to_script(self.script);
+        let script = hb_ot_tag_to_script(self.script);
         if hbUnicodeFuncs.is_null() {
             hbUnicodeFuncs = _get_unicode_funcs()
         }
@@ -1247,23 +1227,21 @@ impl XeTeXLayoutEngine {
             // XeTeX preferred OpenType over Graphite, so we are doing the same
             // here for sake of backward compatibility. Since "ot" shaper never
             // fails, we set the shaper list to just include it.
-            self.shaper_list.list = xcalloc(
-                2i32 as size_t,
-                ::std::mem::size_of::<*mut libc::c_char>() as _,
-            ) as *mut *mut libc::c_char;
+            self.shaper_list.list = xcalloc(2, ::std::mem::size_of::<*mut libc::c_char>() as _)
+                as *mut *mut libc::c_char;
             *self.shaper_list.list.offset(0) =
                 b"ot\x00" as *const u8 as *const libc::c_char as *mut libc::c_char;
             *self.shaper_list.list.offset(1) = 0 as *mut libc::c_char;
             self.shaper_list.to_free = true;
         }
-        shape_plan = hb_shape_plan_create_cached(
+        let mut shape_plan = hb_shape_plan_create_cached(
             hbFace,
             &mut segment_props,
             self.features.as_ptr(),
             self.features.len() as u32,
             self.shaper_list.list as *const *const libc::c_char,
         );
-        res = hb_shape_plan_execute(
+        let res = hb_shape_plan_execute(
             shape_plan,
             hbFont,
             self.hbBuffer.0,
@@ -1288,7 +1266,7 @@ impl XeTeXLayoutEngine {
                 self.features.len() as u32,
                 0 as *const *const libc::c_char,
             ); /* negative is upwards */
-            res = hb_shape_plan_execute(
+            let res = hb_shape_plan_execute(
                 shape_plan,
                 hbFont,
                 self.hbBuffer.0,
@@ -1493,10 +1471,8 @@ pub(crate) unsafe fn findNextGraphiteBreak() -> i32 {
         if !grPrevSlot.is_null() && grPrevSlot != gr_seg_last_slot(grSegment) {
             let mut s: *const gr_slot = gr_slot_next_in_segment(grPrevSlot);
             while !s.is_null() {
-                let mut ci: *const gr_char_info = 0 as *const gr_char_info;
-                let mut bw: i32 = 0;
-                ci = gr_seg_cinfo(grSegment, gr_slot_index(s));
-                bw = gr_cinfo_break_weight(ci);
+                let ci = gr_seg_cinfo(grSegment, gr_slot_index(s));
+                let bw = gr_cinfo_break_weight(ci);
                 if bw < gr_breakNone as i32 && bw >= gr_breakBeforeWord as i32 {
                     grPrevSlot = s;
                     ret = gr_cinfo_base(ci) as i32

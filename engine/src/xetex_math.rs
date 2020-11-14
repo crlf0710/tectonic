@@ -4,7 +4,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use core::ptr;
@@ -98,13 +97,11 @@ static mut cur_mu: Scaled = Scaled::ZERO;
 static mut mlist_penalties: bool = false;
 
 pub(crate) unsafe fn init_math(input: &mut input_state_t) {
-    let mut x: i32 = 0;
-    let mut v: Scaled = Scaled::ZERO;
-
     let (tok, cmd, ..) = get_token(input);
 
     if cmd == Cmd::MathShift && cur_list.mode.0 == false {
         // 1180:
+        let x;
         let mut j = None;
         let mut w = -Scaled::MAX_HALFWORD;
         if cur_list.head == cur_list.tail {
@@ -146,7 +143,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
             j_.set_glue_sign(jb.glue_sign());
             j_.set_glue_set(jb.glue_set());
 
-            v = jb.shift_amount();
+            let mut v = jb.shift_amount();
             x = if let Some(aux) = cur_list.eTeX_aux {
                 if Math(aux).subtype_i32().dir() == LR::RightToLeft {
                     -1
@@ -701,8 +698,7 @@ pub(crate) unsafe fn sub_sup(input: &mut input_state_t, cmd: Cmd) {
     }
 }
 pub(crate) unsafe fn math_fraction(input: &mut input_state_t, tok: i32, chr: i32) {
-    let mut c: i16 = 0;
-    c = chr as i16;
+    let c = chr as i16;
     if cur_list.aux.b32.s1.opt().is_some() {
         /*1218:*/
         if c as i32 >= DELIMITED_CODE {
@@ -773,7 +769,6 @@ pub(crate) unsafe fn math_left_right(
     cmd: Cmd,
     chr: i32,
 ) {
-    let mut q: i32 = 0;
     let t = chr as i16;
     if t != MathNode::Left as i16 && group != GroupCode::MathLeft {
         /*1227: */
@@ -810,6 +805,7 @@ pub(crate) unsafe fn math_left_right(
             MEM[p].b16.s1 = MathNode::Right as u16;
             MEM[p].b16.s0 = 1;
         }
+        let q;
         if t == MathNode::Left as i16 {
             q = p as i32;
         } else {
@@ -831,18 +827,15 @@ pub(crate) unsafe fn math_left_right(
     };
 }
 unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
-    let mut z: Scaled = Scaled::ZERO;
-    let mut s: Scaled = Scaled::ZERO;
-    let mut e: Scaled = Scaled::ZERO;
-    let mut x: i32 = 0;
-    s = get_dimen_par(DimenPar::display_indent);
-    x = get_int_par(IntPar::pre_display_correction);
+    let mut s = get_dimen_par(DimenPar::display_indent);
+    let x = get_int_par(IntPar::pre_display_correction);
     if x == 0 {
         b.set_shift_amount(s + d);
     } else {
         let mut q;
-        z = get_dimen_par(DimenPar::display_width);
+        let z = get_dimen_par(DimenPar::display_width);
         let p = b;
+        let mut e;
         if x > 0 {
             e = z - d - p.width();
         } else {
@@ -948,12 +941,9 @@ unsafe fn app_display(j: Option<usize>, mut b: List, mut d: Scaled) {
     append_to_vlist(b);
 }
 pub(crate) unsafe fn after_math(input: &mut input_state_t) {
-    let mut l: bool = false;
-    let mut danger: bool = false;
-    let mut p: i32 = 0;
     let mut j = None;
 
-    danger = false;
+    let mut danger = false;
 
     if cur_list.mode == (false, ListMode::MMode) {
         j = cur_list.eTeX_aux; // :1530
@@ -1004,8 +994,8 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         danger = true
     }
     let mut m = cur_list.mode;
-    l = false;
-    p = fin_mlist(None);
+    let mut l = false;
+    let mut p = fin_mlist(None);
     let a = if cur_list.mode == (!m.0, m.1) {
         let (tok, cmd, ..) = get_x_token(input);
         if cmd != Cmd::MathShift {
@@ -1702,16 +1692,14 @@ unsafe fn compute_ot_math_accent_pos(p: &mut Accent) -> Scaled {
     }
 }
 unsafe fn make_math_accent(q: &mut Accent) {
-    let mut a: i32 = 0;
     let mut c: i32 = 0;
     let mut f: internal_font_number = 0;
     let mut s = Scaled::ZERO;
     let mut h: Scaled = Scaled::ZERO;
     let mut w: Scaled = Scaled::ZERO;
     let mut w2: Scaled = Scaled::ZERO;
-    let mut ot_assembly_ptr: *mut libc::c_void = 0 as *mut libc::c_void;
     q.fourth_mut().fetch();
-    ot_assembly_ptr = 0 as *mut libc::c_void;
+    let mut ot_assembly_ptr = 0 as *mut libc::c_void;
     let x = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[cur_f as usize] {
         c = cur_c;
         f = cur_f;
@@ -1731,7 +1719,7 @@ unsafe fn make_math_accent(q: &mut Accent) {
         if q.nucleus().typ == MathCell::MathChar {
             q.nucleus_mut().fetch();
             if cur_i.s1 as i32 % 4 == LIG_TAG {
-                a = LIG_KERN_BASE[cur_f as usize] + cur_i.s0 as i32;
+                let mut a = LIG_KERN_BASE[cur_f as usize] + cur_i.s0 as i32;
                 cur_i = FONT_INFO[a as usize].b16;
                 if cur_i.s3 as i32 > 128 {
                     a = ((LIG_KERN_BASE[cur_f as usize] + 256 * cur_i.s1 as i32 + cur_i.s0 as i32)
@@ -1826,7 +1814,7 @@ unsafe fn make_math_accent(q: &mut Accent) {
                 }
                 _ => {
                     c = p.glyph() as i32;
-                    a = 0;
+                    let mut a = 0;
                     loop {
                         let g = get_ot_math_variant(f, c, a, &mut w2, 1);
                         if w2 > Scaled::ZERO && w2 <= w {
@@ -2063,13 +2051,12 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
     let mut delta = Scaled::ZERO;
     let mut ot_assembly_ptr = ptr::null_mut();
     if q.nucleus().typ == MathCell::MathChar {
-        let mut c = 0;
         q.nucleus_mut().fetch();
         match &FONT_LAYOUT_ENGINE[cur_f as usize] {
             Font::Native(Otgr(e)) if e.using_open_type() => {}
             _ => {
                 if cur_style.0 == MathStyle::Display && cur_i.s1 as i32 % 4 == LIST_TAG {
-                    c = cur_i.s0;
+                    let c = cur_i.s0;
                     let i = FONT_CHARACTER_INFO(cur_f as usize, c as usize);
                     if i.s3 as i32 > 0 {
                         cur_c = c as i32;
@@ -2097,7 +2084,7 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                                 h1 =
                                     Scaled((((p.height() + p.depth()) * 5).0 as f64 / 4_f64) as i32)
                             }
-                            c = p.glyph();
+                            let c = p.glyph();
                             let mut n = 0;
                             let mut h2 = Scaled::ZERO;
                             loop {
@@ -2338,14 +2325,13 @@ unsafe fn attach_hkern_to_new_hlist(q: &mut BaseMath, delta: Scaled) -> usize {
     MEM[q.ptr() + 1].b32.s1 as usize
 }
 unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
-    let mut shift_up: Scaled = Scaled::ZERO;
-    let mut shift_down: Scaled = Scaled::ZERO;
-    let mut clr: Scaled = Scaled::ZERO;
     let mut p = MEM[q.ptr() + 1].b32.s1;
     let mut script_g = 0_u16;
     let mut script_f = 0;
     let mut sup_kern = Scaled::ZERO;
     let mut sub_kern = Scaled::ZERO;
+    let mut shift_up;
+    let mut shift_down;
     match p.opt().map(Node::from) {
         Some(Node::Char(_)) | Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(_)))) => {
             shift_up = Scaled::ZERO;
@@ -2380,7 +2366,7 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
         let w = x.width();
         x.set_width(w + get_dimen_par(DimenPar::script_space));
         shift_down = shift_down.max(sub1(cur_size));
-        clr = match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+        let clr = match &FONT_LAYOUT_ENGINE[cur_f as usize] {
             Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                 x.height() - get_ot_math_constant(cur_f, SUBSCRIPTTOPMAX)
             }
@@ -2420,7 +2406,7 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
                 )
             }
             if sub_kern != Scaled::ZERO {
-                p = attach_hkern_to_new_hlist(q, sub_kern) as i32;
+                attach_hkern_to_new_hlist(q, sub_kern) as i32;
             }
         }
     } else {
@@ -2438,7 +2424,7 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
         cur_f = save_f;
         let w = x.width();
         x.set_width(w + get_dimen_par(DimenPar::script_space));
-        clr = if cur_style.1 != 0 {
+        let clr = if cur_style.1 != 0 {
             sup3(cur_size)
         } else if cur_style.0 == MathStyle::Display {
             sup1(cur_size)
@@ -2448,7 +2434,7 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
         if shift_up < clr {
             shift_up = clr
         }
-        clr = match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+        let clr = match &FONT_LAYOUT_ENGINE[cur_f as usize] {
             Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                 x.depth() + get_ot_math_constant(cur_f, SUPERSCRIPTBOTTOMMIN)
             }
@@ -2511,16 +2497,16 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
             if shift_down < sub2(cur_size) {
                 shift_down = sub2(cur_size)
             }
-            match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+            let mut clr = match &FONT_LAYOUT_ENGINE[cur_f as usize] {
                 Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
-                    clr = get_ot_math_constant(cur_f, SUBSUPERSCRIPTGAPMIN)
+                    get_ot_math_constant(cur_f, SUBSUPERSCRIPTGAPMIN)
                         - (shift_up - x.depth() - (y.height() - shift_down))
                 }
                 _ => {
-                    clr = default_rule_thickness() * 4
+                    default_rule_thickness() * 4
                         - (shift_up - x.depth() - (y.height() - shift_down))
                 }
-            }
+            };
             if clr > Scaled::ZERO {
                 shift_down = shift_down + clr;
                 match &FONT_LAYOUT_ENGINE[cur_f as usize] {
@@ -2597,7 +2583,7 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
                     )
                 }
                 if sup_kern != Scaled::ZERO && q.subscr().typ == MathCell::Empty {
-                    p = attach_hkern_to_new_hlist(q, sup_kern) as i32;
+                    attach_hkern_to_new_hlist(q, sup_kern) as i32;
                 }
             }
             x.set_shift_amount(sup_kern + delta - sub_kern);
@@ -2822,7 +2808,7 @@ unsafe fn mlist_to_hlist() {
                     cur_mu = x_over_n(math_quad(cur_size), 18).0;
                 }
                 TxtNode::Choice(q_choice) => {
-                    let mut p = None;
+                    let p;
                     match cur_style.0 {
                         MathStyle::Display => {
                             p = q_choice.display();
@@ -3073,8 +3059,6 @@ unsafe fn mlist_to_hlist() {
 }
 unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
     let mut c: u16 = 0;
-    let mut y: u16 = 0;
-    let mut n: i32 = 0;
     let mut u: Scaled = Scaled::ZERO;
     let mut q: b16x4 = b16x4_le_t {
         s0: 0,
@@ -3107,9 +3091,9 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
                             f = g;
                             c = x;
                             w = Scaled::ZERO;
-                            n = 0;
+                            let mut n = 0;
                             loop {
-                                y = get_ot_math_variant(g, x as i32, n, &mut u, 0) as u16;
+                                let y = get_ot_math_variant(g, x as i32, n, &mut u, 0) as u16;
                                 if u > w {
                                     c = y;
                                     w = u;
@@ -3128,7 +3112,7 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
                             }
                         }
                         _ => {
-                            y = x;
+                            let mut y = x;
                             if y as i32 >= FONT_BC[g as usize] as i32
                                 && y as i32 <= FONT_EC[g as usize] as i32
                             {
@@ -3216,7 +3200,7 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
                     if c != 0 {
                         w += height_plus_depth(f, c)
                     }
-                    n = 0;
+                    let mut n = 0;
                     if u > Scaled::ZERO {
                         while w < v {
                             w += u;

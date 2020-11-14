@@ -38,7 +38,6 @@ authorization from the copyright holders.
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use super::{
@@ -199,7 +198,6 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
     /* in bytes                              */
     // for sfnt containers, we'll read the name table ourselves, not rely on Fontconfig
     if (*face).face_flags & 1 << 3i32 != 0 {
-        let mut i: libc::c_uint = 0;
         let familyNames = CppStdListOfString_create();
         let subFamilyNames = CppStdListOfString_create();
         let mut nameRec: FT_SfntName = FT_SfntName {
@@ -210,8 +208,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
             string: 0 as *mut FT_Byte,
             string_len: 0,
         };
-        i = 0i32 as libc::c_uint;
-        while i < FT_Get_Sfnt_Name_Count(face) {
+        for i in 0..FT_Get_Sfnt_Name_Count(face) {
             let mut utf8name: *mut libc::c_char = 0 as *mut libc::c_char;
             if !(FT_Get_Sfnt_Name(face, i, &mut nameRec) != 0i32) {
                 match nameRec.name_id as libc::c_int {
@@ -258,7 +255,6 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
                     _ => {}
                 }
             }
-            i = i.wrapping_add(1)
         }
         if !(*familyNames).is_empty() {
             *(*names).m_familyNames = (*familyNames).clone();
@@ -428,12 +424,12 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
     }
     let famName = CppStdString_create();
     let hyph_pos = strchr(name, '-' as i32);
-    let mut hyph: libc::c_int = 0;
+    let hyph;
     if !hyph_pos.is_null() {
         hyph = hyph_pos.offset_from(name) as libc::c_long as libc::c_int;
         CppStdString_assign_n_chars(famName, name, hyph as libc::size_t);
     } else {
-        hyph = 0i32
+        hyph = 0;
     }
     let mut found = false;
     loop {
@@ -592,7 +588,6 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     font: PlatformFontRef,
 ) -> *mut libc::c_char {
     let mut s: *mut u8 = 0 as *mut u8;
-    let mut path: *mut libc::c_char = 0 as *mut libc::c_char;
     if FcPatternGetString(
         font,
         b"file\x00" as *const u8 as *const libc::c_char,
@@ -601,11 +596,10 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     ) as libc::c_uint
         == FcResultMatch as libc::c_int as libc::c_uint
     {
-        path = strdup(s as *const libc::c_char)
+        strdup(s as *const libc::c_char)
     } else {
-        path = strdup(b"[unknown]\x00" as *const u8 as *const libc::c_char)
+        strdup(b"[unknown]\x00" as *const u8 as *const libc::c_char)
     }
-    return path;
 }
 #[no_mangle]
 pub(crate) unsafe fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {

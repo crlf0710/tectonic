@@ -44,7 +44,6 @@ authorization from the copyright holders.
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use crate::core_memory::xmalloc;
@@ -269,13 +268,12 @@ unsafe extern "C" fn _get_glyph(
     return (*gid != 0i32 as libc::c_uint) as libc::c_int;
 }
 unsafe extern "C" fn _get_glyph_advance(face: FT_Face, gid: FT_UInt, vertical: bool) -> FT_Fixed {
-    let mut error: FT_Error = 0;
     let mut advance = 0;
     let mut flags: libc::c_int = (1i64 << 0i32) as libc::c_int;
     if vertical {
         flags = (flags as libc::c_long | 1 << 4i32) as libc::c_int
     }
-    error = FT_Get_Advance(face, gid, flags, &mut advance);
+    let error = FT_Get_Advance(face, gid, flags, &mut advance);
     if error != 0 {
         advance = 0;
     }
@@ -332,10 +330,8 @@ unsafe extern "C" fn _get_glyph_h_kerning(
 ) -> hb_position_t {
     use freetype::freetype_sys::FT_KERNING_UNSCALED;
     let face = font_data as FT_Face;
-    let mut error: FT_Error = 0;
     let mut kerning: FT_Vector = FT_Vector { x: 0, y: 0 };
-    let mut ret: hb_position_t = 0;
-    error = FT_Get_Kerning(
+    let error = FT_Get_Kerning(
         face,
         gid1,
         gid2,
@@ -343,11 +339,10 @@ unsafe extern "C" fn _get_glyph_h_kerning(
         &mut kerning,
     );
     if error != 0 {
-        ret = 0i32
+        0
     } else {
-        ret = kerning.x as hb_position_t
+        kerning.x as hb_position_t
     }
-    return ret;
 }
 unsafe extern "C" fn _get_glyph_v_kerning(
     mut _hbf: *mut hb_font_t,
@@ -367,15 +362,14 @@ unsafe extern "C" fn _get_glyph_extents(
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
     let face = font_data as FT_Face;
-    let mut error: FT_Error = 0;
-    error = FT_Load_Glyph(face, gid, (1i64 << 0i32) as FT_Int32);
+    let error = FT_Load_Glyph(face, gid, (1i64 << 0i32) as FT_Int32);
     if error == 0 {
         (*extents).x_bearing = (*(*face).glyph).metrics.horiBearingX as hb_position_t;
         (*extents).y_bearing = (*(*face).glyph).metrics.horiBearingY as hb_position_t;
         (*extents).width = (*(*face).glyph).metrics.width as hb_position_t;
         (*extents).height = -(*(*face).glyph).metrics.height as hb_position_t
     }
-    return (error == 0) as libc::c_int;
+    (error == 0) as libc::c_int
 }
 unsafe extern "C" fn _get_glyph_contour_point(
     mut _hbf: *mut hb_font_t,
@@ -388,9 +382,8 @@ unsafe extern "C" fn _get_glyph_contour_point(
 ) -> hb_bool_t {
     use freetype::freetype_sys::FT_GLYPH_FORMAT_OUTLINE;
     let face = font_data as FT_Face;
-    let mut error: FT_Error = 0;
     let mut ret = false;
-    error = FT_Load_Glyph(face, gid, (1i64 << 0i32) as FT_Int32);
+    let error = FT_Load_Glyph(face, gid, (1i64 << 0i32) as FT_Int32);
     if error == 0 {
         if (*(*face).glyph).format as libc::c_uint
             == FT_GLYPH_FORMAT_OUTLINE as libc::c_int as libc::c_uint
@@ -415,12 +408,11 @@ unsafe extern "C" fn _get_glyph_name(
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
     let face = font_data as FT_Face;
-    let mut ret = false;
-    ret = FT_Get_Glyph_Name(face, gid, name as FT_Pointer, size) == 0;
+    let mut ret = FT_Get_Glyph_Name(face, gid, name as FT_Pointer, size) == 0;
     if ret as libc::c_int != 0 && (size != 0 && *name == 0) {
         ret = false;
     }
-    return ret as hb_bool_t;
+    ret as hb_bool_t
 }
 unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
     static mut funcs: *mut hb_font_funcs_t = ptr::null_mut();
@@ -519,10 +511,8 @@ unsafe extern "C" fn _get_table(
 ) -> *mut hb_blob_t {
     let face = user_data as FT_Face;
     let mut length: FT_ULong = 0i32 as FT_ULong;
-    let mut table: *mut FT_Byte = 0 as *mut FT_Byte;
-    let mut error: FT_Error = 0;
     let mut blob: *mut hb_blob_t = 0 as *mut hb_blob_t;
-    error = FT_Load_Sfnt_Table(
+    let error = FT_Load_Sfnt_Table(
         face,
         tag as FT_ULong,
         0i32 as FT_Long,
@@ -530,11 +520,12 @@ unsafe extern "C" fn _get_table(
         &mut length,
     );
     if error == 0 {
-        table = xmalloc(
+        let table = xmalloc(
             length.wrapping_mul(::std::mem::size_of::<libc::c_char>() as libc::c_ulong) as _,
         ) as *mut FT_Byte;
         if !table.is_null() {
-            error = FT_Load_Sfnt_Table(face, tag as FT_ULong, 0i32 as FT_Long, table, &mut length);
+            let error =
+                FT_Load_Sfnt_Table(face, tag as FT_ULong, 0i32 as FT_Long, table, &mut length);
             if error == 0 {
                 blob = hb_blob_create(
                     table as *const libc::c_char,
@@ -560,12 +551,8 @@ impl XeTeXFontInst {
         use crate::freetype_sys_patch::{FT_SFNT_OS2, FT_SFNT_POST};
         use freetype::freetype_sys::FT_Open_Args;
         use freetype::freetype_sys::{TT_Postscript, TT_OS2};
-        let mut postTable: *mut TT_Postscript = 0 as *mut TT_Postscript;
-        let mut os2Table: *mut TT_OS2 = 0 as *mut TT_OS2;
-        let mut error: FT_Error = 0;
-        let mut hbFace: *mut hb_face_t = 0 as *mut hb_face_t;
         if gFreeTypeLibrary.is_null() {
-            error = FT_Init_FreeType(&mut gFreeTypeLibrary);
+            let error = FT_Init_FreeType(&mut gFreeTypeLibrary);
             if error != 0 {
                 abort!("FreeType initialization failed, error {}", error);
             }
@@ -587,7 +574,7 @@ impl XeTeXFontInst {
         {
             abort!("failed to read font file");
         }
-        error = FT_New_Memory_Face(
+        let _error = FT_New_Memory_Face(
             gFreeTypeLibrary,
             self.m_backingData.as_ptr(),
             sz as FT_Long,
@@ -645,17 +632,17 @@ impl XeTeXFontInst {
         self.m_unitsPerEM = (*self.m_ftFace).units_per_EM;
         self.m_ascent = self.units_to_points((*self.m_ftFace).ascender as f32);
         self.m_descent = self.units_to_points((*self.m_ftFace).descender as f32);
-        postTable = self.get_font_table_ft(FT_SFNT_POST) as *mut TT_Postscript;
+        let postTable = self.get_font_table_ft(FT_SFNT_POST) as *mut TT_Postscript;
         if !postTable.is_null() {
             self.m_italicAngle = Fix2D(Scaled((*postTable).italicAngle as i32)) as f32
         }
-        os2Table = self.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
+        let os2Table = self.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
         if !os2Table.is_null() {
             self.m_capHeight = self.units_to_points((*os2Table).sCapHeight as f32);
             self.m_xHeight = self.units_to_points((*os2Table).sxHeight as f32)
         }
         // Set up HarfBuzz font
-        hbFace = hb_face_create_for_tables(
+        let hbFace = hb_face_create_for_tables(
             Some(
                 _get_table
                     as unsafe extern "C" fn(

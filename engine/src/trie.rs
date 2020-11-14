@@ -42,9 +42,7 @@ pub(crate) static mut trie_max: trie_pointer = 0;
 pub(crate) static mut trie_not_ready: bool = false;
 
 pub(crate) unsafe fn new_trie_op(d: i16, n: i16, v: trie_opcode) -> trie_opcode {
-    let mut h: i32 = 0;
-    let mut u: trie_opcode = 0;
-    h = ((n as i32 + 313 * d as i32 + 361 * v as i32 + 1009 * cur_lang as i32).abs() as i64
+    let mut h = ((n as i32 + 313 * d as i32 + 361 * v as i32 + 1009 * cur_lang as i32).abs() as i64
         % (TRIE_OP_SIZE as i64 - NEG_TRIE_OP_SIZE as i64)
         + NEG_TRIE_OP_SIZE as i64) as i32;
     loop {
@@ -53,7 +51,7 @@ pub(crate) unsafe fn new_trie_op(d: i16, n: i16, v: trie_opcode) -> trie_opcode 
             if trie_op_ptr as i64 == 35111 {
                 overflow("pattern memory ops", 35111);
             }
-            u = trie_used[cur_lang as usize];
+            let mut u = trie_used[cur_lang as usize];
             if u == MAX_TRIE_OP {
                 overflow("pattern memory ops per language", 65535 - 0);
             }

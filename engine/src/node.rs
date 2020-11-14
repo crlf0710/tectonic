@@ -1400,7 +1400,7 @@ impl Edge {
         self.0
     }
     pub(crate) unsafe fn lr(&self) -> LR {
-        let n = unsafe { MEM[self.ptr()].b16.s0 };
+        let n = MEM[self.ptr()].b16.s0;
         LR::n(n).unwrap_or_else(|| panic!("Incorrect LR = {}", n))
     }
     pub(crate) unsafe fn set_lr(&mut self, v: LR) -> &mut Self {

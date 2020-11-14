@@ -4,7 +4,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use std::ffi::CString;
@@ -58,7 +57,6 @@ unsafe fn pdf_get_rect(
     mut page_num: i32,
     pdf_box: i32,
 ) -> Result<Rect, ()> {
-    let mut dpx_options: i32 = 0;
     let pf = pdf_open(crate::c_pointer_to_str(filename), handle);
     if pf.is_none() {
         /* TODO: issue warning */
@@ -78,7 +76,7 @@ unsafe fn pdf_get_rect(
     /* OMG, magic numbers specifying page bound types do not agree between
      * xdvipdfmx code (dpx-pdfdoc.c:pdf_doc_get_page) and XeTeX/Apple's
      * pdfbox_* definitions (xetex-ext.h). */
-    dpx_options = match pdf_box {
+    let dpx_options = match pdf_box {
         2 => 2,
         3 => 5,
         4 => 4,
@@ -174,14 +172,11 @@ fn to_points(r: &Rect) -> [Point; 4] {
 }
 
 pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
-    let mut check_keywords: bool = false;
-    let mut page: i32 = 0;
-    let mut pdf_box_type: i32 = 0;
     let mut result: i32 = 0;
     scan_file_name(input);
     pack_file_name(cur_name, cur_area, cur_ext);
-    pdf_box_type = 0i32;
-    page = 0i32;
+    let mut pdf_box_type = 0;
+    let mut page = 0;
     if is_pdf {
         if scan_keyword(input, b"page") {
             page = scan_int(input);
@@ -213,7 +208,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
     let mut x_size_req = 0_f64;
     let mut y_size_req = 0_f64;
     let mut t = Transform::identity();
-    check_keywords = true;
+    let mut check_keywords = true;
     while check_keywords {
         if scan_keyword(input, b"scaled") {
             let val = scan_int(input);
@@ -321,8 +316,6 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
         };
 
         corners = t2.transform_rect(&corners.to_f64()).to_f32();
-        x_size_req = 0.0f64;
-        y_size_req = 0.0f64;
         t = t.post_transform(&t2);
     }
 

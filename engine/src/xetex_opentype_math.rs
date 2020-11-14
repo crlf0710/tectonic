@@ -35,7 +35,6 @@ authorization from the copyright holders.
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use crate::core_memory::xmalloc;
@@ -370,15 +369,13 @@ pub(crate) unsafe fn get_ot_math_kern(
     cmd: libc::c_int,
     shift: Scaled,
 ) -> Scaled {
-    let mut rval = 0_i32;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        let mut corr_height_top: f32 = 0.0f64 as f32;
-        let mut corr_height_bot: f32 = 0.0f64 as f32;
+        let mut rval;
         if cmd == 0i32 {
             // superscript
-            corr_height_top = font.points_to_units(glyph_height(f, g));
-            corr_height_bot =
+            let corr_height_top = font.points_to_units(glyph_height(f, g));
+            let corr_height_bot =
                 -font.points_to_units((glyph_depth(sf, sg) as f64 + Fix2D(shift)) as f32);
             let kern = getMathKernAt(
                 f,
@@ -414,9 +411,9 @@ pub(crate) unsafe fn get_ot_math_kern(
             }
         } else if cmd == 1i32 {
             // subscript
-            corr_height_top =
+            let corr_height_top =
                 font.points_to_units((glyph_height(sf, sg) as f64 - Fix2D(shift)) as f32);
-            corr_height_bot = -font.points_to_units(glyph_depth(f, g));
+            let corr_height_bot = -font.points_to_units(glyph_depth(f, g));
             let kern = getMathKernAt(
                 f,
                 g,

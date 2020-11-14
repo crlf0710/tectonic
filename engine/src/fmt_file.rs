@@ -82,26 +82,23 @@ unsafe fn pack_buffered_name(mut _n: i16, mut _a: i32, mut _b: i32) {
 }
 
 unsafe fn sort_avail() {
-    let mut q: i32 = 0;
-    let mut r: i32 = 0;
-    let mut old_rover: i32 = 0;
     let _p = get_node(0x40000000) as i32;
     let mut p = MEM[(rover + 1) as usize].b32.s1;
     MEM[(rover + 1) as usize].b32.s1 = MAX_HALFWORD;
-    old_rover = rover;
+    let old_rover = rover;
     /*136: */
     while p != old_rover {
         if p < rover {
-            q = p;
+            let q = p;
             p = MEM[(q + 1) as usize].b32.s1;
             MEM[(q + 1) as usize].b32.s1 = rover;
             rover = q
         } else {
-            q = rover;
+            let mut q = rover;
             while MEM[(q + 1) as usize].b32.s1 < p {
                 q = MEM[(q + 1) as usize].b32.s1
             }
-            r = MEM[(p + 1) as usize].b32.s1;
+            let r = MEM[(p + 1) as usize].b32.s1;
             MEM[(p + 1) as usize].b32.s1 = MEM[(q + 1) as usize].b32.s1;
             MEM[(q + 1) as usize].b32.s1 = p;
             p = r
@@ -519,8 +516,6 @@ pub(crate) unsafe fn store_fmt_file() {
 }
 
 pub(crate) unsafe fn load_fmt_file() -> bool {
-    let mut p: i32 = 0;
-    let mut q: i32 = 0;
     let mut x: i32 = 0;
 
     let j = cur_input.loc;
@@ -590,7 +585,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     }
 
     EQTB = Vec::with_capacity(EQTB_TOP + 2);
-    unsafe { EQTB.set_len(EQTB_TOP + 2) };
+    EQTB.set_len(EQTB_TOP + 2);
     for x in EQTB_SIZE..=EQTB_TOP {
         EQTB[x] = EqtbWord {
             cmd: Cmd::UndefinedCS as _,
@@ -614,7 +609,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     page_tail = PAGE_HEAD;
 
     MEM = Vec::with_capacity(MEM_TOP + 2);
-    unsafe { MEM.set_len(MEM_TOP + 2) };
+    MEM.set_len(MEM_TOP + 2);
 
     fmt_in.undump_one(&mut x);
     if x != EQTB_SIZE as i32 {
@@ -656,25 +651,18 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     max_strings = max_strings.max(str_ptr as usize + strings_free);
 
     str_start = vec![0; max_strings + 1];
-    let mut i: i32 = 0;
     let mut v = vec![0_i32; (str_ptr - TOO_BIG_CHAR + 1) as usize];
     fmt_in.undump(&mut v);
     for (ind, val) in v.into_iter().enumerate() {
         str_start[ind] = val as usize;
     }
-    i = 0;
-    while i < str_ptr - TOO_BIG_CHAR + 1 {
+    for i in 0..str_ptr - TOO_BIG_CHAR + 1 {
         if str_start[i as usize] > pool_ptr {
             panic!(
-                "item {} (={}) of .fmt array at {:x} <{} or >{}",
-                i,
-                str_start[i as usize] as u64,
-                &mut str_start[0] as *mut usize as u64,
-                0,
-                pool_ptr as u64
+                "item {} (={}) of .fmt array at {:p} <{} or >{}",
+                i, str_start[i as usize] as u64, &str_start[0], 0, pool_ptr as u64
             );
         }
-        i += 1
     }
     str_pool = vec![0; pool_size + 1];
     fmt_in.undump(&mut str_pool[..pool_ptr]);
@@ -704,8 +692,8 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         }
     }
 
-    p = 0;
-    q = rover;
+    let mut p = 0;
+    let mut q = rover;
 
     loop {
         fmt_in.undump(&mut MEM[p as usize..(q + 2) as usize]);
@@ -1191,24 +1179,24 @@ macro_rules! slice {
                 unsafe fn as_u8_slice(&self, num: usize) -> &[u8] {
                     let p = self as *const Self as *const u8;
                     let item_size = std::mem::size_of::<Self>();
-                    unsafe { std::slice::from_raw_parts(p, item_size * num) }
+                    std::slice::from_raw_parts(p, item_size * num)
                 }
                 unsafe fn as_u8_slice_mut(&mut self, num: usize) -> &mut [u8] {
                     let p = self as *mut Self as *mut u8;
                     let item_size = std::mem::size_of::<Self>();
-                    unsafe { std::slice::from_raw_parts_mut(p, item_size * num) }
+                    std::slice::from_raw_parts_mut(p, item_size * num)
                 }
             }
             impl ToU8Slice for [$x] {
                 unsafe fn to_u8_slice(&self) -> &[u8] {
                     let p = self.as_ptr() as *const u8;
                     let item_size = std::mem::size_of::<$x>();
-                    unsafe { std::slice::from_raw_parts(p, item_size * self.len()) }
+                    std::slice::from_raw_parts(p, item_size * self.len())
                 }
                 unsafe fn to_u8_slice_mut(&mut self) -> &mut [u8] {
                     let p = self.as_mut_ptr() as *mut u8;
                     let item_size = std::mem::size_of::<$x>();
-                    unsafe { std::slice::from_raw_parts_mut(p, item_size * self.len()) }
+                    std::slice::from_raw_parts_mut(p, item_size * self.len())
                 }
             }
         )*
