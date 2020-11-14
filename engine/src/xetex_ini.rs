@@ -12,7 +12,7 @@ use std::ptr;
 
 use super::xetex_texmfmp::{get_date_and_time, to_rust_string};
 use crate::cmd::*;
-use crate::core_memory::{xmalloc, xmalloc_array};
+use crate::core_memory::xmalloc_array;
 use crate::fmt_file::{load_fmt_file, store_fmt_file};
 use crate::help;
 use crate::node::*;
@@ -26,8 +26,9 @@ use crate::xetex_output::{
 };
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
-use crate::xetex_stringpool::EMPTY_STRING;
-use crate::xetex_stringpool::{length, load_pool_strings, make_string};
+use crate::xetex_stringpool::{
+    load_pool_strings, make_string, PoolString, BIGGEST_CHAR, EMPTY_STRING, TOO_BIG_CHAR,
+};
 use crate::xetex_synctex::synctex_init_command;
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
@@ -124,7 +125,6 @@ impl From<u8> for Selector {
 pub(crate) type UTF16_code = u16;
 pub(crate) type UTF8_code = u8;
 pub(crate) type UnicodeScalar = i32;
-pub(crate) type pool_pointer = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
 #[derive(Copy, Clone)]
@@ -443,13 +443,13 @@ pub(crate) static mut max_print_line: i32 = 0;
 #[no_mangle]
 pub(crate) static mut max_strings: usize = 0;
 #[no_mangle]
-pub(crate) static mut strings_free: i32 = 0;
+pub(crate) static mut strings_free: usize = 0;
 #[no_mangle]
-pub(crate) static mut string_vacancies: i32 = 0;
+pub(crate) static mut string_vacancies: usize = 0;
 #[no_mangle]
-pub(crate) static mut pool_size: i32 = 0;
+pub(crate) static mut pool_size: usize = 0;
 #[no_mangle]
-pub(crate) static mut pool_free: i32 = 0;
+pub(crate) static mut pool_free: usize = 0;
 #[no_mangle]
 pub(crate) static mut FONT_MEM_SIZE: usize = 0;
 #[no_mangle]
@@ -487,16 +487,16 @@ pub(crate) static mut insert_src_special_every_vbox: bool = false;
 pub(crate) static mut str_pool: Vec<packed_UTF16_code> = Vec::new();
 
 /// the starting pointers
-pub(crate) static mut str_start: Vec<pool_pointer> = Vec::new();
+pub(crate) static mut str_start: Vec<usize> = Vec::new();
 
 /// first unused position in |str_pool|
-pub(crate) static mut pool_ptr: pool_pointer = 0;
+pub(crate) static mut pool_ptr: usize = 0;
 
 /// number of the current string being created
 pub(crate) static mut str_ptr: str_number = 0;
 
 /// the starting value of `pool_ptr`
-pub(crate) static mut init_pool_ptr: pool_pointer = 0;
+pub(crate) static mut init_pool_ptr: usize = 0;
 
 /// the starting value of `str_ptr`
 pub(crate) static mut init_str_ptr: str_number = 0;
@@ -522,14 +522,6 @@ pub(crate) static mut trick_count: i32 = 0;
 pub(crate) static mut first_count: i32 = 0;
 #[no_mangle]
 pub(crate) static mut doing_special: bool = false;
-#[no_mangle]
-pub(crate) static mut native_text: *mut UTF16_code = ptr::null_mut();
-#[no_mangle]
-pub(crate) static mut native_text_size: i32 = 0;
-#[no_mangle]
-pub(crate) static mut native_len: i32 = 0;
-#[no_mangle]
-pub(crate) static mut save_native_len: i32 = 0;
 #[no_mangle]
 pub(crate) static mut interaction: InteractionMode = InteractionMode::Batch;
 #[no_mangle]
@@ -575,7 +567,7 @@ pub(crate) static mut global_prev_p: i32 = 0;
 #[no_mangle]
 pub(crate) static mut font_in_short_display: usize = 0;
 #[no_mangle]
-pub(crate) static mut depth_threshold: i32 = 0;
+pub(crate) static mut depth_threshold: i32 = 0; // can be -1
 #[no_mangle]
 pub(crate) static mut breadth_max: i32 = 0;
 #[no_mangle]
@@ -837,8 +829,6 @@ pub(crate) static mut loaded_font_letter_space: Scaled = Scaled::ZERO;
 #[no_mangle]
 pub(crate) static mut loaded_font_design_size: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut mapped_text: *mut UTF16_code = ptr::null_mut();
-#[no_mangle]
 pub(crate) static mut CHAR_BASE: Vec<i32> = Vec::new();
 #[no_mangle]
 pub(crate) static mut WIDTH_BASE: Vec<i32> = Vec::new();
@@ -1071,7 +1061,7 @@ pub(crate) static mut hyph_index: trie_pointer = 0;
 #[no_mangle]
 pub(crate) static mut disc_ptr: [i32; 4] = [0; 4];
 #[no_mangle]
-pub(crate) static mut edit_name_start: pool_pointer = 0;
+pub(crate) static mut edit_name_start: usize = 0;
 #[no_mangle]
 pub(crate) static mut stop_at_space: bool = false;
 #[no_mangle]
@@ -1119,19 +1109,18 @@ where
     let o = o.try_into().unwrap();
     let mut prim_val = 0;
     let b_ident = ident.as_bytes();
-    let len = b_ident.len() as i32;
+    let len = b_ident.len();
     let mut val;
     if len > 1 {
-        let mut s: str_number = maketexstring(ident);
-        if first + len > BUF_SIZE as i32 + 1 {
+        let mut s = maketexstring(ident);
+        if first as usize + len > BUF_SIZE + 1 {
             overflow("buffer size", BUF_SIZE);
         }
         for i in 0..len {
-            BUFFER[(first + i) as usize] = b_ident[i as usize] as UnicodeScalar;
+            BUFFER[first as usize + i] = b_ident[i] as UnicodeScalar;
         }
-        val = id_lookup(first, len);
-        str_ptr -= 1;
-        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+        val = id_lookup(first as usize, len);
+        PoolString::flush();
         (*hash.offset(val as isize)).s1 = s;
         prim_val = prim_lookup(s)
     } else {
@@ -1387,7 +1376,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
     };
 
     /*970: not_found:*/
-    let mut n = 0_i16;
+    let mut n = 0;
     let mut p = None;
 
     let mut reswitch = None;
@@ -1401,7 +1390,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
             Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {
                 if chr == '-' as i32 {
                     /*973:*/
-                    if (n as usize) < max_hyphenatable_length() {
+                    if n < max_hyphenatable_length() {
                         let q = get_avail();
                         *LLIST_link(q) = p.tex_int();
                         MEM[q].b32.s0 = n as i32;
@@ -1427,15 +1416,14 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                             "Proceed; I\'ll ignore the character I just read."
                         );
                         error();
-                    } else if (n as usize) < max_hyphenatable_length() {
+                    } else if n < max_hyphenatable_length() {
                         n += 1;
                         if (hc[0] as i64) < 0x1_0000 {
-                            hc[n as usize] = hc[0]
+                            hc[n] = hc[0]
                         } else {
-                            hc[n as usize] =
-                                ((hc[0] as i64 - 0x1_0000) / 1024 as i64 + 0xd800) as i32;
+                            hc[n] = ((hc[0] as i64 - 0x1_0000) / 1024 as i64 + 0xd800) as i32;
                             n += 1;
-                            hc[n as usize] = ((hc[0] % 1024) as i64 + 0xdc00) as i32
+                            hc[n] = ((hc[0] % 1024) as i64 + 0xdc00) as i32
                         }
                     }
                 }
@@ -1448,15 +1436,15 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                 if n > 1 {
                     /*974:*/
                     n += 1;
-                    hc[n as usize] = cur_lang as i32;
-                    if pool_ptr + n as i32 > pool_size {
+                    hc[n] = cur_lang as i32;
+                    if pool_ptr + n > pool_size {
                         overflow("pool size", (pool_size - init_pool_ptr) as usize);
                     }
                     let mut h = 0;
 
-                    for j in 1..=(n as usize) {
+                    for j in 1..=n {
                         h = ((h as i32 + h as i32 + hc[j]) % HYPH_PRIME) as hyph_pointer;
-                        str_pool[pool_ptr as usize] = hc[j] as packed_UTF16_code;
+                        str_pool[pool_ptr] = hc[j] as packed_UTF16_code;
                         pool_ptr += 1;
                     }
 
@@ -1476,24 +1464,11 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
 
                     while HYPH_WORD[h as usize] != 0 {
                         let mut k = HYPH_WORD[h as usize];
-                        let mut not_found = false;
-                        if length(k) == length(s) {
-                            let mut u = str_start[(k as i64 - 65536) as usize];
-                            let mut v = str_start[(s as i64 - 65536) as usize];
-                            loop {
-                                if str_pool[u as usize] as i32 != str_pool[v as usize] as i32 {
-                                    not_found = true;
-                                    break;
-                                }
-                                u += 1;
-                                v += 1;
-                                if u == str_start[((k + 1i32) as i64 - 65536) as usize] {
-                                    break;
-                                }
-                            }
-                            if !not_found {
-                                str_ptr -= 1;
-                                pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
+                        let hyph = PoolString::from(k);
+                        let string = PoolString::from(s);
+                        if hyph.len() == string.len() {
+                            if string.as_slice().starts_with(hyph.as_slice()) {
+                                PoolString::flush();
                                 s = HYPH_WORD[h as usize];
                                 HYPH_COUNT -= 1;
                                 break;
@@ -1501,7 +1476,6 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                         }
                         /*:975*/
                         /*:976*/
-                        // not_found
                         if HYPH_LINK[h as usize] == 0 {
                             HYPH_LINK[h as usize] = HYPH_NEXT as hyph_pointer;
                             if HYPH_NEXT >= HYPH_SIZE {
@@ -2372,10 +2346,6 @@ unsafe fn init_io(input: &mut input_state_t) {
 }
 unsafe fn initialize_more_variables() {
     doing_special = false;
-    native_text_size = 128;
-    native_text = xmalloc(
-        (native_text_size as u64).wrapping_mul(::std::mem::size_of::<UTF16_code>() as _) as _,
-    ) as *mut UTF16_code;
 
     interaction = InteractionMode::ErrorStop;
 
@@ -3650,7 +3620,6 @@ unsafe fn get_strings_started() {
 /* Inlines */
 /* Strings printed this way will end up in the .log as well
  * as the terminal output. */
-/*41: The length of the current string in the pool */
 /* Tectonic related functions */
 /*:1001*/
 pub(crate) unsafe fn tt_cleanup() {
@@ -3685,9 +3654,6 @@ pub(crate) unsafe fn tt_cleanup() {
     HYPH_WORD = Vec::new();
     HYPH_LIST = Vec::new();
     HYPH_LINK = Vec::new();
-
-    // initialize_more_variables @ 3277
-    free(native_text as *mut libc::c_void);
 
     // Free arrays allocated in load_fmt_file
     free(yhash as *mut libc::c_void);
@@ -3808,8 +3774,8 @@ pub(crate) unsafe fn tt_run_engine(
             hash_used += 1
         }
         EQTB = vec![EqtbWord::default(); EQTB_TOP + 1];
-        str_start = vec![pool_pointer::default(); max_strings + 1];
-        str_pool = vec![0; pool_size as usize + 1];
+        str_start = vec![0; max_strings + 1];
+        str_pool = vec![0; pool_size + 1];
         FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
     }
     /* Sanity-check various invariants. */

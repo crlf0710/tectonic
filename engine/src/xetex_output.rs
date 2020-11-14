@@ -15,11 +15,12 @@ use super::xetex_consts::{
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
 use crate::xetex_scaledmath::Scaled;
+use crate::xetex_stringpool::{PoolString, BIGGEST_CHAR};
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
     dig, doing_special, error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr,
-    pool_size, rust_stdout, selector, str_pool, str_ptr, str_start, tally, term_offset, trick_buf,
+    pool_size, rust_stdout, selector, str_pool, str_ptr, tally, term_offset, trick_buf,
     trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 use bridge::ttstub_output_putc;
@@ -192,7 +193,7 @@ pub(crate) unsafe fn print(mut s: i32) {
     if s >= str_ptr {
         return print_cstr("???");
     } else {
-        if s < 0xffff {
+        if s <= BIGGEST_CHAR {
             if s < 0 {
                 return print_cstr("???");
             } else {
@@ -215,19 +216,8 @@ pub(crate) unsafe fn print(mut s: i32) {
             }
         }
     }
-    let mut pool_idx: i32 = s - 0x10000;
 
-    // TODO: fix this bug workaround
-    let start = (if pool_idx as usize > crate::xetex_ini::max_strings {
-        0
-    } else {
-        str_start[pool_idx as usize]
-    }) as usize;
-    for c in std::char::decode_utf16(
-        str_pool[start..(str_start[(pool_idx + 1) as usize] as usize)]
-            .iter()
-            .cloned(),
-    ) {
+    for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
         print_char(c.unwrap() as i32)
     }
 }
@@ -351,44 +341,43 @@ pub(crate) unsafe fn sprint_cs(mut p: i32) {
 pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
     let mut must_quote: bool = false;
     let mut quote_char: i32 = 0;
-    let mut j = 0;
     if a != 0 {
-        j = str_start[(a - 0x10000) as usize] as usize;
-        while (!must_quote || quote_char == 0) && j < str_start[(a + 1 - 0x10000) as usize] as usize
-        {
-            if str_pool[j] as i32 == ' ' as i32 {
-                must_quote = true
-            } else if str_pool[j] as i32 == '\"' as i32 || str_pool[j] as i32 == '\'' as i32 {
-                must_quote = true;
-                quote_char = 73 - str_pool[j] as i32
+        for &j in PoolString::from(a).as_slice() {
+            if must_quote && quote_char != 0 {
+                break;
             }
-            j += 1
+            if j as i32 == ' ' as i32 {
+                must_quote = true
+            } else if j as i32 == '\"' as i32 || j as i32 == '\'' as i32 {
+                must_quote = true;
+                quote_char = 73 - j as i32
+            }
         }
     }
     if n != 0 {
-        j = str_start[(n - 0x10000) as usize] as usize;
-        while (!must_quote || quote_char == 0) && j < str_start[(n + 1 - 0x10000) as usize] as usize
-        {
-            if str_pool[j] as i32 == ' ' as i32 {
-                must_quote = true
-            } else if str_pool[j] as i32 == '\"' as i32 || str_pool[j] as i32 == '\'' as i32 {
-                must_quote = true;
-                quote_char = 73 - str_pool[j] as i32
+        for &j in PoolString::from(n).as_slice() {
+            if must_quote && quote_char != 0 {
+                break;
             }
-            j += 1
+            if j as i32 == ' ' as i32 {
+                must_quote = true
+            } else if j as i32 == '\"' as i32 || j as i32 == '\'' as i32 {
+                must_quote = true;
+                quote_char = 73 - j as i32
+            }
         }
     }
     if e != 0 {
-        j = str_start[(e - 0x10000) as usize] as usize;
-        while (!must_quote || quote_char == 0) && j < str_start[(e + 1 - 0x10000) as usize] as usize
-        {
-            if str_pool[j] as i32 == ' ' as i32 {
-                must_quote = true
-            } else if str_pool[j] as i32 == '\"' as i32 || str_pool[j] as i32 == '\'' as i32 {
-                must_quote = true;
-                quote_char = 73 - str_pool[j] as i32
+        for &j in PoolString::from(e).as_slice() {
+            if must_quote && quote_char != 0 {
+                break;
             }
-            j += 1
+            if j as i32 == ' ' as i32 {
+                must_quote = true
+            } else if j as i32 == '\"' as i32 || j as i32 == '\'' as i32 {
+                must_quote = true;
+                quote_char = 73 - j as i32
+            }
         }
     }
     if must_quote {
@@ -398,39 +387,33 @@ pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
         print_char(quote_char);
     }
     if a != 0 {
-        for j in (str_start[(a - 0x10000) as usize] as usize)
-            ..(str_start[(a + 1 - 0x10000) as usize] as usize)
-        {
-            if str_pool[j] as i32 == quote_char {
+        for &j in PoolString::from(a).as_slice() {
+            if j as i32 == quote_char {
                 print(quote_char);
                 quote_char = 73 - quote_char;
                 print(quote_char);
             }
-            print(str_pool[j] as i32);
+            print(j as i32);
         }
     }
     if n != 0 {
-        for j in (str_start[(n - 0x10000) as usize] as usize)
-            ..(str_start[(n + 1 - 0x10000) as usize] as usize)
-        {
-            if str_pool[j] as i32 == quote_char {
+        for &j in PoolString::from(n).as_slice() {
+            if j as i32 == quote_char {
                 print(quote_char);
                 quote_char = 73 - quote_char;
                 print(quote_char);
             }
-            print(str_pool[j] as i32);
+            print(j as i32);
         }
     }
     if e != 0 {
-        for j in (str_start[(e - 0x10000) as usize] as usize)
-            ..(str_start[(e + 1 - 0x10000) as usize] as usize)
-        {
-            if str_pool[j] as i32 == quote_char {
+        for &j in PoolString::from(e).as_slice() {
+            if j as i32 == quote_char {
                 print(quote_char);
                 quote_char = 73 - quote_char;
                 print(quote_char);
             }
-            print(str_pool[j] as i32);
+            print(j as i32);
         }
     }
     if quote_char != 0 {
@@ -548,10 +531,8 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
     }
 }
 pub(crate) unsafe fn print_current_string() {
-    let mut j = str_start[(str_ptr - 0x10000) as usize];
-    while j < pool_ptr {
-        print_char(str_pool[j as usize] as i32);
-        j += 1
+    for &c in PoolString::current().as_slice() {
+        print_char(c as i32);
     }
 }
 pub(crate) unsafe fn print_scaled(s: Scaled) {

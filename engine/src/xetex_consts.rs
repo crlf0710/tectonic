@@ -25,7 +25,6 @@ pub(crate) const DEFAULT_CODE: Scaled = Scaled(0x4000_0000);
  * BIGGEST_USV. "USV" here means Unicode Scalar Value. */
 
 /// must be <= max_quarterword
-pub(crate) const BIGGEST_CHAR: placeholdertype = u16::MAX as i32;
 pub(crate) const BIGGEST_USV: usize = 0x10FFFF;
 pub(crate) const NUMBER_USVS: usize = BIGGEST_USV + 1;
 pub(crate) const TOO_BIG_USV: usize = BIGGEST_USV + 1;
@@ -967,7 +966,6 @@ pub(crate) const EJECT_PENALTY: placeholdertype = -10000;
 pub(crate) const INF_BAD: placeholdertype = 10000;
 pub(crate) const INF_PENALTY: placeholdertype = 10000;
 pub(crate) const DEFAULT_RULE: Scaled = Scaled(26214); // 0.4
-pub(crate) const TOO_BIG_CHAR: placeholdertype = 65536;
 pub(crate) const NO_EXPAND_FLAG: placeholdertype = BIGGEST_USV as i32 + 2;
 
 pub(crate) const ACTIVE_MATH_CHAR: placeholdertype = 0x1FFFFF;

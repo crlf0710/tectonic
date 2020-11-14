@@ -33,8 +33,8 @@ use crate::cf_prelude::{
 use crate::core_memory::{xcalloc, xmalloc, xrealloc};
 use crate::xetex_ini::{
     loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
-    mapped_text, name_of_file, DEPTH_BASE, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE,
-    FONT_LETTER_SPACE, HEIGHT_BASE, PARAM_BASE,
+    name_of_file, DEPTH_BASE, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
+    HEIGHT_BASE, PARAM_BASE,
 };
 use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
 use crate::xetex_scaledmath::xn_over_d;
@@ -192,17 +192,12 @@ static mut brkLocaleStrNum: i32 = 0i32;
 /* info for each glyph is location (FixedPoint) + glyph ID (u16) */
 /* glyph ID field in a glyph_node */
 /* For Unicode encoding form interpretation... */
-pub(crate) unsafe fn linebreak_start(
-    f: usize,
-    mut localeStrNum: i32,
-    mut text: *mut u16,
-    mut textLength: i32,
-) {
+pub(crate) unsafe fn linebreak_start(f: usize, mut localeStrNum: i32, text: &[u16]) {
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
     let mut locale = gettexstring(localeStrNum);
     match &FONT_LAYOUT_ENGINE[f] {
         Font::Native(Otgr(engine)) if locale == "G" => {
-            if initGraphiteBreaking(engine, text, textLength) {
+            if initGraphiteBreaking(engine, text) {
                 /* user asked for Graphite line breaking and the font supports it */
                 return;
             }
@@ -251,7 +246,12 @@ pub(crate) unsafe fn linebreak_start(
             status as i32
         );
     }
-    icu::ubrk_setText(brkIter, text as *mut icu::UChar, textLength, &mut status);
+    icu::ubrk_setText(
+        brkIter,
+        text.as_ptr() as *const icu::UChar,
+        text.len() as _,
+        &mut status,
+    );
 }
 
 pub(crate) unsafe fn linebreak_next() -> i32 {
@@ -1357,57 +1357,37 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     }
     buf
 }
-pub(crate) unsafe fn apply_mapping(
-    mut pCnv: *mut libc::c_void,
-    mut txtPtr: *mut u16,
-    mut txtLen: i32,
-) -> i32 {
+pub(crate) unsafe fn apply_mapping(mut pCnv: *mut libc::c_void, txt: &[u16]) -> Vec<u16> {
     let mut cnv = pCnv as teckit::TECkit_Converter;
     let mut inUsed: u32 = 0;
     let mut outUsed: u32 = 0;
     let mut status: teckit::TECkit_Status = 0;
-    static mut outLength: u32 = 0i32 as u32;
-    /* allocate outBuffer if not big enough */
-    if (outLength as u64)
-        < (txtLen as u64)
-            .wrapping_mul(::std::mem::size_of::<UniChar>() as u64)
-            .wrapping_add(32i32 as u64)
-    {
-        free(mapped_text as *mut libc::c_void);
-        outLength = (txtLen as u64)
-            .wrapping_mul(::std::mem::size_of::<UniChar>() as u64)
-            .wrapping_add(32i32 as u64) as u32;
-        mapped_text = xmalloc(outLength as size_t) as *mut UTF16_code
-    }
+    let _2 = std::mem::size_of::<UniChar>();
+    let mut out_length = txt.len() * _2 + 32;
+    let mut mapped_text = vec![0_u16; out_length / 2];
     loop
     /* try the mapping */
     {
         status = teckit::TECkit_ConvertBuffer(
             cnv,
-            txtPtr as *mut u8,
-            (txtLen as u64).wrapping_mul(::std::mem::size_of::<UniChar>() as u64) as u32,
+            txt.as_ptr() as *const u8,
+            (txt.len() * _2) as u32,
             &mut inUsed,
-            mapped_text as *mut u8,
-            outLength,
+            mapped_text.as_mut_ptr() as *mut u8,
+            out_length as _,
             &mut outUsed,
             1i32 as u8,
         );
         match status {
             0 => {
-                txtPtr = mapped_text as *mut UniChar;
-                return (outUsed as u64).wrapping_div(::std::mem::size_of::<UniChar>() as u64)
-                    as i32;
+                mapped_text.truncate((outUsed as usize) / 2);
+                return mapped_text;
             }
             1 => {
-                outLength = (outLength as u64).wrapping_add(
-                    (txtLen as u64)
-                        .wrapping_mul(::std::mem::size_of::<UniChar>() as u64)
-                        .wrapping_add(32i32 as u64),
-                ) as u32 as u32;
-                free(mapped_text as *mut libc::c_void);
-                mapped_text = xmalloc(outLength as size_t) as *mut UTF16_code
+                out_length += txt.len() * _2 + 32;
+                mapped_text = vec![0_u16; out_length / 2];
             }
-            _ => return 0i32,
+            _ => return Vec::new(),
         }
     }
 }

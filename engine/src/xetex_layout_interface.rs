@@ -1462,11 +1462,7 @@ pub(crate) unsafe fn mapGlyphToIndex(
 static mut grSegment: *mut gr_segment = 0 as *mut gr_segment;
 static mut grPrevSlot: *const gr_slot = 0 as *const gr_slot;
 static mut grTextLen: i32 = 0;
-pub(crate) unsafe fn initGraphiteBreaking(
-    engine: &XeTeXLayoutEngine,
-    mut txtPtr: *const u16,
-    mut txtLen: i32,
-) -> bool {
+pub(crate) unsafe fn initGraphiteBreaking(engine: &XeTeXLayoutEngine, txt: &[u16]) -> bool {
     let mut hbFace: *mut hb_face_t = hb_font_get_face(engine.font.get_hb_font());
     let mut grFace: *mut gr_face = hb_graphite2_face_get_gr_face(hbFace);
     let mut grFont: *mut gr_font = hb_graphite2_font_get_gr_font(engine.font.get_hb_font());
@@ -1495,12 +1491,12 @@ pub(crate) unsafe fn initGraphiteBreaking(
             engine.script,
             grFeatureValues,
             gr_utf16,
-            txtPtr as *const libc::c_void,
-            txtLen as size_t,
+            txt.as_ptr() as *const libc::c_void,
+            txt.len() as _,
             0i32,
         );
         grPrevSlot = gr_seg_first_slot(grSegment);
-        grTextLen = txtLen;
+        grTextLen = txt.len() as _;
         return true;
     }
     false

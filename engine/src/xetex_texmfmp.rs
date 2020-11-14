@@ -8,8 +8,8 @@
     unused_mut
 )]
 
-use crate::xetex_ini::{pool_ptr, pool_size, str_pool, str_start};
-use crate::xetex_stringpool::make_string;
+use crate::xetex_ini::{pool_ptr, pool_size, str_pool};
+use crate::xetex_stringpool::{make_string, PoolString, EMPTY_STRING, TOO_BIG_CHAR};
 use bridge::ttstub_get_file_md5;
 use std::ffi::CString;
 
@@ -19,7 +19,6 @@ pub(crate) type size_t = usize;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
 pub(crate) type UInt32 = u32;
-pub(crate) type pool_pointer = i32;
 pub(crate) type UInt16 = u16;
 /* texmfmp.c: Hand-coded routines for TeX or Metafont in C.  Originally
 written by Tim Morgan, drawing from other Unix ports of TeX.  This is
@@ -50,7 +49,7 @@ pub(crate) fn get_date_and_time() -> (i32, i32, i32, i32) {
 
     (minutes as _, day as _, month as _, year)
 }
-unsafe fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: size_t) {
+unsafe fn checkpool_pointer(mut pool_ptr_0: usize, mut len: size_t) {
     assert!(
         (pool_ptr_0 as u64) + (len as u64) < pool_size as u64,
         "string pool overflow [{} bytes]",
@@ -59,23 +58,19 @@ unsafe fn checkpool_pointer(mut pool_ptr_0: pool_pointer, mut len: size_t) {
 }
 pub(crate) unsafe fn maketexstring(s: &str) -> i32 {
     if s.is_empty() {
-        return (65536 + 1i32 as i64) as i32;
+        return EMPTY_STRING;
     }
     let len = s.as_bytes().len();
     checkpool_pointer(pool_ptr, len as _);
     let v: Vec<u16> = s.encode_utf16().collect();
     let len = v.len();
-    str_pool[pool_ptr as usize..(pool_ptr as usize + len)].copy_from_slice(v.as_slice());
-    pool_ptr += len as i32;
+    str_pool[pool_ptr..pool_ptr + len].copy_from_slice(v.as_slice());
+    pool_ptr += len;
     make_string()
 }
 pub(crate) unsafe fn gettexstring(s: str_number) -> String {
-    if s >= 65536 {
-        String::from_utf16(
-            &str_pool[(str_start[s as usize - 65536] as usize)
-                ..(str_start[s as usize + 1 - 65536] as usize)],
-        )
-        .unwrap()
+    if s >= TOO_BIG_CHAR {
+        String::from_utf16(PoolString::from(s).as_slice()).unwrap()
     } else {
         String::new()
     }
@@ -93,19 +88,19 @@ pub(crate) unsafe fn remember_source_info(mut srcfilename: str_number, mut linen
     last_source_name = gettexstring(srcfilename);
     last_lineno = lineno;
 }
-pub(crate) unsafe fn make_src_special(srcfilename: str_number, lineno: i32) -> pool_pointer {
-    let oldpool_ptr: pool_pointer = pool_ptr;
+pub(crate) unsafe fn make_src_special(srcfilename: str_number, lineno: i32) -> usize {
+    let oldpool_ptr: usize = pool_ptr;
 
     // Always put a space after the number, which makes things easier to parse.
     let src = format!("src:{} {}", lineno, &gettexstring(srcfilename));
 
     assert!(
-        (pool_ptr as usize) + src.as_bytes().len() < pool_size as usize,
+        pool_ptr + src.as_bytes().len() < pool_size,
         "string pool overflow"
     );
 
     for &b in src.as_bytes() {
-        str_pool[pool_ptr as usize] = b as u16;
+        str_pool[pool_ptr] = b as u16;
         pool_ptr += 1;
     }
     oldpool_ptr
@@ -141,14 +136,14 @@ pub(crate) unsafe fn getmd5sum(s: str_number, file: bool) {
     if ret != 0 {
         return;
     }
-    if pool_ptr + 2i32 * 16i32 >= pool_size {
+    if pool_ptr + 2 * 16 >= pool_size {
         /* error by str_toks that calls str_room(1) */
         return;
     }
     let mut outbuf: [u8; 33] = [0; 33];
     convertStringToHexString(&digest, &mut outbuf);
     for i in 0..(2 * 16) {
-        str_pool[pool_ptr as usize] = outbuf[i as usize] as u16;
+        str_pool[pool_ptr] = outbuf[i as usize] as u16;
         pool_ptr += 1;
     }
 }
