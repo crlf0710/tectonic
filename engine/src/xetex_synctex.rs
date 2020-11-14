@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -24,7 +22,6 @@ use crate::xetex_xetexd::{SYNCTEX_line, SYNCTEX_tag};
 use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 
 use bridge::OutputHandleWrapper;
-pub(crate) type str_number = i32;
 bitflags::bitflags! {
     #[repr(C)]
     pub(crate) struct Flags: u32 {
@@ -747,7 +744,7 @@ unsafe fn synctex_record_teehs(sheet: usize) -> i32 {
 /*  Recording the "<..." line.  In pdftex.web, use synctex_pdfxform(p) at
  *  the very beginning of the pdf_ship_out procedure.
  */
-pub(crate) unsafe fn synctex_pdfxform(p: i32) {
+/*pub(crate) unsafe fn synctex_pdfxform(p: i32) {
     if synctex_ctxt.flags.contains(Flags::OFF) {
         if get_int_par(IntPar::synctex) != 0 && !synctex_ctxt.flags.contains(Flags::WARN) {
             synctex_ctxt.flags.insert(Flags::WARN);
@@ -760,22 +757,22 @@ pub(crate) unsafe fn synctex_pdfxform(p: i32) {
     if synctex_prepare_content() {
         synctex_record_pdfxform(p);
     };
-}
+}*/
 /*  Recording the ">" line.  In pdftex.web, use synctex_mrofxfdp at
  *  the very end of the ship_out procedure.
  */
-pub(crate) unsafe fn synctex_mrofxfdp() {
+/*pub(crate) unsafe fn synctex_mrofxfdp() {
     if !synctex_ctxt.file.is_none() {
         synctex_record_mrofxfdp();
     };
-}
-pub(crate) unsafe fn synctex_pdfrefxform(objnum: i32) {
+}*/
+/*pub(crate) unsafe fn synctex_pdfrefxform(objnum: i32) {
     if !synctex_ctxt.file.is_none() {
         synctex_record_node_pdfrefxform(objnum);
     };
-}
+}*/
 /*  Recording a "<..." line  */
-#[inline]
+/*#[inline]
 unsafe fn synctex_record_pdfxform(mut _form: i32) -> i32 {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || get_int_par(IntPar::synctex) == 0
@@ -794,9 +791,9 @@ unsafe fn synctex_record_pdfxform(mut _form: i32) -> i32 {
     }
     synctexabort();
     -1i32
-}
+}*/
 /*  Recording a ">" line  */
-#[inline]
+/*#[inline]
 unsafe fn synctex_record_mrofxfdp() -> i32 {
     if 0i32 == synctex_record_anchor() {
         /* XXX Tectonic: mistake here in original source, no %d in format string */
@@ -809,9 +806,9 @@ unsafe fn synctex_record_mrofxfdp() -> i32 {
     }
     synctexabort();
     -1i32
-}
+}*/
 /*  Recording a "f..." line  */
-#[inline]
+/*#[inline]
 unsafe fn synctex_record_node_pdfrefxform(objnum: i32) -> i32
 /* UNUSED form JL */ {
     synctex_ctxt.curh = cur_h + S_72_27;
@@ -837,7 +834,7 @@ unsafe fn synctex_record_node_pdfrefxform(objnum: i32) -> i32
     }
     synctexabort();
     -1i32
-}
+}*/
 #[inline]
 unsafe fn synctex_record_node_void_vlist(p: &List) {
     let s = format!(

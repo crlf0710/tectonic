@@ -33,8 +33,6 @@ authorization from the copyright holders.
 
 #![cfg(not(target_os = "macos"))]
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,

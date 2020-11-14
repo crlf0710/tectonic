@@ -1,6 +1,8 @@
+/* tectonic/xetex-xetexd.h -- many, many XeTeX symbol definitions
+   Copyright 2016-2018 The Tectonic Project
+   Licensed under the MIT License.
+*/
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -23,10 +25,6 @@ use super::xetex_ini::{
 };
 use bridge::ttstub_output_putc;
 
-/* tectonic/xetex-xetexd.h -- many, many XeTeX symbol definitions
-   Copyright 2016-2018 The Tectonic Project
-   Licensed under the MIT License.
-*/
 /* Extra stuff used in various change files for various reasons.  */
 /* Array allocations. Add 1 to size to account for Pascal indexing convention. */
 /*11:*/
@@ -475,14 +473,7 @@ pub(crate) unsafe fn print_file_line() {
         print_cstr(": ");
     };
 }
-/*:251 */
-/*:251 */
-/*:1660*/
-pub(crate) unsafe fn print_two(mut n: i32) {
-    n = n.abs() % 100;
-    print_char('0' as i32 + n / 10);
-    print_char('0' as i32 + n % 10);
-}
+
 pub(crate) unsafe fn print_hex(mut n: i32) {
     let mut k: u8 = 0_u8;
     print_chr('\"');

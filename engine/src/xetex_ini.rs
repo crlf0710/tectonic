@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -47,9 +45,6 @@ use bridge::ttstub_output_open_stdout;
 use dpx::{pdf_files_close, pdf_files_init};
 use libc::free;
 
-pub(crate) type uintptr_t = u64;
-pub(crate) type size_t = usize;
-pub(crate) type ssize_t = isize;
 /* tectonic/core-bridge.h: declarations of C/C++ => Rust bridge API
    Copyright 2016-2018 the Tectonic Project
    Licensed under the MIT License.
@@ -121,7 +116,6 @@ impl From<u8> for Selector {
 
 /*18: */
 pub(crate) type UTF16_code = u16;
-pub(crate) type UTF8_code = u8;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
@@ -364,7 +358,6 @@ pub(crate) struct EqtbWord {
 /* \botmarks<n> */
 /* \splitfirstmarks<n> */
 /* \splitbotmarks<n> */
-pub(crate) type glue_ord = u8;
 /* enum: normal .. filll */
 pub(crate) type internal_font_number = usize;
 pub(crate) type font_index = i32;
@@ -3579,11 +3572,11 @@ unsafe fn initialize_primitives() {
     primitive("showthe", Cmd::XRay, SHOW_THE_CODE);
     primitive("showlists", Cmd::XRay, SHOW_LISTS);
 
-    primitive("openout", Cmd::Extension, WhatsItNST::Open as i32);
-    let val = primitive("write", Cmd::Extension, WhatsItNST::Write as i32);
+    primitive("openout", Cmd::Extension, OpenFile::WHATS_IT as i32);
+    let val = primitive("write", Cmd::Extension, WriteFile::WHATS_IT as i32);
     write_loc = val;
-    primitive("closeout", Cmd::Extension, WhatsItNST::Close as i32);
-    let val = primitive("special", Cmd::Extension, WhatsItNST::Special as i32);
+    primitive("closeout", Cmd::Extension, CloseFile::WHATS_IT as i32);
+    let val = primitive("special", Cmd::Extension, Special::WHATS_IT as i32);
     (*hash.offset(FROZEN_SPECIAL as isize)).s1 = maketexstring("special");
     EQTB[FROZEN_SPECIAL] = EQTB[val as usize];
     primitive("immediate", Cmd::Extension, IMMEDIATE_CODE as i32);

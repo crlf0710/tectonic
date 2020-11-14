@@ -39,8 +39,6 @@ authorization from the copyright holders.
  */
 
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -110,11 +108,9 @@ extern "C" {
         destroy: hb_destroy_func_t,
     );
 }
-pub(crate) type size_t = usize;
 pub(crate) type int32_t = i32;
 pub(crate) type uint16_t = u16;
 pub(crate) type uint32_t = u32;
-pub(crate) type ssize_t = isize;
 
 pub(crate) type UChar32 = int32_t;
 /* quasi-hack to get the primary input */
@@ -143,7 +139,6 @@ pub(crate) type hb_font_get_glyph_func_t = Option<
 >;
 pub(crate) type hb_font_get_glyph_v_kerning_func_t = hb_font_get_glyph_kerning_func_t;
 
-pub(crate) type OTTag = uint32_t;
 pub(crate) type GlyphID = uint16_t;
 
 use crate::xetex_scaledmath::Scaled;
@@ -680,7 +675,8 @@ impl XeTeXFontInst {
         self.m_vertical = vertical;
     }
 
-    pub(crate) unsafe fn get_font_table(&self, tag: OTTag) -> *mut libc::c_void {
+    #[cfg(target_os = "macos")]
+    pub(crate) unsafe fn get_font_table(&self, tag: u32) -> *mut libc::c_void {
         let mut tmpLength: FT_ULong = 0i32 as FT_ULong;
         let mut error: FT_Error = FT_Load_Sfnt_Table(
             self.m_ftFace,

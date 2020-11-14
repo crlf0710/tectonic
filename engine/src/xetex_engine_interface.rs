@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -41,10 +39,10 @@ pub unsafe fn tt_xetex_set_int_variable(var_name: &str, value: i32) -> i32 {
     0i32
     /* success */
 }
-pub(crate) unsafe fn tt_xetex_set_string_variable(
+/*pub(crate) unsafe fn tt_xetex_set_string_variable(
     mut _var_name: *mut i8,
     mut _value: *mut i8,
 ) -> i32 {
     /* Currently unused; see Git history for how we used to set output_comment */
     1
-}
+}*/

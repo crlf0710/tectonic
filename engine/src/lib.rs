@@ -1,11 +1,4 @@
-#![allow(
-    dead_code,
-    mutable_transmutes,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-    unused_attributes
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 #[macro_use]
 extern crate bridge;
 
@@ -18,11 +11,7 @@ extern crate objc;
 
 //use log::{info, warn};
 
-pub(crate) type __off_t = i64;
-pub(crate) type __off64_t = i64;
 pub(crate) type size_t = usize;
-pub(crate) type off_t = __off_t;
-pub(crate) type ssize_t = isize;
 
 use bibtex::bibtex_main;
 pub use bibtex::BibtexConfig;
@@ -152,10 +141,6 @@ mod core_memory {
     pub(crate) unsafe fn xmalloc_array<T>(size: usize) -> *mut T {
         xmalloc(((size + 1) * std::mem::size_of::<T>()) as _) as *mut T
     }
-    #[inline]
-    pub(crate) unsafe fn xcalloc_array<T>(size: usize) -> *mut T {
-        xcalloc((size + 1) as _, std::mem::size_of::<T>() as _) as *mut T
-    }
 }
 
 mod cmd;
@@ -181,7 +166,6 @@ mod xetex_xetex0;
 mod xetex_xetexd;
 
 mod stub_icu;
-mod stub_stdio;
 mod stub_teckit;
 
 mod fmt_file;
@@ -242,13 +226,13 @@ pub(crate) mod freetype_sys_patch {
         ) -> FT_Error;
     }
 
-    pub(crate) const FT_SFNT_MAX: FT_Sfnt_Tag = 7;
-    pub(crate) const FT_SFNT_PCLT: FT_Sfnt_Tag = 6;
+    //pub(crate) const FT_SFNT_MAX: FT_Sfnt_Tag = 7;
+    //pub(crate) const FT_SFNT_PCLT: FT_Sfnt_Tag = 6;
     pub(crate) const FT_SFNT_POST: FT_Sfnt_Tag = 5;
-    pub(crate) const FT_SFNT_VHEA: FT_Sfnt_Tag = 4;
-    pub(crate) const FT_SFNT_HHEA: FT_Sfnt_Tag = 3;
+    //pub(crate) const FT_SFNT_VHEA: FT_Sfnt_Tag = 4;
+    //pub(crate) const FT_SFNT_HHEA: FT_Sfnt_Tag = 3;
     pub(crate) const FT_SFNT_OS2: FT_Sfnt_Tag = 2;
-    pub(crate) const FT_SFNT_MAXP: FT_Sfnt_Tag = 1;
+    //pub(crate) const FT_SFNT_MAXP: FT_Sfnt_Tag = 1;
     pub(crate) const FT_SFNT_HEAD: FT_Sfnt_Tag = 0;
 
     #[derive(Copy, Clone)]

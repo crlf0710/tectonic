@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -16,7 +14,6 @@ pub(crate) const BIGGEST_CHAR: i32 = u16::MAX as i32;
 pub(crate) const TOO_BIG_CHAR: i32 = 0x10000;
 pub(crate) const EMPTY_STRING: i32 = TOO_BIG_CHAR + 1;
 
-pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
 /* tectonic/xetex-stringpool.c: preloaded "string pool" constants
@@ -29,7 +26,6 @@ use std::slice;
 
 type Utf16 = u16;
 type StrNumber = i32;
-type PoolPointer = i32;
 
 pub enum PoolString {
     Char(Utf16),
@@ -71,14 +67,14 @@ impl PoolString {
         }
     }
 
-    /// Get string of certain length from str_ptr (which has no inherent length)
+    /*/// Get string of certain length from str_ptr (which has no inherent length)
     pub fn from_strptr_with_len(len: usize) -> Self {
         unsafe {
             let offset = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
             let slice = &str_pool[offset..offset + len];
             PoolString::Span(slice)
         }
-    }
+    }*/
 
     pub fn as_slice(&self) -> &[Utf16] {
         match self {

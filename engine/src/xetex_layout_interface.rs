@@ -31,8 +31,6 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -306,10 +304,6 @@ pub(crate) mod collection_types {
         let _: Box<CppStdMap<K, V>> = Box::from_raw(self_0);
     }
 
-    pub(crate) unsafe fn CppStdString_last(self_0: *const CppStdString) -> libc::c_char {
-        let val = &*self_0;
-        *val.to_bytes().last().expect("must not be empty") as libc::c_char
-    }
     pub(crate) unsafe fn CppStdString_clone(self_0: *const CppStdString) -> *mut CppStdString {
         let v: Box<CppStdString> = Box::new((*self_0).clone());
         Box::into_raw(v)
@@ -365,7 +359,6 @@ pub(crate) type hb_unicode_decompose_compatibility_func_t = Option<
     ) -> libc::c_uint,
 >;
 
-pub(crate) type OTTag = u32;
 pub(crate) type GlyphID = u16;
 
 pub(crate) struct XeTeXLayoutEngine {
@@ -402,20 +395,20 @@ pub(crate) type gr_uint16 = libc::c_ushort;
 pub(crate) type gr_int16 = libc::c_short;
 pub(crate) type gr_uint32 = libc::c_uint;
 pub(crate) type gr_encform = libc::c_uint;
-pub(crate) const gr_utf32: gr_encform = 4;
+//pub(crate) const gr_utf32: gr_encform = 4;
 pub(crate) const gr_utf16: gr_encform = 2;
 pub(crate) const gr_utf8: gr_encform = 1;
 pub(crate) type gr_break_weight = i32;
-pub(crate) const gr_breakBeforeClip: gr_break_weight = -40;
-pub(crate) const gr_breakBeforeLetter: gr_break_weight = -30;
-pub(crate) const gr_breakBeforeIntra: gr_break_weight = -20;
+//pub(crate) const gr_breakBeforeClip: gr_break_weight = -40;
+//pub(crate) const gr_breakBeforeLetter: gr_break_weight = -30;
+//pub(crate) const gr_breakBeforeIntra: gr_break_weight = -20;
 pub(crate) const gr_breakBeforeWord: gr_break_weight = -15;
-pub(crate) const gr_breakBeforeWhitespace: gr_break_weight = -10;
-pub(crate) const gr_breakClip: gr_break_weight = 40;
-pub(crate) const gr_breakLetter: gr_break_weight = 30;
-pub(crate) const gr_breakIntra: gr_break_weight = 20;
+//pub(crate) const gr_breakBeforeWhitespace: gr_break_weight = -10;
+//pub(crate) const gr_breakClip: gr_break_weight = 40;
+//pub(crate) const gr_breakLetter: gr_break_weight = 30;
+//pub(crate) const gr_breakIntra: gr_break_weight = 20;
 pub(crate) const gr_breakWord: gr_break_weight = 15;
-pub(crate) const gr_breakWhitespace: gr_break_weight = 10;
+//pub(crate) const gr_breakWhitespace: gr_break_weight = 10;
 pub(crate) const gr_breakNone: gr_break_weight = 0;
 
 pub(crate) type ProtrusionFactor = CppStdMap<GlyphId, i32>;
@@ -622,6 +615,7 @@ pub(crate) unsafe fn getFontFilename(engine: &XeTeXLayoutEngine, index: *mut u32
 pub(crate) unsafe fn getFontRef(engine: &XeTeXLayoutEngine) -> PlatformFontRef {
     engine.fontRef
 }
+#[cfg(target_os = "macos")]
 pub(crate) unsafe fn getFontTablePtr(font: &XeTeXFontInst, tableTag: u32) -> *mut libc::c_void {
     font.get_font_table(tableTag)
 }
