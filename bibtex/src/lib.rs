@@ -107,6 +107,14 @@ const MAX_GLOB_STRS: i32 = 10;
 const MAX_FIELDS: i32 = 17250;
 const LIT_STK_SIZE: i32 = 100;
 
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+enum ConversionType {
+    TitleLowers,
+    AllLowers,
+    AllUppers,
+    BadConversion,
+}
+
 unsafe fn peekable_open(
     mut path: *const i8,
     mut format: TTInputFormat,
@@ -184,7 +192,6 @@ static mut hash_prime: i32 = 0;
 static mut hash_max: i32 = 0;
 static mut end_of_def: i32 = 0;
 static mut undefined: i32 = 0;
-static mut bad: i32 = 0;
 /*fatal_message */
 static mut history: TTHistory = TTHistory::SPOTLESS;
 static mut err_count: i32 = 0;
@@ -394,15 +401,8 @@ static mut num_names: i32 = 0;
 static mut name_bf_ptr: buf_pointer = 0;
 static mut name_bf_xptr: buf_pointer = 0;
 static mut name_bf_yptr: buf_pointer = 0;
-static mut nm_brace_level: i32 = 0;
 static mut name_tok: *mut buf_pointer = ptr::null_mut();
 static mut name_sep_char: *mut u8 = ptr::null_mut();
-static mut num_tokens: buf_pointer = 0;
-static mut token_starting: bool = false;
-static mut alpha_found: bool = false;
-static mut double_letter: bool = false;
-static mut end_of_group: bool = false;
-static mut to_be_written: bool = false;
 static mut first_start: buf_pointer = 0;
 static mut first_end: buf_pointer = 0;
 static mut last_end: buf_pointer = 0;
@@ -411,14 +411,6 @@ static mut von_end: buf_pointer = 0;
 static mut jr_end: buf_pointer = 0;
 static mut cur_token: buf_pointer = 0;
 static mut last_token: buf_pointer = 0;
-static mut use_default: bool = false;
-static mut num_commas: buf_pointer = 0;
-static mut comma1: buf_pointer = 0;
-static mut comma2: buf_pointer = 0;
-static mut num_text_chars: buf_pointer = 0;
-/*bad_conversion */
-static mut conversion_type: u8 = 0;
-static mut prev_colon: bool = false;
 static mut verbose: i32 = 0;
 
 pub struct BibtexConfig {
@@ -1030,11 +1022,7 @@ unsafe fn braces_unbalanced_complaint(mut pop_lit_var: str_number) {
     log!("\" isn\'t a brace-balanced string");
     bst_mild_ex_warn_print();
 }
-unsafe fn case_conversion_confusion() {
-    log!("Unknown type of case conversion");
-    print_confusion();
-    panic!();
-}
+
 unsafe fn start_name(mut file_name: str_number) {
     let mut p_ptr: pool_pointer = 0;
     free(name_of_file as *mut libc::c_void);
@@ -2824,7 +2812,7 @@ unsafe fn name_scan_for_and(mut pop_lit_var: str_number) {
     check_brace_level(pop_lit_var);
 }
 unsafe fn von_token_found() -> bool {
-    nm_brace_level = 0i32;
+    let mut nm_brace_level = 0i32;
     while name_bf_ptr < name_bf_xptr {
         if *sv_buffer.offset(name_bf_ptr as isize) as i32 >= 'A' as i32
             && *sv_buffer.offset(name_bf_ptr as isize) as i32 <= 'Z' as i32
@@ -2946,7 +2934,7 @@ unsafe fn brace_lvl_one_letters_complaint() {
     bst_ex_warn_print();
 }
 unsafe fn enough_text_chars(mut enough_chars: buf_pointer) -> bool {
-    num_text_chars = 0i32;
+    let mut num_text_chars = 0i32;
     ex_buf_yptr = ex_buf_xptr;
     while ex_buf_yptr < ex_buf_ptr && num_text_chars < enough_chars {
         ex_buf_yptr = ex_buf_yptr + 1i32;
@@ -2988,10 +2976,10 @@ unsafe fn figure_out_the_formatted_name() {
             sp_brace_level = sp_brace_level + 1i32;
             sp_ptr = sp_ptr + 1i32;
             sp_xptr1 = sp_ptr;
-            alpha_found = false;
-            double_letter = false;
-            end_of_group = false;
-            to_be_written = true;
+            let mut alpha_found = false;
+            let mut double_letter = false;
+            let mut end_of_group = false;
+            let mut to_be_written = true;
             while !end_of_group && sp_ptr < sp_end {
                 if lex_class[*str_pool.offset(sp_ptr as isize) as usize] as i32 == 2i32 {
                     /*alpha */
@@ -3073,7 +3061,7 @@ unsafe fn figure_out_the_formatted_name() {
                     sp_ptr = sp_ptr + 1i32
                 }
             }
-            if !(end_of_group as i32 != 0 && to_be_written as i32 != 0) {
+            if !(end_of_group && to_be_written) {
                 continue;
             }
             /*412: */
@@ -3088,7 +3076,7 @@ unsafe fn figure_out_the_formatted_name() {
                     if double_letter {
                         sp_ptr = sp_ptr + 1i32
                     }
-                    use_default = true;
+                    let mut use_default = true;
                     sp_xptr2 = sp_ptr;
                     if *str_pool.offset(sp_ptr as isize) as i32 == 123i32 {
                         /*left_brace */
@@ -3146,7 +3134,7 @@ unsafe fn figure_out_the_formatted_name() {
                                             *ex_buf.offset(ex_buf_ptr as isize) = 92i32 as u8;
                                             ex_buf_ptr = ex_buf_ptr + 1i32;
                                             name_bf_ptr = name_bf_ptr + 2i32;
-                                            nm_brace_level = 1i32;
+                                            let mut nm_brace_level = 1i32;
                                             while name_bf_ptr < name_bf_xptr
                                                 && nm_brace_level > 0i32
                                             {
@@ -3862,20 +3850,19 @@ unsafe fn x_change_case() {
         print_wrong_stk_lit(pop_lit2, pop_typ2, 1i32 as stk_type); /*title_lowers */
         push_lit_stk(s_null, 1i32 as stk_type); /*all_lowers */
     } else {
-        match *str_pool.offset(*str_start.offset(pop_lit1 as isize) as isize) as i32 {
-            116 | 84 => conversion_type = 0_u8,
-            108 | 76 => conversion_type = 1_u8,
-            117 | 85 => conversion_type = 2_u8,
-            _ => {
-                /*all_uppers */
-                conversion_type = 3_u8
-            }
-        } /*bad_conversion */
+        let mut prev_colon = false;
+        let mut conversion_type =
+            match *str_pool.offset(*str_start.offset(pop_lit1 as isize) as isize) as i32 {
+                116 | 84 => ConversionType::TitleLowers,
+                108 | 76 => ConversionType::AllLowers,
+                117 | 85 => ConversionType::AllUppers,
+                _ => ConversionType::BadConversion,
+            };
         if *str_start.offset((pop_lit1 + 1i32) as isize) - *str_start.offset(pop_lit1 as isize)
             != 1i32
-            || conversion_type as i32 == 3i32
+            || conversion_type == ConversionType::BadConversion
         {
-            conversion_type = 3_u8; /*bad_conversion */
+            conversion_type = ConversionType::BadConversion; /*bad_conversion */
             print_a_pool_str(pop_lit1);
             log!(" is an illegal case-conversion string");
             bst_ex_warn_print();
@@ -3891,8 +3878,7 @@ unsafe fn x_change_case() {
                 if !(brace_level != 1i32) {
                     if !(ex_buf_ptr + 4i32 > ex_buf_length) {
                         if !(*ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 != 92i32) {
-                            if conversion_type as i32 == 0i32 {
-                                /*title_lowers */
+                            if conversion_type == ConversionType::TitleLowers {
                                 if ex_buf_ptr == 0i32 {
                                     current_block = 17089879097653631793;
                                 } else if prev_colon as i32 != 0
@@ -3932,8 +3918,9 @@ unsafe fn x_change_case() {
                                         );
                                         if hash_found {
                                             /*373: */
-                                            match conversion_type as i32 {
-                                                0 | 1 => {
+                                            match conversion_type {
+                                                ConversionType::TitleLowers
+                                                | ConversionType::AllLowers => {
                                                     match *ilk_info.offset(control_seq_loc as isize)
                                                     {
                                                         11 | 9 | 3 | 5 | 7 => {
@@ -3946,7 +3933,7 @@ unsafe fn x_change_case() {
                                                         _ => {}
                                                     }
                                                 }
-                                                2 => {
+                                                ConversionType::AllUppers => {
                                                     match *ilk_info.offset(control_seq_loc as isize)
                                                     {
                                                         10 | 8 | 2 | 4 | 6 => {
@@ -3997,8 +3984,7 @@ unsafe fn x_change_case() {
                                                         _ => {}
                                                     }
                                                 }
-                                                3 => {}
-                                                _ => case_conversion_confusion(),
+                                                ConversionType::BadConversion => {}
                                             }
                                         }
                                         ex_buf_xptr = ex_buf_ptr;
@@ -4018,23 +4004,23 @@ unsafe fn x_change_case() {
                                             }
                                             ex_buf_ptr = ex_buf_ptr + 1i32
                                         }
-                                        match conversion_type as i32 {
-                                            0 | 1 => {
+                                        match conversion_type {
+                                            ConversionType::AllLowers
+                                            | ConversionType::TitleLowers => {
                                                 lower_case(
                                                     ex_buf,
                                                     ex_buf_xptr,
                                                     ex_buf_ptr - ex_buf_xptr,
                                                 );
                                             }
-                                            2 => {
+                                            ConversionType::AllUppers => {
                                                 upper_case(
                                                     ex_buf,
                                                     ex_buf_xptr,
                                                     ex_buf_ptr - ex_buf_xptr,
                                                 );
                                             }
-                                            3 => {}
-                                            _ => case_conversion_confusion(),
+                                            ConversionType::BadConversion => {}
                                         }
                                     }
                                     ex_buf_ptr = ex_buf_ptr - 1i32
@@ -4052,8 +4038,8 @@ unsafe fn x_change_case() {
                 prev_colon = false
             } else if brace_level == 0i32 {
                 /*377: */
-                match conversion_type as i32 {
-                    0 => {
+                match conversion_type {
+                    ConversionType::TitleLowers => {
                         if !(ex_buf_ptr == 0i32) {
                             if !(prev_colon as i32 != 0
                                 && lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
@@ -4073,10 +4059,9 @@ unsafe fn x_change_case() {
                             prev_colon = false
                         }
                     }
-                    1 => lower_case(ex_buf, ex_buf_ptr, 1i32),
-                    2 => upper_case(ex_buf, ex_buf_ptr, 1i32),
-                    3 => {}
-                    _ => case_conversion_confusion(),
+                    ConversionType::AllLowers => lower_case(ex_buf, ex_buf_ptr, 1i32),
+                    ConversionType::AllUppers => upper_case(ex_buf, ex_buf_ptr, 1i32),
+                    ConversionType::BadConversion => {}
                 }
             }
             ex_buf_ptr = ex_buf_ptr + 1i32
@@ -4228,9 +4213,11 @@ unsafe fn x_format_name() {
             }
         }
         name_bf_ptr = 0i32;
-        num_commas = 0i32;
-        num_tokens = 0i32;
-        token_starting = true;
+        let mut num_commas = 0i32;
+        let mut num_tokens = 0i32;
+        let mut token_starting = true;
+        let mut comma1 = 0;
+        let mut comma2 = 0;
         while ex_buf_xptr < ex_buf_ptr {
             match *ex_buf.offset(ex_buf_xptr as isize) as i32 {
                 44 => {
@@ -4687,7 +4674,7 @@ unsafe fn x_text_length() {
         print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
         push_lit_stk(s_null, 1i32 as stk_type);
     } else {
-        num_text_chars = 0i32;
+        let mut num_text_chars = 0i32;
         sp_ptr = *str_start.offset(pop_lit1 as isize);
         sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
         sp_brace_level = 0i32;
@@ -4742,7 +4729,7 @@ unsafe fn x_text_prefix() {
     } else {
         sp_ptr = *str_start.offset(pop_lit2 as isize);
         sp_end = *str_start.offset((pop_lit2 + 1i32) as isize);
-        num_text_chars = 0i32;
+        let mut num_text_chars = 0i32;
         sp_brace_level = 0i32;
         sp_xptr1 = sp_ptr;
         while sp_xptr1 < sp_end && num_text_chars < pop_lit1 {
@@ -6952,38 +6939,43 @@ unsafe fn compute_hash_prime() {
         *hash_next.offset(k as isize) = hash_prime
     }
 }
-unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
-    let mut i: i32 = 0;
-    let mut k: hash_loc = 0;
-    bad = 0i32;
-    if 3i32 < 3i32 {
-        bad = 1i32
+
+unsafe fn badness() -> i32 {
+    let mut bad = 0;
+    if min_print_line < 3 {
+        bad = 1;
     }
-    if 79i32 <= 3i32 {
-        bad = 10i32 * bad + 2i32
+    if max_print_line <= min_print_line {
+        bad = 10 * bad + 2;
     }
-    if 79i32 >= buf_size {
-        bad = 10i32 * bad + 3i32
+    if max_print_line >= buf_size {
+        bad = 10 * bad + 3;
     }
-    if hash_prime < 128i32 {
-        bad = 10i32 * bad + 4i32
+    if hash_prime < 128 {
+        bad = 10 * bad + 4;
     }
     if hash_prime > hash_size {
-        bad = 10i32 * bad + 5i32
+        bad = 10 * bad + 5;
     }
-    if 1i32 != 1i32 {
-        bad = 10i32 * bad + 6i32
+    if hash_prime >= (16384 - 64) {
+        bad = 10 * bad + 6;
     }
     if max_strings > hash_size {
-        bad = 10i32 * bad + 7i32
+        bad = 10 * bad + 7;
     }
     if max_cites > max_strings {
-        bad = 10i32 * bad + 8i32
+        bad = 10 * bad + 8;
     }
     if 10i32 < 2i32 * 4i32 + 2i32 {
         bad = 100i32 * bad + 22i32
     }
-    if bad != 0 {
+    bad
+}
+
+unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
+    let mut i: i32 = 0;
+    let mut k: hash_loc = 0;
+    if badness() != 0 {
         return 1i32;
     }
     history = TTHistory::SPOTLESS;
