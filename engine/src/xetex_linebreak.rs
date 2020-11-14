@@ -4,14 +4,13 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use crate::help;
 use crate::node::*;
 use crate::trie::{
     hyf_distance, hyf_next, hyf_num, hyph_start, init_trie, max_hyph_char, op_start,
-    trie_not_ready, trie_pointer, trie_trc, trie_trl, trie_tro, MIN_TRIE_OP,
+    trie_not_ready, trie_trc, trie_trl, trie_tro, MIN_TRIE_OP,
 };
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
@@ -1455,8 +1454,6 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
     let mut line_width = Scaled::ZERO;
     let mut fit_class: u8 = 0;
     let mut b: i32 = 0;
-    let mut artificial_demerits: bool = false;
-    let mut shortfall = Scaled::ZERO;
     let mut g = Scaled::ZERO;
     /* Tectonic: no-op except at the end of the paragraph. We know we're at
      * the very end of the paragraph when cur_p is TEX_NULL. */
@@ -1744,6 +1741,8 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
                 /* Tectonic: if we got here, we must be "considering" a linebreak
                  * at the very end of the paragraph. How amazing, it's a perfect fit!
                  */
+                let mut shortfall;
+                let mut artificial_demerits;
                 if semantic_pagination_enabled {
                     line_width = cur_active_width.width;
                     artificial_demerits = true;
@@ -2042,13 +2041,8 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
 }
 unsafe fn hyphenate() {
     let mut current_block: u64 = 0;
-    let mut l: i16 = 0;
-    let mut bchar: i32 = 0;
+    let mut l: i16;
     let mut c: UnicodeScalar = 0i32;
-    let mut c_loc: i16 = 0;
-    let mut r_count: i32 = 0;
-    let mut z: trie_pointer = 0;
-    let mut v: i32 = 0;
 
     for j in 0..=hn {
         hyf[j as usize] = 0_u8;
@@ -2099,12 +2093,12 @@ unsafe fn hyphenate() {
             hc[(hn as i32 + 1) as usize] = 0;
             hc[(hn as i32 + 2) as usize] = max_hyph_char;
             for j in 0..=(hn as i32 - r_hyf + 1) {
-                z = trie_trl[(cur_lang as i32 + 1) as usize] + hc[j as usize];
+                let mut z = trie_trl[(cur_lang as i32 + 1) as usize] + hc[j as usize];
                 l = j as i16;
                 while hc[l as usize] == trie_trc[z as usize] as i32 {
                     if trie_tro[z as usize] != MIN_TRIE_OP as i32 {
                         /*959: */
-                        v = trie_tro[z as usize]; /*:958 */
+                        let mut v = trie_tro[z as usize]; /*:958 */
                         loop {
                             v = v + op_start[cur_lang as usize];
                             let i = (l as i32 - hyf_distance[v as usize] as i32) as i16;
@@ -2189,7 +2183,7 @@ unsafe fn hyphenate() {
         *LLIST_link(hb) = None.tex_int();
         let r = LLIST_link(ha).opt().unwrap();
         *LLIST_link(ha) = None.tex_int();
-        bchar = hyf_bchar;
+        let bchar = hyf_bchar;
         let current_block: u64 = match CharOrText::from(ha) {
             CharOrText::Char(c) => {
                 if c.font() as usize != hf {
@@ -2270,7 +2264,7 @@ unsafe fn hyphenate() {
                     let mut r = Discretionary::new_node();
                     *LLIST_link(r.ptr()) = *LLIST_link(HOLD_HEAD);
                     let mut major_tail = r.ptr();
-                    r_count = 0;
+                    let mut r_count = 0;
                     while let Some(next) = LLIST_link(major_tail as usize).opt() {
                         major_tail = next;
                         r_count += 1;
@@ -2307,11 +2301,11 @@ unsafe fn hyphenate() {
                     if hyf_node.is_some() {
                         hu[i as usize] = c;
                         l = i;
-                        i -= 1
+                        //i -= 1
                     }
                     let mut minor_tail: Option<usize> = None;
                     r.set_post_break(None.tex_int());
-                    c_loc = 0_i16;
+                    let mut c_loc = 0_i16;
                     if BCHAR_LABEL[hf as usize] != NON_ADDRESS {
                         l -= 1;
                         c = hu[l as usize];
@@ -2724,7 +2718,6 @@ unsafe fn total_pw(q: &Active, p: Option<usize>) -> Scaled {
     char_pw(Some(l), Side::Left) + char_pw(r, Side::Right)
 }
 unsafe fn find_protchar_left(mut l: usize, d: bool) -> usize {
-    let mut run: bool = false;
     match (llist_link(l), CharOrText::from(l)) {
         (Some(next), CharOrText::Text(TxtNode::List(n))) if n.is_empty() => l = next,
         _ => {
@@ -2750,7 +2743,7 @@ unsafe fn find_protchar_left(mut l: usize, d: bool) -> usize {
         }
     }
     let mut hlist_stack: Vec<usize> = Vec::new();
-    run = true;
+    let mut run = true;
     loop {
         let t = l;
         if run {
@@ -2803,13 +2796,12 @@ unsafe fn find_protchar_left(mut l: usize, d: bool) -> usize {
     l
 }
 unsafe fn find_protchar_right(mut l: Option<usize>, r: Option<usize>) -> Option<usize> {
-    let mut run: bool = false;
     if r.is_none() {
         return None;
     }
     let mut r = r.unwrap();
     let mut hlist_stack: Vec<(Option<usize>, usize)> = Vec::new();
-    run = true;
+    let mut run = true;
     loop {
         let t = r;
         if run {

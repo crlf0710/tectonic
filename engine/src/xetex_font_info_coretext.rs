@@ -5,7 +5,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use crate::xetex_aatfont::getFileNameFromCTFont;
@@ -53,9 +52,9 @@ impl Drop for XeTeXFontInst_Mac {
 
 impl XeTeXFontInst_Mac {
     pub(crate) unsafe fn ctor(
-        mut descriptor: CTFontDescriptorRef,
-        mut pointSize: f32,
-        mut status: *mut libc::c_int,
+        descriptor: CTFontDescriptorRef,
+        pointSize: f32,
+        status: *mut libc::c_int,
     ) -> Self {
         let mut super_ = XeTeXFontInst::base_ctor("", 0i32, pointSize, status);
         let mut m_descriptor = descriptor;
@@ -73,7 +72,7 @@ impl XeTeXFontInst_Mac {
             m_descriptor = 0 as CTFontDescriptorRef
         }
         // Create a copy of original font descriptor with font cascading (fallback) disabled
-        let mut emptyCascadeList: CFArrayRef = CFArrayCreate(
+        let emptyCascadeList = CFArrayCreate(
             0 as CFAllocatorRef,
             0 as *mut *const libc::c_void,
             0i32 as CFIndex,
@@ -82,7 +81,7 @@ impl XeTeXFontInst_Mac {
         let mut values: [*const libc::c_void; 1] = [emptyCascadeList as *const libc::c_void];
         let mut attributeKeys: [*const libc::c_void; 1] =
             [kCTFontCascadeListAttribute as *const libc::c_void];
-        let mut attributes: CFDictionaryRef = CFDictionaryCreate(
+        let attributes = CFDictionaryCreate(
             0 as CFAllocatorRef,
             attributeKeys.as_mut_ptr(),
             values.as_mut_ptr(),
@@ -100,7 +99,7 @@ impl XeTeXFontInst_Mac {
         );
         if !m_fontRef.is_null() {
             let mut index: uint32_t = 0;
-            let mut pathname = getFileNameFromCTFont(m_fontRef, &mut index);
+            let pathname = getFileNameFromCTFont(m_fontRef, &mut index);
             super_ = XeTeXFontInst::base_ctor(
                 &pathname,
                 index as libc::c_int,
@@ -121,18 +120,18 @@ impl XeTeXFontInst_Mac {
     }
 
     pub(crate) unsafe fn create(
-        mut descriptor: CTFontDescriptorRef,
-        mut pointSize: f32,
-        mut status: *mut libc::c_int,
+        descriptor: CTFontDescriptorRef,
+        pointSize: f32,
+        status: *mut libc::c_int,
     ) -> Box<Self> {
         Box::new(Self::ctor(descriptor, pointSize, status))
     }
 
     pub(crate) unsafe fn wrapper(
         pathname: &str,
-        mut index: libc::c_int,
-        mut pointSize: f32,
-        mut status: *mut libc::c_int,
+        index: libc::c_int,
+        pointSize: f32,
+        status: *mut libc::c_int,
     ) -> Box<Self> {
         Box::new(Self {
             super_: XeTeXFontInst::base_ctor(pathname, index, pointSize, status),

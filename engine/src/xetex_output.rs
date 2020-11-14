@@ -4,7 +4,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use super::xetex_consts::{
@@ -127,7 +126,6 @@ pub(crate) unsafe fn print_chr(s: char) {
     print_char(s as i32)
 }
 pub(crate) unsafe fn print_char(s: i32) {
-    let mut l: i16 = 0;
     if (u8::from(selector) > u8::from(Selector::PSEUDO)) && !doing_special {
         if s >= 0x10000 {
             print_raw_char((0xd800 + (s - 0x10000) / 1024) as UTF16_code, true);
@@ -161,13 +159,13 @@ pub(crate) unsafe fn print_char(s: i32) {
     } else if s < 160 && !doing_special {
         print_raw_char('^' as i32 as UTF16_code, true);
         print_raw_char('^' as i32 as UTF16_code, true);
-        l = (s % 256 / 16) as i16;
+        let l = (s % 256 / 16) as i16;
         if l < 10 {
             print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
         } else {
             print_raw_char(('a' as i32 + l as i32 - 10) as UTF16_code, true);
         }
-        l = (s % 16) as i16;
+        let l = (s % 16) as i16;
         if l < 10 {
             print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
         } else {
@@ -188,7 +186,6 @@ pub(crate) unsafe fn print_char(s: i32) {
     };
 }
 pub(crate) unsafe fn print(s: i32) {
-    let mut nl: i32 = 0;
     if s >= str_ptr {
         return print_cstr("???");
     } else {
@@ -207,7 +204,7 @@ pub(crate) unsafe fn print(s: i32) {
                         return;
                     }
                 }
-                nl = get_int_par(IntPar::new_line_char);
+                let nl = get_int_par(IntPar::new_line_char);
                 set_int_par(IntPar::new_line_char, -1);
                 print_char(s);
                 set_int_par(IntPar::new_line_char, nl);
@@ -267,13 +264,12 @@ unsafe fn print_the_digs(mut k: u8) {
 }
 pub(crate) unsafe fn print_int(mut n: i32) {
     let mut k = 0_u8;
-    let mut m: i32 = 0;
     if n < 0 {
         print_chr('-');
         if n as i64 > -100000000 {
             n = -n
         } else {
-            m = -1 - n;
+            let mut m = -1 - n;
             n = m / 10;
             m = m % 10 + 1;
             k = 1_u8;
@@ -448,7 +444,7 @@ pub(crate) unsafe fn print_native_word(p: &NativeWord) {
     }
 }
 pub(crate) unsafe fn print_sa_num(mut q: usize) {
-    let mut n: i32 = 0;
+    let mut n;
     if MEM[q].b16.s1 < DIMEN_VAL_LIMIT {
         n = MEM[q + 1].b32.s1
     } else {
@@ -501,11 +497,9 @@ pub(crate) unsafe fn print_hex(mut n: i32) {
     print_the_digs(k);
 }
 pub(crate) unsafe fn print_roman_int(mut n: i32) {
-    let mut u: i32 = 0;
-    let mut v: i32 = 0;
     const roman_data: &[u8] = b"m2d5c2l5x2v5i";
     let mut j: u8 = 0_u8;
-    v = 1000i32;
+    let mut v = 1000i32;
     loop {
         while n >= v {
             print_char(roman_data[j as usize] as i32);
@@ -515,7 +509,7 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
             return;
         }
         let mut k = j + 2;
-        u = v / (roman_data[k as usize - 1] as i32 - '0' as i32);
+        let mut u = v / (roman_data[k as usize - 1] as i32 - '0' as i32);
         if roman_data[k as usize - 1] as i32 == '2' as i32 {
             k += 2;
             u = u / (roman_data[k as usize - 1] as i32 - '0' as i32)
@@ -536,7 +530,6 @@ pub(crate) unsafe fn print_current_string() {
 }
 pub(crate) unsafe fn print_scaled(s: Scaled) {
     let mut s = s.0;
-    let mut delta = 0;
     if s < 0 {
         print_chr('-');
         s = s.wrapping_neg(); // TODO: check
@@ -544,7 +537,7 @@ pub(crate) unsafe fn print_scaled(s: Scaled) {
     print_int(s / 0x10000);
     print_chr('.');
     s = 10 * (s % 0x10000) + 5;
-    delta = 10;
+    let mut delta = 10;
     loop {
         if delta > 0x10000 {
             s = s + 0x8000 - 50000

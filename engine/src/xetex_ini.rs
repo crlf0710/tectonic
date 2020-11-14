@@ -4,7 +4,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use std::ptr;
@@ -185,10 +184,8 @@ pub(crate) union memory_word {
 
 impl Default for memory_word {
     fn default() -> Self {
-        unsafe {
-            Self {
-                ptr: 0 as *mut libc::c_void,
-            }
+        Self {
+            ptr: 0 as *mut libc::c_void,
         }
     }
 }
@@ -1106,10 +1103,10 @@ where
     <I as std::convert::TryInto<i32>>::Error: std::fmt::Debug,
 {
     let o = o.try_into().unwrap();
-    let mut prim_val = 0;
     let b_ident = ident.as_bytes();
     let len = b_ident.len();
     let val;
+    let prim_val;
     if len > 1 {
         let s = maketexstring(ident);
         if first as usize + len > BUF_SIZE + 1 {
@@ -1523,11 +1520,6 @@ pub(crate) unsafe fn prefixed_command(
     mut ochr: i32,
     mut ocs: i32,
 ) {
-    let mut f: internal_font_number = 0;
-    let mut j: i32 = 0;
-    let mut k: font_index = 0;
-    let mut e: bool = false;
-
     let mut a = 0 as i16;
     while ocmd == Cmd::Prefix {
         if a as i32 / ochr & 1i32 == 0 {
@@ -1562,6 +1554,7 @@ pub(crate) unsafe fn prefixed_command(
             show_cur_cmd_chr(ocmd, ochr);
         }
     }
+    let j;
     if a >= 8 {
         j = PROTECTED_TOKEN;
         a -= 8;
@@ -1610,7 +1603,7 @@ pub(crate) unsafe fn prefixed_command(
             if ochr & 1i32 != 0 && (a as i32) < 4i32 && get_int_par(IntPar::global_defs) >= 0 {
                 a = (a as i32 + 4i32) as i16
             }
-            e = ochr >= 2;
+            let e = ochr >= 2;
             let p = get_r_token(input).3;
             let _q = scan_toks(input, p, true, e) as i32;
             if j != 0 {
@@ -1630,7 +1623,9 @@ pub(crate) unsafe fn prefixed_command(
         }
         Cmd::Let => {
             let n = ochr;
-            let (_, mut cmd, mut chr, p) = get_r_token(input);
+            let mut cmd;
+            let mut chr;
+            let (_, _, _, p) = get_r_token(input);
             if n == NORMAL as i32 {
                 let mut next;
                 loop  {
@@ -1747,7 +1742,7 @@ pub(crate) unsafe fn prefixed_command(
                     _ => {
                         let val = scan_register_num(input);
                         if val > 255 {
-                            j = (n as i32) - 2; // TODO
+                            let mut j = (n as i32) - 2; // TODO
                             if j > ValLevel::Mu as i32 { j = ValLevel::Tok as i32 }
 
                             find_sa_element(ValLevel::from(j as u8), val,
@@ -1804,7 +1799,7 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::ReadToCS => {
-            j = ochr;
+            let j = ochr;
             let n = scan_int(input);
             if !scan_keyword(input, b"to") {
                 if file_line_error_style_p != 0 {
@@ -1824,7 +1819,7 @@ pub(crate) unsafe fn prefixed_command(
         }
         Cmd::ToksRegister | Cmd::AssignToks => {
             let q = ocs;
-            e = false;
+            let mut e = false;
             if ocmd == Cmd::ToksRegister {
                 if ochr == 0 {
                     let val = scan_register_num(input);
@@ -2205,14 +2200,14 @@ pub(crate) unsafe fn prefixed_command(
             } else { new_hyph_exceptions(input); }
         }
         Cmd::AssignFontDimen => {
-            k = find_font_dimen(input, true);
+            let k = find_font_dimen(input, true);
             scan_optional_equals(input);
             let val = scan_dimen(input, false, false, None);
             FONT_INFO[k as usize].b32.s1 = val.0;
         }
         Cmd::AssignFontInt => {
             let n = AssignFontInt::from(ochr);
-            f = scan_font_ident(input) as usize;
+            let f = scan_font_ident(input) as usize;
             match n {
                 AssignFontInt::HyphenChar | AssignFontInt::SkewChar => {
                     scan_optional_equals(input);

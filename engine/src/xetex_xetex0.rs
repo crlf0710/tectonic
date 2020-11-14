@@ -4,7 +4,6 @@
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
-    unused_assignments,
 )]
 
 use std::ffi::CString;
@@ -152,9 +151,8 @@ pub(crate) unsafe fn badness(t: Scaled, s: Scaled) -> i32 {
 /*:112*/
 /*118:*/
 pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
-    let mut n: UTF16_code = 0;
     let mut match_chr = '#' as i32;
-    n = '0' as UTF16_code;
+    let mut n = '0' as UTF16_code;
     tally = 0;
     while let Some(p) = popt {
         if !(tally < l) {
@@ -428,9 +426,8 @@ pub(crate) unsafe fn new_disc() -> usize {
     p.ptr()
 }
 pub(crate) unsafe fn copy_native_glyph_info(src: &NativeWord, dest: &mut NativeWord) {
-    let mut glyph_count: i32 = 0;
     if !src.glyph_info_ptr().is_null() {
-        glyph_count = src.glyph_count() as i32;
+        let glyph_count = src.glyph_count() as i32;
         dest.set_glyph_info_ptr(xmalloc_array::<libc::c_char>(
             glyph_count as usize * NATIVE_GLYPH_INFO_SIZE as usize,
         ) as *mut _);
@@ -646,11 +643,10 @@ pub(crate) unsafe fn print_spec(p: i32, unit: &str) {
     };
 }
 pub(crate) unsafe fn print_fam_and_char(p: usize) {
-    let mut c: i32 = 0;
     print_esc_cstr("fam");
     print_int(MEM[p].b16.s1 as i32 % 256 % 256);
     print_chr(' ');
-    c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
+    let c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
     if (c as i64) < 65536 {
         print(c);
     } else {
@@ -658,10 +654,9 @@ pub(crate) unsafe fn print_fam_and_char(p: usize) {
     };
 }
 pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
-    let mut a: i32 = 0;
-    a = ((d.s3 as i32 % 256 * 256) as i64 + (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536))
+    let a = ((d.s3 as i32 % 256 * 256) as i64 + (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536))
         as i32;
-    a = ((a * 4096 + d.s1 as i32 % 256 * 256) as i64
+    let a = ((a * 4096 + d.s1 as i32 % 256 * 256) as i64
         + (d.s0 as i64 + (d.s1 as i32 / 256) as i64 * 65536)) as i32;
     if a < 0 {
         print_int(a);
@@ -1203,9 +1198,8 @@ pub(crate) unsafe fn delete_glue_ref(p: usize) {
 /// In practice, the nodes deleted are usually charnodes (about 2/3 of the time),
 /// and they are glue nodes in about half of the remaining cases.
 pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
-    let mut q: i32 = 0;
     while let Some(p) = popt {
-        q = *LLIST_link(p);
+        let q = *LLIST_link(p);
         match Node::from(p) {
             Node::Char(_) => {
                 *LLIST_link(p) = avail.tex_int();
@@ -1794,8 +1788,6 @@ pub(crate) unsafe fn print_length_param(n: DimenPar) {
     }
 }
 pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
-    let mut font_name_str: str_number = 0;
-    let mut quote_char: UTF16_code = 0;
     match cmd {
         Cmd::LeftBrace => {
             print_cstr("begin-group character ");
@@ -2418,9 +2410,9 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
         }),
         Cmd::SetFont => {
             print_cstr("select font ");
-            font_name_str = FONT_NAME[chr_code as usize];
+            let font_name_str = FONT_NAME[chr_code as usize];
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[chr_code as usize] {
-                quote_char = '\"' as i32 as UTF16_code;
+                let mut quote_char = '\"' as i32 as UTF16_code;
                 if PoolString::from(font_name_str)
                     .as_slice()
                     .contains(&('\"' as u16))
@@ -2826,10 +2818,9 @@ pub(crate) unsafe fn group_warning(input: &mut input_state_t, input_stack: &[inp
     };
 }
 pub(crate) unsafe fn if_warning(input: &mut input_state_t, input_stack: &[input_state_t]) {
-    let mut w: bool = false;
     let mut base_ptr = input_stack.len() - 1;
     let mut i = IN_OPEN;
-    w = false;
+    let mut w = false;
     while IF_STACK[i] == cond_ptr {
         if get_int_par(IntPar::tracing_nesting) > 0 {
             while input_stack[base_ptr].state == InputState::TokenList
@@ -2906,7 +2897,7 @@ pub(crate) unsafe fn file_warning(input: &mut input_state_t) {
     };
 }
 pub(crate) unsafe fn delete_sa_ref(mut q: usize) {
-    let mut s: i16 = 0;
+    let mut s;
     MEM[q + 1].b32.s0 -= 1;
     if MEM[q + 1].b32.s0.opt().is_some() {
         return;
@@ -2952,7 +2943,6 @@ pub(crate) unsafe fn delete_sa_ref(mut q: usize) {
 /*1611: */
 pub(crate) unsafe fn sa_save(p: usize) {
     let q: usize;
-    let mut i: u16 = 0;
     if cur_level as i32 != sa_level as i32 {
         if SAVE_PTR > MAX_SAVE_STACK {
             MAX_SAVE_STACK = SAVE_PTR;
@@ -2967,7 +2957,7 @@ pub(crate) unsafe fn sa_save(p: usize) {
         sa_chain = None.tex_int();
         sa_level = cur_level
     }
-    i = MEM[p].b16.s1;
+    let mut i = MEM[p].b16.s1;
     if i < DIMEN_VAL_LIMIT {
         if MEM[p + 2].b32.s1 == 0 {
             q = get_node(POINTER_NODE_SIZE) as usize;
@@ -4171,7 +4161,6 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         current_block = 5873035170358615968;
                                         break;
                                     }
-                                    let mut sup_count_save: i32 = 0;
                                     let mut sup_count = 2;
                                     // we have `^^` and another char; check how many `^`s we have altogether, up to a max of 6
                                     while sup_count < 6
@@ -4180,7 +4169,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     {
                                         sup_count += 1;
                                     }
-                                    sup_count_save = sup_count as i32;
+                                    let sup_count_save = sup_count as i32;
                                     // check whether we have enough hex chars for the number of `^`s
                                     for d in 1..=sup_count_save {
                                         if !IS_LC_HEX(
@@ -4248,7 +4237,6 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         current_block = 1604201581803946138;
                                         break;
                                     }
-                                    let mut sup_count_save_0: i32 = 0;
                                     let mut sup_count = 2;
                                     while sup_count < 6
                                         && k + 2 * sup_count as i32 - 2 <= input.limit
@@ -4256,7 +4244,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     {
                                         sup_count += 1
                                     }
-                                    sup_count_save_0 = sup_count as i32;
+                                    let sup_count_save_0 = sup_count as i32;
                                     for d in 1..=sup_count_save_0 {
                                         if !IS_LC_HEX(
                                             BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize],
@@ -5000,8 +4988,6 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, n: i32, w: bool) {
     }
 }
 pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i32) {
-    let mut b: bool = false;
-    let mut j: i32 = 0;
     expand_depth_count += 1;
     if expand_depth_count >= expand_depth {
         overflow("expansion depth", expand_depth as usize);
@@ -5042,10 +5028,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         let (t, _, _, _) = get_token(input);
                         /*1553: "\unless" implementation */
                         let (tok, cmd, chr, cs) = get_token(input);
-                        ocmd = cmd;
-                        ochr = chr;
-                        ocs = cs;
-                        if ocmd > MAX_COMMAND {
+                        if cmd > MAX_COMMAND {
                             expand(input, cmd, chr, cs);
                         } else {
                             back_input(input, tok);
@@ -5125,7 +5108,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                 Cmd::CSName => {
                     let r = get_avail();
                     let mut p = r;
-                    b = is_in_csname;
+                    let b = is_in_csname;
                     is_in_csname = true;
                     let (tok, cmd) = loop {
                         let (tok, cmd, _, cs) = get_x_token(input);
@@ -5156,7 +5139,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         back_error(input, tok);
                     }
                     is_in_csname = b;
-                    j = first;
+                    let mut j = first;
                     let mut popt = llist_link(r);
                     while let Some(p) = popt {
                         if j >= max_buf_stack {
@@ -5189,7 +5172,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     break;
                 }
                 Cmd::Convert => {
-                    conv_toks(input, ocmd, ochr, ocs);
+                    conv_toks(input, ochr, ocs);
                     break;
                 }
                 Cmd::The => {
@@ -5390,7 +5373,7 @@ pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &[u8]) -> bool {
                 let q = get_avail();
                 *LLIST_link(p) = Some(q).tex_int();
                 MEM[q].b32.s0 = tok;
-                p = q;
+                //p = q;
                 flush_list(llist_link(BACKUP_HEAD));
                 return true;
             } else {
@@ -5583,9 +5566,8 @@ pub(crate) unsafe fn scan_xetex_math_char_int(input: &mut input_state_t) -> i32 
     }
 }
 pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usize) {
-    let mut c: i32 = 0;
-    'c_118470: loop {
-        let (tok, mut cmd, mut chr, mut cs) = loop {
+    let c = 'c_118470: loop {
+        let (tok, mut cmd, mut chr, _) = loop {
             /*422:*/
             let next = get_x_token(input);
             if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
@@ -5595,11 +5577,11 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
         loop {
             match cmd {
                 Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {
-                    c = *MATH_CODE(chr as usize);
+                    let c = *MATH_CODE(chr as usize);
                     if !(math_char(c) == ACTIVE_MATH_CHAR as u32) {
-                        break 'c_118470;
+                        break 'c_118470 c;
                     }
-                    cs = chr + 1;
+                    let mut cs = chr + 1;
                     cmd = Cmd::from(EQTB[cs as usize].cmd);
                     chr = EQTB[cs as usize].val;
                     let tok = x_token(input, &mut cmd, &mut chr, &mut cs);
@@ -5611,6 +5593,7 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
                     cmd = Cmd::CharGiven;
                 }
                 Cmd::MathCharNum => {
+                    let mut c;
                     if chr == 2 {
                         let val = scan_math_class_int(input);
                         c = set_class(val);
@@ -5625,17 +5608,17 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
                         let val = scan_fifteen_bit_int(input);
                         c = set_class(val / 4096) + set_family((val % 4096) / 256) + (val % 256);
                     }
-                    break 'c_118470;
+                    break 'c_118470 c;
                 }
                 Cmd::MathGiven => {
-                    c = set_class(chr / 4096) + set_family((chr % 4096) / 256) + (chr % 256);
-                    break 'c_118470;
+                    let c = set_class(chr / 4096) + set_family((chr % 4096) / 256) + (chr % 256);
+                    break 'c_118470 c;
                 }
                 Cmd::XetexMathGiven => {
-                    c = chr;
-                    break 'c_118470;
+                    break 'c_118470 chr;
                 }
                 Cmd::DelimNum => {
+                    let mut c;
                     if chr == 1 {
                         let val = scan_math_class_int(input);
                         c = set_class(val);
@@ -5648,7 +5631,7 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
                         c = val / 4096;
                         c = set_class(c / 4096) + set_family((c % 4096) / 256) + (c % 256);
                     }
-                    break 'c_118470;
+                    break 'c_118470 c;
                 }
                 _ => {
                     back_input(input, tok);
@@ -5660,7 +5643,7 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
                 }
             }
         }
-    }
+    };
     m.typ = MathCell::MathChar;
     m.val.chr.character = (c as i64 % 65536) as u16;
     let font = if (math_class(c) == 7)
@@ -5674,7 +5657,6 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
     m.val.chr.font = (font as i64 + ((math_char(c) as i64) / 65536) * 256) as u16;
 }
 pub(crate) unsafe fn set_math_char(input: &mut input_state_t, chr: i32, c: i32) {
-    let mut ch: UnicodeScalar = 0;
     if math_char(c) == ACTIVE_MATH_CHAR as u32 {
         /*1187: */
         let mut cs = chr + 1; /* ... "between 0 and 15" */
@@ -5685,7 +5667,7 @@ pub(crate) unsafe fn set_math_char(input: &mut input_state_t, chr: i32, c: i32) 
     } else {
         let p = new_noad();
         MEM[p + 1].b32.s1 = MathCell::MathChar as _;
-        ch = math_char(c) as UnicodeScalar;
+        let ch = math_char(c) as UnicodeScalar;
         MEM[p + 1].b16.s0 = (ch as i64 % 65536) as u16;
         MEM[p + 1].b16.s1 = math_fam(c) as u16;
         if math_class(c) == 7 {
@@ -5894,8 +5876,7 @@ pub(crate) unsafe fn scan_font_ident(input: &mut input_state_t) -> i32 {
     f as i32
 }
 pub(crate) unsafe fn find_font_dimen(input: &mut input_state_t, writing: bool) -> i32 {
-    let mut n: i32 = 0;
-    n = scan_int(input);
+    let n = scan_int(input);
     let val = scan_font_ident(input);
     let f = val as usize;
     let val = if n <= 0 {
@@ -6850,7 +6831,6 @@ pub(crate) unsafe fn scan_int(input: &mut input_state_t) -> i32 {
     scan_int_with_radix(input).0
 }
 pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16, i32) {
-    let mut d: i16 = 0;
     let mut radix: i16 = 0;
     let mut OK_so_far = true;
     let mut negative = false;
@@ -6917,7 +6897,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             let next = get_x_token(input);
             tok = next.0;
             cmd = next.1;
-            chr = next.2;
             if cmd != Cmd::Spacer {
                 back_input(input, tok);
             }
@@ -6934,18 +6913,17 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             let next = get_x_token(input);
             tok = next.0;
             cmd = next.1;
-            chr = next.2;
         } else if tok == HEX_TOKEN {
             radix = 16;
             m = 0x8000000;
             let next = get_x_token(input);
             tok = next.0;
             cmd = next.1;
-            chr = next.2;
         }
         let mut vacuous = true;
         ival = 0;
         loop {
+            let d;
             if tok < ZERO_TOKEN + radix as i32 && tok >= ZERO_TOKEN && tok <= ZERO_TOKEN + 9 {
                 d = (tok - ZERO_TOKEN) as i16
             } else {
@@ -6984,7 +6962,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             let next = get_x_token(input);
             tok = next.0;
             cmd = next.1;
-            chr = next.2;
         }
         if vacuous {
             /*464:*/
@@ -7385,10 +7362,8 @@ pub(crate) unsafe fn scan_decimal(input: &mut input_state_t) -> Scaled {
     xetex_scan_dimen(input, false, false, None, false)
 }
 pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> GlueSpec {
-    let mut negative: bool = false;
-    let mut mu: bool = false;
-    mu = level == ValLevel::Mu;
-    negative = false;
+    let mu = level == ValLevel::Mu;
+    let mut negative = false;
     let (tok, cmd, chr) = loop {
         let (mut tok, cmd, chr, _) = loop {
             let next = get_x_token(input);
@@ -7449,53 +7424,50 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> Gl
     /*:481*/
 }
 pub(crate) unsafe fn add_or_sub(x: i32, mut y: i32, max_answer: i32, negative: bool) -> i32 {
-    let mut a = 0;
     if negative {
         y = -y
     }
     if x >= 0 {
         if y <= max_answer - x {
-            a = x + y;
+            x + y
         } else {
             arith_error = true;
-            a = 0;
+            0
         }
     } else if y >= -max_answer - x {
-        a = x + y;
+        x + y
     } else {
         arith_error = true;
-        a = 0;
+        0
     }
-    a
 }
 pub(crate) unsafe fn quotient(mut n: i32, mut d: i32) -> i32 {
-    let mut negative: bool = false;
-    let mut a: i32 = 0;
     if d == 0 {
         arith_error = true;
-        a = 0
+        0
     } else {
-        if d > 0 {
-            negative = false
+        let mut negative = if d > 0 {
+            false
         } else {
             d = -d;
-            negative = true
-        }
+            true
+        };
         if n < 0 {
             n = -n;
-            negative = !negative
+            negative = !negative;
         }
-        a = n / d;
+        let mut a = n / d;
         n = n - a * d;
         d = n - d;
         if d + n >= 0 {
             a += 1;
         }
         if negative {
-            a = -a;
+            -a
+        } else {
+            a
         }
     }
-    a
 }
 pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) -> i32 {
     fn too_big() -> i32 {
@@ -7595,9 +7567,7 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) 
     }
 }
 pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLevel) -> i32 {
-    let mut e: i32 = 0;
-    let mut t: i32 = 0;
-    let mut n: i32 = 0;
+    let mut e;
     let mut l = *val_level;
     let a = arith_error;
     let mut b = false;
@@ -7607,8 +7577,8 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
         let mut r = Expr::None;
         e = 0;
         let mut s = Expr::None;
-        t = 0;
-        n = 0;
+        let mut t = 0;
+        let mut n = 0;
         loop {
             o = if s == Expr::None { l } else { ValLevel::Int };
             let tok = loop {
@@ -7860,7 +7830,6 @@ pub(crate) unsafe fn scan_rule_spec(input: &mut input_state_t, cmd: Cmd) -> Rule
     q
 }
 pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i32 {
-    let mut unbalance: i32 = 0;
     let s = scanner_status;
     let w = warning_index;
     let d = def_ref;
@@ -7870,7 +7839,7 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i3
     MEM[def_ref].b32.s0 = None.tex_int();
     let mut p = def_ref;
     scan_left_brace(input);
-    unbalance = 1;
+    let mut unbalance = 1;
     loop {
         let (tok, cmd, ..) = get_token(input);
         if tok < RIGHT_BRACE_LIMIT {
@@ -8080,29 +8049,22 @@ pub(crate) unsafe fn ins_the_toks(input: &mut input_state_t, chr: i32, cs: i32) 
     *LLIST_link(GARBAGE as usize) = Some(the_toks(input, chr, cs)).tex_int();
     begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
-pub(crate) unsafe fn conv_toks(
-    input: &mut input_state_t,
-    mut ocmd: Cmd,
-    mut ochr: i32,
-    mut ocs: i32,
-) {
-    let mut save_warning_index: i32 = 0;
+pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
     let mut fnt: usize = 0;
     let mut arg1: i32 = 0i32;
     let mut arg2: i32 = 0i32;
     let mut p = None;
     let mut cat = 0i32 as i16;
-    let c = ConvertCode::n(ochr as u8).unwrap();
+    let c = ConvertCode::n(chr as u8).unwrap();
     let mut oval = None;
+    let mut o = None;
     match c {
         ConvertCode::Number | ConvertCode::RomanNumeral => oval = Some(scan_int(input)),
         ConvertCode::String | ConvertCode::Meaning => {
             let save_scanner_status = scanner_status;
             scanner_status = ScannerStatus::Normal;
             let (_, cmd, chr, cs) = get_token(input);
-            ocmd = cmd;
-            ochr = chr;
-            ocs = cs;
+            o = Some((cmd, chr, cs));
             scanner_status = save_scanner_status;
         }
         ConvertCode::FontName => oval = Some(scan_font_ident(input)),
@@ -8133,14 +8095,14 @@ pub(crate) unsafe fn conv_toks(
         }
         ConvertCode::PdfStrcmp => {
             let save_scanner_status = scanner_status;
-            save_warning_index = warning_index;
+            let save_warning_index = warning_index;
             let save_def_ref = def_ref;
             let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
                 make_string()
             } else {
                 0
             };
-            oval = Some(compare_strings(input, ocs));
+            oval = Some(compare_strings(input, cs));
             def_ref = save_def_ref;
             warning_index = save_warning_index;
             scanner_status = save_scanner_status;
@@ -8150,7 +8112,7 @@ pub(crate) unsafe fn conv_toks(
         }
         ConvertCode::PdfMdfiveSum => {
             let save_scanner_status = scanner_status;
-            save_warning_index = warning_index;
+            let save_warning_index = warning_index;
             let save_def_ref = def_ref;
             let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
                 make_string()
@@ -8158,7 +8120,7 @@ pub(crate) unsafe fn conv_toks(
                 0
             };
             let boolvar = scan_keyword(input, b"file");
-            scan_pdf_ext_toks(input, ocs);
+            scan_pdf_ext_toks(input, cs);
             if selector == Selector::NEW_STRING {
                 pdf_error(
                     "tokens",
@@ -8266,13 +8228,17 @@ pub(crate) unsafe fn conv_toks(
         ConvertCode::Number => print_int(oval.unwrap()),
         ConvertCode::RomanNumeral => print_roman_int(oval.unwrap()),
         ConvertCode::String => {
-            if ocs != 0 {
-                sprint_cs(ocs);
+            let (_, chr, cs) = o.unwrap();
+            if cs != 0 {
+                sprint_cs(cs);
             } else {
-                print_char(ochr);
+                print_char(chr);
             }
         }
-        ConvertCode::Meaning => print_meaning(ocmd, ochr),
+        ConvertCode::Meaning => {
+            let (cmd, chr, _) = o.unwrap();
+            print_meaning(cmd, chr);
+        }
         ConvertCode::FontName => {
             let val = oval.unwrap();
             let font_name_str = FONT_NAME[val as usize];
@@ -8410,8 +8376,6 @@ pub(crate) unsafe fn scan_toks(
     macro_def: bool,
     xpand: bool,
 ) -> usize {
-    let mut s: i32 = 0;
-    let mut unbalance: i32 = 0;
     scanner_status = if macro_def {
         ScannerStatus::Defining
     } else {
@@ -8434,7 +8398,7 @@ pub(crate) unsafe fn scan_toks(
             }
             if cmd == Cmd::MacParam {
                 /*495: */
-                s = MATCH_TOKEN + chr;
+                let s = MATCH_TOKEN + chr;
                 let (tok, cmd, _, _) = get_token(input);
                 otok = tok;
                 if cmd == Cmd::LeftBrace {
@@ -8509,7 +8473,7 @@ pub(crate) unsafe fn scan_toks(
         scan_left_brace(input);
     }
 
-    unbalance = 1;
+    let mut unbalance = 1;
     loop {
         let (mut tok, cmd) = if xpand {
             let mut ocmd;
@@ -8560,7 +8524,7 @@ pub(crate) unsafe fn scan_toks(
         } else if cmd == Cmd::MacParam {
             if macro_def {
                 /*498: */
-                s = tok;
+                let s = tok;
                 let next = if xpand {
                     get_x_token(input)
                 } else {
@@ -8610,8 +8574,6 @@ pub(crate) unsafe fn scan_toks(
     }
 }
 pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32) -> i32 {
-    let mut s: i32 = 0;
-    let mut m: i16 = 0;
     scanner_status = ScannerStatus::Defining;
     warning_index = r;
     def_ref = get_avail();
@@ -8621,12 +8583,8 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
     *LLIST_link(p) = Some(q).tex_int();
     MEM[q].b32.s0 = END_MATCH_TOKEN;
     let mut p = q;
-    if n < 0 || n > 15 {
-        m = 16;
-    } else {
-        m = n as i16
-    }
-    s = align_state;
+    let m = if n < 0 || n > 15 { 16 } else { n as i16 };
+    let s = align_state;
     align_state = 1000000;
     loop {
         /*502:*/
@@ -8765,8 +8723,6 @@ pub(crate) unsafe fn change_if_limit(l: FiOrElseCode, p: Option<usize>) {
 }
 pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) {
     let mut b: bool = false;
-    let mut e: bool = false;
-    let mut r: u8 = 0;
 
     if get_int_par(IntPar::tracing_ifs) > 0 {
         if get_int_par(IntPar::tracing_commands) <= 1 {
@@ -8838,8 +8794,8 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
                 }
             };
 
-            if tok >= OTHER_TOKEN + 60 && tok <= OTHER_TOKEN + 62 {
-                r = (tok - OTHER_TOKEN) as u8
+            let r = if tok >= OTHER_TOKEN + 60 && tok <= OTHER_TOKEN + 62 {
+                (tok - OTHER_TOKEN) as u8
             } else {
                 if file_line_error_style_p != 0 {
                     print_file_line();
@@ -8850,8 +8806,8 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
                 print_cmd_chr(Cmd::IfTest, this_if as i32);
                 help!("I was expecting to see `<\', `=\', or `>\'. Didn\'t.");
                 back_error(input, tok);
-                r = b'=';
-            }
+                b'='
+            };
 
             let val = if this_if == IfTestCode::IfInt {
                 scan_int(input)
@@ -8972,7 +8928,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
         IfTestCode::IfCS => {
             let n = get_avail();
             let mut p = n;
-            e = is_in_csname;
+            let e = is_in_csname;
             is_in_csname = true;
 
             let (tok, cmd) = loop {
@@ -9221,7 +9177,6 @@ where
         &mut file_name_quote_char,
     );
 
-    let mut j: usize = 0;
     if str_ptr + 3 > max_strings as i32 {
         overflow("number of strings", max_strings - init_str_ptr as usize);
     }
@@ -9239,10 +9194,8 @@ where
         if let Some(temp_str) = search_string(cur_area) {
             cur_area = temp_str;
             str_ptr -= 1;
-            j = str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize];
-            while j <= pool_ptr - 1 {
+            for j in str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize]..=(pool_ptr - 1) {
                 str_pool[(j - area_delimiter) as usize] = str_pool[j];
-                j += 1
             }
             pool_ptr = pool_ptr - area_delimiter
         }
@@ -9263,10 +9216,8 @@ where
         if let Some(temp_str) = search_string(cur_name) {
             cur_name = temp_str;
             str_ptr -= 1;
-            j = str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize];
-            while j <= pool_ptr - 1 {
+            for j in str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize]..=(pool_ptr - 1) {
                 str_pool[(j - ext_delimiter + area_delimiter + 1) as usize] = str_pool[j];
-                j += 1
             }
             pool_ptr = pool_ptr - ext_delimiter + area_delimiter + 1;
         }
@@ -9697,10 +9648,6 @@ pub(crate) unsafe fn graphite_warning() {
     });
 }
 pub(crate) unsafe fn do_locale_linebreaks(text: &[u16]) {
-    let mut offs: i32 = 0;
-    let mut prevOffs: i32 = 0;
-    let mut use_penalty: bool = false;
-    let mut use_skip: bool = false;
     if get_int_par(IntPar::xetex_linebreak_locale) == 0 || text.len() == 1 {
         let mut nwn = new_native_word_node(main_f, text.len() as _);
         *LLIST_link(cur_list.tail) = Some(nwn.ptr()).tex_int();
@@ -9709,12 +9656,12 @@ pub(crate) unsafe fn do_locale_linebreaks(text: &[u16]) {
         tail_text.copy_from_slice(text);
         nwn.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
     } else {
-        use_skip = get_glue_par(GluePar::xetex_linebreak_skip).ptr() != 0;
-        use_penalty = get_int_par(IntPar::xetex_linebreak_penalty) != 0 || !use_skip;
+        let use_skip = get_glue_par(GluePar::xetex_linebreak_skip).ptr() != 0;
+        let use_penalty = get_int_par(IntPar::xetex_linebreak_penalty) != 0 || !use_skip;
         linebreak_start(main_f, get_int_par(IntPar::xetex_linebreak_locale), text);
-        offs = 0;
+        let mut offs = 0;
         loop {
-            prevOffs = offs;
+            let prevOffs = offs;
             offs = linebreak_next();
             if offs > 0 {
                 if prevOffs != 0 {
@@ -9768,11 +9715,10 @@ pub(crate) unsafe fn get_tracing_fonts_state() -> i32 {
 }
 
 pub(crate) unsafe fn new_character(f: internal_font_number, c: UTF16_code) -> Option<usize> {
-    let mut ec: u16 = 0;
     if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
         return Some(new_native_character(f, c as UnicodeScalar).ptr());
     }
-    ec = effective_char(false, f, c) as u16;
+    let ec = effective_char(false, f, c) as u16;
     if FONT_BC[f] as i32 <= ec as i32 {
         if FONT_EC[f] as i32 >= ec as i32 {
             if FONT_CHARACTER_INFO(f, ec as usize).s3 > 0 {
@@ -9788,10 +9734,10 @@ pub(crate) unsafe fn new_character(f: internal_font_number, c: UTF16_code) -> Op
 }
 pub(crate) unsafe fn scan_spec(input: &mut input_state_t, c: GroupCode, three_codes: bool) -> Cmd {
     let mut s: i32 = 0;
-    let mut spec_code: PackMode = PackMode::Exactly;
     if three_codes {
         s = SAVE_STACK[SAVE_PTR + 0].val
     }
+    let spec_code;
     let mut sd = None;
     if scan_keyword(input, b"to") {
         spec_code = PackMode::Exactly;
@@ -10475,8 +10421,7 @@ pub(crate) unsafe fn vpackage(
     }
 }
 pub(crate) unsafe fn append_to_vlist(b: List) {
-    let mut upwards: bool = false;
-    upwards = get_int_par(IntPar::xetex_upwards) > 0;
+    let upwards = get_int_par(IntPar::xetex_upwards) > 0;
     if cur_list.aux.b32.s1 > IGNORE_DEPTH {
         let d = if upwards {
             get_glue_par(GluePar::baseline_skip).size() - Scaled(cur_list.aux.b32.s1) - b.depth()
@@ -10608,7 +10553,6 @@ pub(crate) unsafe fn get_preamble_token(input: &mut input_state_t) -> (i32, Cmd)
     (otok, ocmd)
 }
 pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
-    let mut p: i32 = 0;
     push_alignment();
     align_state = -1000000;
     if cur_list.mode == (false, ListMode::MMode)
@@ -10654,11 +10598,11 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
         if ocmd == Cmd::CarRet {
             break; /*:813*/
         } /*:806 */
-        p = HOLD_HEAD as i32;
+        let mut p = HOLD_HEAD as i32;
         *LLIST_link(p as usize) = None.tex_int();
         loop {
             let (tok, cmd) = get_preamble_token(input);
-            ocmd = cmd;
+            //ocmd = cmd;
             if cmd == Cmd::MacParam {
                 break;
             }
@@ -10692,7 +10636,7 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
         MEM[ca].b32.s0 = END_SPAN as i32;
         MEM[ca + 1].b32.s1 = NULL_FLAG.0;
         MEM[ca + 3].b32.s1 = *LLIST_link(HOLD_HEAD);
-        p = HOLD_HEAD as i32;
+        let mut p = HOLD_HEAD as i32;
         *LLIST_link(p as usize) = None.tex_int();
         loop {
             let (tok, cmd) = get_preamble_token(input);
@@ -10720,7 +10664,7 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
             }
         }
         *LLIST_link(p as usize) = Some(get_avail()).tex_int();
-        p = *LLIST_link(p as usize);
+        let p = *LLIST_link(p as usize);
         MEM[p as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_TEMPLATE as i32;
         MEM[ca + 2].b32.s1 = *LLIST_link(HOLD_HEAD)
     }
@@ -11408,29 +11352,22 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
             }
         };
         print_cstr(" (");
-        let mut s: &str = "";
-        match cur_group1 {
+        let s = match cur_group1 {
             GroupCode::BottomLevel => unreachable!(),
             GroupCode::Simple => {
                 p += 1;
                 return found2(p, a);
             }
-            GroupCode::HBox | GroupCode::AdjustedHBox => {
-                s = "hbox";
-            }
-            GroupCode::VBox => {
-                s = "vbox";
-            }
-            GroupCode::VTop => {
-                s = "vtop";
-            }
+            GroupCode::HBox | GroupCode::AdjustedHBox => "hbox",
+            GroupCode::VBox => "vbox",
+            GroupCode::VTop => "vtop",
             GroupCode::Align => {
                 if a == 0 {
-                    if m == (true, ListMode::VMode) {
-                        s = "halign"
+                    let s = if m == (true, ListMode::VMode) {
+                        "halign"
                     } else {
-                        s = "valign"
-                    }
+                        "valign"
+                    };
                     a = 1;
                     return found1(s, p, a);
                 } else {
@@ -11482,8 +11419,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
                 return found2(p, a);
             }
             GroupCode::VCenter => {
-                s = "vcenter";
-                return found1(s, p, a);
+                return found1("vcenter", p, a);
             }
             GroupCode::SemiSimple => {
                 p += 1;
@@ -11508,7 +11444,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
                 }
                 return found(p, a);
             }
-        }
+        };
 
         let mut i = SAVE_STACK[SAVE_PTR1 - 4].val;
 
@@ -11712,7 +11648,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, h: Scaled, d: Scaled) -> i32 {
             }
             if b <= least_cost {
                 best_place = None;
-                least_cost = b;
+                //least_cost = b;
                 best_height_plus_depth = active_width.width + prev_dp;
             }
             return best_place.tex_int();
@@ -12314,7 +12250,7 @@ pub(crate) unsafe fn begin_box(input: &mut input_state_t, cmd: Cmd, chr: i32, bo
                         if m.subtype() == MathType::Eq(BE::End, MathMode::Middle) =>
                     {
                         let mut r = cur_list.head as i32;
-                        let mut q: i32 = 0;
+                        let mut q;
                         loop {
                             q = r;
                             r = *LLIST_link(q as usize);
@@ -12331,12 +12267,10 @@ pub(crate) unsafe fn begin_box(input: &mut input_state_t, cmd: Cmd, chr: i32, bo
                         /*1116:*/
                         let mut q = cur_list.head as i32;
                         let mut p = None.tex_int();
-                        let mut r: i32 = 0;
-                        let mut fm: bool = false;
                         loop {
-                            r = p;
+                            let r = p;
                             p = q;
-                            fm = false;
+                            let mut fm = false;
                             match CharOrText::from(q as usize) {
                                 CharOrText::Text(TxtNode::Disc(d)) => {
                                     for _ in 0..d.replace_count() {
@@ -12827,7 +12761,6 @@ pub(crate) unsafe fn unpackage(input: &mut input_state_t, chr: i32) {
     }
 }
 pub(crate) unsafe fn append_italic_correction() {
-    let mut f: internal_font_number = 0;
     if cur_list.tail != cur_list.head {
         let p = match CharOrText::from(cur_list.tail) {
             CharOrText::Char(c) => c,
@@ -12852,7 +12785,7 @@ pub(crate) unsafe fn append_italic_correction() {
             }
             _ => return,
         };
-        f = p.font() as internal_font_number;
+        let f = p.font() as internal_font_number;
         let mut k = new_kern(*FONT_CHARINFO_ITALCORR(
             f,
             FONT_CHARACTER_INFO(f, effective_char(true, f, p.character()) as usize),
@@ -13691,31 +13624,30 @@ pub(crate) unsafe fn alter_page_so_far(input: &mut input_state_t, chr: i32) {
     page_so_far[c] = val;
 }
 pub(crate) unsafe fn alter_integer(input: &mut input_state_t, chr: i32) {
-    let mut c: i16 = 0;
-    c = chr as i16;
+    let c = chr as i16;
     scan_optional_equals(input);
     let val = scan_int(input);
-    if c == 0 {
-        dead_cycles = val
-    } else if c == 2 {
-        if InteractionMode::n(val as u8).is_none() {
-            if file_line_error_style_p != 0 {
-                print_file_line();
+    match c {
+        0 => dead_cycles = val,
+        2 => {
+            if InteractionMode::n(val as u8).is_none() {
+                if file_line_error_style_p != 0 {
+                    print_file_line();
+                } else {
+                    print_nl_cstr("! ");
+                }
+                print_cstr("Bad interaction mode");
+                help!(
+                    "Modes are 0=batch, 1=nonstop, 2=scroll, and",
+                    "3=errorstop. Proceed, and I\'ll ignore this case."
+                );
+                int_error(val);
             } else {
-                print_nl_cstr("! ");
+                new_interaction(val);
             }
-            print_cstr("Bad interaction mode");
-            help!(
-                "Modes are 0=batch, 1=nonstop, 2=scroll, and",
-                "3=errorstop. Proceed, and I\'ll ignore this case."
-            );
-            int_error(val);
-        } else {
-            new_interaction(val);
         }
-    } else {
-        insert_penalties = val
-    };
+        _ => insert_penalties = val,
+    }
 }
 pub(crate) unsafe fn alter_box_dimen(input: &mut input_state_t, chr: i32) {
     let c = chr as usize;
@@ -13733,7 +13665,6 @@ pub(crate) unsafe fn alter_box_dimen(input: &mut input_state_t, chr: i32) {
     };
 }
 pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
-    let mut s: Scaled = Scaled::ZERO;
     if job_name == 0 {
         open_log_file();
     }
@@ -13765,6 +13696,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
     scan_optional_equals(input);
     let (quoted_filename, file_name_quote_char) = scan_file_name(input);
     name_in_progress = true;
+    let mut s;
     if scan_keyword(input, b"at") {
         /*1294: */
         s = scan_dimen(input, false, false, None); /*:1293 */
@@ -13879,9 +13811,7 @@ pub(crate) unsafe fn new_interaction(chr: i32) {
     };
 }
 pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32) {
-    let mut c: u8 = 0;
-    let mut s: str_number = 0;
-    c = chr as u8;
+    let c = chr as u8;
     *LLIST_link(GARBAGE) = scan_toks(input, cs, false, true) as i32;
     let old_setting_0 = selector;
     selector = Selector::NEW_STRING;
@@ -13891,7 +13821,7 @@ pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32)
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
-    s = make_string();
+    let s = make_string();
     if c == 0 {
         /*1315: */
         if term_offset + (PoolString::from(s).len() as i32) > max_print_line - 2 {
@@ -14090,7 +14020,6 @@ pub(crate) unsafe fn do_extension(
     cs: i32,
 ) {
     let mut j: i32 = 0;
-    let mut p: usize = 0;
     match chr as u16 {
         0 => {
             // OpenFile
@@ -14118,7 +14047,7 @@ pub(crate) unsafe fn do_extension(
                 val
             };
             w.set_id(val);
-            p = scan_toks(input, k, false, false);
+            scan_toks(input, k, false, false);
             w.set_tokens(def_ref as i32);
         }
         2 => {
@@ -14142,13 +14071,13 @@ pub(crate) unsafe fn do_extension(
             *LLIST_link(cur_list.tail) = Some(s.ptr()).tex_int();
             cur_list.tail = s.ptr();
             MEM[cur_list.tail + 1].b32.s0 = None.tex_int();
-            p = scan_toks(input, cs, false, true);
+            scan_toks(input, cs, false, true);
             s.set_tokens(def_ref as i32);
         }
         IMMEDIATE_CODE => {
             let (tok, cmd, chr, cs) = get_x_token(input);
             if cmd == Cmd::Extension && chr <= WhatsItNST::Close as i32 {
-                p = cur_list.tail;
+                let p = cur_list.tail;
                 do_extension(input, tok, cmd, chr, cs);
                 out_what(input, &WhatsIt::from(cur_list.tail));
                 flush_node_list(Some(cur_list.tail));
