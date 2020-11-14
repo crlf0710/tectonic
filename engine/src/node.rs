@@ -425,15 +425,15 @@ impl MarkClass {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
-    pub(crate) unsafe fn rc(&self) -> i32 {
+    /*pub(crate) unsafe fn rc(&self) -> i32 {
         MEM[self.ptr()].b32.s0
-    }
+    }*/
     pub(crate) unsafe fn rc_inc(&mut self) {
         MEM[self.ptr()].b32.s0 += 1;
     }
-    pub(crate) unsafe fn rc_dec(&mut self) {
+    /*pub(crate) unsafe fn rc_dec(&mut self) {
         MEM[self.ptr()].b32.s0 -= 1;
-    }
+    }*/
     pub(crate) unsafe fn indexes(&self) -> &[i32] {
         let pp = &MEM[self.ptr() + 1].b32.s0;
         std::slice::from_raw_parts(pp, 5)
@@ -464,10 +464,10 @@ impl Adjust {
         let n = MEM[self.ptr()].b16.s0;
         AdjustType::n(n).unwrap_or_else(|| panic!("Incorrect Adjust type {}", n))
     }
-    pub(crate) unsafe fn set_subtype(&mut self, v: AdjustType) -> &mut Self {
+    /*pub(crate) unsafe fn set_subtype(&mut self, v: AdjustType) -> &mut Self {
         MEM[self.ptr()].b16.s0 = v as u16;
         self
-    }
+    }*/
     pub(crate) unsafe fn adj_ptr(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s1
     }
@@ -617,23 +617,6 @@ pub(crate) mod whatsit {
                 _ => panic!(format!("Incorrect WhatsIt Type = {}", n)),
             }
         }
-    }
-
-    /// deprecated
-    #[repr(u16)]
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, enumn::N)]
-    pub(crate) enum WhatsItNST {
-        Open = 0,
-        Write = 1,
-        Close = 2,
-        Special = 3,
-        Language = 4,
-        PdfSavePos = 6,
-        NativeWord = 40,
-        NativeWordAt = 41,
-        Glyph = 42,
-        Pic = 43,
-        Pdf = 44,
     }
 
     #[derive(Clone, Debug)]
@@ -989,9 +972,9 @@ pub(crate) mod whatsit {
                 _ => panic!("It's not a Picture"),
             }
         }
-        pub(crate) unsafe fn set_pdf(&mut self) {
+        /*pub(crate) unsafe fn set_pdf(&mut self) {
             MEM[self.ptr()].b16.s0 = 44;
-        }
+        }*/
         pub(crate) unsafe fn page(&self) -> u16 {
             MEM[self.ptr() + 4].b16.s0
         }
@@ -1422,9 +1405,9 @@ impl Edge {
         MEM[self.ptr() + 2].b32.s1 = v.0;
         self
     }
-    pub(crate) unsafe fn free(self) {
+    /*pub(crate) unsafe fn free(self) {
         free_node(self.ptr(), Self::SIZE);
-    }
+    }*/
 }
 
 #[derive(Clone, Debug)]
@@ -1477,10 +1460,10 @@ impl MarginKern {
     pub(crate) unsafe fn width(&self) -> Scaled {
         Scaled(MEM[self.ptr() + 1].b32.s1)
     }
-    pub(crate) unsafe fn set_width(&mut self, v: Scaled) -> &mut Self {
+    /*pub(crate) unsafe fn set_width(&mut self, v: Scaled) -> &mut Self {
         MEM[self.ptr() + 1].b32.s1 = v.0;
         self
-    }
+    }*/
     pub(crate) unsafe fn free(self) {
         free_node(self.ptr(), Self::SIZE);
     }
@@ -1755,13 +1738,13 @@ impl Passive {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
-    pub(crate) unsafe fn serial(&self) -> i32 {
+    /*pub(crate) unsafe fn serial(&self) -> i32 {
         MEM[self.ptr()].b32.s0
     }
     pub(crate) unsafe fn set_serial(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr()].b32.s0 = v;
         self
-    }
+    }*/
     /// aka "llink" in doubly-linked list
     pub(crate) unsafe fn prev_break(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s0
@@ -1826,14 +1809,14 @@ impl EtexMark {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
-    /// \topmarks<n>
+    /*/// \topmarks<n>
     pub(crate) unsafe fn sa_top_mark(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s0
     }
     pub(crate) unsafe fn set_sa_top_mark(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 1].b32.s0 = v;
         self
-    }
+    }*/
     /// \firstmarks<n>
     pub(crate) unsafe fn sa_first_mark(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s1
@@ -1850,22 +1833,22 @@ impl EtexMark {
         MEM[self.ptr() + 2].b32.s0 = v;
         self
     }
-    /// \splitfirstmarks<n>
+    /*/// \splitfirstmarks<n>
     pub(crate) unsafe fn sa_split_first_mark(&self) -> i32 {
         MEM[self.ptr() + 2].b32.s1
     }
     pub(crate) unsafe fn set_sa_split_first_mark(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 2].b32.s1 = v;
         self
-    }
-    /// \splitbotmarks<n>
+    }*/
+    /*/// \splitbotmarks<n>
     pub(crate) unsafe fn sa_split_bot_mark(&self) -> i32 {
         MEM[self.ptr() + 3].b32.s0
     }
     pub(crate) unsafe fn set_sa_split_bot_mark(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 23].b32.s0 = v;
         self
-    }
+    }*/
 }
 
 #[repr(u16)]
@@ -2031,51 +2014,51 @@ pub(crate) mod math {
 
     #[derive(Deref, DerefMut)]
     pub(crate) struct Bin(BaseMath);
-    impl Bin {
+    /*impl Bin {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseMath(p))
         }
-    }
+    }*/
 
     #[derive(Deref, DerefMut)]
     pub(crate) struct Rel(BaseMath);
-    impl Rel {
+    /*impl Rel {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseMath(p))
         }
-    }
+    }*/
 
     #[derive(Deref, DerefMut)]
     pub(crate) struct Open(BaseMath);
-    impl Open {
+    /*impl Open {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseMath(p))
         }
-    }
+    }*/
 
     #[derive(Deref, DerefMut)]
     pub(crate) struct Close(BaseMath);
-    impl Close {
+    /*impl Close {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseMath(p))
         }
-    }
+    }*/
 
     #[derive(Deref, DerefMut)]
     pub(crate) struct Punct(BaseMath);
-    impl Punct {
+    /*impl Punct {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseMath(p))
         }
-    }
+    }*/
 
     #[derive(Deref, DerefMut)]
     pub(crate) struct Inner(BaseMath);
-    impl Inner {
+    /*impl Inner {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseMath(p))
         }
-    }
+    }*/
 
     #[derive(Deref, DerefMut)]
     pub(crate) struct Radical(BaseMath);
@@ -2109,11 +2092,11 @@ pub(crate) mod math {
 
     #[derive(Deref, DerefMut)]
     pub(crate) struct VCenter(BaseMath);
-    impl VCenter {
+    /*impl VCenter {
         pub(crate) const fn from(p: usize) -> Self {
             Self(BaseMath(p))
         }
-    }
+    }*/
 
     #[derive(Deref, DerefMut)]
     pub(crate) struct Accent(BaseMath);
@@ -2128,9 +2111,9 @@ pub(crate) mod math {
             MEM[self.ptr()].b16.s0 = v as u16;
             self
         }
-        pub(crate) unsafe fn fourth(&self) -> &MCell {
+        /*pub(crate) unsafe fn fourth(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 4] as *const memory_word as *const MCell))
-        }
+        }*/
         pub(crate) unsafe fn fourth_mut(&self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 4] as *mut memory_word as *mut MCell))
         }
@@ -2233,10 +2216,10 @@ pub(crate) mod math {
             self.val.ptr = None.tex_int();
             self.typ = MathCell::Empty;
         }
-        pub(crate) fn set_math_char(&mut self, c: Chr) {
+        /*pub(crate) fn set_math_char(&mut self, c: Chr) {
             self.val.chr = c;
             self.typ = MathCell::MathChar;
-        }
+        }*/
         pub(crate) fn set_subbox(&mut self, b: super::List) {
             self.val.ptr = Some(b.ptr()).tex_int();
             self.typ = MathCell::SubBox;
@@ -2245,10 +2228,10 @@ pub(crate) mod math {
             self.val.ptr = b;
             self.typ = MathCell::SubMList;
         }
-        pub(crate) fn set_math_text_char(&mut self, c: Chr) {
+        /*pub(crate) fn set_math_text_char(&mut self, c: Chr) {
             self.val.chr = c;
             self.typ = MathCell::MathTextChar;
-        }
+        }*/
         pub(crate) unsafe fn fetch(&mut self) {
             crate::xetex_math::fetch(self);
         }

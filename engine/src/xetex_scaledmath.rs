@@ -3,8 +3,6 @@
    Licensed under the MIT License.
 */
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -31,10 +29,6 @@ use crate::xetex_ini::arith_error;
 pub struct Scaled(pub i32);
 
 impl Scaled {
-    pub const fn zero() -> Self {
-        Scaled(0)
-    }
-
     pub const ZERO: Self = Self(0);
     pub const ONE: Self = Self(65536);
     pub const INFINITY: Self = Self(0x7fff_ffff);

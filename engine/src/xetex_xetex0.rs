@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -98,19 +96,12 @@ use bridge::{TTHistory, TTInputFormat};
 
 use libc::{memcpy, strlen};
 
-pub(crate) type CFDictionaryRef = *mut libc::c_void;
-
 pub(crate) type UTF16_code = u16;
-pub(crate) type UTF8_code = u8;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
-pub(crate) type glue_ord = u8;
-pub(crate) type group_code = u8;
 pub(crate) type internal_font_number = usize;
 pub(crate) type font_index = i32;
-pub(crate) type nine_bits = i32;
-pub(crate) type save_pointer = i32;
 
 fn IS_LC_HEX(c: i32) -> bool {
     (c >= ('0' as i32) && c <= ('9' as i32)) || (c >= ('a' as i32) && c <= ('f' as i32))
@@ -1172,11 +1163,11 @@ pub(crate) unsafe fn show_box(p: Option<usize>) {
     show_node_list(p);
     print_ln();
 }
-pub(crate) unsafe fn short_display_n(p: Option<usize>, m: i32) {
+/*pub(crate) unsafe fn short_display_n(p: Option<usize>, m: i32) {
     breadth_max = m;
     depth_threshold = (pool_size as i32) - (pool_ptr as i32) - 1;
     show_node_list(p);
-}
+}*/
 pub(crate) unsafe fn delete_token_ref(p: usize) {
     if MEM[p].b32.s0.opt().is_none() {
         flush_list(Some(p));
@@ -1260,11 +1251,17 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     }
                     p.free();
                 }
-                TxtNode::Kern(_) | TxtNode::Math(_) | TxtNode::Penalty(_) => {
-                    free_node(p, MEDIUM_NODE_SIZE);
+                TxtNode::Kern(k) => {
+                    k.free();
                 }
-                TxtNode::MarginKern(_) => {
-                    free_node(p, MARGIN_KERN_NODE_SIZE);
+                TxtNode::Math(m) => {
+                    m.free();
+                }
+                TxtNode::Penalty(p) => {
+                    p.free();
+                }
+                TxtNode::MarginKern(m) => {
+                    m.free();
                 }
                 TxtNode::Ligature(l) => {
                     flush_node_list(l.lig_ptr().opt());
@@ -9638,7 +9635,7 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
         }
     });
 }
-pub(crate) unsafe fn graphite_warning() {
+/*pub(crate) unsafe fn graphite_warning() {
     diagnostic(false, || {
         print_nl_cstr("Font `");
         for b in name_of_file.bytes() {
@@ -9646,7 +9643,7 @@ pub(crate) unsafe fn graphite_warning() {
         }
         print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
     });
-}
+}*/
 pub(crate) unsafe fn do_locale_linebreaks(text: &[u16]) {
     if get_int_par(IntPar::xetex_linebreak_locale) == 0 || text.len() == 1 {
         let mut nwn = new_native_word_node(main_f, text.len() as _);
@@ -14076,7 +14073,7 @@ pub(crate) unsafe fn do_extension(
         }
         IMMEDIATE_CODE => {
             let (tok, cmd, chr, cs) = get_x_token(input);
-            if cmd == Cmd::Extension && chr <= WhatsItNST::Close as i32 {
+            if cmd == Cmd::Extension && chr <= CloseFile::WHATS_IT as i32 {
                 let p = cur_list.tail;
                 do_extension(input, tok, cmd, chr, cs);
                 out_what(input, &WhatsIt::from(cur_list.tail));

@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -43,10 +41,7 @@ use crate::xetex_scaledmath::Scaled;
 
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
-pub(crate) type str_number = i32;
-pub(crate) type packed_UTF16_code = u16;
 pub(crate) type font_index = i32;
-pub(crate) type nine_bits = i32;
 pub(crate) type hyph_pointer = u16;
 
 const AWFUL_BAD: i32 = 0x3FFFFFFF;
@@ -622,7 +617,7 @@ pub(crate) unsafe fn line_break(d: bool) {
 
         while let Some(q) = qopt {
             cur_p = llist_link(q);
-            free_node(q, PASSIVE_NODE_SIZE);
+            Passive(q).free();
             qopt = cur_p;
         }
         /* ... resuming 892 ... */
@@ -666,7 +661,7 @@ pub(crate) unsafe fn line_break(d: bool) {
 
     while let Some(q) = qopt {
         let next_0 = llist_link(q);
-        free_node(q, PASSIVE_NODE_SIZE);
+        Passive(q).free();
         qopt = next_0;
     }
     /* All done */

@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -89,15 +87,7 @@ impl NativeFont {
 
 use NativeFont::*;
 
-pub(crate) const AAT_FONT_FLAG: u32 = 0xFFFF;
-pub(crate) const OTGR_FONT_FLAG: u32 = 0xFFFE;
-
 pub(crate) type size_t = usize;
-pub(crate) type ssize_t = isize;
-
-pub(crate) type Boolean = libc::c_uchar;
-
-pub(crate) type str_number = i32;
 
 pub(crate) type UTF16_code = u16;
 

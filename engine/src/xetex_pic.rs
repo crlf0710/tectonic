@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -32,7 +30,6 @@ use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
 use dpx::{pdf_obj, pdf_open, pdf_release_obj};
-pub type str_number = i32;
 
 use euclid::{point2, size2, Angle};
 type Transform = euclid::Transform2D<f64, (), ()>;

@@ -1,6 +1,8 @@
+/* tectonic/errors.c -- error handling
+ * Copyright 2016 the Tectonic Project
+ * Licensed under the MIT License.
+*/
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -40,11 +42,6 @@ impl<T> Confuse for Option<T> {
     }
 }
 
-pub(crate) type str_number = i32;
-/* tectonic/errors.c -- error handling
- * Copyright 2016 the Tectonic Project
- * Licensed under the MIT License.
-*/
 /* WEBby error-handling code: */
 unsafe fn pre_error_message() {
     /* FKA normalize_selector(): */

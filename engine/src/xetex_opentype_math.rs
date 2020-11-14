@@ -30,8 +30,6 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -49,8 +47,6 @@ use crate::xetex_layout_interface::{D2Fix, Fix2D};
 use libc::free;
 
 use crate::xetex_ini::{FONT_LAYOUT_ENGINE, FONT_SIZE};
-
-pub(crate) type size_t = usize;
 
 pub(crate) const HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER: hb_ot_math_glyph_part_flags_t = 1;
 

@@ -224,9 +224,9 @@ pub(crate) unsafe fn MATH_CODE(n: usize) -> &'static mut i32 {
 }
 
 pub(crate) const CHAR_SUB_CODE_BASE: usize = MATH_CODE_BASE + NUMBER_USVS;
-pub(crate) unsafe fn CHAR_SUB_CODE(n: usize) -> &'static mut i32 {
+/*pub(crate) unsafe fn CHAR_SUB_CODE(n: usize) -> &'static mut i32 {
     &mut EQTB[CHAR_SUB_CODE_BASE + n].val
-}
+}*/
 
 /// Region 5 of `EQTB` contains the integer parameters and registers defined
 /// here, as well as the `del_code` table. The latter table differs from the

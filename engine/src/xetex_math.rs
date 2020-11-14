@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -81,8 +79,6 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 pub(crate) type UTF16_code = u16;
-pub(crate) type UnicodeScalar = i32;
-pub(crate) type str_number = i32;
 use crate::node::Delimeter;
 pub(crate) const NULL_DELIMITER: Delimeter = Delimeter {
     s0: 0,

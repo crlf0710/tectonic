@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -15,9 +13,6 @@ use std::env;
 
 pub(crate) type size_t = usize;
 pub(crate) type str_number = i32;
-pub(crate) type packed_UTF16_code = u16;
-pub(crate) type UInt32 = u32;
-pub(crate) type UInt16 = u16;
 /* texmfmp.c: Hand-coded routines for TeX or Metafont in C.  Originally
 written by Tim Morgan, drawing from other Unix ports of TeX.  This is
 a collection of miscellany, everything that's easier (or only

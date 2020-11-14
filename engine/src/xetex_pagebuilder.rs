@@ -1,6 +1,4 @@
 #![allow(
-    dead_code,
-    mutable_transmutes,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -381,7 +379,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
     let mut r = llist_link(PAGE_INS_HEAD).unwrap();
     while r != PAGE_INS_HEAD {
         q = llist_link(r).unwrap();
-        free_node(r, PAGE_INS_NODE_SIZE);
+        PageInsertion(r).free();
         r = q;
     }
 
