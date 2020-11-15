@@ -214,8 +214,6 @@ static mut str_pool: *mut u8 = ptr::null_mut();
 static mut str_start: *mut pool_pointer = ptr::null_mut();
 static mut pool_ptr: pool_pointer = 0;
 static mut str_ptr: str_number = 0;
-static mut p_ptr1: pool_pointer = 0;
-static mut p_ptr2: pool_pointer = 0;
 static mut hash_next: *mut hash_pointer = ptr::null_mut();
 static mut hash_text: *mut str_number = ptr::null_mut();
 static mut hash_ilk: *mut str_ilk = ptr::null_mut();
@@ -3362,16 +3360,14 @@ unsafe fn add_pool_buf_and_push() {
     push_lit_stk(make_string(), 1i32 as stk_type);
 }
 unsafe fn add_buf_pool(mut p_str: str_number) {
-    p_ptr1 = *str_start.offset(p_str as isize);
-    p_ptr2 = *str_start.offset((p_str + 1i32) as isize);
-    if ex_buf_length + (p_ptr2 - p_ptr1) > buf_size {
+    let s = get_string_from_pool(p_str);
+    if ex_buf_length + s.len() > buf_size {
         buffer_overflow();
     }
     ex_buf_ptr = ex_buf_length;
-    while p_ptr1 < p_ptr2 {
-        *ex_buf.offset(ex_buf_ptr as isize) = *str_pool.offset(p_ptr1 as isize);
+    for c in s.iter() {
+        *ex_buf.offset(ex_buf_ptr as isize) = c;
         ex_buf_ptr = ex_buf_ptr + 1i32;
-        p_ptr1 = p_ptr1 + 1i32
     }
     ex_buf_length = ex_buf_ptr;
 }
@@ -3380,15 +3376,13 @@ unsafe fn add_out_pool(mut p_str: str_number) {
     let mut end_ptr: buf_pointer = 0;
     let mut break_pt_found: bool = false;
     let mut unbreakable_tail: bool = false;
-    p_ptr1 = *str_start.offset(p_str as isize);
-    p_ptr2 = *str_start.offset((p_str + 1i32) as isize);
-    while out_buf_length + (p_ptr2 - p_ptr1) > buf_size {
+    let s = get_string_from_pool(p_str);
+    while out_buf_length + s.len() > buf_size {
         buffer_overflow();
     }
     out_buf_ptr = out_buf_length;
-    while p_ptr1 < p_ptr2 {
-        *out_buf.offset(out_buf_ptr as isize) = *str_pool.offset(p_ptr1 as isize);
-        p_ptr1 = p_ptr1 + 1i32;
+    for c in s.iter() {
+        *out_buf.offset(out_buf_ptr as isize) = c;
         out_buf_ptr = out_buf_ptr + 1i32
     }
     out_buf_length = out_buf_ptr;
