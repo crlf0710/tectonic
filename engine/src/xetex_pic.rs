@@ -175,18 +175,18 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
     let mut pdf_box_type = 0;
     let mut page = 0;
     if is_pdf {
-        if scan_keyword(input, b"page") {
+        if scan_keyword(input, "page") {
             page = scan_int(input);
         }
-        pdf_box_type = if scan_keyword(input, b"crop") {
+        pdf_box_type = if scan_keyword(input, "crop") {
             1
-        } else if scan_keyword(input, b"media") {
+        } else if scan_keyword(input, "media") {
             2
-        } else if scan_keyword(input, b"bleed") {
+        } else if scan_keyword(input, "bleed") {
             3
-        } else if scan_keyword(input, b"trim") {
+        } else if scan_keyword(input, "trim") {
             4
-        } else if scan_keyword(input, b"art") {
+        } else if scan_keyword(input, "art") {
             5
         } else {
             6
@@ -207,28 +207,28 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
     let mut t = Transform::identity();
     let mut check_keywords = true;
     while check_keywords {
-        if scan_keyword(input, b"scaled") {
+        if scan_keyword(input, "scaled") {
             let val = scan_int(input);
             if x_size_req == 0. && y_size_req == 0. {
                 let t2 = Transform::create_scale(val as f64 / 1000., val as f64 / 1000.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
-        } else if scan_keyword(input, b"xscaled") {
+        } else if scan_keyword(input, "xscaled") {
             let val = scan_int(input);
             if x_size_req == 0. && y_size_req == 0. {
                 let t2 = Transform::create_scale(val as f64 / 1000., 1.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
-        } else if scan_keyword(input, b"yscaled") {
+        } else if scan_keyword(input, "yscaled") {
             let val = scan_int(input);
             if x_size_req == 0.0f64 && y_size_req == 0.0f64 {
                 let t2 = Transform::create_scale(1., val as f64 / 1000.);
                 corners = t2.transform_rect(&corners.to_f64()).to_f32();
                 t = t.post_transform(&t2);
             }
-        } else if scan_keyword(input, b"width") {
+        } else if scan_keyword(input, "width") {
             let val = scan_dimen(input, false, false, None);
             if val <= Scaled::ZERO {
                 if file_line_error_style_p != 0 {
@@ -248,7 +248,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
             } else {
                 x_size_req = Fix2D(val)
             }
-        } else if scan_keyword(input, b"height") {
+        } else if scan_keyword(input, "height") {
             let val = scan_dimen(input, false, false, None);
             if val <= Scaled::ZERO {
                 if file_line_error_style_p != 0 {
@@ -268,7 +268,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
             } else {
                 y_size_req = Fix2D(val)
             }
-        } else if scan_keyword(input, b"rotated") {
+        } else if scan_keyword(input, "rotated") {
             let val = scan_decimal(input);
             if x_size_req != 0.0f64 || y_size_req != 0.0f64 {
                 let brect = Rect::from_points(&to_points(&corners));

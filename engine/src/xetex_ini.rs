@@ -40,7 +40,10 @@ use crate::xetex_xetex0::{
     scan_optional_equals, scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int,
     show_cur_cmd_chr, show_save_groups, start_input, trap_zero_glue,
 };
-use crate::xetex_xetexd::{llist_link, set_class, set_family, LLIST_link, TeXInt, TeXOpt};
+use crate::xetex_xetexd::{
+    llist_link, node_size, set_class, set_family, DLIST_llink, DLIST_rlink, LLIST_info, LLIST_link,
+    TeXInt, TeXOpt,
+};
 use bridge::ttstub_output_open_stdout;
 use dpx::{pdf_files_close, pdf_files_init};
 use libc::free;
@@ -723,7 +726,7 @@ pub(crate) static mut is_in_csname: bool = false;
 #[no_mangle]
 pub(crate) static mut cur_mark: [Option<usize>; 5] = [Some(0); 5];
 #[no_mangle]
-pub(crate) static mut long_state: u8 = 0;
+pub(crate) static mut long_state: Cmd = Cmd::Relax;
 #[no_mangle]
 pub(crate) static mut pstack: [i32; 9] = [0; 9];
 #[no_mangle]
@@ -1649,8 +1652,7 @@ pub(crate) unsafe fn prefixed_command(
                 MEM[chr as usize].b32.s0 += 1
             } else if cmd == Cmd::Register ||
                           cmd == Cmd::ToksRegister {
-                if chr < 0 || chr > 19 {
-                    /* 19 = lo_mem_stat_max, I think */
+                if chr < 0 || chr > LO_MEM_STAT_MAX {
                     MEM[(chr + 1) as usize].b32.s0 += 1;
                 }
             }
@@ -1794,7 +1796,7 @@ pub(crate) unsafe fn prefixed_command(
         Cmd::ReadToCS => {
             let j = ochr;
             let n = scan_int(input);
-            if !scan_keyword(input, b"to") {
+            if !scan_keyword(input, "to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -2472,35 +2474,43 @@ unsafe fn initialize_more_initex_variables() {
         MEM[k].b16.s0 = NORMAL;
     }
 
-    MEM[6].b32.s1 = 65536;
-    MEM[4].b16.s1 = FIL as u16;
-    MEM[10].b32.s1 = 65536;
-    MEM[8].b16.s1 = FILL as u16;
-    MEM[14].b32.s1 = 65536;
-    MEM[12].b16.s1 = FIL as u16;
-    MEM[15].b32.s1 = 65536;
-    MEM[12].b16.s0 = FIL as u16;
-    MEM[18].b32.s1 = -65536;
-    MEM[16].b16.s1 = FIL as u16;
-    rover = 20;
-    MEM[rover as usize].b32.s1 = MAX_HALFWORD;
-    MEM[rover as usize].b32.s0 = 1000;
-    MEM[(rover + 1) as usize].b32.s0 = rover;
-    MEM[(rover + 1) as usize].b32.s1 = rover;
+    FIL_GLUE
+        .set_stretch(Scaled::ONE)
+        .set_stretch_order(GlueOrder::Fil);
+    FILL_GLUE
+        .set_stretch(Scaled::ONE)
+        .set_stretch_order(GlueOrder::Fill);
+    SS_GLUE
+        .set_stretch(Scaled::ONE)
+        .set_stretch_order(GlueOrder::Fil)
+        .set_shrink(Scaled::ONE)
+        .set_shrink_order(GlueOrder::Fil);
+    FIL_NEG_GLUE
+        .set_stretch(-Scaled::ONE)
+        .set_stretch_order(GlueOrder::Fil);
+    rover = LO_MEM_STAT_MAX + 1;
+    *LLIST_link(rover as usize) = MAX_HALFWORD; // now initialize the dynamic memory
+    *node_size(rover as usize) = 1000; // which is a 1000-word available node
+    *DLIST_llink(rover as usize) = rover;
+    *DLIST_rlink(rover as usize) = rover;
     lo_mem_max = rover + 1000;
-    MEM[lo_mem_max as usize].b32.s1 = None.tex_int();
-    MEM[lo_mem_max as usize].b32.s0 = None.tex_int();
+    *LLIST_link(lo_mem_max as usize) = None.tex_int();
+    *LLIST_info(lo_mem_max as usize) = None.tex_int();
 
-    for k in PRE_ADJUST_HEAD..=MEM_TOP {
-        MEM[k] = MEM[lo_mem_max as usize];
+    for k in HI_MEM_STAT_MIN..=MEM_TOP {
+        MEM[k] = MEM[lo_mem_max as usize]; // clear list heads
     }
 
     MEM[OMIT_TEMPLATE as usize].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_TEMPLATE as i32;
-    MEM[END_SPAN].b32.s1 = std::u16::MAX as i32 + 1;
-    MEM[END_SPAN].b32.s0 = None.tex_int();
-    MEM[ACTIVE_LIST].b16.s1 = BreakType::Hyphenated as _;
-    MEM[ACTIVE_LIST + 1].b32.s0 = MAX_HALFWORD;
-    MEM[ACTIVE_LIST].b16.s0 = 0;
+
+    // Initialize the special list heads and constant nodes
+    *LLIST_link(END_SPAN) = std::u16::MAX as i32 + 1;
+    *LLIST_info(END_SPAN) = None.tex_int();
+
+    Active(ACTIVE_LIST)
+        .set_break_type(BreakType::Hyphenated)
+        .set_line_number(MAX_HALFWORD)
+        .set_fitness(0); // the `subtype` is never examined by the algorithm
     PageInsertion(PAGE_INS_HEAD)
         .set_box_reg(255)
         .set_subtype(PageInsType::SplitUp);
