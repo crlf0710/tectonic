@@ -208,8 +208,6 @@ static mut buf_size: i32 = 0;
 static mut buffer: buf_type = ptr::null_mut();
 static mut last: buf_pointer = 0;
 static mut sv_buffer: buf_type = ptr::null_mut();
-static mut sv_ptr1: buf_pointer = 0;
-static mut sv_ptr2: buf_pointer = 0;
 static mut str_pool: *mut u8 = ptr::null_mut();
 static mut str_start: *mut pool_pointer = ptr::null_mut();
 static mut pool_ptr: pool_pointer = 0;
@@ -6438,8 +6436,8 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    sv_ptr1 = buf_ptr2;
-    sv_ptr2 = last;
+    let sv_ptr1 = buf_ptr2;
+    let sv_ptr2 = last;
     let mut tmp_ptr = sv_ptr1;
     while tmp_ptr < sv_ptr2 {
         *sv_buffer.offset(tmp_ptr as isize) = *buffer.offset(tmp_ptr as isize);
