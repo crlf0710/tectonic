@@ -1063,34 +1063,23 @@ unsafe fn make_string() -> str_number {
     *str_start.offset(str_ptr as isize) = pool_ptr;
     str_ptr - 1i32
 }
-unsafe fn str_eq_buf(mut s: str_number, buf: &[u8], mut len: buf_pointer) -> bool {
+
+unsafe fn get_string_from_pool(s: str_number) -> &'static [u8] {
     let start = *str_start.offset(s as isize);
-    let end = *str_start.offset((s + 1i32) as isize);
-    if end - start != len {
-        return false;
-    }
-    (start..end)
-        .map(|j| *str_pool.offset(j as isize))
-        .zip(buf.iter())
-        .all(|(a, b)| a == *b)
+    let end = *str_start.offset((s + 1) as isize);
+    let len = end - start;
+    slice::from_raw_parts(str_pool.offset(start as isize), len as usize)
 }
-unsafe fn str_eq_str(mut s1: str_number, mut s2: str_number) -> bool {
-    if *str_start.offset((s1 + 1i32) as isize) - *str_start.offset(s1 as isize)
-        != *str_start.offset((s2 + 1i32) as isize) - *str_start.offset(s2 as isize)
-    {
-        return false;
-    }
-    p_ptr1 = *str_start.offset(s1 as isize);
-    p_ptr2 = *str_start.offset(s2 as isize);
-    while p_ptr1 < *str_start.offset((s1 + 1i32) as isize) {
-        if *str_pool.offset(p_ptr1 as isize) as i32 != *str_pool.offset(p_ptr2 as isize) as i32 {
-            return false;
-        }
-        p_ptr1 = p_ptr1 + 1i32;
-        p_ptr2 = p_ptr2 + 1i32
-    }
-    true
+
+unsafe fn str_eq_buf(s: str_number, buf: &[u8]) -> bool {
+    let s = get_string_from_pool(s);
+    s == buf
 }
+
+unsafe fn str_eq_str(s1: str_number, s2: str_number) -> bool {
+    get_string_from_pool(s1) == get_string_from_pool(s2)
+}
+
 unsafe fn lower_case(mut buf: buf_type, mut bf_ptr: buf_pointer, mut len: buf_pointer) {
     let mut i: buf_pointer = 0;
     if len > 0i32 {
@@ -1161,7 +1150,7 @@ unsafe fn str_lookup(
     loop {
         if *hash_text.offset(p as isize) > 0i32 {
             let s = std::slice::from_raw_parts(buf.offset(j as isize), l as usize);
-            if str_eq_buf(*hash_text.offset(p as isize), s, l) {
+            if str_eq_buf(*hash_text.offset(p as isize), s) {
                 if *hash_ilk.offset(p as isize) as i32 == ilk as i32 {
                     hash_found = true;
                     return p;
@@ -5377,7 +5366,7 @@ unsafe fn aux_input_command() {
 
     if buf_ptr2 - buf_ptr1 < len {
         aux_extension_ok = false
-    } else if !str_eq_buf(s_aux_extension, s, len) {
+    } else if !str_eq_buf(s_aux_extension, s) {
         aux_extension_ok = false
     }
     if !aux_extension_ok {
