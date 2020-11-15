@@ -1478,7 +1478,7 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
             ActiveNode::Active(r) => {
                 /*864: "If a line number class has ended, create new active nodes for
                  * the best feasible breaks in that class; then return if r =
-                 * last_active, otherwise compute the new line_width." */
+                 * LAST_ACTIVE, otherwise compute the new line_width." */
                 let l = r.line_number();
 
                 if l > old_l {

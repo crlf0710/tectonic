@@ -548,10 +548,10 @@ pub(crate) unsafe fn math_ac(input: &mut input_state_t, cmd: Cmd, chr: i32) {
     acc.supscr_mut().empty();
     acc.fourth_mut().typ = MathCell::MathChar as _;
     let val = if chr == 1 {
-        acc.set_accent_type(if scan_keyword(input, b"fixed") {
+        acc.set_accent_type(if scan_keyword(input, "fixed") {
             AccentType::Fixed
-        } else if scan_keyword(input, b"bottom") {
-            if scan_keyword(input, b"fixed") {
+        } else if scan_keyword(input, "bottom") {
+            if scan_keyword(input, "fixed") {
                 AccentType::BottomFixed
             } else {
                 AccentType::Bottom
@@ -3304,7 +3304,7 @@ unsafe fn stack_glyph_into_box(b: &mut List, f: internal_font_number, g: i32) {
     };
 }
 unsafe fn stack_glue_into_box(b: &mut List, min: Scaled, max: Scaled) {
-    let mut q = new_spec(&GlueSpec(0));
+    let mut q = new_spec(&ZERO_GLUE);
     q.set_size(min).set_stretch(max - min);
     let p = new_glue(&q);
     if b.is_horizontal() {
@@ -3468,12 +3468,12 @@ unsafe fn rebox(mut b: List, w: Scaled) -> List {
             }
         }
         free_node(b.ptr(), BOX_NODE_SIZE);
-        let g = new_glue(&GlueSpec(12));
+        let g = new_glue(&SS_GLUE);
         *LLIST_link(g.ptr()) = Some(p).tex_int();
         while let Some(next) = llist_link(p) {
             p = next;
         }
-        *LLIST_link(p) = new_glue(&GlueSpec(12)).ptr() as i32;
+        *LLIST_link(p) = new_glue(&SS_GLUE).ptr() as i32;
         hpack(Some(g.ptr()), w, PackMode::Exactly)
     } else {
         b.set_width(w);

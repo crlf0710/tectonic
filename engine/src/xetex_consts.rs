@@ -5,6 +5,19 @@ use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
 
 use crate::node::GlueSpec;
+/// specification for `0pt plus 0pt minus 0pt`
+pub(crate) const ZERO_GLUE: GlueSpec = GlueSpec(0);
+/// `0pt plus 1fil minus 0pt`
+pub(crate) const FIL_GLUE: GlueSpec = GlueSpec(4);
+/// `0pt plus 1fill minus 0pt`
+pub(crate) const FILL_GLUE: GlueSpec = GlueSpec(8);
+/// `0pt plus 1fil minus 1fil`
+pub(crate) const SS_GLUE: GlueSpec = GlueSpec(12);
+/// `0pt plus -1fil minus 0pt`
+pub(crate) const FIL_NEG_GLUE: GlueSpec = GlueSpec(16);
+/// largest statically allocated word in the variable-size `MEM`
+pub(crate) const LO_MEM_STAT_MAX: i32 = 19;
+
 pub(crate) type placeholdertype = i32;
 pub(crate) const MIN_HALFWORD: placeholdertype = -0x0FFFFFFF;
 pub(crate) const MAX_HALFWORD: placeholdertype = 0x3FFFFFFF;
@@ -46,28 +59,46 @@ pub(crate) const NUMBER_MATH_FONTS: usize = 3 * NUMBER_MATH_FAMILIES;
 
 pub(crate) const NUMBER_REGS: usize = 256;
 
+// /// smallest index in the `MEM`
+// pub(crate) const MEM_BOT: usize = 0;
 /// the size of our main "mem" array, minus 1; classically this is
 /// configurable, but we hardcode it.
 pub(crate) const MEM_TOP: usize = 4999999;
 
 /* fixed locations in the "mem" array */
+/// list of insertion data for current page
 pub(crate) const PAGE_INS_HEAD: usize = MEM_TOP;
+/// vlist of items not yet on current page
 pub(crate) const CONTRIB_HEAD: usize = MEM_TOP - 1;
+/// vlist for current page
 pub(crate) const PAGE_HEAD: usize = MEM_TOP - 2;
+/// head of a temporary list of some kind
 pub(crate) const TEMP_HEAD: usize = MEM_TOP - 3;
+/// head of a temporary list of another kind
 pub(crate) const HOLD_HEAD: usize = MEM_TOP - 4;
+/// head of adjustment list returned by `hpack`
 pub(crate) const ADJUST_HEAD: usize = MEM_TOP - 5;
-/// note: two words
+/// head of active list in `line_break`, needs two words
 pub(crate) const ACTIVE_LIST: usize = MEM_TOP - 7;
+///head of preamble list for alignments
 pub(crate) const ALIGN_HEAD: usize = MEM_TOP - 8;
+/// tail of spanned-width lists
 pub(crate) const END_SPAN: usize = MEM_TOP - 9;
+/// a constant token list
 pub(crate) const OMIT_TEMPLATE: usize = MEM_TOP - 10;
+/// permanently empty list
 pub(crate) const NULL_LIST: usize = MEM_TOP - 11;
+/// a ligature masquerading as a `char_node`
 pub(crate) const LIG_TRICK: usize = MEM_TOP - 12;
 /// note: same as LIG_TRICK
 pub(crate) const GARBAGE: usize = MEM_TOP - 12;
+/// head of token list built by `scan_keyword`
 pub(crate) const BACKUP_HEAD: usize = MEM_TOP - 13;
+/// head of pre-adjustment list returned by `hpack`
 pub(crate) const PRE_ADJUST_HEAD: usize = MEM_TOP - 14;
+
+/// smallest statically allocated word in the one-word `MEM`
+pub(crate) const HI_MEM_STAT_MIN: usize = PRE_ADJUST_HEAD;
 
 /* equivalents table offsets */
 
@@ -824,7 +855,9 @@ impl From<u16> for SaveCmd {
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
 pub(crate) enum BreakType {
+    /// the `type` of a normal active break node
     Unhyphenated = 0,
+    /// the `type` of an active node that breaks at a `disc_node`
     Hyphenated = 1,
 }
 impl From<u16> for BreakType {

@@ -44,6 +44,22 @@ pub(crate) unsafe fn llist_link<'a>(p: usize) -> Option<usize> {
 pub(crate) unsafe fn LLIST_info<'a>(p: usize) -> &'a mut i32 {
     &mut MEM[p].b32.s0
 }
+/// the size field in empty variable-size nodes
+pub(crate) unsafe fn node_size<'a>(p: usize) -> &'a mut i32 {
+    &mut MEM[p].b32.s0
+}
+/// reference count preceding a token list
+pub(crate) unsafe fn token_ref_count<'a>(p: usize) -> &'a mut i32 {
+    &mut MEM[p].b32.s0
+}
+/// left link in doubly-linked list of empty nodes
+pub(crate) unsafe fn DLIST_llink<'a>(p: usize) -> &'a mut i32 {
+    &mut MEM[p + 1].b32.s0
+}
+/// right link in doubly-linked list of empty nodes
+pub(crate) unsafe fn DLIST_rlink<'a>(p: usize) -> &'a mut i32 {
+    &mut MEM[p + 1].b32.s1
+}
 
 /// half of LLIST_info(p)
 pub(crate) unsafe fn set_NODE_type(p: usize, n: TextNode) {

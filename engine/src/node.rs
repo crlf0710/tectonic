@@ -1217,7 +1217,10 @@ impl GlueSpec {
     pub(crate) unsafe fn rc(&self) -> i32 {
         MEM[self.ptr()].b32.s1
     }
-    pub(crate) unsafe fn rc_none(&self) {
+    pub(crate) unsafe fn rc_is_none(&self) -> bool {
+        MEM[self.ptr()].b32.s1 == None.tex_int()
+    }
+    pub(crate) unsafe fn rc_set_none(&self) {
         MEM[self.ptr()].b32.s1 = None.tex_int();
     }
     pub(crate) unsafe fn rc_inc(&self) {
@@ -1246,6 +1249,9 @@ impl GlueSpec {
     pub(crate) unsafe fn set_shrink(&mut self, v: Scaled) -> &mut Self {
         MEM[self.ptr() + 3].b32.s1 = v.0;
         self
+    }
+    pub(crate) unsafe fn free(self) {
+        free_node(self.ptr(), Self::SIZE);
     }
 }
 
@@ -1677,6 +1683,7 @@ impl Active {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
+    /// `very_loose_fit..tight_fit` on final line for this break
     pub(crate) unsafe fn fitness(&self) -> u16 {
         MEM[self.ptr()].b16.s0
     }
@@ -1691,6 +1698,7 @@ impl Active {
         MEM[self.ptr()].b16.s1 = v as u16;
         self
     }
+    /// pointer to the corresponding passive node
     pub(crate) unsafe fn break_node(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s1
     }
@@ -1698,6 +1706,7 @@ impl Active {
         MEM[self.ptr() + 1].b32.s1 = v;
         self
     }
+    /// line that begins at this breakpoint
     pub(crate) unsafe fn line_number(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s0
     }
@@ -1705,6 +1714,7 @@ impl Active {
         MEM[self.ptr() + 1].b32.s0 = v;
         self
     }
+    /// the quantity that \TeX minimizes
     pub(crate) unsafe fn total_demerits(&self) -> i32 {
         MEM[self.ptr() + 2].b32.s1
     }
@@ -1738,14 +1748,19 @@ impl Passive {
     pub(crate) const fn ptr(&self) -> usize {
         self.0
     }
-    /*pub(crate) unsafe fn serial(&self) -> i32 {
+    /*/// serial number for symbolic identification.
+    /// It is equal to `n` if this passive node is the `n`th
+    /// one created during the current pass. (This field is used only when
+    /// printing out detailed statistics about the line-breaking calculations.)
+    pub(crate) unsafe fn serial(&self) -> i32 {
         MEM[self.ptr()].b32.s0
     }
     pub(crate) unsafe fn set_serial(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr()].b32.s0 = v;
         self
     }*/
-    /// aka "llink" in doubly-linked list
+    /// points to the passive node that should precede this
+    /// one in an optimal path to this breakpointt
     pub(crate) unsafe fn prev_break(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s0
     }
@@ -1759,7 +1774,8 @@ impl Passive {
     pub(crate) unsafe fn set_next_break(&mut self, v: i32) -> &mut Self {
         self.set_prev_break(v)
     }
-    /// aka "rlink" in double-linked list
+    /// points to the position of this breakpoint in the
+    /// horizontal list for the paragraph being broken
     pub(crate) unsafe fn cur_break(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s1
     }

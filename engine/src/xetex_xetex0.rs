@@ -142,8 +142,8 @@ pub(crate) unsafe fn badness(t: Scaled, s: Scaled) -> i32 {
 /*:112*/
 /*118:*/
 pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
-    let mut match_chr = '#' as i32;
-    let mut n = '0' as UTF16_code;
+    let mut match_chr = '#' as i32; // character used in a `match`
+    let mut n = '0' as UTF16_code; // the highest parameter number, as an ASCII digit
     tally = 0;
     while let Some(p) = popt {
         if !(tally < l) {
@@ -159,18 +159,20 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                 }
             }
         }
+        // Display token |p|, and |return|
         if p < hi_mem_min as usize || p > mem_end as usize {
             print_esc_cstr("CLOBBERED.");
             return;
         }
-        if MEM[p as usize].b32.s0 >= CS_TOKEN_FLAG {
-            print_cs(MEM[p as usize].b32.s0 - CS_TOKEN_FLAG);
+        if *LLIST_info(p as usize) >= CS_TOKEN_FLAG {
+            print_cs(*LLIST_info(p as usize) - CS_TOKEN_FLAG);
         } else {
-            let m = Cmd::from((MEM[p as usize].b32.s0 / MAX_CHAR_VAL) as u16);
-            let c = MEM[p as usize].b32.s0 % MAX_CHAR_VAL;
-            if MEM[p as usize].b32.s0 < 0 {
+            let m = Cmd::from((*LLIST_info(p as usize) / MAX_CHAR_VAL) as u16);
+            let c = *LLIST_info(p as usize) % MAX_CHAR_VAL;
+            if *LLIST_info(p as usize) < 0 {
                 print_esc_cstr("BAD.");
             } else {
+                // Display the token `$(m,c)$`
                 /*306:*/
                 match m {
                     Cmd::LeftBrace
@@ -439,7 +441,7 @@ pub(crate) unsafe fn new_math(w: Scaled, s: MathType) -> Math {
 pub(crate) unsafe fn new_spec(other: &GlueSpec) -> GlueSpec {
     let mut q = GlueSpec(get_node(GLUE_SPEC_SIZE));
     MEM[q.ptr()] = MEM[other.ptr()];
-    q.rc_none();
+    q.rc_set_none();
     q.set_size(other.size())
         .set_stretch(other.stretch())
         .set_shrink(other.shrink());
@@ -468,7 +470,7 @@ pub(crate) unsafe fn new_skip_param(n: GluePar) -> (Glue, GlueSpec) {
         EQTB[(GLUE_BASE as i32 + n as i32) as usize].val as usize,
     )); // 232
     let mut p = new_glue(&tmp);
-    tmp.rc_none();
+    tmp.rc_set_none();
     p.set_param(n as u16 + 1);
     (p, tmp)
 }
@@ -1168,18 +1170,25 @@ pub(crate) unsafe fn show_box(p: Option<usize>) {
     depth_threshold = (pool_size as i32) - (pool_ptr as i32) - 1;
     show_node_list(p);
 }*/
+/// is called when
+/// a pointer to a token list's reference count is being removed. This means
+/// that the token list should disappear if the reference count was `null`,
+/// otherwise the count should be decreased by one.
 pub(crate) unsafe fn delete_token_ref(p: usize) {
-    if MEM[p].b32.s0.opt().is_none() {
+    // `p` points to the reference count of a token list that is losing one reference
+    if token_ref_count(p).opt().is_none() {
         flush_list(Some(p));
     } else {
-        MEM[p].b32.s0 -= 1;
+        *token_ref_count(p) -= 1;
     };
 }
+/// is called when a pointer to a glue specification is being withdrawn
 pub(crate) unsafe fn delete_glue_ref(p: usize) {
-    if llist_link(p).is_none() {
-        free_node(p, GLUE_SPEC_SIZE);
+    let g = GlueSpec(p);
+    if g.rc_is_none() {
+        g.free();
     } else {
-        MEM[p].b32.s1 -= 1;
+        g.rc_dec();
     };
 }
 
@@ -1784,6 +1793,7 @@ pub(crate) unsafe fn print_length_param(n: DimenPar) {
         pdf_page_height => print_esc_cstr("pdfpageheight"),
     }
 }
+/// Cases of `print_cmd_chr` for symbolic printing of primitives
 pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
     match cmd {
         Cmd::LeftBrace => {
@@ -2033,8 +2043,7 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
         }
         Cmd::Register => {
             let cmd;
-            if chr_code < 0 || chr_code > 19 {
-                /*lo_mem_stat_max*/
+            if chr_code < 0 || chr_code > LO_MEM_STAT_MAX {
                 cmd = (MEM[chr_code as usize].b16.s1 as i32 / 64) as u16
             } else {
                 cmd = chr_code as u16;
@@ -2456,7 +2465,13 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
         }),
         Cmd::UndefinedCS => print_cstr("undefined"),
         Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => {
-            let mut n = cmd as u8 - Cmd::Call as u8;
+            let mut n = match cmd {
+                Cmd::Call => 0,
+                Cmd::LongCall => 1,
+                Cmd::OuterCall => 2,
+                Cmd::LongOuterCall => 3,
+                _ => unreachable!(),
+            };
             if MEM[*LLIST_link(chr_code as usize) as usize].b32.s0 == PROTECTED_TOKEN {
                 n = n + 4
             }
@@ -3117,7 +3132,7 @@ pub(crate) unsafe fn eq_save(p: usize, l: u16) {
     SAVE_PTR += 1;
 }
 pub(crate) unsafe fn eq_define(p: usize, t: Cmd, e: Option<usize>) {
-    if Cmd::from(EQTB[p].cmd) == t && EQTB[p].val.opt() == e {
+    if eq_type(p) == t && EQTB[p].val.opt() == e {
         eq_destroy(EQTB[p]);
         return;
     }
@@ -3263,6 +3278,8 @@ pub(crate) unsafe fn prepare_mag() {
     }
     mag_set = get_int_par(IntPar::mag);
 }
+/// Here's the way we sometimes want to display a token list, given a pointer
+/// to its reference count; the pointer may be null.
 pub(crate) unsafe fn token_show(p: Option<usize>) {
     if let Some(p) = p {
         show_token_list(llist_link(p), None, 10000000);
@@ -3280,6 +3297,7 @@ pub(crate) unsafe fn print_meaning(cmd: Cmd, chr: i32) {
         token_show(cur_mark[chr as usize]);
     };
 }
+/// Here is a procedure that displays the current command
 pub(crate) unsafe fn show_cur_cmd_chr(cmd: Cmd, chr: i32) {
     diagnostic(false, || {
         print_nl('{' as i32);
@@ -3709,7 +3727,7 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
                 ScannerStatus::Matching => {
                     print_cstr(" while scanning use");
                     MEM[p].b32.s0 = par_token;
-                    long_state = Cmd::OuterCall as u8
+                    long_state = Cmd::OuterCall;
                 }
                 ScannerStatus::Aligning => {
                     print_cstr(" while scanning preamble");
@@ -3841,7 +3859,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             | (InputState::NewLine, Cmd::ActiveChar) => {
                                 // Process an active-character control sequence
                                 cs = chr + 1;
-                                let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
+                                let mut cmd = eq_type(cs as usize);
                                 let mut chr = EQTB[cs as usize].val;
                                 input.state = InputState::MidLine;
                                 if cmd >= Cmd::OuterCall {
@@ -3957,7 +3975,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             (InputState::NewLine, Cmd::CarRet) => {
                                 input.loc = input.limit + 1;
                                 cs = par_loc;
-                                let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
+                                let mut cmd = eq_type(cs as usize);
                                 let mut chr = EQTB[cs as usize].val;
                                 if cmd >= Cmd::OuterCall {
                                     if check_outer_validity(input, &mut cs) {
@@ -4373,7 +4391,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                         14956172121224201915 => {}
                         _ => {
                             // found: go here when a control sequence has been found
-                            let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
+                            let mut cmd = eq_type(cs as usize);
                             let mut chr = EQTB[cs as usize].val;
                             if cmd >= Cmd::OuterCall {
                                 if check_outer_validity(input, &mut cs) {
@@ -4407,7 +4425,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                 if t >= CS_TOKEN_FLAG {
                     // a control sequence token
                     cs = t - CS_TOKEN_FLAG;
-                    let mut cmd = Cmd::from(EQTB[cs as usize].cmd);
+                    let mut cmd = eq_type(cs as usize);
                     let mut chr = EQTB[cs as usize].val;
                     if cmd >= Cmd::OuterCall {
                         if cmd == Cmd::DontExpand {
@@ -4415,7 +4433,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             // Get the next token, suppressing expansion
                             cs = MEM[input.loc.opt().unwrap()].b32.s0 - CS_TOKEN_FLAG;
                             input.loc = None.tex_int();
-                            cmd = Cmd::from(EQTB[cs as usize].cmd);
+                            cmd = eq_type(cs as usize);
                             chr = EQTB[cs as usize].val;
                             if cmd > MAX_COMMAND {
                                 cmd = Cmd::Relax;
@@ -4500,60 +4518,67 @@ pub(crate) unsafe fn get_token(input: &mut input_state_t) -> (i32, Cmd, i32, i32
     };
     (tok, cmd, chr, cs)
 }
+/// invokes a user-defined control sequence
 pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
-    let mut p: i32 = None.tex_int();
-    let mut rbrace_ptr: i32 = None.tex_int();
-    let mut match_chr: UTF16_code = 0;
-    let save_scanner_status = scanner_status;
-    let save_warning_index = warning_index;
+    let mut p: Option<usize> = None; // current node in parameter token list being built
+    let mut rbrace_ptr: i32 = None.tex_int(); // one step before the last `right_brace` token
+    let mut match_chr: UTF16_code = 0; // character used in parameter
+    let save_scanner_status = scanner_status; // `scanner_status` upon entry
+    let save_warning_index = warning_index; // `warning_index` upon entry
     warning_index = cs;
-    let ref_count = chr as usize;
-    let mut r = llist_link(ref_count).unwrap();
-    let mut n = 0_i16;
+    let ref_count = chr as usize; // start of the token list
+    let mut r = llist_link(ref_count).unwrap(); // current node in the macro's token list
+    let mut n = 0_i16; // the number of parameters scanned
     if get_int_par(IntPar::tracing_macros) > 0 {
-        /*419:*/
+        // Show the text of the macro being expanded
         diagnostic(false, || {
             print_ln();
             print_cs(warning_index);
             token_show(Some(ref_count));
         });
     }
-    if MEM[r].b32.s0 == PROTECTED_TOKEN {
+    if *LLIST_info(r) == PROTECTED_TOKEN {
         r = llist_link(r).unwrap();
     }
-    if MEM[r].b32.s0 != END_MATCH_TOKEN {
-        /*409:*/
+    if *LLIST_info(r) != END_MATCH_TOKEN {
+        // Scan the parameters and make `link(r)` point to the macro body; but
+        // return if an illegal `\par` is detected
         scanner_status = ScannerStatus::Matching;
-        let mut unbalance = 0;
-        long_state = EQTB[cs as usize].cmd as u8;
+        let mut unbalance = 0; // unmatched left braces in current parameter
+        long_state = eq_type(cs as usize);
 
-        if long_state as u16 >= Cmd::OuterCall as u16 {
-            long_state = (long_state as i32 - 2) as u8
-        }
+        long_state = match long_state {
+            Cmd::OuterCall => Cmd::Call,
+            Cmd::LongOuterCall => Cmd::LongCall,
+            Cmd::Call | Cmd::LongCall => long_state,
+            _ => unreachable!(),
+        };
 
-        let mut m = 0;
-        let mut s = None;
+        let mut m = 0; // the number of tokens or groups (usually)
+        let mut s = None; // backup pointer for parameter matching
         let mut cont = false;
         's_135: loop {
             if !cont {
                 *LLIST_link(TEMP_HEAD) = None.tex_int();
-                if MEM[r].b32.s0 >= END_MATCH_TOKEN || MEM[r].b32.s0 < MATCH_TOKEN {
+                if *LLIST_info(r) >= END_MATCH_TOKEN || *LLIST_info(r) < MATCH_TOKEN {
                     s = None;
                 } else {
-                    match_chr = (MEM[r].b32.s0 - MATCH_TOKEN) as UTF16_code;
+                    match_chr = (*LLIST_info(r) - MATCH_TOKEN) as UTF16_code;
                     s = llist_link(r);
                     r = s.unwrap();
-                    p = TEMP_HEAD as i32;
+                    p = Some(TEMP_HEAD);
                     m = 0;
                 }
             }
             cont = false;
 
-            let mut tok = get_token(input).0;
-            if tok == MEM[r].b32.s0 {
-                /*412:*/
+            // 'continue:
+            let mut tok = get_token(input).0; // set `tok` to the next token of input
+            if tok == *LLIST_info(r) {
+                // Advance `(r)|r|`; goto `'found` if the parameter delimiter has been
+                // fully matched, otherwise goto `'continue`
                 r = llist_link(r).unwrap();
-                if MEM[r].b32.s0 >= MATCH_TOKEN && MEM[r].b32.s0 <= END_MATCH_TOKEN {
+                if *LLIST_info(r) >= MATCH_TOKEN && *LLIST_info(r) <= END_MATCH_TOKEN {
                     if tok < LEFT_BRACE_LIMIT {
                         align_state -= 1
                     }
@@ -4562,15 +4587,16 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                     continue;
                 }
             } else {
+                // Contribute the recently matched tokens to the current parameter, and
+                // goto `'continue` if a partial match is still in effect;
+                // but abort if `s=null`
                 if s != Some(r) {
                     if let Some(s) = s {
-                        let mut t = s;
+                        let mut t = s; // cycle pointer for backup recovery
                         loop {
-                            let q = get_avail();
-                            *LLIST_link(p as usize) = Some(q).tex_int();
-                            MEM[q].b32.s0 = MEM[t].b32.s0;
-                            p = q as i32;
+                            store_new_token(p.as_mut().unwrap(), *LLIST_info(t));
                             m += 1;
+                            // auxiliary pointers for backup recovery
                             let mut u = llist_link(t).unwrap();
                             let mut v = s;
                             loop {
@@ -4600,7 +4626,7 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                         }
                         r = s;
                     } else {
-                        /*416:*/
+                        // Report an improper use of the macro and abort
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -4621,9 +4647,10 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                 }
 
                 if tok == par_token {
-                    if long_state as u16 != Cmd::LongCall as u16 {
+                    // Report a runaway argument and abort
+                    if long_state != Cmd::LongCall {
                         /*414:*/
-                        if long_state as u16 == Cmd::Call as u16 {
+                        if long_state == Cmd::Call {
                             runaway(); /*411:*/
                             if file_line_error_style_p != 0 {
                                 print_file_line(); /*413:*/
@@ -4654,28 +4681,19 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
 
                 if tok < RIGHT_BRACE_LIMIT {
                     if tok < LEFT_BRACE_LIMIT {
-                        /*417:*/
+                        // Contribute an entire group to the current parameter
                         unbalance = 1;
 
                         loop {
-                            let q = if let Some(a) = avail {
-                                avail = llist_link(a);
-                                *LLIST_link(a) = None.tex_int();
-                                a
-                            } else {
-                                get_avail()
-                            };
-
-                            *LLIST_link(p as usize) = Some(q).tex_int();
-                            MEM[q].b32.s0 = tok;
-                            p = q as i32;
+                            fast_store_new_token(p.as_mut().unwrap(), tok);
 
                             tok = get_token(input).0;
 
                             if tok == par_token {
-                                if long_state as u16 != Cmd::LongCall as u16 {
+                                // Report a runaway argument and abort
+                                if long_state != Cmd::LongCall {
                                     /*414:*/
-                                    if long_state as u16 == Cmd::Call as u16 {
+                                    if long_state == Cmd::Call {
                                         runaway();
                                         if file_line_error_style_p != 0 {
                                             print_file_line();
@@ -4715,13 +4733,10 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                         }
 
                         // done1:
-                        rbrace_ptr = p;
-
-                        let q = get_avail();
-                        *LLIST_link(p as usize) = Some(q).tex_int();
-                        MEM[q].b32.s0 = tok;
-                        p = q as i32;
+                        rbrace_ptr = p.tex_int();
+                        store_new_token(p.as_mut().unwrap(), tok);
                     } else {
+                        // Report an extra right brace and goto `'continue`
                         /* 413 */
                         back_input(input, tok);
 
@@ -4742,35 +4757,35 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                             "your `}\' was spurious, just type `2\' and it will go away."
                         );
                         align_state += 1;
-                        long_state = Cmd::Call as u8;
+                        long_state = Cmd::Call;
                         tok = par_token;
                         ins_error(input, tok);
                         cont = true;
                         continue;
+                        // a white lie; the `\par` won't always trigger a runaway
                     }
                 } else {
+                    // Store the current token, but |goto continue| if it is
+                    // a blank space that would become an undelimited parameter
                     if tok == SPACE_TOKEN {
-                        if MEM[r].b32.s0 <= END_MATCH_TOKEN {
-                            if MEM[r].b32.s0 >= MATCH_TOKEN {
+                        if *LLIST_info(r) <= END_MATCH_TOKEN {
+                            if *LLIST_info(r) >= MATCH_TOKEN {
                                 cont = true;
                                 continue;
                             }
                         }
                     }
 
-                    let q = get_avail();
-                    *LLIST_link(p as usize) = Some(q).tex_int();
-                    MEM[q].b32.s0 = tok;
-                    p = q as i32;
+                    store_new_token(p.as_mut().unwrap(), tok);
                 }
 
                 m += 1;
 
-                if MEM[r].b32.s0 > END_MATCH_TOKEN {
+                if *LLIST_info(r) > END_MATCH_TOKEN {
                     cont = true;
                     continue;
                 }
-                if MEM[r].b32.s0 < MATCH_TOKEN {
+                if *LLIST_info(r) < MATCH_TOKEN {
                     cont = true;
                     continue;
                 }
@@ -4779,14 +4794,16 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
             // found:
             if s.is_some() {
                 /*418:*/
-                if m == 1 && MEM[p as usize].b32.s0 < RIGHT_BRACE_LIMIT && p != TEMP_HEAD as i32 {
+                let p_ = p.unwrap();
+                if m == 1 && MEM[p_].b32.s0 < RIGHT_BRACE_LIMIT && p_ != TEMP_HEAD {
                     *LLIST_link(rbrace_ptr as usize) = None.tex_int();
-                    *LLIST_link(p as usize) = avail.tex_int();
-                    avail = Some(p as usize);
-                    p = *LLIST_link(TEMP_HEAD);
-                    pstack[n as usize] = *LLIST_link(p as usize);
-                    *LLIST_link(p as usize) = avail.tex_int();
-                    avail = Some(p as usize);
+                    *LLIST_link(p_) = avail.tex_int();
+                    avail = Some(p_);
+                    p = llist_link(TEMP_HEAD);
+                    let p_ = p.unwrap();
+                    pstack[n as usize] = *LLIST_link(p_);
+                    *LLIST_link(p_) = avail.tex_int();
+                    avail = p;
                 } else {
                     pstack[n as usize] = *LLIST_link(TEMP_HEAD)
                 }
@@ -4964,7 +4981,7 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, n: i32, w: bool) {
             ValLevel::Glue | ValLevel::Mu => {
                 let p = get_node(POINTER_NODE_SIZE);
                 MEM[p + 1].b32.s1 = 0;
-                GlueSpec(0).rc_inc();
+                ZERO_GLUE.rc_inc();
                 MEM[p + 1].b32.s0 = None.tex_int();
                 p
             }
@@ -5104,23 +5121,20 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                 }
                 Cmd::CSName => {
                     let r = get_avail();
-                    let mut p = r;
+                    let mut p = r; // head of the list of characters
                     let b = is_in_csname;
                     is_in_csname = true;
                     let (tok, cmd) = loop {
                         let (tok, cmd, _, cs) = get_x_token(input);
                         if cs == 0 {
-                            let q = get_avail();
-                            *LLIST_link(p) = Some(q).tex_int();
-                            MEM[q].b32.s0 = tok;
-                            p = q;
+                            store_new_token(&mut p, tok);
                         }
                         if !(cs == 0) {
                             break (tok, cmd);
                         }
                     };
                     if cmd != Cmd::EndCSName {
-                        /*391:*/
+                        // Complain about missing `\endcsname`
                         if file_line_error_style_p != 0 {
                             print_file_line();
                         } else {
@@ -5135,6 +5149,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         );
                         back_error(input, tok);
                     }
+                    // Look up the characters of list `r` in the hash table, and set `cs`
                     is_in_csname = b;
                     let mut j = first;
                     let mut popt = llist_link(r);
@@ -5144,6 +5159,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                             if max_buf_stack as usize == BUF_SIZE {
                                 overflow("buffer size", BUF_SIZE);
                             }
+                            // TeX capacity exceeded buffer size
                         }
                         BUFFER[j as usize] = MEM[p].b32.s0 % MAX_CHAR_VAL;
                         j += 1;
@@ -5155,15 +5171,17 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         cs = id_lookup(first as usize, (j - first) as usize);
                         no_new_control_sequence = true
                     } else if j == first {
-                        cs = NULL_CS as i32;
+                        cs = NULL_CS as i32; // the list is empty
                     } else {
                         cs = SINGLE_BASE as i32 + BUFFER[first as usize];
-                        /*:392*/
+                        // the list has length one
                     }
                     flush_list(Some(r));
-                    if Cmd::from(EQTB[cs as usize].cmd) == Cmd::UndefinedCS {
+                    if eq_type(cs as usize) == Cmd::UndefinedCS {
                         eq_define(cs as usize, Cmd::Relax, Some(TOO_BIG_USV));
+                        // N.B.: The `save_stack` might change
                     }
+                    // the control sequence will now match `\relax`
                     let tok = cs + CS_TOKEN_FLAG;
                     back_input(input, tok);
                     break;
@@ -5359,18 +5377,31 @@ pub(crate) unsafe fn scan_optional_equals(input: &mut input_state_t) {
     };
 }
 
-pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &[u8]) -> bool {
-    let mut p = BACKUP_HEAD;
+/// look for a given string
+///
+/// In case you are getting bored, here is a slightly less trivial routine:
+/// Given a string of lowercase letters, like `pt` or `plus` or
+/// `width`, the `scan_keyword` routine checks to see whether the next
+/// tokens of input match this string. The match must be exact, except that
+/// uppercase letters will match their lowercase counterparts; uppercase
+/// equivalents are determined by subtracting `"a"-"A"`, rather than using the
+/// `uc_code` table, since \TeX uses this routine only for its own limited
+/// set of keywords.
+///
+/// If a match is found, the characters are effectively removed from the input
+/// and `true` is returned. Otherwise `false` is returned, and the input
+/// is left essentially unchanged (except for the fact that some macros
+/// may have been expanded, etc.).
+pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &str) -> bool {
+    let s = s.as_bytes();
+    let mut p = BACKUP_HEAD; // tail of the backup list
     *LLIST_link(p) = None.tex_int();
     if s.len() == 1 {
         let c: i8 = s[0] as i8;
         loop {
-            let (tok, cmd, chr, cs) = get_x_token(input);
-            if cs == 0 && (chr == c as i32 || chr == c as i32 - 32) {
-                let q = get_avail();
-                *LLIST_link(p) = Some(q).tex_int();
-                MEM[q].b32.s0 = tok;
-                //p = q;
+            let (tok, cmd, chr, cs) = get_x_token(input); // recursion is possible here
+            if cs == 0 && (chr == c as i32 || chr == c as i32 - ('a' as i32) + ('A' as i32)) {
+                store_new_token(&mut p, tok);
                 flush_list(llist_link(BACKUP_HEAD));
                 return true;
             } else {
@@ -5387,12 +5418,11 @@ pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &[u8]) -> bool {
     let slen = s.len();
     let mut i = 0;
     while i < slen {
-        let (tok, cmd, chr, cs) = get_x_token(input);
-        if cs == 0 && (chr == s[i] as i8 as i32 || chr == s[i] as i8 as i32 - 32) {
-            let q = get_avail();
-            *LLIST_link(p) = Some(q).tex_int();
-            MEM[q].b32.s0 = tok;
-            p = q;
+        let (tok, cmd, chr, cs) = get_x_token(input); // recursion is possible here
+        if cs == 0
+            && (chr == s[i] as i8 as i32 || chr == s[i] as i8 as i32 - ('a' as i32) + ('A' as i32))
+        {
+            store_new_token(&mut p, tok);
             i += 1;
         } else if cmd != Cmd::Spacer || p != BACKUP_HEAD {
             back_input(input, tok);
@@ -5406,6 +5436,8 @@ pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &[u8]) -> bool {
     true
 }
 
+/// Here is a procedure that sounds an alarm when mu and non-mu units
+/// are being switched
 pub(crate) unsafe fn mu_error() {
     if file_line_error_style_p != 0 {
         print_file_line();
@@ -5417,11 +5449,11 @@ pub(crate) unsafe fn mu_error() {
     error();
 }
 pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont) -> i32 {
-    if scan_keyword(input, b"/") {
+    if scan_keyword(input, "/") {
         scan_and_pack_name(input);
         let val = map_glyph_to_index(f);
         val
-    } else if scan_keyword(input, b"u") {
+    } else if scan_keyword(input, "u") {
         let val = scan_char_num(input);
         let val = map_char_to_glyph(f, val);
         val
@@ -5579,7 +5611,7 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
                         break 'c_118470 c;
                     }
                     let mut cs = chr + 1;
-                    cmd = Cmd::from(EQTB[cs as usize].cmd);
+                    cmd = eq_type(cs as usize);
                     chr = EQTB[cs as usize].val;
                     let tok = x_token(input, &mut cmd, &mut chr, &mut cs);
                     back_input(input, tok);
@@ -5657,7 +5689,7 @@ pub(crate) unsafe fn set_math_char(input: &mut input_state_t, chr: i32, c: i32) 
     if math_char(c) == ACTIVE_MATH_CHAR as u32 {
         /*1187: */
         let mut cs = chr + 1; /* ... "between 0 and 15" */
-        let mut cmd = Cmd::from(EQTB[cs as usize].cmd); /* ... "between 0 and 15" */
+        let mut cmd = eq_type(cs as usize); /* ... "between 0 and 15" */
         let mut chr = EQTB[cs as usize].val;
         let tok = x_token(input, &mut cmd, &mut chr, &mut cs);
         back_input(input, tok);
@@ -6231,9 +6263,8 @@ pub(crate) unsafe fn scan_something_internal(
         }
         Cmd::Register => {
             let m = chr;
-            if m < 0 || m > 19 {
+            if m < 0 || m > LO_MEM_STAT_MAX {
                 // TODO: may be bug
-                /* 19 = "lo_mem_stat_max" */
                 let val_level = ValLevel::from((MEM[m as usize].b16.s1 as i32 / 64) as u8);
                 let val = match val_level {
                     ValLevel::Int | ValLevel::Dimen => MEM[(m + 2) as usize].b32.s1,
@@ -7110,9 +7141,9 @@ pub(crate) unsafe fn xetex_scan_dimen(
     if requires_units {
         if inf {
             /*473:*/
-            if scan_keyword(input, b"fil") {
+            if scan_keyword(input, "fil") {
                 cur_order = GlueOrder::Fil;
-                while scan_keyword(input, b"l") {
+                while scan_keyword(input, "l") {
                     if cur_order == GlueOrder::Filll {
                         if file_line_error_style_p != 0 {
                             print_file_line();
@@ -7166,7 +7197,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         }
 
         if !mu {
-            if scan_keyword(input, b"em") {
+            if scan_keyword(input, "em") {
                 let v = Scaled(
                     FONT_INFO[(QUAD_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
                         .b32
@@ -7177,7 +7208,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     back_input(input, tok);
                 }
                 return found(save_val, v, f, negative);
-            } else if scan_keyword(input, b"ex") {
+            } else if scan_keyword(input, "ex") {
                 let v = Scaled(
                     FONT_INFO
                         [(X_HEIGHT_CODE + PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize]) as usize]
@@ -7195,7 +7226,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         // not_found:
         if mu {
             /*475:*/
-            if scan_keyword(input, b"mu") {
+            if scan_keyword(input, "mu") {
                 return attach_fraction(input, f, negative, val);
             } else {
                 if file_line_error_style_p != 0 {
@@ -7216,7 +7247,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
             }
         }
 
-        if scan_keyword(input, b"true") {
+        if scan_keyword(input, "true") {
             /*476:*/
             prepare_mag(); /* magic ratio consant */
             if get_int_par(IntPar::mag) != 1000 {
@@ -7230,34 +7261,34 @@ pub(crate) unsafe fn xetex_scan_dimen(
             }
         }
 
-        if scan_keyword(input, b"pt") {
+        if scan_keyword(input, "pt") {
             return attach_fraction(input, f, negative, val);
         }
 
         let num;
         let denom;
-        if scan_keyword(input, b"in") {
+        if scan_keyword(input, "in") {
             num = 7227;
             denom = 100;
-        } else if scan_keyword(input, b"pc") {
+        } else if scan_keyword(input, "pc") {
             num = 12;
             denom = 1;
-        } else if scan_keyword(input, b"cm") {
+        } else if scan_keyword(input, "cm") {
             num = 7227; // magic ratio consant
             denom = 254; // magic ratio consant
-        } else if scan_keyword(input, b"mm") {
+        } else if scan_keyword(input, "mm") {
             num = 7227; // magic ratio consant
             denom = 2540; // magic ratio consant
-        } else if scan_keyword(input, b"bp") {
+        } else if scan_keyword(input, "bp") {
             num = 7227; // magic ratio consant
             denom = 7200; // magic ratio consant
-        } else if scan_keyword(input, b"dd") {
+        } else if scan_keyword(input, "dd") {
             num = 1238; // magic ratio consant
             denom = 1157; // magic ratio consant
-        } else if scan_keyword(input, b"cc") {
+        } else if scan_keyword(input, "cc") {
             num = 14856; // magic ratio consant
             denom = 1157; // magic ratio consant
-        } else if scan_keyword(input, b"sp") {
+        } else if scan_keyword(input, "sp") {
             return done(input, negative, Scaled(val));
         /*478:*/
         } else {
@@ -7407,13 +7438,13 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> Gl
             val
         }
     };
-    let mut q = new_spec(&GlueSpec(0));
+    let mut q = new_spec(&ZERO_GLUE);
     q.set_size(val);
-    if scan_keyword(input, b"plus") {
+    if scan_keyword(input, "plus") {
         let val = scan_dimen(input, mu, true, None);
         q.set_stretch(val).set_stretch_order(cur_order);
     }
-    if scan_keyword(input, b"minus") {
+    if scan_keyword(input, "minus") {
         let val = scan_dimen(input, mu, true, None);
         q.set_shrink(val).set_shrink_order(cur_order);
     }
@@ -7648,7 +7679,7 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
                 } {
                     arith_error = true;
                     delete_glue_ref(f as usize);
-                    f = new_spec(&GlueSpec(0)).ptr() as i32
+                    f = new_spec(&ZERO_GLUE).ptr() as i32
                 }
                 match s {
                     Expr::None => {
@@ -7814,11 +7845,11 @@ pub(crate) unsafe fn scan_rule_spec(input: &mut input_state_t, cmd: Cmd) -> Rule
         q.set_height(DEFAULT_RULE).set_depth(Scaled::ZERO);
     }
     loop {
-        if scan_keyword(input, b"width") {
+        if scan_keyword(input, "width") {
             q.set_width(scan_dimen(input, false, false, None));
-        } else if scan_keyword(input, b"height") {
+        } else if scan_keyword(input, "height") {
             q.set_height(scan_dimen(input, false, false, None));
-        } else if scan_keyword(input, b"depth") {
+        } else if scan_keyword(input, "depth") {
             q.set_depth(scan_dimen(input, false, false, None));
         } else {
             break;
@@ -7849,10 +7880,7 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i3
                 }
             }
         }
-        let q = get_avail();
-        *LLIST_link(p) = Some(q).tex_int();
-        MEM[q].b32.s0 = tok;
-        p = q;
+        store_new_token(&mut p, tok);
     }
     let q = llist_link(def_ref);
     *LLIST_link(def_ref) = avail.tex_int();
@@ -7935,11 +7963,13 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
         input.synctex_tag = 0;
     };
 }
+/// changes the string `str_pool[b..pool_ptr]` to a token list
 pub(crate) unsafe fn str_toks_cat(buf: &[u16], cat: i16) -> usize {
-    let mut p = TEMP_HEAD;
+    let mut p = TEMP_HEAD; // tail of the token list
     *LLIST_link(p) = None.tex_int();
     for c in std::char::decode_utf16(buf.iter().cloned()) {
         let c = c.unwrap();
+        // token being appended
         let t = if c == ' ' && cat == 0 {
             SPACE_TOKEN
         } else if cat == 0 {
@@ -7947,19 +7977,21 @@ pub(crate) unsafe fn str_toks_cat(buf: &[u16], cat: i16) -> usize {
         } else {
             MAX_CHAR_VAL * cat as i32 + c as i32
         };
-        let q = if let Some(q) = avail {
-            avail = llist_link(q);
-            *LLIST_link(q) = None.tex_int();
-            q
-        } else {
-            get_avail()
-        };
-        *LLIST_link(p) = Some(q).tex_int();
-        MEM[q].b32.s0 = t;
-        p = q;
+        fast_store_new_token(&mut p, t);
     }
     p
 }
+/// converting the current string into a token list.
+///
+/// The `str_toks` function does this; it classifies spaces as type `spacer`
+/// and everything else as type `other_char`.
+///
+/// The token list created by `str_toks` begins at `link(temp_head)` and ends
+/// at the value `p` that is returned. (If `p=temp_head`, the list is empty.)
+///
+/// The `str_toks_cat` function is the same, except that the catcode `cat` is
+/// stamped on all the characters, unless zero is passed in which case it
+/// chooses `spacer` or `other_char` automatically.
 pub(crate) unsafe fn str_toks(b: usize) -> usize {
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
@@ -7968,7 +8000,12 @@ pub(crate) unsafe fn str_toks(b: usize) -> usize {
     pool_ptr = b;
     p
 }
+
+/// This procedure is supposed to scan something like `\skip\count12`,
+/// i.e., whatever can follow `\the`, and it constructs a token list
+/// containing something like `-3.0pt minus 0.5fill`
 pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> usize {
+    // Handle `\unexpanded` or `\detokenize` and |return|
     if chr & 1 != 0 {
         let c = chr as i16;
         let val = scan_general_text(input, cs);
@@ -7991,34 +8028,22 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
     let (val, val_level) = scan_something_internal(input, tok, cmd, chr, ValLevel::Tok, false);
     match val_level {
         ValLevel::Ident | ValLevel::Tok | ValLevel::InterChar | ValLevel::Mark => {
-            /*485: */
+            // Copy the token list
             let mut p = TEMP_HEAD;
             *LLIST_link(p) = None.tex_int();
             if val_level == ValLevel::Ident {
-                let q = get_avail();
-                *LLIST_link(p) = Some(q).tex_int();
-                MEM[q].b32.s0 = CS_TOKEN_FLAG + val;
-                p = q;
+                store_new_token(&mut p, CS_TOKEN_FLAG + val);
             } else if let Some(v) = val.opt() {
-                let mut ropt = llist_link(v);
+                let mut ropt = llist_link(v); // do not copy the reference count
                 while let Some(r) = ropt {
-                    let q = if let Some(q) = avail {
-                        avail = llist_link(q);
-                        *LLIST_link(q) = None.tex_int();
-                        q
-                    } else {
-                        get_avail()
-                    };
-                    *LLIST_link(p) = Some(q).tex_int();
-                    MEM[q].b32.s0 = MEM[r].b32.s0;
-                    p = q;
+                    fast_store_new_token(&mut p, *LLIST_info(r));
                     ropt = llist_link(r);
                 }
             }
             p
         }
         _ => {
-            let old_setting = selector;
+            let old_setting = selector; // holds |selector| setting
             selector = Selector::NEW_STRING;
             let b = pool_ptr;
             match val_level {
@@ -8042,10 +8067,18 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
         }
     }
 }
+/// Here's part of the |expand| subroutine
 pub(crate) unsafe fn ins_the_toks(input: &mut input_state_t, chr: i32, cs: i32) {
     *LLIST_link(GARBAGE as usize) = Some(the_toks(input, chr, cs)).tex_int();
     begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
+/// The procedure `conv_toks` uses `str_toks` to insert the token list
+/// for `convert` functions into the scanner; `\outer` control sequences
+/// are allowed to follow `\string` and `\meaning`.
+///
+/// The extra temp string `u` is needed because `pdf_scan_ext_toks` incorporates
+/// any pending string in its output. In order to save such a pending string,
+/// we have to create a temporary string that is destroyed immediately after.
 pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
     let mut fnt: usize = 0;
     let mut arg1: i32 = 0i32;
@@ -8116,7 +8149,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             } else {
                 0
             };
-            let boolvar = scan_keyword(input, b"file");
+            let boolvar = scan_keyword(input, "file");
             scan_pdf_ext_toks(input, cs);
             if selector == Selector::NEW_STRING {
                 pdf_error(
@@ -8367,6 +8400,28 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
     pool_ptr = b;
     begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
+/// Returns a pointer to the tail of a new token
+/// list, and it also makes `def_ref` point to the reference count at the
+/// head of that list.
+///
+/// There are two boolean parameters, `macro_def` and `xpand`. If `macro_def`
+/// is true, the goal is to create the token list for a macro definition;
+/// otherwise the goal is to create the token list for some other \TeX
+/// primitive: `\mark`, `\output`, `\everypar`, `\lowercase`,
+/// `\uppercase`, `\message`, `\errmessage`, `\write`, or
+/// `\special`. In the latter cases a left brace must be scanned next; this
+/// left brace will not be part of the token list, nor will the matching right
+/// brace that comes at the end. If `xpand` is false, the token list will
+/// simply be copied from the input using `get_token`. Otherwise all expandable
+/// tokens will be expanded until unexpandable tokens are left, except that
+/// the results of expanding `\the` are not expanded further.
+/// If both `macro_def` and `xpand` are true, the expansion applies
+/// only to the macro body (i.e., to the material following the first
+/// `left_brace` character).
+///
+/// The value of `cs` when `scan_toks` begins should be the `EQTB`
+/// address of the control sequence to display in "runaway" error
+/// messages.
 pub(crate) unsafe fn scan_toks(
     input: &mut input_state_t,
     cs: i32,
@@ -8380,11 +8435,12 @@ pub(crate) unsafe fn scan_toks(
     };
     warning_index = cs;
     def_ref = get_avail();
-    MEM[def_ref].b32.s0 = None.tex_int();
-    let mut p = def_ref;
-    let mut hash_brace = 0;
-    let mut t = ZERO_TOKEN;
+    *token_ref_count(def_ref) = None.tex_int();
+    let mut p = def_ref; // tail of the token list being built
+    let mut hash_brace = 0; // possible `#{` token
+    let mut t = ZERO_TOKEN; // token representing the highest parameter number
     if macro_def {
+        // Scan and build the parameter part of the macro definition
         let mut done1 = true;
         let cmd = loop
         /*493: */
@@ -8394,20 +8450,16 @@ pub(crate) unsafe fn scan_toks(
                 break cmd;
             }
             if cmd == Cmd::MacParam {
-                /*495: */
-                let s = MATCH_TOKEN + chr;
+                // If the next character is a parameter number, make `tok`
+                // a `match` token; but if it is a left brace, store
+                // `left_brace`, `end_match`, set `hash_brace`, and goto `'done`
+                let s = MATCH_TOKEN + chr; // saved token
                 let (tok, cmd, _, _) = get_token(input);
                 otok = tok;
                 if cmd == Cmd::LeftBrace {
                     hash_brace = tok;
-                    let q = get_avail();
-                    *LLIST_link(p) = Some(q).tex_int();
-                    MEM[q].b32.s0 = tok;
-                    p = q;
-                    let q = get_avail();
-                    *LLIST_link(p) = Some(q).tex_int();
-                    MEM[q].b32.s0 = END_MATCH_TOKEN;
-                    p = q;
+                    store_new_token(&mut p, tok);
+                    store_new_token(&mut p, END_MATCH_TOKEN);
                     done1 = false;
                     break cmd;
                 } else if t == ZERO_TOKEN + 9 {
@@ -8437,20 +8489,14 @@ pub(crate) unsafe fn scan_toks(
                     otok = s
                 }
             }
-            let q = get_avail();
-            *LLIST_link(p) = Some(q).tex_int();
-            MEM[q].b32.s0 = otok;
-            p = q;
+            store_new_token(&mut p, otok);
         };
 
         if done1 {
             // done1:
-            let q = get_avail();
-            *LLIST_link(p) = Some(q).tex_int();
-            MEM[q].b32.s0 = END_MATCH_TOKEN;
-            p = q;
+            store_new_token(&mut p, END_MATCH_TOKEN);
             if cmd == Cmd::RightBrace {
-                /*494: */
+                // Express shock at the missing left brace; |goto found|
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -8468,11 +8514,14 @@ pub(crate) unsafe fn scan_toks(
         }
     } else {
         scan_left_brace(input);
+        //remove the compulsory left brace
     }
 
-    let mut unbalance = 1;
+    // Scan and build the body of the token list; goto `'found` when finished
+    let mut unbalance = 1; // number of unmatched left braces
     loop {
         let (mut tok, cmd) = if xpand {
+            // Expand the next part of the input
             let mut ocmd;
             let mut ochr;
             let mut ocs;
@@ -8483,7 +8532,7 @@ pub(crate) unsafe fn scan_toks(
                 ochr = chr;
                 ocs = cs;
                 if ocmd >= Cmd::Call {
-                    if MEM[*LLIST_link(ochr as usize) as usize].b32.s0 == PROTECTED_TOKEN {
+                    if *LLIST_info(*LLIST_link(ochr as usize) as usize) == PROTECTED_TOKEN {
                         ocmd = Cmd::Relax;
                         ochr = NO_EXPAND_FLAG;
                     }
@@ -8520,7 +8569,7 @@ pub(crate) unsafe fn scan_toks(
             }
         } else if cmd == Cmd::MacParam {
             if macro_def {
-                /*498: */
+                // Look for parameter number or `##`
                 let s = tok;
                 let next = if xpand {
                     get_x_token(input)
@@ -8547,44 +8596,38 @@ pub(crate) unsafe fn scan_toks(
                         back_error(input, tok);
                         tok = s
                     } else {
-                        tok = OUT_PARAM_TOKEN - 48 + chr
+                        tok = OUT_PARAM_TOKEN - ('0' as i32) + chr
                     }
                 }
             }
         }
-        let q = get_avail();
-        *LLIST_link(p) = Some(q).tex_int();
-        MEM[q].b32.s0 = tok;
-        p = q;
+        store_new_token(&mut p, tok);
     }
 
-    unsafe fn found(p: usize, hash_brace: i32) -> usize {
+    unsafe fn found(mut p: usize, hash_brace: i32) -> usize {
         scanner_status = ScannerStatus::Normal;
         if hash_brace != 0 {
-            let q = get_avail();
-            *LLIST_link(p) = Some(q).tex_int();
-            MEM[q].b32.s0 = hash_brace;
-            q
-        } else {
-            p
+            store_new_token(&mut p, hash_brace);
         }
+        p
     }
 }
+
+/// The `read_toks` procedure constructs a token list like that for any
+/// macro definition, and makes `cur_val` point to it. Parameter `r` points
+/// to the control sequence that will receive this token list.
 pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32) -> i32 {
     scanner_status = ScannerStatus::Defining;
     warning_index = r;
     def_ref = get_avail();
-    MEM[def_ref].b32.s0 = None.tex_int();
-    let p = def_ref;
-    let q = get_avail();
-    *LLIST_link(p) = Some(q).tex_int();
-    MEM[q].b32.s0 = END_MATCH_TOKEN;
-    let mut p = q;
-    let m = if n < 0 || n > 15 { 16 } else { n as i16 };
-    let s = align_state;
-    align_state = 1000000;
+    *token_ref_count(def_ref) = None.tex_int();
+    let mut p = def_ref; // tail of the token list
+    store_new_token(&mut p, END_MATCH_TOKEN);
+    let m = if n < 0 || n > 15 { 16 } else { n as i16 }; // stream number
+    let s = align_state; // saved value of `align_state`
+    align_state = 1000000; // disable tab marks, etc.
     loop {
-        /*502:*/
+        // Input and store tokens from the next line of the file
         begin_file_reading(input);
         input.name = m as i32 + 1;
         assert!(
@@ -8594,7 +8637,7 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
         );
         /*505:*/
         if read_open[m as usize] == OpenMode::JustOpen {
-            /*504:*/
+            // Input the first line of `read_file[m]`
             if input_line(read_file[m as usize].as_mut().unwrap()) {
                 read_open[m as usize] = OpenMode::Normal;
             } else {
@@ -8602,6 +8645,7 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
                 read_open[m as usize] = OpenMode::Closed;
             }
         } else if !input_line(read_file[m as usize].as_mut().unwrap()) {
+            // Input the next line of |read_file[m]|
             let _ = read_file[m as usize].take();
             read_open[m as usize] = OpenMode::Closed;
             if align_state as i64 != 1000000 {
@@ -8627,8 +8671,10 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
         first = input.limit + 1;
         input.loc = input.start;
         input.state = InputState::NewLine;
+        // Handle `\readline` and goto `'done`
         if j == 1 {
             while input.loc <= input.limit {
+                // current line not yet finished
                 let chr = BUFFER[input.loc as usize];
                 input.loc += 1;
                 let tok = if chr == ' ' as i32 {
@@ -8636,18 +8682,17 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
                 } else {
                     chr + OTHER_TOKEN
                 };
-                let q = get_avail();
-                *LLIST_link(p) = Some(q).tex_int();
-                MEM[q].b32.s0 = tok;
-                p = q;
+                store_new_token(&mut p, tok);
             }
         } else {
             loop {
                 let mut tok = get_token(input).0;
                 if tok == 0 {
                     break;
+                    // `cmd=chr=0` will occur at the end of the line
                 }
                 if (align_state as i64) < 1000000 {
+                    // unmatched `}` aborts the line
                     loop {
                         tok = get_token(input).0;
                         if tok == 0 {
@@ -8657,10 +8702,7 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
                     align_state = 1000000;
                     break;
                 } else {
-                    let q = get_avail();
-                    *LLIST_link(p) = Some(q).tex_int();
-                    MEM[q].b32.s0 = tok;
-                    p = q;
+                    store_new_token(&mut p, tok);
                 }
             }
         }
@@ -8743,15 +8785,20 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
     match this_if {
         IfTestCode::IfChar | IfTestCode::IfCat => {
-            let (tok, mut cmd, mut chr, _) = get_x_token(input);
-            if cmd == Cmd::Relax {
-                if chr == NO_EXPAND_FLAG {
-                    cmd = Cmd::ActiveChar;
-                    chr = tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
+            // Test if two characters match
+            unsafe fn get_x_token_or_active_char(input: &mut input_state_t) -> (Cmd, i32) {
+                let (tok, cmd, chr, _) = get_x_token(input);
+                if cmd == Cmd::Relax {
+                    if chr == NO_EXPAND_FLAG {
+                        return (Cmd::ActiveChar, tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32));
+                    }
                 }
+                (cmd, chr)
             }
+            let (cmd, chr) = get_x_token_or_active_char(input);
 
             let (m, n) = if cmd > Cmd::ActiveChar || chr > BIGGEST_USV as i32 {
+                // not a character
                 (Cmd::Relax, TOO_BIG_USV as i32)
             } else {
                 (cmd, chr)
@@ -8778,6 +8825,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             }
         }
         IfTestCode::IfInt | IfTestCode::IfDim => {
+            // Test relation between integers or dimensions
             let n = if this_if == IfTestCode::IfInt {
                 scan_int(input)
             } else {
@@ -8813,15 +8861,15 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             };
 
             match r {
-                60 => {
+                b'<' => {
                     /*"<"*/
                     b = n < val
                 }
-                61 => {
+                b'=' => {
                     /*"="*/
                     b = n == val
                 }
-                62 => {
+                b'>' => {
                     /*">"*/
                     b = n > val
                 }
@@ -8924,17 +8972,14 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
         IfTestCode::IfCS => {
             let n = get_avail();
-            let mut p = n;
+            let mut p = n; // head of the list of characters
             let e = is_in_csname;
             is_in_csname = true;
 
             let (tok, cmd) = loop {
                 let (tok, cmd, _, cs) = get_x_token(input);
                 if cs == 0 {
-                    let q = get_avail();
-                    *LLIST_link(p) = Some(q).tex_int();
-                    MEM[q].b32.s0 = tok;
-                    p = q;
+                    store_new_token(&mut p, tok);
                 }
                 if !(cs == 0) {
                     break (tok, cmd);
@@ -8942,7 +8987,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             };
 
             if cmd != Cmd::EndCSName {
-                /*391:*/
+                // Complain about missing `\endcsname`
                 if file_line_error_style_p != 0 {
                     print_file_line(); /*:1556*/
                 } else {
@@ -8958,6 +9003,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
                 back_error(input, tok);
             }
 
+            // Look up the characters of list `n` in the hash table, and set `cs`
             let mut m = first;
             let mut popt = llist_link(n);
 
@@ -8967,6 +9013,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
                     if max_buf_stack as usize == BUF_SIZE {
                         overflow("buffer size", BUF_SIZE);
                     }
+                    // TeX capacity exceeded buffer size
                 }
                 BUFFER[m as usize] = MEM[p as usize].b32.s0 % MAX_CHAR_VAL;
                 m += 1;
@@ -8979,10 +9026,11 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
                 SINGLE_BASE as i32 + BUFFER[first as usize]
             } else {
                 id_lookup(first as usize, (m - first) as usize)
+                // `no_new_control_sequence` is `true`
             };
 
             flush_list(Some(n));
-            b = Cmd::from(EQTB[cs as usize].cmd) != Cmd::UndefinedCS;
+            b = eq_type(cs as usize) != Cmd::UndefinedCS;
             is_in_csname = e;
         }
 
@@ -9736,9 +9784,9 @@ pub(crate) unsafe fn scan_spec(input: &mut input_state_t, c: GroupCode, three_co
     }
     let spec_code;
     let mut sd = None;
-    if scan_keyword(input, b"to") {
+    if scan_keyword(input, "to") {
         spec_code = PackMode::Exactly;
-    } else if scan_keyword(input, b"spread") {
+    } else if scan_keyword(input, "spread") {
         spec_code = PackMode::Additional;
     } else {
         spec_code = PackMode::Additional;
@@ -10945,7 +10993,7 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
             let r = MEM[q].b32.s1 as usize;
             let s = MEM[r + 1].b32.s0;
             if s != 0 {
-                GlueSpec(0).rc_inc();
+                ZERO_GLUE.rc_inc();
                 delete_glue_ref(s as usize);
                 MEM[r + 1].b32.s0 = 0
             }
@@ -11868,7 +11916,7 @@ pub(crate) unsafe fn app_space() {
                 .map(|g| GlueSpec(g))
                 .unwrap_or_else(|| {
                     /*:1079 */
-                    let mut main_p = new_spec(&GlueSpec(0));
+                    let mut main_p = new_spec(&ZERO_GLUE);
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
                     main_p
                         .set_size(Scaled(FONT_INFO[main_k as usize].b32.s1))
@@ -11893,7 +11941,7 @@ pub(crate) unsafe fn app_space() {
         main_p.set_stretch(xn_over_d(main_p.stretch(), Scaled(cur_list.aux.b32.s0), 1000).0);
         main_p.set_shrink(xn_over_d(main_p.shrink(), Scaled(1000), cur_list.aux.b32.s0).0);
         q = new_glue(&main_p);
-        main_p.rc_none();
+        main_p.rc_set_none();
     }
     *LLIST_link(cur_list.tail) = Some(q.ptr()).tex_int();
     cur_list.tail = q.ptr();
@@ -11951,7 +11999,7 @@ pub(crate) unsafe fn its_all_over(input: &mut input_state_t, tok: i32, cmd: Cmd,
         *LLIST_link(cur_list.tail) = Some(nb.ptr()).tex_int();
         cur_list.tail = nb.ptr();
         nb.set_width(get_dimen_par(DimenPar::hsize));
-        let g = new_glue(&GlueSpec(8));
+        let g = new_glue(&FILL_GLUE);
         *LLIST_link(cur_list.tail) = Some(g.ptr()).tex_int();
         cur_list.tail = g.ptr();
         let p = new_penalty(NULL_FLAG.0);
@@ -11964,10 +12012,10 @@ pub(crate) unsafe fn its_all_over(input: &mut input_state_t, tok: i32, cmd: Cmd,
 pub(crate) unsafe fn append_glue(input: &mut input_state_t, chr: i32) {
     let s = SkipCode::n(chr as u8).unwrap();
     let val = match s {
-        SkipCode::Fil => GlueSpec(4),
-        SkipCode::Fill => GlueSpec(8),
-        SkipCode::Ss => GlueSpec(12),
-        SkipCode::FilNeg => GlueSpec(16),
+        SkipCode::Fil => FIL_GLUE,
+        SkipCode::Fill => FILL_GLUE,
+        SkipCode::Ss => SS_GLUE,
+        SkipCode::FilNeg => FIL_NEG_GLUE,
         SkipCode::Skip => scan_glue(input, ValLevel::Glue),
         SkipCode::MSkip => scan_glue(input, ValLevel::Mu),
     };
@@ -12312,7 +12360,7 @@ pub(crate) unsafe fn begin_box(input: &mut input_state_t, cmd: Cmd, chr: i32, bo
         }
         BoxCode::VSplit => {
             let n = scan_register_num(input);
-            if !scan_keyword(input, b"to") {
+            if !scan_keyword(input, "to") {
                 if file_line_error_style_p != 0 {
                     print_file_line();
                 } else {
@@ -12567,7 +12615,7 @@ pub(crate) unsafe fn begin_insert_or_adjust(input: &mut input_state_t, cmd: Cmd)
         }
     };
     SAVE_STACK[SAVE_PTR + 0].val = val;
-    if cmd == Cmd::VAdjust && scan_keyword(input, b"pre") {
+    if cmd == Cmd::VAdjust && scan_keyword(input, "pre") {
         SAVE_STACK[SAVE_PTR + 1].val = 1;
     } else {
         SAVE_STACK[SAVE_PTR + 1].val = 0;
@@ -13346,7 +13394,7 @@ pub(crate) unsafe fn get_r_token(input: &mut input_state_t) -> (i32, Cmd, i32, i
 }
 pub(crate) unsafe fn trap_zero_glue(val: GlueSpec) -> GlueSpec {
     if val.size() == Scaled::ZERO && val.stretch() == Scaled::ZERO && val.shrink() == Scaled::ZERO {
-        let zero = GlueSpec(0);
+        let zero = ZERO_GLUE;
         zero.rc_inc();
         delete_glue_ref(val.ptr());
         zero
@@ -13401,8 +13449,7 @@ pub(crate) unsafe fn do_register_command(
     }
 
     if flag {
-        if ochr < 0 || ochr > 19 {
-            /*lo_mem_stat_max*/
+        if ochr < 0 || ochr > LO_MEM_STAT_MAX {
             l = ochr;
             p = ValLevel::from((MEM[l as usize].b16.s1 as i32 / 64) as u8);
             e = true
@@ -13442,7 +13489,7 @@ pub(crate) unsafe fn do_register_command(
     if q == Cmd::Register {
         scan_optional_equals(input);
     } else {
-        scan_keyword(input, b"by");
+        scan_keyword(input, "by");
     }
     arith_error = false;
     let val = if q < Cmd::Multiply {
@@ -13694,7 +13741,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
     let (quoted_filename, file_name_quote_char) = scan_file_name(input);
     name_in_progress = true;
     let mut s;
-    if scan_keyword(input, b"at") {
+    if scan_keyword(input, "at") {
         /*1294: */
         s = scan_dimen(input, false, false, None); /*:1293 */
         /*:79 */
@@ -13714,7 +13761,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
             error();
             s = Scaled::from(10);
         }
-    } else if scan_keyword(input, b"scaled") {
+    } else if scan_keyword(input, "scaled") {
         let val = scan_int(input);
         s = Scaled(-val);
         if val <= 0 || val > 32768 {
@@ -14981,7 +15028,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                     (MMode, Cmd::NonScript) => {
                         // 262
-                        let g = new_glue(&GlueSpec(0));
+                        let g = new_glue(&ZERO_GLUE);
                         *LLIST_link(cur_list.tail) = Some(g.ptr()).tex_int();
                         cur_list.tail = g.ptr();
                         MEM[cur_list.tail].b16.s0 = COND_MATH_GLUE;
@@ -15565,18 +15612,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                 fix_language();
             }
         }
-        lig_stack = avail;
-        let ls = if let Some(ls) = lig_stack {
-            avail = llist_link(ls);
-            *LLIST_link(ls) = None.tex_int();
-            ls
-        } else {
-            get_avail()
-        };
-        lig_stack = Some(ls);
-        MEM[ls].b16.s1 = main_f as u16;
+        let mut ls = Char(fast_get_avail());
+        lig_stack = Some(ls.ptr());
+        ls.set_font(main_f as u16);
         cur_l = cur_chr;
-        MEM[ls].b16.s0 = cur_l as u16;
+        ls.set_character(cur_l as u16);
         cur_q = cur_list.tail as i32;
 
         let mut current_block: u64;
@@ -15925,18 +15965,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 }
                                 prev_class = space_class
                             }
-                            lig_stack = avail;
-                            let ls = if let Some(ls) = lig_stack {
-                                avail = llist_link(ls);
-                                *LLIST_link(ls) = None.tex_int();
-                                ls
-                            } else {
-                                get_avail()
-                            };
-                            lig_stack = Some(ls);
-                            MEM[ls].b16.s1 = main_f as u16;
+                            let mut ls = Char(fast_get_avail());
+                            lig_stack = Some(ls.ptr());
+                            ls.set_font(main_f as u16);
                             cur_r = cur_chr;
-                            MEM[ls].b16.s0 = cur_r as u16;
+                            ls.set_character(cur_r as u16);
                             if cur_r == false_bchar {
                                 cur_r = TOO_BIG_CHAR;
                             }
@@ -16096,7 +16129,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                 .opt()
                 .map(|g| GlueSpec(g))
                 .unwrap_or_else(|| {
-                    let mut main_p = new_spec(&GlueSpec(0));
+                    let mut main_p = new_spec(&ZERO_GLUE);
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
                     main_p
                         .set_size(Scaled(FONT_INFO[main_k as usize].b32.s1))
@@ -16343,4 +16376,36 @@ pub(crate) unsafe fn do_assignments(input: &mut input_state_t) -> (i32, Cmd, i32
         prefixed_command(input, cmd, chr, cs);
         set_box_allowed = true
     }
+}
+
+/// saves the procedure-call
+/// overhead at the expense of extra programming. This routine is used in
+/// the places that would otherwise account for the most calls of `get_avail`
+unsafe fn fast_get_avail() -> usize {
+    // avoid `get_avail` if possible, to save time
+    if let Some(a) = avail {
+        avail = llist_link(a);
+        *LLIST_link(a) = None.tex_int();
+        a
+    } else {
+        get_avail()
+    }
+}
+
+unsafe fn store_new_token(p: &mut usize, val: i32) {
+    let q = get_avail();
+    *LLIST_link(*p) = Some(q).tex_int();
+    *LLIST_info(q) = val;
+    *p = q; // link(p) `null`
+}
+
+unsafe fn fast_store_new_token(p: &mut usize, val: i32) {
+    let q = fast_get_avail();
+    *LLIST_link(*p) = Some(q).tex_int();
+    *LLIST_info(q) = val;
+    *p = q; // link(p) `null`
+}
+
+unsafe fn eq_type(cs: usize) -> Cmd {
+    Cmd::from(EQTB[cs].cmd)
 }

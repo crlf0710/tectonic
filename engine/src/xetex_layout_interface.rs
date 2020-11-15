@@ -1284,26 +1284,28 @@ impl XeTeXLayoutEngine {
 
     pub(crate) unsafe fn get_glyphs(&self) -> Vec<u32> {
         let glyphCount = self.hbBuffer.get_length() as usize;
-        let hbGlyphs = self.hbBuffer.get_glyph_infos();
-        let mut glyphs = Vec::with_capacity(glyphCount);
-        for i in 0..glyphCount {
-            glyphs.push(hbGlyphs[i].codepoint);
-        }
-        glyphs
+        self.hbBuffer
+            .get_glyph_infos()
+            .iter()
+            .take(glyphCount)
+            .map(|glyph| glyph.codepoint)
+            .collect()
     }
 
     pub(crate) unsafe fn get_glyph_advances(&self) -> Vec<f32> {
         let glyphCount = self.hbBuffer.get_length() as usize;
-        let hbPositions = self.hbBuffer.get_glyph_positions();
-        let mut advances = Vec::with_capacity(glyphCount);
-        for i in 0..glyphCount {
-            advances.push(if self.font.get_layout_dir_vertical() {
-                (&*self.font).units_to_points(hbPositions[i].y_advance as f32)
-            } else {
-                (&*self.font).units_to_points(hbPositions[i].x_advance as f32)
-            });
-        }
-        advances
+        self.hbBuffer
+            .get_glyph_positions()
+            .iter()
+            .take(glyphCount)
+            .map(|hb_pos| {
+                if self.font.get_layout_dir_vertical() {
+                    (&*self.font).units_to_points(hb_pos.y_advance as f32)
+                } else {
+                    (&*self.font).units_to_points(hb_pos.x_advance as f32)
+                }
+            })
+            .collect()
     }
 
     pub(crate) unsafe fn get_glyph_positions(&self) -> Vec<FloatPoint> {
@@ -1313,17 +1315,13 @@ impl XeTeXLayoutEngine {
         let mut y = 0_f32;
         let mut positions = Vec::with_capacity(glyphCount + 1);
         if self.font.get_layout_dir_vertical() {
-            for i in 0..glyphCount {
+            for hb_pos in hbPositions.iter().take(glyphCount) {
                 positions.push(FloatPoint {
-                    x: -self
-                        .font
-                        .units_to_points(x + hbPositions[i].y_offset as f32),
-                    y: self
-                        .font
-                        .units_to_points(y - hbPositions[i].x_offset as f32),
+                    x: -self.font.units_to_points(x + hb_pos.y_offset as f32),
+                    y: self.font.units_to_points(y - hb_pos.x_offset as f32),
                 });
-                x += hbPositions[i].y_advance as f32;
-                y += hbPositions[i].x_advance as f32;
+                x += hb_pos.y_advance as f32;
+                y += hb_pos.x_advance as f32;
             }
             positions.push(FloatPoint {
                 x: -self.font.units_to_points(x),
@@ -1348,8 +1346,8 @@ impl XeTeXLayoutEngine {
             });
         }
         if self.extend as f64 != 1. || self.slant as f64 != 0. {
-            for i_1 in 0..=glyphCount as usize {
-                positions[i_1].x = positions[i_1].x * self.extend - positions[i_1].y * self.slant;
+            for pos in &mut positions {
+                pos.x = pos.x * self.extend - pos.y * self.slant;
             }
         };
         positions
