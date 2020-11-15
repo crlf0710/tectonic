@@ -14,6 +14,8 @@ use std::io::Write;
 
 use crate::core_memory::{xmalloc, xmalloc_array, xrealloc};
 
+use std::slice;
+
 mod core_memory {
     use bridge::size_t;
     pub(crate) unsafe fn xmalloc(mut size: size_t) -> *mut libc::c_void {
@@ -1061,27 +1063,16 @@ unsafe fn make_string() -> str_number {
     *str_start.offset(str_ptr as isize) = pool_ptr;
     str_ptr - 1i32
 }
-unsafe fn str_eq_buf(
-    mut s: str_number,
-    mut buf: buf_type,
-    mut bf_ptr: buf_pointer,
-    mut len: buf_pointer,
-) -> bool {
-    let mut i: buf_pointer = 0;
-    let mut j: pool_pointer = 0;
-    if *str_start.offset((s + 1i32) as isize) - *str_start.offset(s as isize) != len {
+unsafe fn str_eq_buf(mut s: str_number, buf: &[u8], mut len: buf_pointer) -> bool {
+    let start = *str_start.offset(s as isize);
+    let end = *str_start.offset((s + 1i32) as isize);
+    if end - start != len {
         return false;
     }
-    i = bf_ptr;
-    j = *str_start.offset(s as isize);
-    while j < *str_start.offset((s + 1i32) as isize) {
-        if *str_pool.offset(j as isize) as i32 != *buf.offset(i as isize) as i32 {
-            return false;
-        }
-        i = i + 1i32;
-        j = j + 1i32
-    }
-    true
+    (start..end)
+        .map(|j| *str_pool.offset(j as isize))
+        .zip(buf.iter())
+        .all(|(a, b)| a == *b)
 }
 unsafe fn str_eq_str(mut s1: str_number, mut s2: str_number) -> bool {
     if *str_start.offset((s1 + 1i32) as isize) - *str_start.offset(s1 as isize)
@@ -1169,7 +1160,8 @@ unsafe fn str_lookup(
     str_num = 0i32;
     loop {
         if *hash_text.offset(p as isize) > 0i32 {
-            if str_eq_buf(*hash_text.offset(p as isize), buf, j, l) {
+            let s = std::slice::from_raw_parts(buf.offset(j as isize), l as usize);
+            if str_eq_buf(*hash_text.offset(p as isize), s, l) {
                 if *hash_ilk.offset(p as isize) as i32 == ilk as i32 {
                     hash_found = true;
                     return p;
@@ -2566,7 +2558,7 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                     /*261: */
                     let mut tmp_ptr =
                         *str_start.offset(*ilk_info.offset(macro_name_loc as isize) as isize); /*space */
-                    tmp_end_ptr = *str_start
+                    let mut tmp_end_ptr = *str_start
                         .offset((*ilk_info.offset(macro_name_loc as isize) + 1i32) as isize);
                     if ex_buf_ptr == 0i32 {
                         if tmp_ptr < tmp_end_ptr
@@ -5375,20 +5367,17 @@ unsafe fn aux_input_command() {
         panic!();
     }
     aux_extension_ok = true;
-    if buf_ptr2 - buf_ptr1
-        < *str_start.offset((s_aux_extension + 1i32) as isize)
-            - *str_start.offset(s_aux_extension as isize)
-    {
+
+    let buffer_offset = buf_ptr2
+        - (*str_start.offset((s_aux_extension + 1i32) as isize)
+            - *str_start.offset(s_aux_extension as isize));
+    let len = *str_start.offset((s_aux_extension + 1i32) as isize)
+        - *str_start.offset(s_aux_extension as isize);
+    let s = slice::from_raw_parts(buffer.offset(buffer_offset as isize), len as usize);
+
+    if buf_ptr2 - buf_ptr1 < len {
         aux_extension_ok = false
-    } else if !str_eq_buf(
-        s_aux_extension,
-        buffer,
-        buf_ptr2
-            - (*str_start.offset((s_aux_extension + 1i32) as isize)
-                - *str_start.offset(s_aux_extension as isize)),
-        *str_start.offset((s_aux_extension + 1i32) as isize)
-            - *str_start.offset(s_aux_extension as isize),
-    ) {
+    } else if !str_eq_buf(s_aux_extension, s, len) {
         aux_extension_ok = false
     }
     if !aux_extension_ok {
@@ -6302,7 +6291,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
             ex_buf_ptr = 0i32;
             let mut tmp_ptr =
                 *str_start.offset(*cite_info.offset(entry_cite_ptr as isize) as isize);
-            tmp_end_ptr =
+            let mut tmp_end_ptr =
                 *str_start.offset((*cite_info.offset(entry_cite_ptr as isize) + 1i32) as isize);
             while tmp_ptr < tmp_end_ptr {
                 *ex_buf.offset(ex_buf_ptr as isize) = *str_pool.offset(tmp_ptr as isize);
