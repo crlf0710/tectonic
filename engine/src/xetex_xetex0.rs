@@ -7880,10 +7880,7 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i3
                 }
             }
         }
-        let q = get_avail();
-        *LLIST_link(p) = Some(q).tex_int();
-        MEM[q].b32.s0 = tok;
-        p = q;
+        store_new_token(&mut p, tok);
     }
     let q = llist_link(def_ref);
     *LLIST_link(def_ref) = avail.tex_int();
@@ -8615,21 +8612,22 @@ pub(crate) unsafe fn scan_toks(
         p
     }
 }
+
+/// The `read_toks` procedure constructs a token list like that for any
+/// macro definition, and makes `cur_val` point to it. Parameter `r` points
+/// to the control sequence that will receive this token list.
 pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32) -> i32 {
     scanner_status = ScannerStatus::Defining;
     warning_index = r;
     def_ref = get_avail();
-    MEM[def_ref].b32.s0 = None.tex_int();
-    let p = def_ref;
-    let q = get_avail();
-    *LLIST_link(p) = Some(q).tex_int();
-    MEM[q].b32.s0 = END_MATCH_TOKEN;
-    let mut p = q;
-    let m = if n < 0 || n > 15 { 16 } else { n as i16 };
-    let s = align_state;
-    align_state = 1000000;
+    *token_ref_count(def_ref) = None.tex_int();
+    let mut p = def_ref; // tail of the token list
+    store_new_token(&mut p, END_MATCH_TOKEN);
+    let m = if n < 0 || n > 15 { 16 } else { n as i16 }; // stream number
+    let s = align_state; // saved value of `align_state`
+    align_state = 1000000; // disable tab marks, etc.
     loop {
-        /*502:*/
+        // Input and store tokens from the next line of the file
         begin_file_reading(input);
         input.name = m as i32 + 1;
         assert!(
@@ -8639,7 +8637,7 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
         );
         /*505:*/
         if read_open[m as usize] == OpenMode::JustOpen {
-            /*504:*/
+            // Input the first line of `read_file[m]`
             if input_line(read_file[m as usize].as_mut().unwrap()) {
                 read_open[m as usize] = OpenMode::Normal;
             } else {
@@ -8647,6 +8645,7 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
                 read_open[m as usize] = OpenMode::Closed;
             }
         } else if !input_line(read_file[m as usize].as_mut().unwrap()) {
+            // Input the next line of |read_file[m]|
             let _ = read_file[m as usize].take();
             read_open[m as usize] = OpenMode::Closed;
             if align_state as i64 != 1000000 {
@@ -8672,8 +8671,10 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
         first = input.limit + 1;
         input.loc = input.start;
         input.state = InputState::NewLine;
+        // Handle `\readline` and goto `'done`
         if j == 1 {
             while input.loc <= input.limit {
+                // current line not yet finished
                 let chr = BUFFER[input.loc as usize];
                 input.loc += 1;
                 let tok = if chr == ' ' as i32 {
@@ -8681,18 +8682,17 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
                 } else {
                     chr + OTHER_TOKEN
                 };
-                let q = get_avail();
-                *LLIST_link(p) = Some(q).tex_int();
-                MEM[q].b32.s0 = tok;
-                p = q;
+                store_new_token(&mut p, tok);
             }
         } else {
             loop {
                 let mut tok = get_token(input).0;
                 if tok == 0 {
                     break;
+                    // `cmd=chr=0` will occur at the end of the line
                 }
                 if (align_state as i64) < 1000000 {
+                    // unmatched `}` aborts the line
                     loop {
                         tok = get_token(input).0;
                         if tok == 0 {
@@ -8702,10 +8702,7 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
                     align_state = 1000000;
                     break;
                 } else {
-                    let q = get_avail();
-                    *LLIST_link(p) = Some(q).tex_int();
-                    MEM[q].b32.s0 = tok;
-                    p = q;
+                    store_new_token(&mut p, tok);
                 }
             }
         }
@@ -8788,15 +8785,20 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
     match this_if {
         IfTestCode::IfChar | IfTestCode::IfCat => {
-            let (tok, mut cmd, mut chr, _) = get_x_token(input);
-            if cmd == Cmd::Relax {
-                if chr == NO_EXPAND_FLAG {
-                    cmd = Cmd::ActiveChar;
-                    chr = tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
+            // Test if two characters match
+            unsafe fn get_x_token_or_active_char(input: &mut input_state_t) -> (Cmd, i32) {
+                let (tok, cmd, chr, _) = get_x_token(input);
+                if cmd == Cmd::Relax {
+                    if chr == NO_EXPAND_FLAG {
+                        return (Cmd::ActiveChar, tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32));
+                    }
                 }
+                (cmd, chr)
             }
+            let (cmd, chr) = get_x_token_or_active_char(input);
 
             let (m, n) = if cmd > Cmd::ActiveChar || chr > BIGGEST_USV as i32 {
+                // not a character
                 (Cmd::Relax, TOO_BIG_USV as i32)
             } else {
                 (cmd, chr)
@@ -8823,6 +8825,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             }
         }
         IfTestCode::IfInt | IfTestCode::IfDim => {
+            // Test relation between integers or dimensions
             let n = if this_if == IfTestCode::IfInt {
                 scan_int(input)
             } else {
@@ -8858,15 +8861,15 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             };
 
             match r {
-                60 => {
+                b'<' => {
                     /*"<"*/
                     b = n < val
                 }
-                61 => {
+                b'=' => {
                     /*"="*/
                     b = n == val
                 }
-                62 => {
+                b'>' => {
                     /*">"*/
                     b = n > val
                 }
@@ -15609,18 +15612,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                 fix_language();
             }
         }
-        lig_stack = avail;
-        let ls = if let Some(ls) = lig_stack {
-            avail = llist_link(ls);
-            *LLIST_link(ls) = None.tex_int();
-            ls
-        } else {
-            get_avail()
-        };
-        lig_stack = Some(ls);
-        MEM[ls].b16.s1 = main_f as u16;
+        let mut ls = Char(fast_get_avail());
+        lig_stack = Some(ls.ptr());
+        ls.set_font(main_f as u16);
         cur_l = cur_chr;
-        MEM[ls].b16.s0 = cur_l as u16;
+        ls.set_character(cur_l as u16);
         cur_q = cur_list.tail as i32;
 
         let mut current_block: u64;
@@ -15969,18 +15965,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 }
                                 prev_class = space_class
                             }
-                            lig_stack = avail;
-                            let ls = if let Some(ls) = lig_stack {
-                                avail = llist_link(ls);
-                                *LLIST_link(ls) = None.tex_int();
-                                ls
-                            } else {
-                                get_avail()
-                            };
-                            lig_stack = Some(ls);
-                            MEM[ls].b16.s1 = main_f as u16;
+                            let mut ls = Char(fast_get_avail());
+                            lig_stack = Some(ls.ptr());
+                            ls.set_font(main_f as u16);
                             cur_r = cur_chr;
-                            MEM[ls].b16.s0 = cur_r as u16;
+                            ls.set_character(cur_r as u16);
                             if cur_r == false_bchar {
                                 cur_r = TOO_BIG_CHAR;
                             }
@@ -16389,6 +16378,9 @@ pub(crate) unsafe fn do_assignments(input: &mut input_state_t) -> (i32, Cmd, i32
     }
 }
 
+/// saves the procedure-call
+/// overhead at the expense of extra programming. This routine is used in
+/// the places that would otherwise account for the most calls of `get_avail`
 unsafe fn fast_get_avail() -> usize {
     // avoid `get_avail` if possible, to save time
     if let Some(a) = avail {
