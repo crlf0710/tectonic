@@ -208,8 +208,6 @@ static mut last: buf_pointer = 0;
 static mut sv_buffer: buf_type = ptr::null_mut();
 static mut sv_ptr1: buf_pointer = 0;
 static mut sv_ptr2: buf_pointer = 0;
-static mut tmp_ptr: i32 = 0;
-static mut tmp_end_ptr: i32 = 0;
 static mut str_pool: *mut u8 = ptr::null_mut();
 static mut str_start: *mut pool_pointer = ptr::null_mut();
 static mut pool_ptr: pool_pointer = 0;
@@ -1287,8 +1285,8 @@ unsafe fn add_database_cite(mut new_cite: *mut cite_number) {
 }
 unsafe fn find_cite_locs_for_this_cite_key(mut cite_str: str_number) -> bool {
     ex_buf_ptr = 0i32;
-    tmp_ptr = *str_start.offset(cite_str as isize);
-    tmp_end_ptr = *str_start.offset((cite_str + 1i32) as isize);
+    let mut tmp_ptr = *str_start.offset(cite_str as isize);
+    let mut tmp_end_ptr = *str_start.offset((cite_str + 1i32) as isize);
     while tmp_ptr < tmp_end_ptr {
         *ex_buf.offset(ex_buf_ptr as isize) = *str_pool.offset(tmp_ptr as isize);
         ex_buf_ptr = ex_buf_ptr + 1i32;
@@ -2515,7 +2513,7 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                 panic!();
             }
             if store_field {
-                tmp_ptr = buf_ptr1;
+                let mut tmp_ptr = buf_ptr1;
                 while tmp_ptr < buf_ptr2 {
                     if ex_buf_ptr == buf_size {
                         bib_field_too_long_print();
@@ -2566,7 +2564,8 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                 }
                 if store_token {
                     /*261: */
-                    tmp_ptr = *str_start.offset(*ilk_info.offset(macro_name_loc as isize) as isize); /*space */
+                    let mut tmp_ptr =
+                        *str_start.offset(*ilk_info.offset(macro_name_loc as isize) as isize); /*space */
                     tmp_end_ptr = *str_start
                         .offset((*ilk_info.offset(macro_name_loc as isize) + 1i32) as isize);
                     if ex_buf_ptr == 0i32 {
@@ -2694,7 +2693,7 @@ unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
                 *field_info.offset(field_ptr as isize) = *hash_text.offset(field_val_loc as isize);
                 if *ilk_info.offset(field_name_loc as isize) == crossref_num && !all_entries {
                     /*265: */
-                    tmp_ptr = ex_buf_xptr;
+                    let mut tmp_ptr = ex_buf_xptr;
                     while tmp_ptr < ex_buf_ptr {
                         *out_buf.offset(tmp_ptr as isize) = *ex_buf.offset(tmp_ptr as isize);
                         tmp_ptr = tmp_ptr + 1i32
@@ -3458,7 +3457,7 @@ unsafe fn add_out_pool(mut p_str: str_number) {
             *out_buf.offset(0) = 32i32 as u8;
             *out_buf.offset(1) = 32i32 as u8;
             out_buf_ptr = 2i32;
-            tmp_ptr = break_ptr;
+            let mut tmp_ptr = break_ptr;
             while tmp_ptr < end_ptr {
                 *out_buf.offset(out_buf_ptr as isize) = *out_buf.offset(tmp_ptr as isize);
                 out_buf_ptr = out_buf_ptr + 1i32;
@@ -3966,7 +3965,7 @@ unsafe fn x_change_case() {
                                                             {
                                                                 ex_buf_ptr = ex_buf_ptr + 1i32
                                                             }
-                                                            tmp_ptr = ex_buf_ptr;
+                                                            let mut tmp_ptr = ex_buf_ptr;
                                                             while tmp_ptr < ex_buf_length {
                                                                 *ex_buf.offset(
                                                                     (tmp_ptr
@@ -5300,7 +5299,7 @@ unsafe fn aux_citation_command() {
                 continue 'lab23;
             }
         }
-        tmp_ptr = buf_ptr1;
+        let mut tmp_ptr = buf_ptr1;
         while tmp_ptr < buf_ptr2 {
             *ex_buf.offset(tmp_ptr as isize) = *buffer.offset(tmp_ptr as isize);
             tmp_ptr = tmp_ptr + 1i32
@@ -6256,7 +6255,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
     } else {
         scan2_white(44i32 as u8, 125i32 as u8);
     }
-    tmp_ptr = buf_ptr1;
+    let mut tmp_ptr = buf_ptr1;
     while tmp_ptr < buf_ptr2 {
         *ex_buf.offset(tmp_ptr as isize) = *buffer.offset(tmp_ptr as isize);
         tmp_ptr = tmp_ptr + 1i32
@@ -6301,7 +6300,8 @@ unsafe fn get_bib_command_or_entry_and_process() {
             }
         } else if !*entry_exists.offset(entry_cite_ptr as isize) {
             ex_buf_ptr = 0i32;
-            tmp_ptr = *str_start.offset(*cite_info.offset(entry_cite_ptr as isize) as isize);
+            let mut tmp_ptr =
+                *str_start.offset(*cite_info.offset(entry_cite_ptr as isize) as isize);
             tmp_end_ptr =
                 *str_start.offset((*cite_info.offset(entry_cite_ptr as isize) + 1i32) as isize);
             while tmp_ptr < tmp_end_ptr {
@@ -6468,7 +6468,7 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
     }
     sv_ptr1 = buf_ptr2;
     sv_ptr2 = last;
-    tmp_ptr = sv_ptr1;
+    let mut tmp_ptr = sv_ptr1;
     while tmp_ptr < sv_ptr2 {
         *sv_buffer.offset(tmp_ptr as isize) = *buffer.offset(tmp_ptr as isize);
         tmp_ptr = tmp_ptr + 1i32
@@ -6631,7 +6631,7 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
                 *ilk_info.offset(cite_loc as isize) = cite_xptr;
                 field_ptr = cite_xptr * num_fields;
                 field_end_ptr = field_ptr + num_fields;
-                tmp_ptr = cite_ptr * num_fields;
+                let mut tmp_ptr = cite_ptr * num_fields;
                 while field_ptr < field_end_ptr {
                     *field_info.offset(field_ptr as isize) = *field_info.offset(tmp_ptr as isize);
                     field_ptr = field_ptr + 1i32;
@@ -6679,7 +6679,7 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
     read_completed = true;
     buf_ptr2 = sv_ptr1;
     last = sv_ptr2;
-    tmp_ptr = buf_ptr2;
+    let mut tmp_ptr = buf_ptr2;
     while tmp_ptr < last {
         *buffer.offset(tmp_ptr as isize) = *sv_buffer.offset(tmp_ptr as isize);
         tmp_ptr = tmp_ptr + 1i32
