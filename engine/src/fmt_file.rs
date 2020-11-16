@@ -339,10 +339,6 @@ pub(crate) unsafe fn store_fmt_file() {
         fmt_out.dump_one(prim[p]);
     }
 
-    for p in 0..=PRIM_SIZE {
-        fmt_out.dump_one(prim_eqtb[p]);
-    }
-
     /* control sequences */
     fmt_out.dump_one(hash_used as i32);
     cs_count = (FROZEN_CONTROL_SEQUENCE as i32 - 1) - hash_used + hash_high;
@@ -797,15 +793,9 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
      * output in a block."
      */
 
-    p = 0i32;
-    while p <= 500i32 {
+    p = 0;
+    while p <= PRIM_SIZE as i32 {
         fmt_in.undump_one(&mut prim[p as usize]);
-        p += 1
-    }
-
-    p = 0i32;
-    while p <= 500i32 {
-        fmt_in.undump_one(&mut prim_eqtb[p as usize]);
         p += 1
     }
 
