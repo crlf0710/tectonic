@@ -180,28 +180,29 @@ pub(crate) unsafe fn store_fmt_file() {
 
     /* Header */
     /* TODO: can we move this farther up in this function? */
-    fmt_out.dump_one(FORMAT_HEADER_MAGIC);
-    fmt_out.dump_one(FORMAT_SERIAL);
-    fmt_out.dump_one(hash_high);
+    fmt_out.dump(FORMAT_HEADER_MAGIC);
+    fmt_out.dump(FORMAT_SERIAL);
+    fmt_out.dump(hash_high);
 
     while pseudo_files.opt().is_some() {
         pseudo_close();
     }
 
-    fmt_out.dump_one(MEM_TOP as i32);
-    fmt_out.dump_one(EQTB_SIZE as i32);
-    fmt_out.dump_one(HASH_PRIME as i32);
-    fmt_out.dump_one(HYPH_PRIME);
+    fmt_out.dump(MEM_TOP as i32);
+    fmt_out.dump(EQTB_SIZE as i32);
+    fmt_out.dump(HASH_PRIME as i32);
+    fmt_out.dump(HYPH_PRIME);
 
     /* string pool */
 
-    fmt_out.dump_one(pool_ptr as i32);
-    fmt_out.dump_one(str_ptr);
+    fmt_out.dump(pool_ptr as i32);
+    fmt_out.dump(str_ptr);
     fmt_out.dump(
-        &str_start[..(str_ptr - TOO_BIG_CHAR + 1) as usize]
+        str_start[..(str_ptr - TOO_BIG_CHAR + 1) as usize]
             .iter()
             .map(|p| *p as i32)
-            .collect::<Vec<_>>(),
+            .collect::<Vec<_>>()
+            .as_slice(),
     );
     fmt_out.dump(&str_pool[..pool_ptr]);
 
@@ -214,11 +215,11 @@ pub(crate) unsafe fn store_fmt_file() {
 
     sort_avail();
     var_used = 0;
-    fmt_out.dump_one(lo_mem_max);
-    fmt_out.dump_one(rover);
+    fmt_out.dump(lo_mem_max);
+    fmt_out.dump(rover);
 
     for k in (ValLevel::Int as usize)..=(ValLevel::InterChar as usize) {
-        fmt_out.dump_one(sa_root[k].tex_int());
+        fmt_out.dump(sa_root[k].tex_int());
     }
 
     let mut p = 0;
@@ -240,8 +241,8 @@ pub(crate) unsafe fn store_fmt_file() {
     fmt_out.dump(&MEM[p as usize..(lo_mem_max + 1) as usize]);
 
     x = x + lo_mem_max + 1 - p;
-    fmt_out.dump_one(hi_mem_min as i32);
-    fmt_out.dump_one(avail.tex_int());
+    fmt_out.dump(hi_mem_min as i32);
+    fmt_out.dump(avail.tex_int());
     fmt_out.dump(&MEM[hi_mem_min as usize..(mem_end + 1) as usize]);
 
     x = x + mem_end + 1 - hi_mem_min;
@@ -251,8 +252,8 @@ pub(crate) unsafe fn store_fmt_file() {
         popt = llist_link(p)
     }
 
-    fmt_out.dump_one(var_used as i32);
-    fmt_out.dump_one(dyn_used as i32);
+    fmt_out.dump(var_used as i32);
+    fmt_out.dump(dyn_used as i32);
 
     print_ln();
     print_int(x);
@@ -286,10 +287,10 @@ pub(crate) unsafe fn store_fmt_file() {
             }
             j += 1;
         }
-        fmt_out.dump_one((l as i32) - (k as i32));
+        fmt_out.dump((l as i32) - (k as i32));
         fmt_out.dump(&EQTB[k..l]);
         k = j + 1;
-        fmt_out.dump_one((k as i32) - (l as i32));
+        fmt_out.dump((k as i32) - (l as i32));
         if k == INT_BASE {
             break;
         }
@@ -319,10 +320,10 @@ pub(crate) unsafe fn store_fmt_file() {
         }
 
         // done2:
-        fmt_out.dump_one((l as i32) - (k as i32));
+        fmt_out.dump((l as i32) - (k as i32));
         fmt_out.dump(&EQTB[k..l]);
         k = j + 1;
-        fmt_out.dump_one((k as i32) - (l as i32));
+        fmt_out.dump((k as i32) - (l as i32));
         if !(k <= EQTB_SIZE) {
             break;
         }
@@ -332,25 +333,25 @@ pub(crate) unsafe fn store_fmt_file() {
         fmt_out.dump(&EQTB[EQTB_SIZE + 1..EQTB_SIZE + 1 + hash_high as usize]);
     }
 
-    fmt_out.dump_one(par_loc as i32);
-    fmt_out.dump_one(write_loc as i32);
+    fmt_out.dump(par_loc as i32);
+    fmt_out.dump(write_loc as i32);
 
     for p in 0..=PRIM_SIZE {
-        fmt_out.dump_one(prim[p]);
+        fmt_out.dump(prim[p]);
     }
 
     for p in 0..=PRIM_SIZE {
-        fmt_out.dump_one(prim_eqtb[p]);
+        fmt_out.dump(prim_eqtb[p]);
     }
 
     /* control sequences */
-    fmt_out.dump_one(hash_used as i32);
+    fmt_out.dump(hash_used as i32);
     cs_count = (FROZEN_CONTROL_SEQUENCE as i32 - 1) - hash_used + hash_high;
 
     for p in (HASH_BASE as i32)..=hash_used {
         if (*hash.offset(p as isize)).s1 != 0 {
-            fmt_out.dump_one(p as i32);
-            fmt_out.dump_one(*hash.offset(p as isize));
+            fmt_out.dump(p as i32);
+            fmt_out.dump(*hash.offset(p as isize));
             cs_count += 1;
         }
     }
@@ -367,7 +368,7 @@ pub(crate) unsafe fn store_fmt_file() {
         fmt_out.dump(dump_slice);
     }
 
-    fmt_out.dump_one(cs_count);
+    fmt_out.dump(cs_count);
 
     print_ln();
     print_int(cs_count);
@@ -375,9 +376,9 @@ pub(crate) unsafe fn store_fmt_file() {
 
     /* fonts */
 
-    fmt_out.dump_one(fmem_ptr as i32);
+    fmt_out.dump(fmem_ptr as i32);
     fmt_out.dump(&FONT_INFO[..fmem_ptr as usize]);
-    fmt_out.dump_one(FONT_PTR as i32);
+    fmt_out.dump(FONT_PTR as i32);
     fmt_out.dump(&FONT_CHECK[..FONT_PTR + 1]);
     fmt_out.dump(&FONT_SIZE[..FONT_PTR + 1]);
     fmt_out.dump(&FONT_DSIZE[..FONT_PTR + 1]);
@@ -448,17 +449,17 @@ pub(crate) unsafe fn store_fmt_file() {
 
     /* hyphenation info */
 
-    fmt_out.dump_one(HYPH_COUNT as i32);
+    fmt_out.dump(HYPH_COUNT as i32);
     if HYPH_NEXT <= HYPH_PRIME as usize {
         HYPH_NEXT = HYPH_SIZE
     }
-    fmt_out.dump_one(HYPH_NEXT as i32);
+    fmt_out.dump(HYPH_NEXT as i32);
 
     for k in 0..=HYPH_SIZE {
         if HYPH_WORD[k] != 0 {
-            fmt_out.dump_one((k as i64 + 65536 * HYPH_LINK[k] as i64) as i32);
-            fmt_out.dump_one(HYPH_WORD[k]);
-            fmt_out.dump_one(HYPH_LIST[k].tex_int());
+            fmt_out.dump((k as i64 + 65536 * HYPH_LINK[k] as i64) as i32);
+            fmt_out.dump(HYPH_WORD[k]);
+            fmt_out.dump(HYPH_LIST[k].tex_int());
         }
     }
 
@@ -473,13 +474,13 @@ pub(crate) unsafe fn store_fmt_file() {
         init_trie();
     }
 
-    fmt_out.dump_one(trie_max);
-    fmt_out.dump_one(hyph_start);
+    fmt_out.dump(trie_max);
+    fmt_out.dump(hyph_start);
     fmt_out.dump(&trie_trl[..(trie_max + 1) as usize]);
     fmt_out.dump(&trie_tro[..(trie_max + 1) as usize]);
     fmt_out.dump(&trie_trc[..(trie_max + 1) as usize]);
-    fmt_out.dump_one(max_hyph_char);
-    fmt_out.dump_one(trie_op_ptr as i32);
+    fmt_out.dump(max_hyph_char);
+    fmt_out.dump(trie_op_ptr as i32);
     fmt_out.dump(&hyf_distance[1..trie_op_ptr as usize + 1]);
     fmt_out.dump(&hyf_num[1..trie_op_ptr as usize + 1]);
     fmt_out.dump(&hyf_next[1..trie_op_ptr as usize + 1]);
@@ -502,14 +503,14 @@ pub(crate) unsafe fn store_fmt_file() {
             print_int(trie_used[k as usize] as i32);
             print_cstr(" for language ");
             print_int(k);
-            fmt_out.dump_one(k as i32);
-            fmt_out.dump_one(trie_used[k as usize] as i32);
+            fmt_out.dump(k as i32);
+            fmt_out.dump(trie_used[k as usize] as i32);
         }
     }
 
     /* footer */
 
-    fmt_out.dump_one(FORMAT_FOOTER_MAGIC);
+    fmt_out.dump(FORMAT_FOOTER_MAGIC);
 
     set_int_par(IntPar::tracing_stats, 0); /*:1361*/
     ttstub_output_close(fmt_out_owner);
@@ -1163,10 +1164,6 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     return true;
 }
 
-trait AsU8Slice {
-    unsafe fn as_u8_slice(&self, num: usize) -> &[u8];
-    unsafe fn as_u8_slice_mut(&mut self, num: usize) -> &mut [u8];
-}
 trait ToU8Slice {
     unsafe fn to_u8_slice(&self) -> &[u8];
     unsafe fn to_u8_slice_mut(&mut self) -> &mut [u8];
@@ -1175,18 +1172,6 @@ trait ToU8Slice {
 macro_rules! slice {
     ( $( $x:ty ),* ) => {
         $(
-            impl AsU8Slice for $x {
-                unsafe fn as_u8_slice(&self, num: usize) -> &[u8] {
-                    let p = self as *const Self as *const u8;
-                    let item_size = std::mem::size_of::<Self>();
-                    std::slice::from_raw_parts(p, item_size * num)
-                }
-                unsafe fn as_u8_slice_mut(&mut self, num: usize) -> &mut [u8] {
-                    let p = self as *mut Self as *mut u8;
-                    let item_size = std::mem::size_of::<Self>();
-                    std::slice::from_raw_parts_mut(p, item_size * num)
-                }
-            }
             impl ToU8Slice for [$x] {
                 unsafe fn to_u8_slice(&self) -> &[u8] {
                     let p = self.as_ptr() as *const u8;
@@ -1222,43 +1207,116 @@ architecture-independent, because it is possible to make a format
 that dumps a glue ratio, i.e., a floating-point number.  Fortunately,
 none of the standard formats do that.  */
 
-// TODO: optimize
-trait Dump {
-    fn dump<T>(&mut self, p: &[T])
-    where
-        [T]: ToU8Slice;
-    fn dump_one<T>(&mut self, p: T)
-    where
-        T: Copy,
-        [T]: ToU8Slice,
-    {
-        let slice = unsafe { std::slice::from_raw_parts(&p, 1) };
-        self.dump(slice);
+trait Dump<T> {
+    fn try_dump(&mut self, v: T) -> Result<usize, std::io::Error>;
+    fn dump(&mut self, v: T) {
+        self.try_dump(v).unwrap_or_else(|_| {
+            let item_size = std::mem::size_of::<T>();
+            panic!(
+                "could not write 1 {}-byte item(s) to {}",
+                item_size,
+                unsafe { &name_of_file },
+            )
+        });
     }
 }
 
-impl<W> Dump for W
+impl<T, W> Dump<&[T]> for W
+where
+    Self: Write + Dump<T>,
+    T: Copy,
+{
+    fn try_dump(&mut self, slice: &[T]) -> Result<usize, std::io::Error> {
+        for &v in slice {
+            self.try_dump(v)?;
+        }
+        Ok(std::mem::size_of::<T>() * slice.len())
+    }
+    fn dump(&mut self, slice: &[T]) {
+        Dump::<&[T]>::try_dump(self, slice).unwrap_or_else(|_| {
+            let nitems = slice.len();
+            let item_size = std::mem::size_of::<T>();
+            panic!(
+                "could not write {} {}-byte item(s) to {}",
+                nitems,
+                item_size,
+                unsafe { &name_of_file },
+            )
+        });
+    }
+}
+
+impl<W> Dump<u16> for W
 where
     Self: Write,
 {
-    fn dump<T>(&mut self, p: &[T])
-    where
-        [T]: ToU8Slice,
-    {
-        let nitems = p.len();
-        let p = unsafe { p.to_u8_slice() };
-        let item_size = std::mem::size_of::<T>();
-        let mut v = Vec::with_capacity(item_size * nitems);
-        for i in p.chunks(item_size) {
-            v.extend(i.iter().rev());
-        }
-
-        self.write(&v).expect(&format!(
-            "could not write {} {}-byte item(s) to {}",
-            nitems,
-            item_size,
-            unsafe { &name_of_file },
-        ));
+    fn try_dump(&mut self, v: u16) -> Result<usize, std::io::Error> {
+        self.write(&v.to_be_bytes())
+    }
+}
+impl<W> Dump<i16> for W
+where
+    Self: Write,
+{
+    fn try_dump(&mut self, v: i16) -> Result<usize, std::io::Error> {
+        self.write(&v.to_be_bytes())
+    }
+}
+impl<W> Dump<i32> for W
+where
+    Self: Write,
+{
+    fn try_dump(&mut self, v: i32) -> Result<usize, std::io::Error> {
+        self.write(&v.to_be_bytes())
+    }
+}
+impl<W> Dump<Scaled> for W
+where
+    Self: Write,
+{
+    fn try_dump(&mut self, v: Scaled) -> Result<usize, std::io::Error> {
+        self.write(&v.0.to_be_bytes())
+    }
+}
+impl<W> Dump<b32x2> for W
+where
+    Self: Write,
+{
+    fn try_dump(&mut self, v: b32x2) -> Result<usize, std::io::Error> {
+        let [b0, b1, b2, b3] = v.s1.to_be_bytes();
+        let [b4, b5, b6, b7] = v.s0.to_be_bytes();
+        self.write(&[b0, b1, b2, b3, b4, b5, b6, b7])
+    }
+}
+impl<W> Dump<b16x4> for W
+where
+    Self: Write,
+{
+    fn try_dump(&mut self, v: b16x4) -> Result<usize, std::io::Error> {
+        let [b0, b1] = v.s3.to_be_bytes();
+        let [b2, b3] = v.s2.to_be_bytes();
+        let [b4, b5] = v.s1.to_be_bytes();
+        let [b6, b7] = v.s0.to_be_bytes();
+        self.write(&[b0, b1, b2, b3, b4, b5, b6, b7])
+    }
+}
+impl<W> Dump<memory_word> for W
+where
+    Self: Write,
+{
+    fn try_dump(&mut self, v: memory_word) -> Result<usize, std::io::Error> {
+        self.write(&unsafe { v.gr }.to_be_bytes())
+    }
+}
+impl<W> Dump<EqtbWord> for W
+where
+    Self: Write,
+{
+    fn try_dump(&mut self, v: EqtbWord) -> Result<usize, std::io::Error> {
+        self.try_dump(v.val)?;
+        self.try_dump(v.cmd)?;
+        self.try_dump(v.lvl)?;
+        Ok(8)
     }
 }
 
