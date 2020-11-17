@@ -1,9 +1,7 @@
 use crate::cmd::{Cmd, InteractionMode};
 use crate::help;
 use crate::xetex_consts::IntPar;
-use crate::xetex_ini::{
-    b16x4, b32x2, memory_word, name_of_file, EqtbWord, Selector, UTF16_code, FONT_PTR,
-};
+use crate::xetex_ini::{b16x4, b32x2, memory_word, name_of_file, EqtbWord, Selector, FONT_PTR};
 use bridge::{ttstub_output_close, ttstub_output_open, InFile, TTHistory, TTInputFormat};
 use std::ffi::CString;
 
@@ -517,8 +515,6 @@ pub(crate) unsafe fn store_fmt_file() {
 }
 
 pub(crate) unsafe fn load_fmt_file() -> bool {
-    let mut x: i32 = 0;
-
     let j = cur_input.loc;
 
     /* This is where a first line starting with "&" used to
@@ -546,12 +542,12 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     /* start reading the header */
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x != FORMAT_HEADER_MAGIC {
         bad_fmt();
     }
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x != FORMAT_SERIAL {
         abort!(
             "format file \"{}\" is of the wrong version: expected {}, found {}",
@@ -563,7 +559,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     /* hash table parameters */
 
-    fmt_in.undump_one(&mut hash_high);
+    hash_high = fmt_in.undump();
     if hash_high < 0 || hash_high > sup_hash_extra {
         bad_fmt();
     }
@@ -600,7 +596,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     /* "memory locations" */
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x != MEM_TOP as i32 {
         bad_fmt();
     }
@@ -612,24 +608,24 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     MEM = Vec::with_capacity(MEM_TOP + 2);
     MEM.set_len(MEM_TOP + 2);
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x != EQTB_SIZE as i32 {
         bad_fmt();
     }
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x != HASH_PRIME as i32 {
         bad_fmt();
     }
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x != HYPH_PRIME {
         bad_fmt();
     }
 
     /* string pool */
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < 0 {
         bad_fmt();
     }
@@ -640,7 +636,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     if pool_size < pool_ptr + pool_free {
         pool_size = pool_ptr + pool_free
     }
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < 0 {
         bad_fmt();
     }
@@ -652,8 +648,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     max_strings = max_strings.max(str_ptr as usize + strings_free);
 
     str_start = vec![0; max_strings + 1];
-    let mut v = vec![0_i32; (str_ptr - TOO_BIG_CHAR + 1) as usize];
-    fmt_in.undump(&mut v);
+    let v: Vec<i32> = fmt_in.undump_many((str_ptr - TOO_BIG_CHAR + 1) as usize);
     for (ind, val) in v.into_iter().enumerate() {
         str_start[ind] = val as usize;
     }
@@ -665,27 +660,27 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             );
         }
     }
-    str_pool = vec![0; pool_size + 1];
-    fmt_in.undump(&mut str_pool[..pool_ptr]);
+    str_pool = fmt_in.undump_many(pool_ptr);
+    str_pool.resize(pool_size + 1, 0);
     init_str_ptr = str_ptr;
     init_pool_ptr = pool_ptr;
     /* "By sorting the list of available spaces in the variable-size portion
      * of |mem|, we are usually able to get by without having to dump very
      * much of the dynamic memory." */
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < 1019 || x > MEM_TOP as i32 - HI_MEM_STAT_USAGE {
         bad_fmt();
     } else {
         lo_mem_max = x;
     }
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < 20 || x > lo_mem_max {
         bad_fmt();
     } else {
         rover = x;
     }
     for k in (ValLevel::Int as usize)..=(ValLevel::InterChar as usize) {
-        fmt_in.undump_one(&mut x);
+        let x: i32 = fmt_in.undump();
         if x < MIN_HALFWORD || x > lo_mem_max {
             bad_fmt();
         } else {
@@ -697,7 +692,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     let mut q = rover;
 
     loop {
-        fmt_in.undump(&mut MEM[p as usize..(q + 2) as usize]);
+        fmt_in.undump_slice(&mut MEM[p as usize..(q + 2) as usize]);
         p = q + MEM[q as usize].b32.s0;
         if p > lo_mem_max
             || q >= MEM[(q + 1) as usize].b32.s1 && MEM[(q + 1) as usize].b32.s1 != rover
@@ -710,16 +705,16 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         }
     }
 
-    fmt_in.undump(&mut MEM[p as usize..(lo_mem_max + 1) as usize]);
+    fmt_in.undump_slice(&mut MEM[p as usize..(lo_mem_max + 1) as usize]);
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < lo_mem_max + 1 || x > PRE_ADJUST_HEAD as i32 {
         bad_fmt();
     } else {
         hi_mem_min = x;
     }
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < MIN_HALFWORD || x > MEM_TOP as i32 {
         bad_fmt();
     } else {
@@ -728,9 +723,9 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     mem_end = MEM_TOP as i32;
 
-    fmt_in.undump(&mut MEM[hi_mem_min as usize..(mem_end + 1) as usize]);
-    fmt_in.undump_one(&mut var_used);
-    fmt_in.undump_one(&mut dyn_used);
+    fmt_in.undump_slice(&mut MEM[hi_mem_min as usize..(mem_end + 1) as usize]);
+    var_used = fmt_in.undump();
+    dyn_used = fmt_in.undump();
 
     /* equivalents table / primitives
      *
@@ -744,15 +739,15 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     let mut k = ACTIVE_BASE as i32;
 
     loop {
-        fmt_in.undump_one(&mut x);
+        let x: i32 = fmt_in.undump();
         if x < 1 || k + x > (EQTB_SIZE as i32) + 1 {
             bad_fmt();
         }
 
-        fmt_in.undump(&mut EQTB[k as usize..(k + x) as usize]);
+        fmt_in.undump_slice(&mut EQTB[k as usize..(k + x) as usize]);
         k = k + x;
 
-        fmt_in.undump_one(&mut x);
+        let x: i32 = fmt_in.undump();
         if x < 0 || k + x > (EQTB_SIZE as i32) + 1 {
             bad_fmt();
         }
@@ -769,11 +764,12 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     }
 
     if hash_high > 0 {
-        fmt_in
-            .undump(&mut EQTB[EQTB_SIZE as usize + 1..EQTB_SIZE as usize + 1 + hash_high as usize]);
+        fmt_in.undump_slice(
+            &mut EQTB[EQTB_SIZE as usize + 1..EQTB_SIZE as usize + 1 + hash_high as usize],
+        );
     }
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < HASH_BASE as i32 || x > hash_top {
         bad_fmt();
     } else {
@@ -782,7 +778,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     par_token = CS_TOKEN_FLAG + par_loc;
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < HASH_BASE as i32 || x > hash_top {
         bad_fmt();
     } else {
@@ -800,17 +796,17 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     p = 0i32;
     while p <= 500i32 {
-        fmt_in.undump_one(&mut prim[p as usize]);
+        prim[p as usize] = fmt_in.undump();
         p += 1
     }
 
     p = 0i32;
     while p <= 500i32 {
-        fmt_in.undump_one(&mut prim_eqtb[p as usize]);
+        prim_eqtb[p as usize] = fmt_in.undump();
         p += 1
     }
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < HASH_BASE as i32 || x > FROZEN_CONTROL_SEQUENCE as i32 {
         bad_fmt();
     } else {
@@ -820,34 +816,34 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     p = HASH_BASE as i32 - 1;
 
     loop {
-        fmt_in.undump_one(&mut x);
+        let x: i32 = fmt_in.undump();
         if x < p + 1 || x > hash_used {
             bad_fmt();
         } else {
             p = x;
         }
-        fmt_in.undump_one(&mut *hash.offset(p as isize));
+        *hash.offset(p as isize) = fmt_in.undump();
         if !(p != hash_used) {
             break;
         }
     }
-    let undump_slice = std::slice::from_raw_parts_mut(
+    let slice = std::slice::from_raw_parts_mut(
         hash.offset((hash_used + 1) as isize),
         (UNDEFINED_CONTROL_SEQUENCE - 1) - (hash_used as usize),
     );
 
-    fmt_in.undump(undump_slice);
+    fmt_in.undump_slice(slice);
     if hash_high > 0 {
-        let undump_slice =
+        let slice =
             std::slice::from_raw_parts_mut(hash.offset(EQTB_SIZE as isize + 1), hash_high as usize);
-        fmt_in.undump(undump_slice);
+        fmt_in.undump_slice(slice);
     }
 
-    fmt_in.undump_one(&mut cs_count);
+    cs_count = fmt_in.undump();
 
     /* font info */
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < 7 {
         bad_fmt();
     }
@@ -859,9 +855,9 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     if fmem_ptr > FONT_MEM_SIZE as i32 {
         FONT_MEM_SIZE = fmem_ptr as usize
     }
-    FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
-    fmt_in.undump(&mut FONT_INFO[..fmem_ptr as usize]);
-    fmt_in.undump_one(&mut x);
+    FONT_INFO = fmt_in.undump_many(fmem_ptr as usize);
+    FONT_INFO.resize_with(FONT_MEM_SIZE + 1, Default::default);
+    let x: i32 = fmt_in.undump();
     if x < FONT_BASE as i32 {
         bad_fmt();
     }
@@ -877,53 +873,37 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     }
     FONT_FLAGS = vec![0; FONT_MAX + 1];
     FONT_LETTER_SPACE = vec![Scaled::ZERO; FONT_MAX + 1];
-    FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
-    FONT_SIZE = vec![Scaled::ZERO; FONT_MAX + 1];
-    FONT_DSIZE = vec![Scaled::ZERO; FONT_MAX + 1];
-    FONT_PARAMS = vec![0; FONT_MAX + 1];
-    FONT_NAME = vec![0; FONT_MAX + 1];
-    FONT_AREA = vec![0; FONT_MAX + 1];
-    FONT_BC = vec![0; FONT_MAX + 1];
-    FONT_EC = vec![0; FONT_MAX + 1];
-    FONT_GLUE = vec![0; FONT_MAX + 1];
-    HYPHEN_CHAR = vec![0; FONT_MAX + 1];
-    SKEW_CHAR = vec![0; FONT_MAX + 1];
-    BCHAR_LABEL = vec![0; FONT_MAX + 1];
-    FONT_BCHAR = vec![0; FONT_MAX + 1];
-    FONT_FALSE_BCHAR = vec![0; FONT_MAX + 1];
-    CHAR_BASE = vec![0; FONT_MAX + 1];
-    WIDTH_BASE = vec![0; FONT_MAX + 1];
-    HEIGHT_BASE = vec![0; FONT_MAX + 1];
-    DEPTH_BASE = vec![0; FONT_MAX + 1];
-    ITALIC_BASE = vec![0; FONT_MAX + 1];
-    LIG_KERN_BASE = vec![0; FONT_MAX + 1];
-    KERN_BASE = vec![0; FONT_MAX + 1];
-    EXTEN_BASE = vec![0; FONT_MAX + 1];
-    PARAM_BASE = vec![0; FONT_MAX + 1];
 
     for k in 0..=FONT_PTR {
         FONT_MAPPING[k as usize] = 0 as *mut libc::c_void;
     }
 
-    fmt_in.undump(&mut FONT_CHECK[..FONT_PTR + 1]);
-    fmt_in.undump(&mut FONT_SIZE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut FONT_DSIZE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut FONT_PARAMS[..FONT_PTR + 1]);
+    FONT_CHECK = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_CHECK.resize_with(FONT_MAX + 1, Default::default);
+    FONT_SIZE = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_SIZE.resize(FONT_MAX + 1, Scaled::ZERO);
+    FONT_DSIZE = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_DSIZE.resize(FONT_MAX + 1, Scaled::ZERO);
+    FONT_PARAMS = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_PARAMS.resize(FONT_MAX + 1, 0);
     for i_0 in 0..FONT_PTR + 1 {
-        if FONT_PARAMS[i_0] < MIN_HALFWORD || FONT_PARAMS[i_0] > 0x3fffffff {
+        if FONT_PARAMS[i_0] < MIN_HALFWORD || FONT_PARAMS[i_0] > MAX_HALFWORD {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i_0,
                 FONT_PARAMS[i_0],
                 FONT_PARAMS.as_ptr() as u64,
                 MIN_HALFWORD,
-                0x3fffffff
+                MAX_HALFWORD
             );
         }
     }
-    fmt_in.undump(&mut HYPHEN_CHAR[..FONT_PTR + 1]);
-    fmt_in.undump(&mut SKEW_CHAR[..FONT_PTR + 1]);
-    fmt_in.undump(&mut FONT_NAME[..FONT_PTR + 1]);
+    HYPHEN_CHAR = fmt_in.undump_many(FONT_PTR + 1);
+    HYPHEN_CHAR.resize(FONT_MAX + 1, 0);
+    SKEW_CHAR = fmt_in.undump_many(FONT_PTR + 1);
+    SKEW_CHAR.resize(FONT_MAX + 1, 0);
+    FONT_NAME = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_NAME.resize(FONT_MAX + 1, 0);
     for i_1 in 0..FONT_PTR + 1 {
         if FONT_NAME[i_1] > str_ptr {
             panic!(
@@ -935,7 +915,8 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             );
         }
     }
-    fmt_in.undump(&mut FONT_AREA[..FONT_PTR + 1]);
+    FONT_AREA = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_AREA.resize(FONT_MAX + 1, 0);
     for i_2 in 0..FONT_PTR + 1 {
         if FONT_AREA[i_2] > str_ptr {
             panic!(
@@ -947,18 +928,30 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             );
         }
     }
-    fmt_in.undump(&mut FONT_BC[..FONT_PTR + 1]);
-    fmt_in.undump(&mut FONT_EC[..FONT_PTR + 1]);
-    fmt_in.undump(&mut CHAR_BASE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut WIDTH_BASE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut HEIGHT_BASE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut DEPTH_BASE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut ITALIC_BASE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut LIG_KERN_BASE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut KERN_BASE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut EXTEN_BASE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut PARAM_BASE[..FONT_PTR + 1]);
-    fmt_in.undump(&mut FONT_GLUE[..FONT_PTR + 1]);
+    FONT_BC = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_BC.resize(FONT_MAX + 1, 0);
+    FONT_EC = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_EC.resize(FONT_MAX + 1, 0);
+    CHAR_BASE = fmt_in.undump_many(FONT_PTR + 1);
+    CHAR_BASE.resize(FONT_MAX + 1, 0);
+    WIDTH_BASE = fmt_in.undump_many(FONT_PTR + 1);
+    WIDTH_BASE.resize(FONT_MAX + 1, 0);
+    HEIGHT_BASE = fmt_in.undump_many(FONT_PTR + 1);
+    HEIGHT_BASE.resize(FONT_MAX + 1, 0);
+    DEPTH_BASE = fmt_in.undump_many(FONT_PTR + 1);
+    DEPTH_BASE.resize(FONT_MAX + 1, 0);
+    ITALIC_BASE = fmt_in.undump_many(FONT_PTR + 1);
+    ITALIC_BASE.resize(FONT_MAX + 1, 0);
+    LIG_KERN_BASE = fmt_in.undump_many(FONT_PTR + 1);
+    LIG_KERN_BASE.resize(FONT_MAX + 1, 0);
+    KERN_BASE = fmt_in.undump_many(FONT_PTR + 1);
+    KERN_BASE.resize(FONT_MAX + 1, 0);
+    EXTEN_BASE = fmt_in.undump_many(FONT_PTR + 1);
+    EXTEN_BASE.resize(FONT_MAX + 1, 0);
+    PARAM_BASE = fmt_in.undump_many(FONT_PTR + 1);
+    PARAM_BASE.resize(FONT_MAX + 1, 0);
+    FONT_GLUE = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_GLUE.resize(FONT_MAX + 1, 0);
     for i_3 in 0..FONT_PTR + 1 {
         if FONT_GLUE[i_3] < MIN_HALFWORD || FONT_GLUE[i_3] > lo_mem_max {
             panic!(
@@ -971,7 +964,8 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             );
         }
     }
-    fmt_in.undump(&mut BCHAR_LABEL[..FONT_PTR + 1]);
+    BCHAR_LABEL = fmt_in.undump_many(FONT_PTR + 1);
+    BCHAR_LABEL.resize(FONT_MAX + 1, 0);
     for i_4 in 0..FONT_PTR + 1 {
         if BCHAR_LABEL[i_4] < 0 || BCHAR_LABEL[i_4] > fmem_ptr - 1 {
             panic!(
@@ -984,7 +978,8 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             );
         }
     }
-    fmt_in.undump(&mut FONT_BCHAR[..FONT_PTR + 1]);
+    FONT_BCHAR = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_BCHAR.resize(FONT_MAX + 1, 0);
     for i_5 in 0..FONT_PTR + 1 {
         if FONT_BCHAR[i_5] < 0 || FONT_BCHAR[i_5] > 65536 {
             panic!(
@@ -997,7 +992,8 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             );
         }
     }
-    fmt_in.undump(&mut FONT_FALSE_BCHAR[..FONT_PTR + 1]);
+    FONT_FALSE_BCHAR = fmt_in.undump_many(FONT_PTR + 1);
+    FONT_FALSE_BCHAR.resize(FONT_MAX + 1, 0);
     for i_6 in 0..FONT_PTR + 1 {
         if FONT_FALSE_BCHAR[i_6] < 0 || FONT_FALSE_BCHAR[i_6] > 65536 {
             panic!(
@@ -1013,7 +1009,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     /* hyphenations */
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < 0 {
         bad_fmt();
     }
@@ -1023,7 +1019,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     }
     HYPH_COUNT = x as usize;
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < HYPH_PRIME {
         bad_fmt();
     }
@@ -1035,7 +1031,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     let mut j = 0;
 
     for _k in 1..=HYPH_COUNT {
-        fmt_in.undump_one(&mut j);
+        let mut j: i32 = fmt_in.undump();
         if j < 0i32 {
             bad_fmt();
         }
@@ -1049,13 +1045,13 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             bad_fmt();
         }
         HYPH_LINK[j as usize] = HYPH_NEXT as hyph_pointer;
-        fmt_in.undump_one(&mut x);
+        let x: i32 = fmt_in.undump();
         if x < 0 || x > str_ptr {
             bad_fmt();
         } else {
             HYPH_WORD[j as usize] = x;
         }
-        fmt_in.undump_one(&mut x);
+        let x: i32 = fmt_in.undump();
         if x < MIN_HALFWORD || x > MAX_HALFWORD {
             bad_fmt();
         } else {
@@ -1073,7 +1069,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     } else if HYPH_NEXT >= HYPH_PRIME as usize {
         HYPH_NEXT += 1
     }
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < 0 {
         bad_fmt();
     }
@@ -1084,7 +1080,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     let j = x;
     trie_max = j;
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x < 0 || x > j {
         bad_fmt();
     } else {
@@ -1094,17 +1090,17 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     if trie_trl.is_empty() {
         trie_trl = vec![0; j as usize + 2];
     }
-    fmt_in.undump(&mut trie_trl[..(j + 1) as usize]);
+    fmt_in.undump_slice(&mut trie_trl[..(j + 1) as usize]);
     if trie_tro.is_empty() {
         trie_tro = vec![0; j as usize + 2];
     }
-    fmt_in.undump(&mut trie_tro[..(j + 1) as usize]);
+    fmt_in.undump_slice(&mut trie_tro[..(j + 1) as usize]);
     if trie_trc.is_empty() {
         trie_trc = vec![0; j as usize + 2];
     }
-    fmt_in.undump(&mut trie_trc[..(j + 1) as usize]);
-    fmt_in.undump_one(&mut max_hyph_char);
-    fmt_in.undump_one(&mut x);
+    fmt_in.undump_slice(&mut trie_trc[..(j + 1) as usize]);
+    max_hyph_char = fmt_in.undump();
+    let x: i32 = fmt_in.undump();
     if x < 0 {
         bad_fmt();
     }
@@ -1115,9 +1111,9 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     let mut j = x;
     trie_op_ptr = j;
 
-    fmt_in.undump(&mut hyf_distance[1..(j + 1) as usize]);
-    fmt_in.undump(&mut hyf_num[1..(j + 1) as usize]);
-    fmt_in.undump(&mut hyf_next[1..(j + 1) as usize]);
+    fmt_in.undump_slice(&mut hyf_distance[1..(j + 1) as usize]);
+    fmt_in.undump_slice(&mut hyf_num[1..(j + 1) as usize]);
+    fmt_in.undump_slice(&mut hyf_next[1..(j + 1) as usize]);
     let mut i_7 = 0;
     while i_7 < j as usize {
         if hyf_next[1 + i_7] as i64 > 65535 {
@@ -1139,13 +1135,13 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         if !(j > 0) {
             break;
         }
-        fmt_in.undump_one(&mut x);
+        let x: i32 = fmt_in.undump();
         if x < 0i32 || x > k - 1i32 {
             bad_fmt();
         } else {
             k = x;
         }
-        fmt_in.undump_one(&mut x);
+        let x: i32 = fmt_in.undump();
         if x < 1 || x > j {
             bad_fmt();
         }
@@ -1157,47 +1153,12 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     /* trailer */
 
-    fmt_in.undump_one(&mut x);
+    let x: i32 = fmt_in.undump();
     if x != FORMAT_FOOTER_MAGIC {
         bad_fmt();
     }
     return true;
 }
-
-trait ToU8Slice {
-    unsafe fn to_u8_slice(&self) -> &[u8];
-    unsafe fn to_u8_slice_mut(&mut self) -> &mut [u8];
-}
-
-macro_rules! slice {
-    ( $( $x:ty ),* ) => {
-        $(
-            impl ToU8Slice for [$x] {
-                unsafe fn to_u8_slice(&self) -> &[u8] {
-                    let p = self.as_ptr() as *const u8;
-                    let item_size = std::mem::size_of::<$x>();
-                    std::slice::from_raw_parts(p, item_size * self.len())
-                }
-                unsafe fn to_u8_slice_mut(&mut self) -> &mut [u8] {
-                    let p = self.as_mut_ptr() as *mut u8;
-                    let item_size = std::mem::size_of::<$x>();
-                    std::slice::from_raw_parts_mut(p, item_size * self.len())
-                }
-            }
-        )*
-    };
-}
-
-slice!(
-    i32,
-    memory_word,
-    b32x2,
-    b16x4,
-    UTF16_code,
-    i16,
-    EqtbWord,
-    Scaled
-);
 
 /* Read and write dump files.  As distributed, these files are
 architecture dependent; specifically, BigEndian and LittleEndian
@@ -1207,12 +1168,12 @@ architecture-independent, because it is possible to make a format
 that dumps a glue ratio, i.e., a floating-point number.  Fortunately,
 none of the standard formats do that.  */
 
-trait Dump<T> {
+trait Dump<T>: Write {
     fn try_dump(&mut self, v: T) -> Result<usize, std::io::Error>;
     fn dump(&mut self, v: T) {
         self.try_dump(v).unwrap_or_else(|_| {
             let item_size = std::mem::size_of::<T>();
-            panic!(
+            abort!(
                 "could not write 1 {}-byte item(s) to {}",
                 item_size,
                 unsafe { &name_of_file },
@@ -1236,7 +1197,7 @@ where
         Dump::<&[T]>::try_dump(self, slice).unwrap_or_else(|_| {
             let nitems = slice.len();
             let item_size = std::mem::size_of::<T>();
-            panic!(
+            abort!(
                 "could not write {} {}-byte item(s) to {}",
                 nitems,
                 item_size,
@@ -1320,44 +1281,132 @@ where
     }
 }
 
-trait UnDump {
-    fn undump<T>(&mut self, p: &mut [T])
-    where
-        [T]: ToU8Slice;
-    fn undump_one<T>(&mut self, p: &mut T)
-    where
-        [T]: ToU8Slice,
-    {
-        let slice = unsafe { std::slice::from_raw_parts_mut(p, 1) };
-        self.undump(slice);
+trait UnDump<T>: Read
+where
+    T: Copy,
+{
+    fn try_undump(&mut self) -> Result<T, std::io::Error>;
+    fn undump(&mut self) -> T {
+        self.try_undump().unwrap_or_else(|_| {
+            let item_size = std::mem::size_of::<T>();
+            abort!(
+                "could not undump 1 {}-byte item(s) from {}",
+                item_size,
+                unsafe { &name_of_file },
+            );
+        })
+    }
+    fn try_undump_many(&mut self, n: usize) -> Result<Vec<T>, std::io::Error> {
+        let mut v = Vec::with_capacity(n);
+        for _ in 0..n {
+            v.push(self.try_undump()?);
+        }
+        Ok(v)
+    }
+    fn undump_many(&mut self, n: usize) -> Vec<T> {
+        self.try_undump_many(n).unwrap_or_else(|_| {
+            let item_size = std::mem::size_of::<T>();
+            abort!(
+                "could not undump {} {}-byte item(s) from {}",
+                n,
+                item_size,
+                unsafe { &name_of_file },
+            );
+        })
+    }
+    fn undump_slice(&mut self, slice: &mut [T]) {
+        let v = self.undump_many(slice.len());
+        slice.copy_from_slice(&v);
     }
 }
 
-impl<R> UnDump for R
+impl<R> UnDump<u16> for R
 where
     Self: Read,
 {
-    fn undump<T>(&mut self, p: &mut [T])
-    where
-        [T]: ToU8Slice,
-    {
-        let nitems = p.len();
-        let item_size = std::mem::size_of::<T>();
-        let mut v = vec![0; item_size * nitems];
-        if self.read_exact(v.as_mut_slice()).is_err() {
-            unsafe {
-                abort!(
-                    "could not undump {} {}-byte item(s) from {}",
-                    nitems,
-                    item_size,
-                    name_of_file
-                );
-            }
-        }
-        for i in v.chunks_mut(item_size) {
-            i.reverse();
-        }
-        let p = unsafe { p.to_u8_slice_mut() };
-        p.copy_from_slice(v.as_slice());
+    fn try_undump(&mut self) -> Result<u16, std::io::Error> {
+        let mut buf = [0; 2];
+        self.read_exact(&mut buf[..])?;
+        Ok(u16::from_be_bytes(buf))
+    }
+}
+
+impl<R> UnDump<i16> for R
+where
+    Self: Read,
+{
+    fn try_undump(&mut self) -> Result<i16, std::io::Error> {
+        let mut buf = [0; 2];
+        self.read_exact(&mut buf[..])?;
+        Ok(i16::from_be_bytes(buf))
+    }
+}
+
+impl<R> UnDump<i32> for R
+where
+    Self: Read,
+{
+    fn try_undump(&mut self) -> Result<i32, std::io::Error> {
+        let mut buf = [0; 4];
+        self.read_exact(&mut buf[..])?;
+        Ok(i32::from_be_bytes(buf))
+    }
+}
+
+impl<R> UnDump<Scaled> for R
+where
+    Self: Read,
+{
+    fn try_undump(&mut self) -> Result<Scaled, std::io::Error> {
+        <Self as UnDump<i32>>::try_undump(self).map(Scaled)
+    }
+}
+
+impl<R> UnDump<b32x2> for R
+where
+    Self: Read,
+{
+    fn try_undump(&mut self) -> Result<b32x2, std::io::Error> {
+        let s1 = self.try_undump()?;
+        let s0 = self.try_undump()?;
+        Ok(b32x2 { s0, s1 })
+    }
+}
+
+impl<R> UnDump<b16x4> for R
+where
+    Self: Read,
+{
+    fn try_undump(&mut self) -> Result<b16x4, std::io::Error> {
+        let s3 = self.try_undump()?;
+        let s2 = self.try_undump()?;
+        let s1 = self.try_undump()?;
+        let s0 = self.try_undump()?;
+        Ok(b16x4 { s0, s1, s2, s3 })
+    }
+}
+
+impl<R> UnDump<memory_word> for R
+where
+    Self: Read,
+{
+    fn try_undump(&mut self) -> Result<memory_word, std::io::Error> {
+        let mut buf = [0; 8];
+        self.read_exact(&mut buf[..])?;
+        Ok(memory_word {
+            gr: f64::from_be_bytes(buf),
+        })
+    }
+}
+
+impl<R> UnDump<EqtbWord> for R
+where
+    Self: Read,
+{
+    fn try_undump(&mut self) -> Result<EqtbWord, std::io::Error> {
+        let val = self.try_undump()?;
+        let cmd = self.try_undump()?;
+        let lvl = self.try_undump()?;
+        Ok(EqtbWord { lvl, cmd, val })
     }
 }
