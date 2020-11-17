@@ -3764,32 +3764,28 @@ unsafe fn x_gets() {
 }
 unsafe fn x_add_period() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-    if pop_typ1 as i32 != 1i32 {
-        /*stk_str */
+    if pop_typ1 != StkType::Str {
         print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
         push_lit_stk(s_null, StkType::Str);
-    } else if *str_start.offset((pop_lit1 + 1i32) as isize) - *str_start.offset(pop_lit1 as isize)
-        == 0i32
-    {
+    } else if get_string_from_pool(pop_lit1).len() == 0 {
         push_lit_stk(s_null, StkType::Str);
     } else {
         /*362: */
-        sp_ptr = *str_start.offset((pop_lit1 + 1i32) as isize);
+        sp_ptr = *str_start.offset((pop_lit1 + 1) as isize);
         sp_end = *str_start.offset(pop_lit1 as isize);
         while sp_ptr > sp_end {
-            sp_ptr = sp_ptr - 1i32;
-            if *str_pool.offset(sp_ptr as isize) as i32 != 125i32 {
+            sp_ptr -= 1;
+            if *str_pool.offset(sp_ptr as isize) != b'}' {
                 break;
             }
         }
-        /*right_brace */
         match *str_pool.offset(sp_ptr as isize) as i32 {
-            46 | 63 | 33 => {
+            b'.' | b'?' | b'!' => {
                 if *lit_stack.offset(lit_stk_ptr as isize) >= cmd_str_ptr {
-                    str_ptr = str_ptr + 1i32; /*period */
+                    str_ptr += 1;
                     pool_ptr = *str_start.offset(str_ptr as isize)
                 }
-                lit_stk_ptr = lit_stk_ptr + 1i32
+                lit_stk_ptr += 1;
             }
             _ => {
                 if pop_lit1 < cmd_str_ptr {
@@ -3805,8 +3801,8 @@ unsafe fn x_add_period() {
                     sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
                     while sp_ptr < sp_end {
                         *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-                        pool_ptr = pool_ptr + 1i32;
-                        sp_ptr = sp_ptr + 1i32
+                        pool_ptr += 1;
+                        sp_ptr += 1;
                     }
                 } else {
                     pool_ptr = *str_start.offset((pop_lit1 + 1i32) as isize);
@@ -3814,8 +3810,8 @@ unsafe fn x_add_period() {
                         pool_overflow();
                     }
                 }
-                *str_pool.offset(pool_ptr as isize) = 46i32 as u8;
-                pool_ptr = pool_ptr + 1i32;
+                *str_pool.offset(pool_ptr as isize) = b'.';
+                pool_ptr += 1;
                 push_lit_stk(make_string(), StkType::Str);
             }
         }
@@ -3836,17 +3832,15 @@ unsafe fn x_change_case() {
     } else {
         let mut prev_colon = false;
         let mut conversion_type =
-            match *str_pool.offset(*str_start.offset(pop_lit1 as isize) as isize) as i32 {
-                116 | 84 => ConversionType::TitleLowers,
-                108 | 76 => ConversionType::AllLowers,
-                117 | 85 => ConversionType::AllUppers,
+            match *str_pool.offset(*str_start.offset(pop_lit1 as isize) as isize) {
+                b't' | b'T' => ConversionType::TitleLowers,
+                b'l' | b'L' => ConversionType::AllLowers,
+                b'u' | b'U' => ConversionType::AllUppers,
                 _ => ConversionType::BadConversion,
             };
-        if *str_start.offset((pop_lit1 + 1i32) as isize) - *str_start.offset(pop_lit1 as isize)
-            != 1i32
-            || conversion_type == ConversionType::BadConversion
-        {
-            conversion_type = ConversionType::BadConversion; /*bad_conversion */
+        let s = get_string_from_pool(pop_lit1);
+        if s.len() != 1 || conversion_type == ConversionType::BadConversion {
+            conversion_type = ConversionType::BadConversion;
             print_a_pool_str(pop_lit1);
             log!(" is an illegal case-conversion string");
             bst_ex_warn_print();
@@ -3856,12 +3850,12 @@ unsafe fn x_change_case() {
         brace_level = 0i32;
         ex_buf_ptr = 0i32;
         while ex_buf_ptr < ex_buf_length {
-            if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 123i32 {
+            if *ex_buf.offset(ex_buf_ptr as isize) == b'{' {
                 /*left_brace */
                 brace_level = brace_level + 1i32;
                 if !(brace_level != 1i32) {
                     if !(ex_buf_ptr + 4i32 > ex_buf_length) {
-                        if !(*ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 != 92i32) {
+                        if !(*ex_buf.offset((ex_buf_ptr + 1i32) as isize) != b'\\') {
                             if conversion_type == ConversionType::TitleLowers {
                                 if ex_buf_ptr == 0i32 {
                                     current_block = 17089879097653631793;
@@ -4057,17 +4051,14 @@ unsafe fn x_change_case() {
 unsafe fn x_chr_to_int() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 != StkType::Str {
-        /*stk_str */
         print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
-        push_lit_stk(0i32, StkType::Int);
-    } else if *str_start.offset((pop_lit1 + 1i32) as isize) - *str_start.offset(pop_lit1 as isize)
-        != 1i32
-    {
+        push_lit_stk(0, StkType::Int);
+    } else if get_string_from_pool(pop_lit1).len() != 1 {
         putc_log('\"' as i32);
         print_a_pool_str(pop_lit1);
         log!("\" isn\'t a single character");
         bst_ex_warn_print();
-        push_lit_stk(0i32, StkType::Int);
+        push_lit_stk(0, StkType::Int);
     } else {
         push_lit_stk(
             *str_pool.offset(*str_start.offset(pop_lit1 as isize) as isize) as i32,
@@ -4084,32 +4075,28 @@ unsafe fn x_cite() {
 }
 unsafe fn x_duplicate() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-    if pop_typ1 as i32 != 1i32 {
-        /*stk_str */
+    if pop_typ1 != StkType::Str {
         push_lit_stk(pop_lit1, pop_typ1);
         push_lit_stk(pop_lit1, pop_typ1);
     } else {
         if *lit_stack.offset(lit_stk_ptr as isize) >= cmd_str_ptr {
-            str_ptr = str_ptr + 1i32;
+            str_ptr += 1;
             pool_ptr = *str_start.offset(str_ptr as isize)
         }
-        lit_stk_ptr = lit_stk_ptr + 1i32;
+        lit_stk_ptr += 1;
         if pop_lit1 < cmd_str_ptr {
             push_lit_stk(pop_lit1, pop_typ1);
         } else {
-            while pool_ptr
-                + (*str_start.offset((pop_lit1 + 1i32) as isize)
-                    - *str_start.offset(pop_lit1 as isize))
-                > pool_size
-            {
+            let s = get_string_from_pool(pop_lit1);
+            while pool_ptr + s.len() > pool_size {
                 pool_overflow();
             }
             sp_ptr = *str_start.offset(pop_lit1 as isize);
             sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
             while sp_ptr < sp_end {
                 *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-                pool_ptr = pool_ptr + 1i32;
-                sp_ptr = sp_ptr + 1i32
+                pool_ptr = pool_ptr += 1;
+                sp_ptr = sp_ptr += 1;
             }
             push_lit_stk(make_string(), StkType::Str);
         }
