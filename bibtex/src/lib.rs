@@ -73,13 +73,11 @@ pub(crate) type buf_pointer = i32;
 pub(crate) type lex_type = u8;
 pub(crate) type buf_type = *mut u8;
 pub(crate) type hash_loc = i32;
-pub(crate) type fn_class = u8;
 pub(crate) type str_ilk = u8;
 pub(crate) type hash_pointer = i32;
 pub(crate) type id_type = u8;
 pub(crate) type cite_number = i32;
 pub(crate) type str_ent_loc = i32;
-pub(crate) type stk_type = u8;
 pub(crate) type lit_stk_loc = i32;
 pub(crate) type int_ent_loc = i32;
 pub(crate) type field_loc = i32;
@@ -90,6 +88,28 @@ pub(crate) type aux_number = i32;
 pub(crate) type pds_len = u8;
 pub(crate) type pds_type = *const i8;
 pub(crate) type blt_in_range = i32;
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum StkType {
+    Int,
+    Str,
+    Fn,
+    FieldMissing,
+    Empty,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum FnClass {
+    BuiltIn,
+    WizDefined,
+    IntLiteral,
+    StrLiteral,
+    Field,
+    IntEntryVar,
+    StrEntryVar,
+    IntGlobalVar,
+    StrGlobalVar,
+}
 
 const hash_base: i32 = 1;
 const quote_next_fn: i32 = hash_base - 1;
@@ -270,7 +290,7 @@ static mut wiz_loc: hash_loc = 0;
 static mut literal_loc: hash_loc = 0;
 static mut macro_name_loc: hash_loc = 0;
 static mut macro_def_loc: hash_loc = 0;
-static mut fn_type: *mut fn_class = ptr::null_mut();
+static mut fn_type: *mut FnClass = ptr::null_mut();
 static mut wiz_def_ptr: wiz_fn_loc = 0;
 static mut wiz_functions: *mut hash_ptr2 = ptr::null_mut();
 static mut int_ent_ptr: int_ent_loc = 0;
@@ -318,7 +338,7 @@ static mut preamble_ptr: bib_number = 0;
 static mut num_preamble_strings: bib_number = 0;
 static mut bib_brace_level: i32 = 0;
 static mut lit_stack: *mut i32 = ptr::null_mut();
-static mut lit_stk_type: *mut stk_type = ptr::null_mut();
+static mut lit_stk_type: *mut StkType = ptr::null_mut();
 static mut lit_stk_ptr: lit_stk_loc = 0;
 static mut cmd_str_ptr: str_number = 0;
 static mut ent_chr_ptr: i32 = 0;
@@ -377,9 +397,9 @@ static mut s_preamble: *mut str_number = ptr::null_mut();
 static mut pop_lit1: i32 = 0;
 static mut pop_lit2: i32 = 0;
 static mut pop_lit3: i32 = 0;
-static mut pop_typ1: stk_type = 0;
-static mut pop_typ2: stk_type = 0;
-static mut pop_typ3: stk_type = 0;
+static mut pop_typ1: StkType = StkType::Int;
+static mut pop_typ2: StkType = StkType::Int;
+static mut pop_typ3: StkType = StkType::Int;
 static mut sp_ptr: pool_pointer = 0;
 static mut sp_xptr1: pool_pointer = 0;
 static mut sp_xptr2: pool_pointer = 0;
@@ -730,17 +750,17 @@ unsafe fn unknwn_function_class_confusion() {
     panic!();
 }
 unsafe fn print_fn_class(fn_loc_0: hash_loc) {
-    match *fn_type.offset(fn_loc_0 as isize) as i32 {
-        0 => log!("built-in"),
-        1 => log!("wizard-defined"),
-        2 => log!("integer-literal"),
-        3 => log!("string-literal"),
-        4 => log!("field"),
-        5 => log!("integer-entry-variable"),
-        6 => log!("string-entry-variable"),
-        7 => log!("integer-global-variable"),
-        8 => log!("string-global-variable"),
-        _ => unknwn_function_class_confusion(),
+    use FnClass::*;
+    match *fn_type.offset(fn_loc_0 as isize) {
+        BuiltIn => log!("built-in"),
+        WizDefined => log!("wizard-defined"),
+        IntLiteral => log!("integer-literal"),
+        StrLiteral => log!("string-literal"),
+        Field => log!("field"),
+        IntEntryVar => log!("integer-entry-variable"),
+        StrEntryVar => log!("string-entry-variable"),
+        IntGlobalVar => log!("integer-global-variable"),
+        StrGlobalVar => log!("string-global-variable"),
     };
 }
 /*:159*/
@@ -933,7 +953,7 @@ unsafe fn unknwn_literal_confusion() {
     print_confusion();
     panic!();
 }
-unsafe fn print_stk_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
+unsafe fn print_stk_lit(mut stk_lt: i32, mut stk_tp: StkType) {
     match stk_tp as i32 {
         0 => log!("{} is an integer literal", stk_lt),
         1 => {
@@ -955,7 +975,7 @@ unsafe fn print_stk_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
         _ => unknwn_literal_confusion(),
     };
 }
-unsafe fn print_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
+unsafe fn print_lit(mut stk_lt: i32, mut stk_tp: StkType) {
     match stk_tp as i32 {
         0 => log!("{}\n", stk_lt),
         1 => {
@@ -1440,7 +1460,7 @@ unsafe fn build_in(
 ) {
     pre_define(pds, len, 11i32 as str_ilk);
     *fn_hash_loc = pre_def_loc;
-    *fn_type.offset(*fn_hash_loc as isize) = 0i32 as fn_class;
+    *fn_type.offset(*fn_hash_loc as isize) = FnClass::BuiltIn;
     *ilk_info.offset(*fn_hash_loc as isize) = blt_in_num;
 }
 unsafe fn pre_def_certain_strings() {
@@ -1720,14 +1740,14 @@ unsafe fn pre_def_certain_strings() {
         0i32 as str_ilk,
     );
     s_null = *hash_text.offset(pre_def_loc as isize);
-    *fn_type.offset(pre_def_loc as isize) = 3i32 as fn_class;
+    *fn_type.offset(pre_def_loc as isize) = FnClass::StrLiteral;
     pre_define(
         b"default.type\x00" as *const u8 as *const i8,
         12i32 as pds_len,
         0i32 as str_ilk,
     );
     s_default = *hash_text.offset(pre_def_loc as isize);
-    *fn_type.offset(pre_def_loc as isize) = 3i32 as fn_class;
+    *fn_type.offset(pre_def_loc as isize) = FnClass::StrLiteral;
     b_default = b_skip;
     preamble_ptr = 0;
     pre_define(
@@ -1813,7 +1833,7 @@ unsafe fn pre_def_certain_strings() {
         8i32 as pds_len,
         11i32 as str_ilk,
     );
-    *fn_type.offset(pre_def_loc as isize) = 4i32 as fn_class;
+    *fn_type.offset(pre_def_loc as isize) = FnClass::Field;
     *ilk_info.offset(pre_def_loc as isize) = num_fields;
     crossref_num = num_fields;
     num_fields = num_fields + 1i32;
@@ -1823,7 +1843,7 @@ unsafe fn pre_def_certain_strings() {
         9i32 as pds_len,
         11i32 as str_ilk,
     );
-    *fn_type.offset(pre_def_loc as isize) = 6i32 as fn_class;
+    *fn_type.offset(pre_def_loc as isize) = FnClass::StrEntryVar;
     *ilk_info.offset(pre_def_loc as isize) = num_ent_strs;
     sort_key_num = num_ent_strs;
     num_ent_strs = num_ent_strs + 1i32;
@@ -1832,14 +1852,14 @@ unsafe fn pre_def_certain_strings() {
         10i32 as pds_len,
         11i32 as str_ilk,
     );
-    *fn_type.offset(pre_def_loc as isize) = 7i32 as fn_class;
+    *fn_type.offset(pre_def_loc as isize) = FnClass::IntGlobalVar;
     *ilk_info.offset(pre_def_loc as isize) = ent_str_size;
     pre_define(
         b"global.max$ \x00" as *const u8 as *const i8,
         11i32 as pds_len,
         11i32 as str_ilk,
     );
-    *fn_type.offset(pre_def_loc as isize) = 7i32 as fn_class;
+    *fn_type.offset(pre_def_loc as isize) = FnClass::IntGlobalVar;
     *ilk_info.offset(pre_def_loc as isize) = glob_str_size;
 }
 unsafe fn scan1(mut char1: u8) -> bool {
@@ -2035,7 +2055,7 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                 literal_loc =
                     str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 1i32 as str_ilk, true); /*integer_ilk */
                 if !hash_found {
-                    *fn_type.offset(literal_loc as isize) = 2; /*int literal */
+                    *fn_type.offset(literal_loc as isize) = FnClass::IntLiteral;
                     *ilk_info.offset(literal_loc as isize) = token_value
                 }
                 if buf_ptr2 < last
@@ -2071,7 +2091,7 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                 literal_loc =
                     str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 0i32 as str_ilk, true);
 
-                *fn_type.offset(literal_loc as isize) = 3 /*str_literal */;
+                *fn_type.offset(literal_loc as isize) = FnClass::StrLiteral;
                 buf_ptr2 = buf_ptr2 + 1;
                 if buf_ptr2 < last
                     && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1i32
@@ -2149,7 +2169,7 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                     panic!();
                 }
                 impl_fn_num = impl_fn_num + 1;
-                *fn_type.offset(impl_fn_loc as isize) = 1 /*wis_defined */;
+                *fn_type.offset(impl_fn_loc as isize) = FnClass::WizDefined;
                 *singl_function.offset(single_ptr as isize) = quote_next_fn;
                 if single_ptr == single_fn_space {
                     singl_function = xrealloc(
@@ -2631,7 +2651,7 @@ unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
             0i32 as str_ilk,
             true,
         );
-        *fn_type.offset(field_val_loc as isize) = 3i32 as fn_class;
+        *fn_type.offset(field_val_loc as isize) = FnClass::StrLiteral;
         if at_bib_command {
             /*263: */
             match command_num {
@@ -3253,7 +3273,7 @@ unsafe fn figure_out_the_formatted_name() {
     }
     ex_buf_length = ex_buf_ptr;
 }
-unsafe fn push_lit_stk(mut push_lt: i32, mut push_type: stk_type) {
+unsafe fn push_lit_stk(mut push_lt: i32, mut push_type: StkType) {
     *lit_stack.offset(lit_stk_ptr as isize) = push_lt;
     *lit_stk_type.offset(lit_stk_ptr as isize) = push_type;
     if lit_stk_ptr == lit_stk_size {
@@ -3265,17 +3285,17 @@ unsafe fn push_lit_stk(mut push_lt: i32, mut push_type: stk_type) {
         lit_stk_type = xrealloc(
             lit_stk_type as *mut libc::c_void,
             ((lit_stk_size + 100i32 + 1i32) as u64)
-                .wrapping_mul(::std::mem::size_of::<stk_type>() as u64) as _,
-        ) as *mut stk_type;
+                .wrapping_mul(::std::mem::size_of::<StkType>() as u64) as _,
+        ) as *mut StkType;
         lit_stk_size = lit_stk_size + 100i32
     }
     lit_stk_ptr = lit_stk_ptr + 1i32;
 }
-unsafe fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut stk_type) {
+unsafe fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut StkType) {
     if lit_stk_ptr == 0i32 {
         log!("You can\'t pop an empty literal stack");
         bst_ex_warn_print();
-        *pop_type = 4i32 as stk_type
+        *pop_type = StkType::Empty;
     /*stk_empty */
     } else {
         lit_stk_ptr = lit_stk_ptr - 1i32;
@@ -3295,26 +3315,24 @@ unsafe fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut stk_type) {
         }
     };
 }
-unsafe fn print_wrong_stk_lit(mut stk_lt: i32, mut stk_tp1: stk_type, mut stk_tp2: stk_type) {
-    if stk_tp1 as i32 != 4i32 {
+unsafe fn print_wrong_stk_lit(mut stk_lt: i32, mut stk_tp1: StkType, mut stk_tp2: StkType) {
+    if stk_tp1 != StkType::Empty {
         /*stk_empty */
         print_stk_lit(stk_lt, stk_tp1);
-        match stk_tp2 as i32 {
-            0 => log!(", not an integer,"),
-            1 => log!(", not a string,"),
-            2 => log!(", not a function,"),
-            3 | 4 => illegl_literal_confusion(),
-            _ => unknwn_literal_confusion(),
+        match stk_tp2 {
+            StkType::Int => log!(", not an integer,"),
+            StkType::Str => log!(", not a string,"),
+            StkType::Fn => log!(", not a function,"),
+            StkType::FieldMissing | StkType::Empty => illegl_literal_confusion(),
         }
         bst_ex_warn_print();
     };
 }
 unsafe fn pop_top_and_print() {
     let mut stk_lt: i32 = 0;
-    let mut stk_tp: stk_type = 0;
+    let mut stk_tp = StkType::Int;
     pop_lit_stk(&mut stk_lt, &mut stk_tp);
-    if stk_tp as i32 == 4i32 {
-        /*stk_empty */
+    if stk_tp == StkType::Empty {
         log!("Empty literal\n");
     } else {
         print_lit(stk_lt, stk_tp);
@@ -3352,7 +3370,7 @@ unsafe fn add_pool_buf_and_push() {
         pool_ptr = pool_ptr + 1i32;
         ex_buf_ptr = ex_buf_ptr + 1i32
     }
-    push_lit_stk(make_string(), 1i32 as stk_type);
+    push_lit_stk(make_string(), StkType::Str);
 }
 unsafe fn add_buf_pool(mut p_str: str_number) {
     let s = get_string_from_pool(p_str);
@@ -3449,7 +3467,7 @@ unsafe fn x_equals() {
             log!("---they aren\'t the same literal types");
             bst_ex_warn_print();
         }
-        push_lit_stk(0i32, 0i32 as stk_type);
+        push_lit_stk(0i32, StkType::Int);
     } else if pop_typ1 as i32 != 0i32 && pop_typ1 as i32 != 1i32 {
         if pop_typ1 as i32 != 4i32 {
             /*stk_empty */
@@ -3457,18 +3475,18 @@ unsafe fn x_equals() {
             log!(", not an integer or a string,");
             bst_ex_warn_print();
         }
-        push_lit_stk(0i32, 0i32 as stk_type);
+        push_lit_stk(0i32, StkType::Int);
     } else if pop_typ1 as i32 == 0i32 {
         /*stk_int */
         if pop_lit2 == pop_lit1 {
-            push_lit_stk(1i32, 0i32 as stk_type);
+            push_lit_stk(1i32, StkType::Int);
         } else {
-            push_lit_stk(0i32, 0i32 as stk_type);
+            push_lit_stk(0i32, StkType::Int);
         }
     } else if str_eq_str(pop_lit2, pop_lit1) {
-        push_lit_stk(1i32, 0i32 as stk_type);
+        push_lit_stk(1i32, StkType::Int);
     } else {
-        push_lit_stk(0i32, 0i32 as stk_type);
+        push_lit_stk(0i32, StkType::Int);
     };
 }
 unsafe fn x_greater_than() {
@@ -3476,33 +3494,33 @@ unsafe fn x_greater_than() {
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 0i32 {
         /*stk_int */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
+        push_lit_stk(0i32, StkType::Int);
     } else if pop_typ2 as i32 != 0i32 {
         /*stk_int */
-        print_wrong_stk_lit(pop_lit2, pop_typ2, 0i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+        print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Int);
+        push_lit_stk(0i32, StkType::Int);
     } else if pop_lit2 > pop_lit1 {
-        push_lit_stk(1i32, 0i32 as stk_type);
+        push_lit_stk(1i32, StkType::Int);
     } else {
-        push_lit_stk(0i32, 0i32 as stk_type);
+        push_lit_stk(0i32, StkType::Int);
     };
 }
 unsafe fn x_less_than() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
-    if pop_typ1 as i32 != 0i32 {
+    if pop_typ1 != StkType::Int {
         /*stk_int */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
+        push_lit_stk(0i32, StkType::Int);
     } else if pop_typ2 as i32 != 0i32 {
         /*stk_int */
-        print_wrong_stk_lit(pop_lit2, pop_typ2, 0i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+        print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Int);
+        push_lit_stk(0i32, StkType::Int);
     } else if pop_lit2 < pop_lit1 {
-        push_lit_stk(1i32, 0i32 as stk_type);
+        push_lit_stk(1i32, StkType::Int);
     } else {
-        push_lit_stk(0i32, 0i32 as stk_type);
+        push_lit_stk(0i32, StkType::Int);
     };
 }
 unsafe fn x_plus() {
@@ -3510,29 +3528,27 @@ unsafe fn x_plus() {
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 0i32 {
         /*stk_int */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
+        push_lit_stk(0i32, StkType::Int);
     } else if pop_typ2 as i32 != 0i32 {
         /*stk_int */
-        print_wrong_stk_lit(pop_lit2, pop_typ2, 0i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+        print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Int);
+        push_lit_stk(0i32, StkType::Int);
     } else {
-        push_lit_stk(pop_lit2 + pop_lit1, 0i32 as stk_type);
+        push_lit_stk(pop_lit2 + pop_lit1, StkType::Int);
     };
 }
 unsafe fn x_minus() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
-    if pop_typ1 as i32 != 0i32 {
-        /*stk_int */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
-    } else if pop_typ2 as i32 != 0i32 {
-        /*stk_int */
-        print_wrong_stk_lit(pop_lit2, pop_typ2, 0i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+    if pop_typ1 != StkType::Int {
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
+        push_lit_stk(0i32, StkType::Int);
+    } else if pop_typ2 != StkType::Int {
+        print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Int);
+        push_lit_stk(0i32, StkType::Int);
     } else {
-        push_lit_stk(pop_lit2 - pop_lit1, 0i32 as stk_type);
+        push_lit_stk(pop_lit2 - pop_lit1, StkType::Int);
     };
 }
 unsafe fn x_concatenate() {
@@ -3540,12 +3556,12 @@ unsafe fn x_concatenate() {
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
+        push_lit_stk(s_null, StkType::Str);
     } else if pop_typ2 as i32 != 1i32 {
         /*stk_str */
-        print_wrong_stk_lit(pop_lit2, pop_typ2, 1i32 as stk_type); /*352: */
-        push_lit_stk(s_null, 1i32 as stk_type); /*353: */
+        print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Str); /*352: */
+        push_lit_stk(s_null, StkType::Str); /*353: */
     } else if pop_lit2 >= cmd_str_ptr {
         if pop_lit1 >= cmd_str_ptr {
             *str_start.offset(pop_lit1 as isize) = *str_start.offset((pop_lit1 + 1i32) as isize); /*354: */
@@ -3556,7 +3572,7 @@ unsafe fn x_concatenate() {
             - *str_start.offset(pop_lit2 as isize)
             == 0i32
         {
-            push_lit_stk(pop_lit1, 1i32 as stk_type);
+            push_lit_stk(pop_lit1, StkType::Str);
         } else {
             pool_ptr = *str_start.offset((pop_lit2 + 1i32) as isize);
             while pool_ptr
@@ -3573,7 +3589,7 @@ unsafe fn x_concatenate() {
                 pool_ptr = pool_ptr + 1i32;
                 sp_ptr = sp_ptr + 1i32
             }
-            push_lit_stk(make_string(), 1i32 as stk_type);
+            push_lit_stk(make_string(), StkType::Str);
         }
     } else if pop_lit1 >= cmd_str_ptr {
         if *str_start.offset((pop_lit2 + 1i32) as isize) - *str_start.offset(pop_lit2 as isize)
@@ -3612,7 +3628,7 @@ unsafe fn x_concatenate() {
                 sp_ptr = sp_ptr + 1i32
             }
             pool_ptr = pool_ptr + sp_length;
-            push_lit_stk(make_string(), 1i32 as stk_type);
+            push_lit_stk(make_string(), StkType::Str);
         }
     } else if *str_start.offset((pop_lit1 + 1i32) as isize) - *str_start.offset(pop_lit1 as isize)
         == 0i32
@@ -3621,7 +3637,7 @@ unsafe fn x_concatenate() {
     } else if *str_start.offset((pop_lit2 + 1i32) as isize) - *str_start.offset(pop_lit2 as isize)
         == 0i32
     {
-        push_lit_stk(pop_lit1, 1i32 as stk_type);
+        push_lit_stk(pop_lit1, StkType::Str);
     } else {
         while pool_ptr
             + (*str_start.offset((pop_lit1 + 1i32) as isize) - *str_start.offset(pop_lit1 as isize))
@@ -3644,7 +3660,7 @@ unsafe fn x_concatenate() {
             pool_ptr = pool_ptr + 1i32;
             sp_ptr = sp_ptr + 1i32
         }
-        push_lit_stk(make_string(), 1i32 as stk_type);
+        push_lit_stk(make_string(), StkType::Str);
     };
 }
 unsafe fn x_gets() {
@@ -3652,7 +3668,7 @@ unsafe fn x_gets() {
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 2i32 {
         /*stk_fn */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 2i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Fn);
     } else if !mess_with_entries
         && (*fn_type.offset(pop_lit1 as isize) as i32 == 6i32
             || *fn_type.offset(pop_lit1 as isize) as i32 == 5i32)
@@ -3663,9 +3679,8 @@ unsafe fn x_gets() {
             5 => {
                 /*
                 356: */
-                if pop_typ2 as i32 != 0i32 {
-                    /*stk_int */
-                    print_wrong_stk_lit(pop_lit2, pop_typ2, 0i32 as stk_type);
+                if pop_typ2 != StkType::Int {
+                    print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Int);
                 } else {
                     *entry_ints.offset(
                         (cite_ptr * num_ent_ints + *ilk_info.offset(pop_lit1 as isize)) as isize,
@@ -3673,9 +3688,9 @@ unsafe fn x_gets() {
                 }
             }
             6 => {
-                if pop_typ2 as i32 != 1i32 {
+                if pop_typ2 != StkType::Str {
                     /*stk_str */
-                    print_wrong_stk_lit(pop_lit2, pop_typ2, 1i32 as stk_type);
+                    print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Str);
                 } else {
                     str_ent_ptr = cite_ptr * num_ent_strs + *ilk_info.offset(pop_lit1 as isize);
                     ent_chr_ptr = 0i32;
@@ -3703,7 +3718,7 @@ unsafe fn x_gets() {
             7 => {
                 if pop_typ2 as i32 != 0i32 {
                     /*stk_int */
-                    print_wrong_stk_lit(pop_lit2, pop_typ2, 0i32 as stk_type);
+                    print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Int);
                 } else {
                     *ilk_info.offset(pop_lit1 as isize) = pop_lit2
                 }
@@ -3711,7 +3726,7 @@ unsafe fn x_gets() {
             8 => {
                 if pop_typ2 as i32 != 1i32 {
                     /*stk_str */
-                    print_wrong_stk_lit(pop_lit2, pop_typ2, 1i32 as stk_type);
+                    print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Str);
                 } else {
                     str_glb_ptr = *ilk_info.offset(pop_lit1 as isize);
                     if pop_lit2 < cmd_str_ptr {
@@ -3751,12 +3766,12 @@ unsafe fn x_add_period() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
+        push_lit_stk(s_null, StkType::Str);
     } else if *str_start.offset((pop_lit1 + 1i32) as isize) - *str_start.offset(pop_lit1 as isize)
         == 0i32
     {
-        push_lit_stk(s_null, 1i32 as stk_type);
+        push_lit_stk(s_null, StkType::Str);
     } else {
         /*362: */
         sp_ptr = *str_start.offset((pop_lit1 + 1i32) as isize);
@@ -3801,7 +3816,7 @@ unsafe fn x_add_period() {
                 }
                 *str_pool.offset(pool_ptr as isize) = 46i32 as u8;
                 pool_ptr = pool_ptr + 1i32;
-                push_lit_stk(make_string(), 1i32 as stk_type);
+                push_lit_stk(make_string(), StkType::Str);
             }
         }
     };
@@ -3812,12 +3827,12 @@ unsafe fn x_change_case() {
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
+        push_lit_stk(s_null, StkType::Str);
     } else if pop_typ2 as i32 != 1i32 {
         /*stk_str */
-        print_wrong_stk_lit(pop_lit2, pop_typ2, 1i32 as stk_type); /*title_lowers */
-        push_lit_stk(s_null, 1i32 as stk_type); /*all_lowers */
+        print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Str); /*title_lowers */
+        push_lit_stk(s_null, StkType::Str); /*all_lowers */
     } else {
         let mut prev_colon = false;
         let mut conversion_type =
@@ -4041,10 +4056,10 @@ unsafe fn x_change_case() {
 }
 unsafe fn x_chr_to_int() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-    if pop_typ1 as i32 != 1i32 {
+    if pop_typ1 != StkType::Str {
         /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
+        push_lit_stk(0i32, StkType::Int);
     } else if *str_start.offset((pop_lit1 + 1i32) as isize) - *str_start.offset(pop_lit1 as isize)
         != 1i32
     {
@@ -4052,11 +4067,11 @@ unsafe fn x_chr_to_int() {
         print_a_pool_str(pop_lit1);
         log!("\" isn\'t a single character");
         bst_ex_warn_print();
-        push_lit_stk(0i32, 0i32 as stk_type);
+        push_lit_stk(0i32, StkType::Int);
     } else {
         push_lit_stk(
             *str_pool.offset(*str_start.offset(pop_lit1 as isize) as isize) as i32,
-            0i32 as stk_type,
+            StkType::Int,
         );
     };
 }
@@ -4064,7 +4079,7 @@ unsafe fn x_cite() {
     if !mess_with_entries {
         bst_cant_mess_with_entries_print();
     } else {
-        push_lit_stk(*cite_list.offset(cite_ptr as isize), 1i32 as stk_type);
+        push_lit_stk(*cite_list.offset(cite_ptr as isize), StkType::Str);
     };
 }
 unsafe fn x_duplicate() {
@@ -4096,33 +4111,33 @@ unsafe fn x_duplicate() {
                 pool_ptr = pool_ptr + 1i32;
                 sp_ptr = sp_ptr + 1i32
             }
-            push_lit_stk(make_string(), 1i32 as stk_type);
+            push_lit_stk(make_string(), StkType::Str);
         }
     };
 }
 unsafe fn x_empty() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-    match pop_typ1 as i32 {
-        1 => {
+    match pop_typ1 {
+        StkType::Str => {
             sp_ptr = *str_start.offset(pop_lit1 as isize);
             sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
             while sp_ptr < sp_end {
                 if lex_class[*str_pool.offset(sp_ptr as isize) as usize] as i32 != 1i32 {
                     /*white_space */
-                    push_lit_stk(0i32, 0i32 as stk_type);
+                    push_lit_stk(0i32, StkType::Int);
                     return;
                 }
                 sp_ptr = sp_ptr + 1i32
             }
-            push_lit_stk(1i32, 0i32 as stk_type);
+            push_lit_stk(1i32, StkType::Int);
         }
-        3 => push_lit_stk(1i32, 0i32 as stk_type),
-        4 => push_lit_stk(0i32, 0i32 as stk_type),
+        StkType::FieldMissing => push_lit_stk(1i32, StkType::Int),
+        StkType::Empty => push_lit_stk(0i32, StkType::Int),
         _ => {
             print_stk_lit(pop_lit1, pop_typ1);
             log!(", not a string or missing field,");
             bst_ex_warn_print();
-            push_lit_stk(0i32, 0i32 as stk_type);
+            push_lit_stk(0i32, StkType::Int);
         }
     };
 }
@@ -4130,18 +4145,15 @@ unsafe fn x_format_name() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     pop_lit_stk(&mut pop_lit3, &mut pop_typ3);
-    if pop_typ1 as i32 != 1i32 {
-        /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
-    } else if pop_typ2 as i32 != 0i32 {
-        /*stk_int */
-        print_wrong_stk_lit(pop_lit2, pop_typ2, 0i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
-    } else if pop_typ3 as i32 != 1i32 {
-        /*stk_str */
-        print_wrong_stk_lit(pop_lit3, pop_typ3, 1i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
+    if pop_typ1 != StkType::Str {
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
+        push_lit_stk(s_null, StkType::Str);
+    } else if pop_typ2 != StkType::Int {
+        print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Int);
+        push_lit_stk(s_null, StkType::Str);
+    } else if pop_typ3 != StkType::Str {
+        print_wrong_stk_lit(pop_lit3, pop_typ3, StkType::Str);
+        push_lit_stk(s_null, StkType::Str);
     } else {
         ex_buf_length = 0i32;
         add_buf_pool(pop_lit3);
@@ -4350,27 +4362,27 @@ unsafe fn x_int_to_chr() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 0i32 {
         /*stk_int */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
+        push_lit_stk(s_null, StkType::Str);
     } else if pop_lit1 < 0i32 || pop_lit1 > 127i32 {
         log!("{} isn't valid ASCII", pop_lit1);
         bst_ex_warn_print();
-        push_lit_stk(s_null, 1i32 as stk_type);
+        push_lit_stk(s_null, StkType::Str);
     } else {
         while pool_ptr + 1i32 > pool_size {
             pool_overflow();
         }
         *str_pool.offset(pool_ptr as isize) = pop_lit1 as u8;
         pool_ptr = pool_ptr + 1i32;
-        push_lit_stk(make_string(), 1i32 as stk_type);
+        push_lit_stk(make_string(), StkType::Str);
     };
 }
+
 unsafe fn x_int_to_str() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-    if pop_typ1 as i32 != 0i32 {
-        /*stk_int */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
+    if pop_typ1 != StkType::Int {
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
+        push_lit_stk(s_null, StkType::Str);
     } else {
         int_to_ASCII(pop_lit1, ex_buf, 0i32, &mut ex_buf_length);
         add_pool_buf_and_push();
@@ -4380,27 +4392,25 @@ unsafe fn x_missing() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if !mess_with_entries {
         bst_cant_mess_with_entries_print();
-    } else if pop_typ1 as i32 != 1i32 && pop_typ1 as i32 != 3i32 {
-        if pop_typ1 as i32 != 4i32 {
-            /*stk_empty */
+    } else if pop_typ1 != StkType::Str && pop_typ1 != StkType::FieldMissing {
+        if pop_typ1 != StkType::Empty {
             print_stk_lit(pop_lit1, pop_typ1);
             log!(", not a string or missing field,");
             bst_ex_warn_print();
         }
-        push_lit_stk(0i32, 0i32 as stk_type);
-    } else if pop_typ1 as i32 == 3i32 {
-        /*stk_field_missing */
-        push_lit_stk(1i32, 0i32 as stk_type);
+        push_lit_stk(0i32, StkType::Int);
+    } else if pop_typ1 == StkType::FieldMissing {
+        push_lit_stk(1i32, StkType::Int);
     } else {
-        push_lit_stk(0i32, 0i32 as stk_type);
+        push_lit_stk(0i32, StkType::Int);
     };
 }
 unsafe fn x_num_names() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
+        push_lit_stk(0i32, StkType::Int);
     } else {
         ex_buf_length = 0i32;
         add_buf_pool(pop_lit1);
@@ -4410,7 +4420,7 @@ unsafe fn x_num_names() {
             name_scan_for_and(pop_lit1);
             num_names = num_names + 1i32
         }
-        push_lit_stk(num_names, 0i32 as stk_type);
+        push_lit_stk(num_names, StkType::Int);
     };
 }
 unsafe fn x_preamble() {
@@ -4424,10 +4434,9 @@ unsafe fn x_preamble() {
 }
 unsafe fn x_purify() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-    if pop_typ1 as i32 != 1i32 {
-        /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type); /*space */
-        push_lit_stk(s_null, 1i32 as stk_type);
+    if pop_typ1 != StkType::Str {
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str); /*space */
+        push_lit_stk(s_null, StkType::Str);
     } else {
         ex_buf_length = 0i32;
         add_buf_pool(pop_lit1);
@@ -4537,24 +4546,21 @@ unsafe fn x_quote() {
     }
     *str_pool.offset(pool_ptr as isize) = 34i32 as u8;
     pool_ptr = pool_ptr + 1i32;
-    push_lit_stk(make_string(), 1i32 as stk_type);
+    push_lit_stk(make_string(), StkType::Str);
 }
 unsafe fn x_substring() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
     pop_lit_stk(&mut pop_lit3, &mut pop_typ3);
-    if pop_typ1 as i32 != 0i32 {
-        /*stk_int */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
-    } else if pop_typ2 as i32 != 0i32 {
-        /*stk_int */
-        print_wrong_stk_lit(pop_lit2, pop_typ2, 0i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
-    } else if pop_typ3 as i32 != 1i32 {
-        /*stk_str */
-        print_wrong_stk_lit(pop_lit3, pop_typ3, 1i32 as stk_type); /*439: */
-        push_lit_stk(s_null, 1i32 as stk_type); /*441: */
+    if pop_typ1 != StkType::Int {
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
+        push_lit_stk(s_null, StkType::Str);
+    } else if pop_typ2 != StkType::Int {
+        print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Int);
+        push_lit_stk(s_null, StkType::Str);
+    } else if pop_typ3 != StkType::Str {
+        print_wrong_stk_lit(pop_lit3, pop_typ3, StkType::Str); /*439: */
+        push_lit_stk(s_null, StkType::Str); /*441: */
     } else {
         sp_length =
             *str_start.offset((pop_lit3 + 1i32) as isize) - *str_start.offset(pop_lit3 as isize);
@@ -4569,7 +4575,7 @@ unsafe fn x_substring() {
             }
         }
         if pop_lit1 <= 0i32 || pop_lit2 == 0i32 || pop_lit2 > sp_length || pop_lit2 < -sp_length {
-            push_lit_stk(s_null, 1i32 as stk_type);
+            push_lit_stk(s_null, StkType::Str);
             return;
         } else {
             if pop_lit2 > 0i32 {
@@ -4603,7 +4609,7 @@ unsafe fn x_substring() {
                 pool_ptr = pool_ptr + 1i32;
                 sp_ptr = sp_ptr + 1i32
             }
-            push_lit_stk(make_string(), 1i32 as stk_type);
+            push_lit_stk(make_string(), StkType::Str);
         }
     };
 }
@@ -4620,7 +4626,7 @@ unsafe fn x_swap() {
     } else if pop_typ2 as i32 != 1i32 || pop_lit2 < cmd_str_ptr {
         str_ptr = str_ptr + 1i32;
         pool_ptr = *str_start.offset(str_ptr as isize);
-        push_lit_stk(pop_lit1, 1i32 as stk_type);
+        push_lit_stk(pop_lit1, StkType::Str);
         push_lit_stk(pop_lit2, pop_typ2);
     } else {
         ex_buf_length = 0i32;
@@ -4632,16 +4638,15 @@ unsafe fn x_swap() {
             pool_ptr = pool_ptr + 1i32;
             sp_ptr = sp_ptr + 1i32
         }
-        push_lit_stk(make_string(), 1i32 as stk_type);
+        push_lit_stk(make_string(), StkType::Str);
         add_pool_buf_and_push();
     };
 }
 unsafe fn x_text_length() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-    if pop_typ1 as i32 != 1i32 {
-        /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
+    if pop_typ1 != StkType::Str {
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
+        push_lit_stk(s_null, StkType::Str);
     } else {
         let mut num_text_chars = 0i32;
         sp_ptr = *str_start.offset(pop_lit1 as isize);
@@ -4678,22 +4683,22 @@ unsafe fn x_text_length() {
                 num_text_chars = num_text_chars + 1i32
             }
         }
-        push_lit_stk(num_text_chars, 0i32 as stk_type);
+        push_lit_stk(num_text_chars, StkType::Int);
     };
 }
 unsafe fn x_text_prefix() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
-    if pop_typ1 as i32 != 0i32 {
+    if pop_typ1 != StkType::Int {
         /*stk_int */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
-        push_lit_stk(s_null, 1i32 as stk_type);
-    } else if pop_typ2 as i32 != 1i32 {
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
+        push_lit_stk(s_null, StkType::Str);
+    } else if pop_typ2 != StkType::Str {
         /*stk_str */
-        print_wrong_stk_lit(pop_lit2, pop_typ2, 1i32 as stk_type); /*445: */
-        push_lit_stk(s_null, 1i32 as stk_type);
+        print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Str); /*445: */
+        push_lit_stk(s_null, StkType::Str);
     } else if pop_lit1 <= 0i32 {
-        push_lit_stk(s_null, 1i32 as stk_type);
+        push_lit_stk(s_null, StkType::Str);
         return;
     } else {
         sp_ptr = *str_start.offset(pop_lit2 as isize);
@@ -4750,7 +4755,7 @@ unsafe fn x_text_prefix() {
             pool_ptr = pool_ptr + 1i32;
             sp_brace_level = sp_brace_level - 1i32
         }
-        push_lit_stk(make_string(), 1i32 as stk_type);
+        push_lit_stk(make_string(), StkType::Str);
     };
 }
 unsafe fn x_type() {
@@ -4759,11 +4764,11 @@ unsafe fn x_type() {
     } else if *type_list.offset(cite_ptr as isize) == undefined
         || *type_list.offset(cite_ptr as isize) == 0i32
     {
-        push_lit_stk(s_null, 1i32 as stk_type);
+        push_lit_stk(s_null, StkType::Str);
     } else {
         push_lit_stk(
             *hash_text.offset(*type_list.offset(cite_ptr as isize) as isize),
-            1i32 as stk_type,
+            StkType::Str,
         );
     };
 }
@@ -4771,7 +4776,7 @@ unsafe fn x_warning() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
     if pop_typ1 as i32 != 1i32 {
         /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
     } else {
         log!("Warning--");
         print_lit(pop_lit1, pop_typ1);
@@ -4780,10 +4785,9 @@ unsafe fn x_warning() {
 }
 unsafe fn x_width() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-    if pop_typ1 as i32 != 1i32 {
-        /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
-        push_lit_stk(0i32, 0i32 as stk_type);
+    if pop_typ1 != StkType::Str {
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
+        push_lit_stk(0i32, StkType::Int);
     } else {
         ex_buf_length = 0i32;
         add_buf_pool(pop_lit1);
@@ -4875,14 +4879,13 @@ unsafe fn x_width() {
             ex_buf_ptr = ex_buf_ptr + 1i32
         }
         check_brace_level(pop_lit1);
-        push_lit_stk(string_width, 0i32 as stk_type);
+        push_lit_stk(string_width, StkType::Int);
     };
 }
 unsafe fn x_write() {
     pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
-    if pop_typ1 as i32 != 1i32 {
-        /*stk_str */
-        print_wrong_stk_lit(pop_lit1, pop_typ1, 1i32 as stk_type);
+    if pop_typ1 != StkType::Str {
+        print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
     } else {
         add_out_pool(pop_lit1);
     };
@@ -4890,8 +4893,8 @@ unsafe fn x_write() {
 unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
     let mut r_pop_lt1: i32 = 0;
     let mut r_pop_lt2: i32 = 0;
-    let mut r_pop_tp1: stk_type = 0;
-    let mut r_pop_tp2: stk_type = 0;
+    let mut r_pop_tp1: StkType = StkType::Int;
+    let mut r_pop_tp2: StkType = StkType::Int;
     let mut wiz_ptr: wiz_fn_loc = 0;
     match *fn_type.offset(ex_fn_loc as isize) as i32 {
         0 => match *ilk_info.offset(ex_fn_loc as isize) {
@@ -4923,11 +4926,11 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                 pop_lit_stk(&mut pop_lit2, &mut pop_typ2);
                 pop_lit_stk(&mut pop_lit3, &mut pop_typ3);
                 if pop_typ1 as i32 != 2i32 {
-                    print_wrong_stk_lit(pop_lit1, pop_typ1, 2i32 as stk_type);
+                    print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Fn);
                 } else if pop_typ2 as i32 != 2i32 {
-                    print_wrong_stk_lit(pop_lit2, pop_typ2, 2i32 as stk_type);
+                    print_wrong_stk_lit(pop_lit2, pop_typ2, StkType::Fn);
                 } else if pop_typ3 as i32 != 0i32 {
-                    print_wrong_stk_lit(pop_lit3, pop_typ3, 0i32 as stk_type);
+                    print_wrong_stk_lit(pop_lit3, pop_typ3, StkType::Int);
                 } else if pop_lit3 > 0i32 {
                     execute_fn(pop_lit2);
                 } else {
@@ -4956,15 +4959,15 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                 pop_lit_stk(&mut r_pop_lt1, &mut r_pop_tp1);
                 pop_lit_stk(&mut r_pop_lt2, &mut r_pop_tp2);
                 if r_pop_tp1 as i32 != 2i32 {
-                    print_wrong_stk_lit(r_pop_lt1, r_pop_tp1, 2i32 as stk_type);
+                    print_wrong_stk_lit(r_pop_lt1, r_pop_tp1, StkType::Fn);
                 } else if r_pop_tp2 as i32 != 2i32 {
-                    print_wrong_stk_lit(r_pop_lt2, r_pop_tp2, 2i32 as stk_type);
+                    print_wrong_stk_lit(r_pop_lt2, r_pop_tp2, StkType::Fn);
                 } else {
                     loop {
                         execute_fn(r_pop_lt2);
                         pop_lit_stk(&mut pop_lit1, &mut pop_typ1);
                         if pop_typ1 as i32 != 0i32 {
-                            print_wrong_stk_lit(pop_lit1, pop_typ1, 0i32 as stk_type);
+                            print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
                             break;
                         } else {
                             if !(pop_lit1 > 0i32) {
@@ -4990,13 +4993,13 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                     execute_fn(*wiz_functions.offset(wiz_ptr as isize));
                 } else {
                     wiz_ptr = wiz_ptr + 1i32;
-                    push_lit_stk(*wiz_functions.offset(wiz_ptr as isize), 2i32 as stk_type);
+                    push_lit_stk(*wiz_functions.offset(wiz_ptr as isize), StkType::Fn);
                 }
                 wiz_ptr = wiz_ptr + 1i32
             }
         }
-        2 => push_lit_stk(*ilk_info.offset(ex_fn_loc as isize), 0i32 as stk_type),
-        3 => push_lit_stk(*hash_text.offset(ex_fn_loc as isize), 1i32 as stk_type),
+        2 => push_lit_stk(*ilk_info.offset(ex_fn_loc as isize), StkType::Int),
+        3 => push_lit_stk(*hash_text.offset(ex_fn_loc as isize), StkType::Str),
         4 => {
             if !mess_with_entries {
                 bst_cant_mess_with_entries_print();
@@ -5009,9 +5012,9 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                 }
                 if *field_info.offset(field_ptr as isize) == 0i32 {
                     /*missing */
-                    push_lit_stk(*hash_text.offset(ex_fn_loc as isize), 3i32 as stk_type);
+                    push_lit_stk(*hash_text.offset(ex_fn_loc as isize), StkType::FieldMissing);
                 } else {
-                    push_lit_stk(*field_info.offset(field_ptr as isize), 1i32 as stk_type);
+                    push_lit_stk(*field_info.offset(field_ptr as isize), StkType::Str);
                 }
             }
         }
@@ -5023,7 +5026,7 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                     *entry_ints.offset(
                         (cite_ptr * num_ent_ints + *ilk_info.offset(ex_fn_loc as isize)) as isize,
                     ),
-                    0i32 as stk_type,
+                    StkType::Int,
                 );
             }
         }
@@ -5047,11 +5050,11 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                 add_pool_buf_and_push();
             }
         }
-        7 => push_lit_stk(*ilk_info.offset(ex_fn_loc as isize), 0i32 as stk_type),
+        7 => push_lit_stk(*ilk_info.offset(ex_fn_loc as isize), StkType::Int),
         8 => {
             str_glb_ptr = *ilk_info.offset(ex_fn_loc as isize);
             if *glb_str_ptr.offset(str_glb_ptr as isize) > 0i32 {
-                push_lit_stk(*glb_str_ptr.offset(str_glb_ptr as isize), 1i32 as stk_type);
+                push_lit_stk(*glb_str_ptr.offset(str_glb_ptr as isize), StkType::Str);
             } else {
                 while pool_ptr + *glb_str_end.offset(str_glb_ptr as isize) > pool_size {
                     pool_overflow();
@@ -5063,7 +5066,7 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                     pool_ptr = pool_ptr + 1i32;
                     glob_chr_ptr = glob_chr_ptr + 1i32
                 }
-                push_lit_stk(make_string(), 1i32 as stk_type);
+                push_lit_stk(make_string(), StkType::Str);
             }
         }
         _ => unknwn_function_class_confusion(),
@@ -5505,7 +5508,7 @@ unsafe fn bst_entry_command() {
             already_seen_function_print(fn_loc);
             return;
         }
-        *fn_type.offset(fn_loc as isize) = 4i32 as fn_class;
+        *fn_type.offset(fn_loc as isize) = FnClass::Field;
         *ilk_info.offset(fn_loc as isize) = num_fields;
         num_fields = num_fields + 1i32;
         if !eat_bst_white_space() {
@@ -5562,7 +5565,7 @@ unsafe fn bst_entry_command() {
             already_seen_function_print(fn_loc);
             return;
         }
-        *fn_type.offset(fn_loc as isize) = 5i32 as fn_class;
+        *fn_type.offset(fn_loc as isize) = FnClass::IntEntryVar;
         *ilk_info.offset(fn_loc as isize) = num_ent_ints;
         num_ent_ints = num_ent_ints + 1i32;
         if !eat_bst_white_space() {
@@ -5615,7 +5618,7 @@ unsafe fn bst_entry_command() {
             already_seen_function_print(fn_loc);
             return;
         }
-        *fn_type.offset(fn_loc as isize) = 6i32 as fn_class;
+        *fn_type.offset(fn_loc as isize) = FnClass::StrEntryVar;
         *ilk_info.offset(fn_loc as isize) = num_ent_strs;
         num_ent_strs = num_ent_strs + 1i32;
         if !eat_bst_white_space() {
@@ -5751,7 +5754,7 @@ unsafe fn bst_function_command() {
         already_seen_function_print(wiz_loc);
         return;
     }
-    *fn_type.offset(wiz_loc as isize) = 1i32 as fn_class;
+    *fn_type.offset(wiz_loc as isize) = FnClass::WizDefined;
     if *hash_text.offset(wiz_loc as isize) == s_default {
         b_default = wiz_loc
     }
@@ -5828,7 +5831,7 @@ unsafe fn bst_integers_command() {
             already_seen_function_print(fn_loc);
             return;
         }
-        *fn_type.offset(fn_loc as isize) = 7i32 as fn_class;
+        *fn_type.offset(fn_loc as isize) = FnClass::IntGlobalVar;
         *ilk_info.offset(fn_loc as isize) = 0i32;
         if !eat_bst_white_space() {
             eat_bst_print();
@@ -5996,7 +5999,7 @@ unsafe fn bst_macro_command() {
         return;
     }
     macro_def_loc = str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 0i32 as str_ilk, true);
-    *fn_type.offset(macro_def_loc as isize) = 3i32 as fn_class;
+    *fn_type.offset(macro_def_loc as isize) = FnClass::StrLiteral;
     *ilk_info.offset(macro_name_loc as isize) = *hash_text.offset(macro_def_loc as isize);
     buf_ptr2 = buf_ptr2 + 1i32;
     if !eat_bst_white_space() {
@@ -6771,7 +6774,7 @@ unsafe fn bst_strings_command() {
             already_seen_function_print(fn_loc);
             return;
         }
-        *fn_type.offset(fn_loc as isize) = 8i32 as fn_class;
+        *fn_type.offset(fn_loc as isize) = FnClass::StrGlobalVar;
         *ilk_info.offset(fn_loc as isize) = num_glb_strs;
         if num_glb_strs == max_glob_strs {
             glb_str_ptr = xrealloc(
@@ -7235,14 +7238,14 @@ pub unsafe fn bibtex_main(bibtex_config: &BibtexConfig, mut aux_file_name: *cons
         xmalloc(((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as _)
             as *mut i32;
     fn_type = xmalloc(
-        ((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<fn_class>() as u64) as _,
-    ) as *mut fn_class;
+        ((hash_max + 1i32) as u64).wrapping_mul(::std::mem::size_of::<FnClass>() as u64) as _,
+    ) as *mut FnClass;
     lit_stack = xmalloc(
         ((lit_stk_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as _,
     ) as *mut i32;
     lit_stk_type = xmalloc(
-        ((lit_stk_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<stk_type>() as u64) as _,
-    ) as *mut stk_type;
+        ((lit_stk_size + 1i32) as u64).wrapping_mul(::std::mem::size_of::<StkType>() as u64) as _,
+    ) as *mut StkType;
     compute_hash_prime();
     if initialize(aux_file_name) != 0 {
         /* TODO: log initialization or get_the_..() error */
