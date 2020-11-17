@@ -308,7 +308,6 @@ static mut store_entry: bool = false;
 static mut field_name_loc: hash_loc = 0;
 static mut field_val_loc: hash_loc = 0;
 static mut store_field: bool = false;
-static mut store_token: bool = false;
 static mut right_outer_delim: u8 = 0;
 static mut right_str_delim: u8 = 0;
 static mut at_bib_command: bool = false;
@@ -391,8 +390,6 @@ static mut sp_brace_level: i32 = 0;
 static mut ex_buf_xptr: buf_pointer = 0;
 static mut ex_buf_yptr: buf_pointer = 0;
 static mut control_seq_loc: hash_loc = 0;
-static mut preceding_white: bool = false;
-static mut and_found: bool = false;
 static mut num_names: i32 = 0;
 static mut name_bf_ptr: buf_pointer = 0;
 static mut name_bf_xptr: buf_pointer = 0;
@@ -405,9 +402,7 @@ static mut last_end: buf_pointer = 0;
 static mut von_start: buf_pointer = 0;
 static mut von_end: buf_pointer = 0;
 static mut jr_end: buf_pointer = 0;
-static mut cur_token: buf_pointer = 0;
-static mut last_token: buf_pointer = 0;
-static mut verbose: i32 = 0;
+static mut verbose: bool = false;
 
 pub struct BibtexConfig {
     pub min_crossrefs: i32,
@@ -2521,7 +2516,7 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                     13i32 as str_ilk,
                     false,
                 );
-                store_token = true;
+                let mut store_token = true;
                 if at_bib_command {
                     if command_num == 2i32 {
                         /*n_bib_string */
@@ -2724,8 +2719,8 @@ unsafe fn check_brace_level(mut pop_lit_var: str_number) {
 }
 unsafe fn name_scan_for_and(mut pop_lit_var: str_number) {
     brace_level = 0i32;
-    preceding_white = false;
-    and_found = false;
+    let mut preceding_white = false;
+    let mut and_found = false;
     while !and_found && ex_buf_ptr < ex_buf_length {
         match *ex_buf.offset(ex_buf_ptr as isize) as i32 {
             97 | 65 => {
@@ -2946,6 +2941,8 @@ unsafe fn figure_out_the_formatted_name() {
     sp_brace_level = 0i32;
     sp_ptr = *str_start.offset(pop_lit1 as isize);
     sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
+    let mut last_token = 0;
+    let mut cur_token = 0;
     while sp_ptr < sp_end {
         if *str_pool.offset(sp_ptr as isize) as i32 == 123i32 {
             /*left_brace */
@@ -5228,7 +5225,7 @@ unsafe fn aux_bib_style_command() {
         aux_err_print();
         return;
     }
-    if verbose != 0 {
+    if verbose {
         log!("The style file: ");
         print_bst_name();
     } else {
@@ -6472,7 +6469,7 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
     read_performed = true;
     bib_ptr = 0;
     while bib_ptr < num_bib_files {
-        if verbose != 0 {
+        if verbose {
             log!("Database file #{}: ", bib_ptr + 1);
             print_bib_name();
         } else {
@@ -7254,7 +7251,7 @@ pub unsafe fn bibtex_main(bibtex_config: &BibtexConfig, mut aux_file_name: *cons
     let prev_hook = panic::take_hook();
     panic::set_hook(Box::new(|_| {}));
     let _ = panic::catch_unwind(|| {
-        if verbose != 0 {
+        if verbose {
             log!("This is BibTeX, Version 0.99d\n");
         } else {
             write!(
@@ -7271,7 +7268,7 @@ pub unsafe fn bibtex_main(bibtex_config: &BibtexConfig, mut aux_file_name: *cons
             hash_prime as i64
         )
         .unwrap();
-        if verbose != 0 {
+        if verbose {
             log!("The top-level auxiliary file: ");
             print_aux_name();
         } else {
