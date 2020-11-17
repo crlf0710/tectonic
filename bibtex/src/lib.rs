@@ -708,7 +708,7 @@ unsafe fn bst_err_print_and_look_for_blank_line() {
     putc_log('-' as i32);
     bst_ln_num_print();
     print_bad_input_line();
-    while last != 0i32 {
+    while last != 0 {
         if !input_ln(&mut bst_file) {
             panic!();
         } else {
@@ -976,7 +976,7 @@ unsafe fn print_lit(mut stk_lt: i32, mut stk_tp: stk_type) {
 }
 unsafe fn output_bbl_line() {
     let bbl = bbl_file.as_mut().unwrap();
-    if out_buf_length != 0i32 {
+    if out_buf_length != 0 {
         while out_buf_length > 0i32 {
             if !(lex_class[*out_buf.offset((out_buf_length - 1i32) as isize) as usize] as i32
                 == 1i32)
@@ -1896,7 +1896,7 @@ unsafe fn scan_alpha() -> bool {
     while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 2i32 {
         buf_ptr2 = buf_ptr2 + 1i32
     }
-    buf_ptr2 - buf_ptr1 != 0i32
+    buf_ptr2 - buf_ptr1 != 0
 }
 unsafe fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) {
     buf_ptr1 = buf_ptr2;
@@ -3850,7 +3850,7 @@ unsafe fn x_change_case() {
                             if conversion_type == ConversionType::TitleLowers {
                                 if ex_buf_ptr == 0i32 {
                                     current_block = 17089879097653631793;
-                                } else if prev_colon as i32 != 0
+                                } else if prev_colon
                                     && lex_class
                                         [*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
                                         as i32
@@ -4010,7 +4010,7 @@ unsafe fn x_change_case() {
                 match conversion_type {
                     ConversionType::TitleLowers => {
                         if !(ex_buf_ptr == 0i32) {
-                            if !(prev_colon as i32 != 0
+                            if !(prev_colon
                                 && lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
                                     as i32
                                     == 1i32)
@@ -7305,21 +7305,21 @@ pub unsafe fn bibtex_main(bibtex_config: &BibtexConfig, mut aux_file_name: *cons
     panic::set_hook(prev_hook);
 
     /*456:*/
-    if read_performed as i32 != 0 && !reading_completed {
+    if read_performed && !reading_completed {
         log!("Aborted at line {} of file ", bib_line_num,);
         print_bib_name();
     }
     match history {
         TTHistory::SPOTLESS => {}
         TTHistory::WARNING_ISSUED => {
-            if err_count == 1i32 {
+            if err_count == 1 {
                 log!("(There was 1 warning)\n");
             } else {
                 log!("(There were {} warnings)\n", err_count,);
             }
         }
         TTHistory::ERROR_ISSUED => {
-            if err_count == 1i32 {
+            if err_count == 1 {
                 log!("(There was 1 error message)\n");
             } else {
                 log!("(There were {} error messages)\n", err_count,);
