@@ -3779,7 +3779,7 @@ unsafe fn x_add_period() {
                 break;
             }
         }
-        match *str_pool.offset(sp_ptr as isize) as i32 {
+        match *str_pool.offset(sp_ptr as isize) {
             b'.' | b'?' | b'!' => {
                 if *lit_stack.offset(lit_stk_ptr as isize) >= cmd_str_ptr {
                     str_ptr += 1;
@@ -4088,15 +4088,15 @@ unsafe fn x_duplicate() {
             push_lit_stk(pop_lit1, pop_typ1);
         } else {
             let s = get_string_from_pool(pop_lit1);
-            while pool_ptr + s.len() > pool_size {
+            while pool_ptr + s.len() as i32 > pool_size {
                 pool_overflow();
             }
             sp_ptr = *str_start.offset(pop_lit1 as isize);
             sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
             while sp_ptr < sp_end {
                 *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-                pool_ptr = pool_ptr += 1;
-                sp_ptr = sp_ptr += 1;
+                pool_ptr += 1;
+                sp_ptr += 1;
             }
             push_lit_stk(make_string(), StkType::Str);
         }
