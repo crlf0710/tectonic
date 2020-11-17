@@ -3359,12 +3359,12 @@ unsafe fn add_pool_buf_and_push() {
 }
 unsafe fn add_buf_pool(mut p_str: str_number) {
     let s = get_string_from_pool(p_str);
-    if ex_buf_length + s.len() > buf_size {
+    if ex_buf_length + s.len() as i32 > buf_size {
         buffer_overflow();
     }
     ex_buf_ptr = ex_buf_length;
     for c in s.iter() {
-        *ex_buf.offset(ex_buf_ptr as isize) = c;
+        *ex_buf.offset(ex_buf_ptr as isize) = *c;
         ex_buf_ptr = ex_buf_ptr + 1i32;
     }
     ex_buf_length = ex_buf_ptr;
@@ -3375,12 +3375,12 @@ unsafe fn add_out_pool(mut p_str: str_number) {
     let mut break_pt_found: bool = false;
     let mut unbreakable_tail: bool = false;
     let s = get_string_from_pool(p_str);
-    while out_buf_length + s.len() > buf_size {
+    while out_buf_length + s.len() as i32 > buf_size {
         buffer_overflow();
     }
     out_buf_ptr = out_buf_length;
     for c in s.iter() {
-        *out_buf.offset(out_buf_ptr as isize) = c;
+        *out_buf.offset(out_buf_ptr as isize) = *c;
         out_buf_ptr = out_buf_ptr + 1i32
     }
     out_buf_length = out_buf_ptr;
