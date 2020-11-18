@@ -120,66 +120,123 @@ pub(crate) unsafe fn print_raw_char(s: UTF16_code, incr_offset: bool) {
     }
     tally += 1;
 }
+pub(crate) unsafe fn print_rust_char(s: char) {
+    use std::io::Write;
+    match selector {
+        Selector::TERM_AND_LOG => {
+            let stdout = rust_stdout.as_mut().unwrap();
+            let lg = log_file.as_mut().unwrap();
+            write!(stdout, "{}", s).unwrap();
+            write!(lg, "{}", s).unwrap();
+            term_offset += 1;
+            file_offset += 1;
+            if term_offset == max_print_line {
+                write!(stdout, "\n").unwrap();
+                term_offset = 0i32
+            }
+            if file_offset == max_print_line {
+                write!(lg, "\n").unwrap();
+                file_offset = 0i32
+            }
+        }
+        Selector::LOG_ONLY => {
+            write!(log_file.as_mut().unwrap(), "{}", s).unwrap();
+            file_offset += 1;
+            if file_offset == max_print_line {
+                print_ln();
+            }
+        }
+        Selector::TERM_ONLY => {
+            write!(rust_stdout.as_mut().unwrap(), "{}", s).unwrap();
+            term_offset += 1;
+            if term_offset == max_print_line {
+                print_ln();
+            }
+        }
+        Selector::NO_PRINT => {}
+        Selector::PSEUDO => {
+            let len = s.len_utf8();
+            if tally + (len as i32) - 1 < trick_count {
+                let mut t = tally;
+                for &i in s.to_string().as_bytes() {
+                    // TODO: check
+                    trick_buf[(t % error_line) as usize] = i as u16;
+                    t += 1;
+                }
+            }
+        }
+        Selector::NEW_STRING => unreachable!(),
+        _ => {
+            write!(
+                write_file[u8::from(selector) as usize].as_mut().unwrap(),
+                "{}",
+                s
+            )
+            .unwrap();
+        }
+    }
+    tally += s.len_utf8() as i32;
+}
 pub(crate) unsafe fn print_chr(s: char) {
     print_char(s as i32)
 }
 pub(crate) unsafe fn print_char(s: i32) {
-    if selector == Selector::NEW_STRING && !doing_special {
-        if s >= 0x10000 {
-            print_raw_char((0xd800 + (s - 0x10000) / 1024) as UTF16_code, true);
-            print_raw_char((0xdc00 + (s - 0x10000) % 1024) as UTF16_code, true);
+    if selector == Selector::NEW_STRING {
+        if !doing_special {
+            if s >= 0x10000 {
+                print_raw_char((0xd800 + (s - 0x10000) / 1024) as UTF16_code, true);
+                print_raw_char((0xdc00 + (s - 0x10000) % 1024) as UTF16_code, true);
+            } else {
+                print_raw_char(s as UTF16_code, true);
+            }
+            return;
         } else {
-            print_raw_char(s as UTF16_code, true);
+            if s < 127 {
+                print_raw_char(s as UTF16_code, true);
+            } else {
+                // TODO: check is reachable
+                let mut b = [0; 4];
+                let bytes = std::char::from_u32(s as u32)
+                    .unwrap()
+                    .encode_utf8(&mut b)
+                    .as_bytes();
+                let last = bytes.len() - 1;
+                for &c in &bytes[..last] {
+                    print_raw_char(c as u16, false);
+                }
+                print_raw_char(bytes[last] as u16, true);
+            }
+            return;
         }
-        return;
     }
     if s == get_int_par(IntPar::new_line_char) {
-        /*:252 */
-        if u8::from(selector) < u8::from(Selector::PSEUDO) {
+        if selector != Selector::PSEUDO {
             print_ln();
             return;
         }
     }
-    if s < 32 && !doing_special {
-        print_raw_char('^' as i32 as UTF16_code, true);
-        print_raw_char('^' as i32 as UTF16_code, true);
-        print_raw_char((s + 64) as UTF16_code, true);
+    if s < 32 {
+        print_rust_char(char::from(b'^'));
+        print_rust_char(char::from(b'^'));
+        print_rust_char(char::from((s + 64) as u8));
     } else if s < 127 {
-        print_raw_char(s as UTF16_code, true);
+        print_rust_char(char::from(s as u8));
     } else if s == 127 {
-        if !doing_special {
-            print_raw_char('^' as i32 as UTF16_code, true);
-            print_raw_char('^' as i32 as UTF16_code, true);
-            print_raw_char('?' as i32 as UTF16_code, true);
-        } else {
-            print_raw_char(s as UTF16_code, true);
-        }
-    } else if s < 160 && !doing_special {
-        print_raw_char('^' as i32 as UTF16_code, true);
-        print_raw_char('^' as i32 as UTF16_code, true);
-        let l = (s % 256 / 16) as i16;
-        if l < 10 {
-            print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
-        } else {
-            print_raw_char(('a' as i32 + l as i32 - 10) as UTF16_code, true);
-        }
-        let l = (s % 16) as i16;
-        if l < 10 {
-            print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
-        } else {
-            print_raw_char(('a' as i32 + l as i32 - 10) as UTF16_code, true);
+        print_rust_char(char::from(b'^'));
+        print_rust_char(char::from(b'^'));
+        print_rust_char(char::from(b'?'));
+    } else if s < 160 {
+        print_rust_char(char::from(b'^'));
+        print_rust_char(char::from(b'^'));
+        for &l in &[(s / 16), (s % 16)] {
+            if l < 10 {
+                print_rust_char(char::from(b'0' + l as u8));
+            } else {
+                print_rust_char(char::from(b'a' + (l as u8) - 10));
+            }
         }
     } else {
-        let mut b = [0; 4];
-        let bytes = std::char::from_u32(s as u32)
-            .unwrap()
-            .encode_utf8(&mut b)
-            .as_bytes();
-        let last = bytes.len() - 1;
-        for &c in &bytes[..last] {
-            print_raw_char(c as u16, false);
-        }
-        print_raw_char(bytes[last] as u16, true);
+        print_rust_char(std::char::from_u32(s as u32).unwrap());
     }
 }
 pub(crate) unsafe fn print(s: i32) {
