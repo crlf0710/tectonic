@@ -10,3 +10,4 @@ cc = "^1.0"
 [dependencies]
 tectonic_bridge = { version = "0.0.1-dev", path = "../bridge" }
 libc = "0.2"
+lazy_static = "1"

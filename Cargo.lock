@@ -1848,6 +1848,7 @@ name = "tectonic_bibtex"
 version = "0.0.1-dev"
 dependencies = [
  "cc",
+ "lazy_static",
  "libc",
  "tectonic_bridge",
 ]

@@ -70,7 +70,6 @@ pub(crate) struct peekable_input_t {
     pub(crate) saw_eof: bool,
 }
 pub(crate) type buf_pointer = i32;
-pub(crate) type lex_type = u8;
 pub(crate) type buf_type = *mut u8;
 pub(crate) type hash_loc = i32;
 pub(crate) type str_ilk = u8;
@@ -109,6 +108,22 @@ enum FnClass {
     StrEntryVar,
     IntGlobalVar,
     StrGlobalVar,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum LexType {
+    /// The unrecognized |ASCII_code|s
+    Illegal,
+    /// Things like |space|s that you can't see
+    WhiteSpace,
+    /// The upper- and lower-case letters
+    Alpha,
+    /// The ten digits
+    Numeric,
+    /// Things sometimes treated like |white_space|
+    SepChar,
+    /// When none of the above applies
+    OtherLex
 }
 
 const hash_base: i32 = 1;
@@ -198,6 +213,38 @@ unsafe fn eoln(peekable: &mut peekable_input_t) -> bool {
     }
     c == '\n' as i32 || c == '\r' as i32 || c == -1i32
 }
+
+lazy_static::lazy_static!{
+    static ref lex_class: [LexType; 256] = {
+        let mut lc = [LexType::Illegal; 256];
+        for i in 0..128 {
+            lc[i] = LexType::OtherLex;
+        }
+        for i in 128..256 {
+            lc[i] = LexType::Alpha;
+        }
+        for i in 0..32 {
+            lc[i] = LexType::Illegal;
+        }
+        lc[127] = LexType::Illegal;
+        lc[9] = LexType::WhiteSpace;
+        lc[13] = LexType::WhiteSpace;
+        lc[b' ' as usize] = LexType::WhiteSpace;
+        lc[b'~' as usize] = LexType::SepChar;
+        lc[b'-' as usize] = LexType::SepChar;
+        for i in 48..58 {
+            lc[i] = LexType::Numeric;
+        }
+        for i in 65..91 {
+            lc[i] = LexType::Alpha;
+        }
+        for i in 97..123 {
+            lc[i] = LexType::Alpha;
+        }
+        lc
+    };
+}
+
 static mut standard_output: Option<OutputHandleWrapper> = None;
 static mut pool_size: i32 = 0;
 static mut MAX_BIB_FILES: usize = 0;
@@ -217,8 +264,7 @@ static mut undefined: i32 = 0;
 /*fatal_message */
 static mut history: TTHistory = TTHistory::SPOTLESS;
 static mut err_count: i32 = 0;
-static mut lex_class: [lex_type; 256] = [0; 256];
-static mut id_class: [id_type; 256] = [0; 256];
+static mut id_class: [u8; 256] = [0; 256];
 static mut char_width: [i32; 256] = [0; 256];
 static mut string_width: i32 = 0;
 static mut name_of_file: *mut u8 = ptr::null_mut();
@@ -514,7 +560,7 @@ unsafe fn input_ln(peekable: &mut Option<peekable_input_t>) -> bool {
     }
     peekable_getc(peekable);
     while last > 0i32 {
-        if !(lex_class[*buffer.offset((last - 1i32) as isize) as usize] as i32 == 1i32) {
+        if !(lex_class[*buffer.offset((last - 1i32) as isize) as usize] == LexType::WhiteSpace) {
             break;
         }
         /*white_space */
@@ -561,7 +607,7 @@ unsafe fn print_bad_input_line() {
     log!(" : ");
     bf_ptr = 0i32;
     while bf_ptr < buf_ptr2 {
-        if lex_class[*buffer.offset(bf_ptr as isize) as usize] as i32 == 1i32 {
+        if lex_class[*buffer.offset(bf_ptr as isize) as usize] == LexType::WhiteSpace {
             /*white_space */
             putc_log(' ' as i32);
         } else {
@@ -582,7 +628,7 @@ unsafe fn print_bad_input_line() {
     }
     bf_ptr = buf_ptr2;
     while bf_ptr < last {
-        if lex_class[*buffer.offset(bf_ptr as isize) as usize] as i32 == 1i32 {
+        if lex_class[*buffer.offset(bf_ptr as isize) as usize] == LexType::WhiteSpace {
             /*white_space */
             putc_log(' ' as i32);
         } else {
@@ -592,7 +638,7 @@ unsafe fn print_bad_input_line() {
     }
     putc_log('\n' as i32);
     bf_ptr = 0i32;
-    while bf_ptr < buf_ptr2 && lex_class[*buffer.offset(bf_ptr as isize) as usize] as i32 == 1i32 {
+    while bf_ptr < buf_ptr2 && lex_class[*buffer.offset(bf_ptr as isize) as usize] == LexType::WhiteSpace {
         /*white_space */
         bf_ptr += 1
     } /*empty */
@@ -998,8 +1044,7 @@ unsafe fn output_bbl_line() {
     let bbl = bbl_file.as_mut().unwrap();
     if out_buf_length != 0 {
         while out_buf_length > 0i32 {
-            if !(lex_class[*out_buf.offset((out_buf_length - 1i32) as isize) as usize] as i32
-                == 1i32)
+            if !(lex_class[*out_buf.offset((out_buf_length - 1i32) as isize) as usize] == LexType::WhiteSpace)
             {
                 break;
             }
@@ -1864,16 +1909,16 @@ unsafe fn pre_def_certain_strings() {
 }
 unsafe fn scan1(mut char1: u8) -> bool {
     buf_ptr1 = buf_ptr2;
-    while buf_ptr2 < last && *buffer.offset(buf_ptr2 as isize) as i32 != char1 as i32 {
-        buf_ptr2 = buf_ptr2 + 1i32
+    while buf_ptr2 < last && *buffer.offset(buf_ptr2 as isize) != char1 {
+        buf_ptr2 += 1;
     }
     buf_ptr2 < last
 }
 unsafe fn scan1_white(mut char1: u8) -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last
-        && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1i32
-        && *buffer.offset(buf_ptr2 as isize) as i32 != char1 as i32
+        && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::WhiteSpace
+        && *buffer.offset(buf_ptr2 as isize) != char1
     {
         buf_ptr2 = buf_ptr2 + 1i32
     }
@@ -1882,19 +1927,19 @@ unsafe fn scan1_white(mut char1: u8) -> bool {
 unsafe fn scan2(mut char1: u8, mut char2: u8) -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last
-        && *buffer.offset(buf_ptr2 as isize) as i32 != char1 as i32
-        && *buffer.offset(buf_ptr2 as isize) as i32 != char2 as i32
+        && *buffer.offset(buf_ptr2 as isize) != char1
+        && *buffer.offset(buf_ptr2 as isize) != char2
     {
-        buf_ptr2 = buf_ptr2 + 1i32
+        buf_ptr2 += 1;
     }
     buf_ptr2 < last
 }
 unsafe fn scan2_white(mut char1: u8, mut char2: u8) -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last
-        && *buffer.offset(buf_ptr2 as isize) as i32 != char1 as i32
-        && *buffer.offset(buf_ptr2 as isize) as i32 != char2 as i32
-        && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1i32
+        && *buffer.offset(buf_ptr2 as isize) != char1 
+        && *buffer.offset(buf_ptr2 as isize) != char2 
+        && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::WhiteSpace
     {
         buf_ptr2 = buf_ptr2 + 1i32
     }
@@ -1913,29 +1958,28 @@ unsafe fn scan3(mut char1: u8, mut char2: u8, mut char3: u8) -> bool {
 }
 unsafe fn scan_alpha() -> bool {
     buf_ptr1 = buf_ptr2;
-    while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 2i32 {
+    while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::Alpha {
         buf_ptr2 = buf_ptr2 + 1i32
     }
     buf_ptr2 - buf_ptr1 != 0
 }
 unsafe fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) {
     buf_ptr1 = buf_ptr2;
-    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 3i32 {
-        /*numeric */
-        while buf_ptr2 < last && id_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32
+    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::Numeric {
+        while buf_ptr2 < last && id_class[*buffer.offset(buf_ptr2 as isize) as usize] == 1
         {
-            buf_ptr2 = buf_ptr2 + 1i32
+            buf_ptr2 += 1;
         }
     } /*id_null */
     if buf_ptr2 - buf_ptr1 == 0i32 {
         scan_result = 0_u8
-    } else if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32
+    } else if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
         || buf_ptr2 == last
     {
         scan_result = 3_u8
-    } else if *buffer.offset(buf_ptr2 as isize) as i32 == char1 as i32
-        || *buffer.offset(buf_ptr2 as isize) as i32 == char2 as i32
-        || *buffer.offset(buf_ptr2 as isize) as i32 == char3 as i32
+    } else if *buffer.offset(buf_ptr2 as isize) == char1
+        || *buffer.offset(buf_ptr2 as isize) == char2
+        || *buffer.offset(buf_ptr2 as isize) == char3
     {
         /*white_adjacent */
         scan_result = 1_u8
@@ -1946,43 +1990,51 @@ unsafe fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) {
 }
 unsafe fn scan_nonneg_integer() -> bool {
     buf_ptr1 = buf_ptr2;
-    token_value = 0i32;
-    while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 3i32 {
-        token_value = token_value * 10i32 + (*buffer.offset(buf_ptr2 as isize) as i32 - 48i32);
-        buf_ptr2 = buf_ptr2 + 1i32
+    token_value = 0;
+    while buf_ptr2 < last {
+        if let Some(d) = char::from(*buffer.offset(buf_ptr2 as isize)).to_digit(10) {
+            token_value = token_value * 10 + d as i32;
+            buf_ptr2 += 1;
+        } else {
+            break;
+        }
     }
-    buf_ptr2 - buf_ptr1 != 0i32
+    // If nothing was read, the pointers are the same and false should be returned.
+    buf_ptr1 != buf_ptr2
 }
 unsafe fn scan_integer() -> bool {
-    let mut sign_length: u8 = 0;
+    let sign_length;
     buf_ptr1 = buf_ptr2;
-    if *buffer.offset(buf_ptr2 as isize) as i32 == 45i32 {
-        /*minus_sign */
-        sign_length = 1_u8;
-        buf_ptr2 = buf_ptr2 + 1i32
+    if *buffer.offset(buf_ptr2 as isize) == b'-' {
+        sign_length = 1;
+        buf_ptr2 += 1;
     } else {
-        sign_length = 0_u8
+        sign_length = 0;
     }
-    token_value = 0i32;
-    while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 3i32 {
-        token_value = token_value * 10i32 + (*buffer.offset(buf_ptr2 as isize) as i32 - 48i32);
-        buf_ptr2 = buf_ptr2 + 1i32
+    token_value = 0;
+    while buf_ptr2 < last {
+        if let Some(d) = char::from(*buffer.offset(buf_ptr2 as isize)).to_digit(10) {
+            token_value = token_value * 10 + d as i32;
+            buf_ptr2 += 1;
+        } else {
+            break;
+        }
     }
-    if sign_length as i32 == 1i32 {
-        token_value = -token_value
+    if sign_length == 1 {
+        token_value = -token_value;
     }
-    buf_ptr2 - buf_ptr1 != sign_length as i32
+    buf_ptr2 != sign_length + buf_ptr1
 }
 unsafe fn scan_white_space() -> bool {
-    while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32 {
-        buf_ptr2 = buf_ptr2 + 1i32
+    while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace {
+        buf_ptr2 += 1;
     }
     buf_ptr2 < last
 }
 unsafe fn eat_bst_white_space() -> bool {
     loop {
         if scan_white_space() {
-            if *buffer.offset(buf_ptr2 as isize) as i32 != 37i32 {
+            if *buffer.offset(buf_ptr2 as isize) != b'%' {
                 /*comment */
                 return true;
             }
@@ -1990,7 +2042,7 @@ unsafe fn eat_bst_white_space() -> bool {
         if !input_ln(&mut bst_file) {
             return false;
         }
-        bst_line_num = bst_line_num + 1i32;
+        bst_line_num += 1;
         buf_ptr2 = 0i32
     }
 }
@@ -1998,7 +2050,7 @@ unsafe fn skip_token_print() {
     putc_log('-' as i32);
     bst_ln_num_print();
     mark_error();
-    scan2_white(125i32 as u8, 37i32 as u8);
+    scan2_white(b'{', b'%');
 }
 unsafe fn print_recursion_illegal() {
     log!("Curse you, wizard, before you recurse me:\n");
@@ -2059,9 +2111,9 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                     *ilk_info.offset(literal_loc as isize) = token_value
                 }
                 if buf_ptr2 < last
-                    && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1
-                    && *buffer.offset(buf_ptr2 as isize) as i32 != 125
-                    && *buffer.offset(buf_ptr2 as isize) as i32 != 37
+                    && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::WhiteSpace
+                    && *buffer.offset(buf_ptr2 as isize) != b'}'
+                    && *buffer.offset(buf_ptr2 as isize) != b'%'
                 {
                     skip_illegal_stuff_after_token_print();
                     lab25(singl_function);
@@ -2094,9 +2146,9 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                 *fn_type.offset(literal_loc as isize) = FnClass::StrLiteral;
                 buf_ptr2 = buf_ptr2 + 1;
                 if buf_ptr2 < last
-                    && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 != 1i32
-                    && *buffer.offset(buf_ptr2 as isize) as i32 != 125i32
-                    && *buffer.offset(buf_ptr2 as isize) as i32 != 37i32
+                    && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::WhiteSpace
+                    && *buffer.offset(buf_ptr2 as isize) != b'}' 
+                    && *buffer.offset(buf_ptr2 as isize) != b'%'
                 {
                     skip_illegal_stuff_after_token_print();
                     lab25(singl_function);
@@ -2304,7 +2356,7 @@ unsafe fn compress_bib_white() -> bool {
 }
 unsafe fn scan_balanced_braces() -> bool {
     buf_ptr2 = buf_ptr2 + 1i32;
-    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32 || buf_ptr2 == last {
+    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace || buf_ptr2 == last {
         if !compress_bib_white() {
             return false;
         }
@@ -2333,7 +2385,7 @@ unsafe fn scan_balanced_braces() -> bool {
                         ex_buf_ptr = ex_buf_ptr + 1i32
                     }
                     buf_ptr2 = buf_ptr2 + 1i32;
-                    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32
+                    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
                         || buf_ptr2 == last
                     {
                         if !compress_bib_white() {
@@ -2352,8 +2404,7 @@ unsafe fn scan_balanced_braces() -> bool {
                                     ex_buf_ptr = ex_buf_ptr + 1i32
                                 }
                                 buf_ptr2 = buf_ptr2 + 1i32;
-                                if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32
-                                    == 1i32
+                                if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
                                     || buf_ptr2 == last
                                 {
                                     if !compress_bib_white() {
@@ -2374,8 +2425,7 @@ unsafe fn scan_balanced_braces() -> bool {
                                     ex_buf_ptr = ex_buf_ptr + 1i32
                                 }
                                 buf_ptr2 = buf_ptr2 + 1i32;
-                                if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32
-                                    == 1i32
+                                if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
                                     || buf_ptr2 == last
                                 {
                                     if !compress_bib_white() {
@@ -2393,8 +2443,7 @@ unsafe fn scan_balanced_braces() -> bool {
                                     ex_buf_ptr = ex_buf_ptr + 1i32
                                 }
                                 buf_ptr2 = buf_ptr2 + 1i32;
-                                if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32
-                                    == 1i32
+                                if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
                                     || buf_ptr2 == last
                                 {
                                     if !compress_bib_white() {
@@ -2418,7 +2467,7 @@ unsafe fn scan_balanced_braces() -> bool {
                         ex_buf_ptr = ex_buf_ptr + 1i32
                     }
                     buf_ptr2 = buf_ptr2 + 1i32;
-                    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32
+                    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
                         || buf_ptr2 == last
                     {
                         if !compress_bib_white() {
@@ -2562,7 +2611,7 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                         .offset((*ilk_info.offset(macro_name_loc as isize) + 1i32) as isize);
                     if ex_buf_ptr == 0i32 {
                         if tmp_ptr < tmp_end_ptr
-                            && lex_class[*str_pool.offset(tmp_ptr as isize) as usize] as i32 == 1i32
+                            && lex_class[*str_pool.offset(tmp_ptr as isize) as usize] == LexType::WhiteSpace
                         {
                             if ex_buf_ptr == buf_size {
                                 bib_field_too_long_print();
@@ -2573,15 +2622,14 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                             }
                             tmp_ptr = tmp_ptr + 1i32;
                             while tmp_ptr < tmp_end_ptr
-                                && lex_class[*str_pool.offset(tmp_ptr as isize) as usize] as i32
-                                    == 1i32
+                                && lex_class[*str_pool.offset(tmp_ptr as isize) as usize] == LexType::WhiteSpace
                             {
                                 tmp_ptr = tmp_ptr + 1i32
                             }
                         }
                     }
                     while tmp_ptr < tmp_end_ptr {
-                        if lex_class[*str_pool.offset(tmp_ptr as isize) as usize] as i32 != 1i32 {
+                        if lex_class[*str_pool.offset(tmp_ptr as isize) as usize] != LexType::WhiteSpace {
                             /*white_space */
                             if ex_buf_ptr == buf_size {
                                 bib_field_too_long_print();
@@ -2755,12 +2803,10 @@ unsafe fn name_scan_for_and(mut pop_lit_var: str_number) {
                                 || *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 'D' as i32
                             {
                                 if lex_class[*ex_buf.offset((ex_buf_ptr + 2i32) as isize) as usize]
-                                    as i32
-                                    == 1i32
+                                    == LexType::WhiteSpace
                                 {
-                                    /*white_space */
-                                    ex_buf_ptr = ex_buf_ptr + 2i32;
-                                    and_found = true
+                                    ex_buf_ptr += 2;
+                                    and_found = true;
                                 }
                             }
                         }
@@ -2789,7 +2835,7 @@ unsafe fn name_scan_for_and(mut pop_lit_var: str_number) {
                 preceding_white = false
             }
             _ => {
-                if lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] as i32 == 1i32 {
+                if lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] == LexType::WhiteSpace {
                     /*white_space */
                     ex_buf_ptr = ex_buf_ptr + 1i32;
                     preceding_white = true
@@ -2826,10 +2872,8 @@ unsafe fn von_token_found() -> bool {
                         name_bf_ptr = name_bf_ptr + 1i32;
                         name_bf_yptr = name_bf_ptr;
                         while name_bf_ptr < name_bf_xptr
-                            && lex_class[*sv_buffer.offset(name_bf_ptr as isize) as usize] as i32
-                                == 2i32
-                        {
-                            name_bf_ptr = name_bf_ptr + 1i32
+                            && char::from(*sv_buffer.offset(name_bf_ptr as isize)).is_ascii_alphabetic()              {
+                            name_bf_ptr += 1;
                         }
                         control_seq_loc = str_lookup(
                             sv_buffer,
@@ -2974,8 +3018,7 @@ unsafe fn figure_out_the_formatted_name() {
             let mut end_of_group = false;
             let mut to_be_written = true;
             while !end_of_group && sp_ptr < sp_end {
-                if lex_class[*str_pool.offset(sp_ptr as isize) as usize] as i32 == 2i32 {
-                    /*alpha */
+                if (*str_pool.offset(sp_ptr as isize)).is_ascii_alphabetic() {
                     sp_ptr = sp_ptr + 1i32;
                     if alpha_found {
                         brace_lvl_one_letters_complaint();
@@ -3062,7 +3105,7 @@ unsafe fn figure_out_the_formatted_name() {
             sp_ptr = sp_xptr1;
             sp_brace_level = 1i32;
             while sp_brace_level > 0i32 {
-                if lex_class[*str_pool.offset(sp_ptr as isize) as usize] as i32 == 2i32
+                if (*str_pool.offset(sp_ptr as isize)).is_ascii_alphabetic()
                     && sp_brace_level == 1i32
                 {
                     sp_ptr = sp_ptr + 1i32;
@@ -3098,11 +3141,8 @@ unsafe fn figure_out_the_formatted_name() {
                             name_bf_ptr = *name_tok.offset(cur_token as isize);
                             name_bf_xptr = *name_tok.offset((cur_token + 1i32) as isize);
                             while name_bf_ptr < name_bf_xptr {
-                                if lex_class[*sv_buffer.offset(name_bf_ptr as isize) as usize]
-                                    as i32
-                                    == 2i32
+                                if (*sv_buffer.offset(name_bf_ptr as isize)).is_ascii_alphabetic()
                                 {
-                                    /*alpha */
                                     if ex_buf_ptr == buf_size {
                                         buffer_overflow();
                                     }
@@ -3169,9 +3209,7 @@ unsafe fn figure_out_the_formatted_name() {
                                     *ex_buf.offset(ex_buf_ptr as isize) = 46i32 as u8;
                                     ex_buf_ptr = ex_buf_ptr + 1i32
                                 }
-                                if lex_class[*name_sep_char.offset(cur_token as isize) as usize]
-                                    as i32
-                                    == 4i32
+                                if lex_class[*name_sep_char.offset(cur_token as isize) as usize] == LexType::SepChar
                                 {
                                     /*sep_char */
                                     if ex_buf_ptr == buf_size {
@@ -3405,7 +3443,7 @@ unsafe fn add_out_pool(mut p_str: str_number) {
         end_ptr = out_buf_length;
         out_buf_ptr = 79i32;
         break_pt_found = false;
-        while lex_class[*out_buf.offset(out_buf_ptr as isize) as usize] as i32 != 1i32
+        while lex_class[*out_buf.offset(out_buf_ptr as isize) as usize] != LexType::WhiteSpace
             && out_buf_ptr >= 3i32
         {
             out_buf_ptr = out_buf_ptr - 1i32
@@ -3414,7 +3452,7 @@ unsafe fn add_out_pool(mut p_str: str_number) {
             /*325: */
             out_buf_ptr = 79i32 + 1i32;
             while out_buf_ptr < end_ptr {
-                if !(lex_class[*out_buf.offset(out_buf_ptr as isize) as usize] as i32 != 1i32) {
+                if !(lex_class[*out_buf.offset(out_buf_ptr as isize) as usize] != LexType::WhiteSpace) {
                     break;
                 }
                 /*white_space */
@@ -3426,8 +3464,7 @@ unsafe fn add_out_pool(mut p_str: str_number) {
             } else {
                 break_pt_found = true;
                 while out_buf_ptr + 1i32 < end_ptr {
-                    if !(lex_class[*out_buf.offset((out_buf_ptr + 1i32) as isize) as usize] as i32
-                        == 1i32)
+                    if !(lex_class[*out_buf.offset((out_buf_ptr + 1i32) as isize) as usize] == LexType::WhiteSpace)
                     {
                         break;
                     }
@@ -3862,8 +3899,7 @@ unsafe fn x_change_case() {
                                 } else if prev_colon
                                     && lex_class
                                         [*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
-                                        as i32
-                                        == 1i32
+                                        == LexType::WhiteSpace
                                 {
                                     current_block = 17089879097653631793;
                                 } else {
@@ -3880,10 +3916,7 @@ unsafe fn x_change_case() {
                                         ex_buf_ptr = ex_buf_ptr + 1i32;
                                         ex_buf_xptr = ex_buf_ptr;
                                         while ex_buf_ptr < ex_buf_length
-                                            && lex_class
-                                                [*ex_buf.offset(ex_buf_ptr as isize) as usize]
-                                                as i32
-                                                == 2i32
+                                            && (*ex_buf.offset(ex_buf_ptr as isize)).is_ascii_alphabetic()
                                         {
                                             ex_buf_ptr = ex_buf_ptr + 1i32
                                         }
@@ -3938,9 +3971,7 @@ unsafe fn x_change_case() {
                                                             while ex_buf_ptr < ex_buf_length
                                                                 && lex_class[*ex_buf
                                                                     .offset(ex_buf_ptr as isize)
-                                                                    as usize]
-                                                                    as i32
-                                                                    == 1i32
+                                                                    as usize] == LexType::WhiteSpace
                                                             {
                                                                 ex_buf_ptr = ex_buf_ptr + 1i32
                                                             }
@@ -4020,9 +4051,7 @@ unsafe fn x_change_case() {
                     ConversionType::TitleLowers => {
                         if !(ex_buf_ptr == 0i32) {
                             if !(prev_colon
-                                && lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
-                                    as i32
-                                    == 1i32)
+                                && lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize] == LexType::WhiteSpace)
                             {
                                 lower_case(ex_buf, ex_buf_ptr, 1i32);
                             }
@@ -4030,8 +4059,7 @@ unsafe fn x_change_case() {
                         if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 58i32 {
                             /*colon */
                             prev_colon = true
-                        } else if lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] as i32
-                            != 1i32
+                        } else if lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] != LexType::WhiteSpace
                         {
                             /*white_space */
                             prev_colon = false
@@ -4109,7 +4137,7 @@ unsafe fn x_empty() {
             sp_ptr = *str_start.offset(pop_lit1 as isize);
             sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
             while sp_ptr < sp_end {
-                if lex_class[*str_pool.offset(sp_ptr as isize) as usize] as i32 != 1i32 {
+                if lex_class[*str_pool.offset(sp_ptr as isize) as usize] != LexType::WhiteSpace {
                     /*white_space */
                     push_lit_stk(0i32, StkType::Int);
                     return;
@@ -4165,8 +4193,8 @@ unsafe fn x_format_name() {
             bst_ex_warn_print();
         }
         while ex_buf_ptr > ex_buf_xptr {
-            match lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize] as i32 {
-                1 | 4 => ex_buf_ptr = ex_buf_ptr - 1i32,
+            match lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize] {
+                LexType::WhiteSpace | LexType::SepChar => ex_buf_ptr = ex_buf_ptr - 1i32,
                 _ => {
                     if !(*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 44i32) {
                         break;
@@ -4243,15 +4271,15 @@ unsafe fn x_format_name() {
                     ex_buf_xptr = ex_buf_xptr + 1i32;
                     token_starting = false
                 }
-                _ => match lex_class[*ex_buf.offset(ex_buf_xptr as isize) as usize] as i32 {
-                    1 => {
+                _ => match lex_class[*ex_buf.offset(ex_buf_xptr as isize) as usize] {
+                    LexType::WhiteSpace => {
                         if !token_starting {
                             *name_sep_char.offset(num_tokens as isize) = 32i32 as u8
                         }
                         ex_buf_xptr = ex_buf_xptr + 1i32;
                         token_starting = true
                     }
-                    4 => {
+                    LexType::SepChar => {
                         if !token_starting {
                             *name_sep_char.offset(num_tokens as isize) =
                                 *ex_buf.offset(ex_buf_xptr as isize)
@@ -4305,8 +4333,7 @@ unsafe fn x_format_name() {
                     _ => {
                         if von_start > 0i32 {
                             if !(lex_class[*name_sep_char.offset(von_start as isize) as usize]
-                                as i32
-                                != 4i32
+                                != LexType::SepChar
                                 || *name_sep_char.offset(von_start as isize) as i32 == 126i32)
                             {
                                 von_start = von_start - 1i32;
@@ -4431,12 +4458,12 @@ unsafe fn x_purify() {
         ex_buf_xptr = 0i32;
         ex_buf_ptr = 0i32;
         while ex_buf_ptr < ex_buf_length {
-            match lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] as i32 {
-                1 | 4 => {
+            match lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] {
+                LexType::WhiteSpace | LexType::SepChar => {
                     *ex_buf.offset(ex_buf_xptr as isize) = 32i32 as u8;
                     ex_buf_xptr = ex_buf_xptr + 1i32
                 }
-                2 | 3 => {
+                LexType::Alpha | LexType::Numeric => {
                     *ex_buf.offset(ex_buf_xptr as isize) = *ex_buf.offset(ex_buf_ptr as isize);
                     ex_buf_xptr = ex_buf_xptr + 1i32
                 }
@@ -4454,8 +4481,7 @@ unsafe fn x_purify() {
                                     ex_buf_yptr = ex_buf_ptr;
                                     while ex_buf_ptr < ex_buf_length
                                         && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize]
-                                            as i32
-                                            == 2i32
+                                            == LexType::Alpha
                                     {
                                         ex_buf_ptr = ex_buf_ptr + 1i32
                                     }
@@ -4486,9 +4512,8 @@ unsafe fn x_purify() {
                                     {
                                         match lex_class
                                             [*ex_buf.offset(ex_buf_ptr as isize) as usize]
-                                            as i32
                                         {
-                                            2 | 3 => {
+                                            LexType::Alpha | LexType::Numeric => {
                                                 *ex_buf.offset(ex_buf_xptr as isize) =
                                                     *ex_buf.offset(ex_buf_ptr as isize);
                                                 ex_buf_xptr = ex_buf_xptr + 1i32
@@ -4794,8 +4819,8 @@ unsafe fn x_width() {
                             ex_buf_ptr = ex_buf_ptr + 1i32;
                             ex_buf_xptr = ex_buf_ptr;
                             while ex_buf_ptr < ex_buf_length
-                                && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] as i32
-                                    == 2i32
+                                && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize]
+                                    == LexType::Alpha
                             {
                                 ex_buf_ptr = ex_buf_ptr + 1i32
                             }
@@ -4826,8 +4851,7 @@ unsafe fn x_width() {
                                 }
                             }
                             while ex_buf_ptr < ex_buf_length
-                                && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] as i32
-                                    == 1i32
+                                && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] == LexType::WhiteSpace
                             {
                                 ex_buf_ptr = ex_buf_ptr + 1i32
                             }
@@ -5119,7 +5143,7 @@ unsafe fn aux_bib_data_command() {
             aux_err_print();
             return;
         }
-        if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32 {
+        if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace {
             /*white_space */
             aux_err_white_space_in_argument_print();
             aux_err_print();
@@ -5186,7 +5210,7 @@ unsafe fn aux_bib_style_command() {
         aux_err_print();
         return;
     }
-    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32 {
+    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace {
         /*white_space */
         aux_err_white_space_in_argument_print();
         aux_err_print();
@@ -5234,7 +5258,7 @@ unsafe fn aux_citation_command() {
             aux_err_print();
             return;
         }
-        if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1 {
+        if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace {
             /*white_space */
             aux_err_white_space_in_argument_print();
             aux_err_print();
@@ -5315,7 +5339,7 @@ unsafe fn aux_input_command() {
         aux_err_print();
         return;
     }
-    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] as i32 == 1i32 {
+    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace {
         /*white_space */
         aux_err_white_space_in_argument_print();
         aux_err_print();
@@ -6936,42 +6960,6 @@ unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
         return 1i32;
     }
     history = TTHistory::SPOTLESS;
-    i = 0i32;
-    while i <= 127i32 {
-        lex_class[i as usize] = 5i32 as lex_type;
-        i += 1
-    }
-    i = 128i32;
-    while i <= 255i32 {
-        lex_class[i as usize] = 2i32 as lex_type;
-        i += 1
-    }
-    i = 0i32;
-    while i <= 31i32 {
-        lex_class[i as usize] = 0i32 as lex_type;
-        i += 1
-    }
-    lex_class[127] = 0i32 as lex_type;
-    lex_class[9] = 1i32 as lex_type;
-    lex_class[13] = 1i32 as lex_type;
-    lex_class[32] = 1i32 as lex_type;
-    lex_class[126] = 4i32 as lex_type;
-    lex_class[45] = 4i32 as lex_type;
-    i = 48i32;
-    while i <= 57i32 {
-        lex_class[i as usize] = 3i32 as lex_type;
-        i += 1
-    }
-    i = 65i32;
-    while i <= 90i32 {
-        lex_class[i as usize] = 2i32 as lex_type;
-        i += 1
-    }
-    i = 97i32;
-    while i <= 122i32 {
-        lex_class[i as usize] = 2i32 as lex_type;
-        i += 1
-    }
     i = 0i32;
     while i <= 255i32 {
         id_class[i as usize] = 1i32 as id_type;
