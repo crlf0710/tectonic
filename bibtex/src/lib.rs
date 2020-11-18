@@ -6872,9 +6872,9 @@ unsafe fn badness() -> i32 {
     if hash_prime > hash_size {
         bad = 10 * bad + 5;
     }
-    if hash_prime >= (16384 - 64) {
+    /*if hash_prime >= (16384 - 64) {
         bad = 10 * bad + 6;
-    }
+    }*/
     if max_strings > hash_size {
         bad = 10 * bad + 7;
     }
