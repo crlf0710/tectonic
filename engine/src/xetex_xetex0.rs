@@ -90,7 +90,7 @@ use crate::xetex_texmfmp::{
     getmd5sum, gettexstring, is_new_source, make_src_special, maketexstring, remember_source_info,
 };
 use crate::xetex_xetexd::*;
-use bridge::{ttstub_issue_warning, ttstub_output_close, ttstub_output_open, ttstub_output_putc};
+use bridge::{ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 
 use bridge::{TTHistory, TTInputFormat};
 
@@ -16152,7 +16152,8 @@ pub(crate) unsafe fn close_files_and_terminate() {
     finalize_dvi_file();
     synctex_terminate(log_opened);
     if log_opened {
-        ttstub_output_putc(log_file.as_mut().unwrap(), '\n' as i32);
+        use std::io::Write;
+        write!(log_file.as_mut().unwrap(), "\n").unwrap();
         ttstub_output_close(log_file.take().unwrap());
         log_file = None;
         selector = u8::from(selector).wrapping_sub(2).into();

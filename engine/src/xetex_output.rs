@@ -9,8 +9,8 @@
 )]
 
 use super::xetex_consts::{
-    get_int_par, set_int_par, IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT,
-    EQTB_SIZE, HASH_BASE, NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+    get_int_par, IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE,
+    NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
 };
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
@@ -23,7 +23,6 @@ use super::xetex_ini::{
     pool_size, rust_stdout, selector, str_pool, str_ptr, tally, term_offset, trick_buf,
     trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
-use bridge::ttstub_output_putc;
 
 /* Extra stuff used in various change files for various reasons.  */
 /* Array allocations. Add 1 to size to account for Pascal indexing convention. */
@@ -37,27 +36,29 @@ pub(crate) type str_number = i32;
  * Licensed under the MIT License.
 */
 pub(crate) unsafe fn print_ln() {
+    use std::io::Write;
     match selector {
         Selector::TERM_AND_LOG => {
-            ttstub_output_putc(rust_stdout.as_mut().unwrap(), '\n' as i32);
-            ttstub_output_putc(log_file.as_mut().unwrap(), '\n' as i32);
-            term_offset = 0i32;
-            file_offset = 0i32
+            write!(rust_stdout.as_mut().unwrap(), "\n").unwrap();
+            write!(log_file.as_mut().unwrap(), "\n").unwrap();
+            term_offset = 0;
+            file_offset = 0;
         }
         Selector::LOG_ONLY => {
-            ttstub_output_putc(log_file.as_mut().unwrap(), '\n' as i32);
-            file_offset = 0i32
+            write!(log_file.as_mut().unwrap(), "\n").unwrap();
+            file_offset = 0;
         }
         Selector::TERM_ONLY => {
-            ttstub_output_putc(rust_stdout.as_mut().unwrap(), '\n' as i32);
-            term_offset = 0i32
+            write!(rust_stdout.as_mut().unwrap(), "\n").unwrap();
+            term_offset = 0;
         }
         Selector::NO_PRINT | Selector::PSEUDO | Selector::NEW_STRING => {}
         _ => {
-            ttstub_output_putc(
+            write!(
                 write_file[u8::from(selector) as usize].as_mut().unwrap(),
-                '\n' as i32,
-            );
+                "\n"
+            )
+            .unwrap();
         }
     };
 }
@@ -263,18 +264,7 @@ pub(crate) unsafe fn print(s: i32) {
     if s < 0 || s >= str_ptr {
         print_cstr("???");
     } else if s < TOO_BIG_CHAR {
-        if s == get_int_par(IntPar::new_line_char) {
-            if selector == Selector::PSEUDO {
-                let nl = get_int_par(IntPar::new_line_char);
-                set_int_par(IntPar::new_line_char, -1);
-                print_char(s);
-                set_int_par(IntPar::new_line_char, nl);
-            } else {
-                print_ln();
-            }
-        } else {
-            print_char(s);
-        }
+        print_char(s);
     } else {
         for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
             print_char(c.unwrap() as i32)
