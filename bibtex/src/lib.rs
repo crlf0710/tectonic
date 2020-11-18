@@ -116,6 +116,14 @@ enum FnClass {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum ScanResult {
+    IdNull,
+    SpecifiedCharAdjacent,
+    OtherCharAdjacent,
+    WhiteAdjacent
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum LexType {
     /// The unrecognized |ASCII_code|s
     Illegal,
@@ -320,9 +328,6 @@ static mut pre_def_loc: hash_loc = 0;
 static mut command_num: i32 = 0;
 static mut buf_ptr1: buf_pointer = 0;
 static mut buf_ptr2: buf_pointer = 0;
-/*white_adjacent */
-static mut scan_result: u8 = 0;
-static mut token_value: i32 = 0;
 static mut aux_name_length: i32 = 0;
 static mut aux_file: [Option<peekable_input_t>; 21] = [
     None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -840,15 +845,13 @@ unsafe fn id_scanning_confusion() {
     print_confusion();
     panic!();
 }
-unsafe fn bst_id_print() {
-    if scan_result as i32 == 0i32 {
-        /*id_null */
+unsafe fn bst_id_print(scan_result: ScanResult) {
+    if scan_result == ScanResult::IdNull {
         log!(
             "\"{}\" begins identifier, command: ",
             *buffer.offset(buf_ptr2 as isize) as char
         );
-    } else if scan_result as i32 == 2i32 {
-        /*other_char_adjacent */
+    } else if scan_result == ScanResult::OtherCharAdjacent {
         log!(
             "\"{}\" immediately follows identifier, command: ",
             *buffer.offset(buf_ptr2 as isize) as char
@@ -945,12 +948,10 @@ unsafe fn macro_warn_print() {
     print_a_token();
     log!("\" is ");
 }
-unsafe fn bib_id_print() {
-    if scan_result as i32 == 0i32 {
-        /*id_null */
+unsafe fn bib_id_print(scan_result: ScanResult) {
+    if scan_result == ScanResult::IdNull {
         log!("You\'re missing ");
-    } else if scan_result as i32 == 2i32 {
-        /*other_char_adjacent */
+    } else if scan_result == ScanResult::OtherCharAdjacent {
         log!(
             "\"{}\" immediately follows ",
             *buffer.offset(buf_ptr2 as isize) as char
@@ -1981,34 +1982,34 @@ unsafe fn scan_alpha() -> bool {
     }
     buf_ptr2 - buf_ptr1 != 0
 }
-unsafe fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) {
+unsafe fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) -> ScanResult {
+    let scan_result;
     buf_ptr1 = buf_ptr2;
     if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::Numeric {
         while buf_ptr2 < last && id_class[*buffer.offset(buf_ptr2 as isize) as usize] == IdType::Legal
         {
             buf_ptr2 += 1;
         }
-    } /*id_null */
+    }
     if buf_ptr2 - buf_ptr1 == 0i32 {
-        scan_result = 0_u8
+        scan_result = ScanResult::IdNull;
     } else if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
         || buf_ptr2 == last
     {
-        scan_result = 3_u8
+        scan_result = ScanResult::WhiteAdjacent;
     } else if *buffer.offset(buf_ptr2 as isize) == char1
         || *buffer.offset(buf_ptr2 as isize) == char2
         || *buffer.offset(buf_ptr2 as isize) == char3
     {
-        /*white_adjacent */
-        scan_result = 1_u8
+        scan_result = ScanResult::SpecifiedCharAdjacent;
     } else {
-        scan_result = 2_u8
-    }; /*specified_char_adjacent */
-    /*other_char_adjacent */
+        scan_result = ScanResult::OtherCharAdjacent;
+    };
+    scan_result
 }
-unsafe fn scan_nonneg_integer() -> bool {
+unsafe fn scan_nonneg_integer() -> Result<i32, ()> {
     buf_ptr1 = buf_ptr2;
-    token_value = 0;
+    let mut token_value = 0;
     while buf_ptr2 < last {
         if let Some(d) = char::from(*buffer.offset(buf_ptr2 as isize)).to_digit(10) {
             token_value = token_value * 10 + d as i32;
@@ -2018,9 +2019,13 @@ unsafe fn scan_nonneg_integer() -> bool {
         }
     }
     // If nothing was read, the pointers are the same and false should be returned.
-    buf_ptr1 != buf_ptr2
+    if buf_ptr1 != buf_ptr2 {
+        Ok(token_value)
+    } else {
+        Err(())
+    }
 }
-unsafe fn scan_integer() -> bool {
+unsafe fn scan_integer() -> Result<i32, ()> {
     let sign_length;
     buf_ptr1 = buf_ptr2;
     if *buffer.offset(buf_ptr2 as isize) == b'-' {
@@ -2029,7 +2034,7 @@ unsafe fn scan_integer() -> bool {
     } else {
         sign_length = 0;
     }
-    token_value = 0;
+    let mut token_value = 0;
     while buf_ptr2 < last {
         if let Some(d) = char::from(*buffer.offset(buf_ptr2 as isize)).to_digit(10) {
             token_value = token_value * 10 + d as i32;
@@ -2041,7 +2046,11 @@ unsafe fn scan_integer() -> bool {
     if sign_length == 1 {
         token_value = -token_value;
     }
-    buf_ptr2 != sign_length + buf_ptr1
+    if buf_ptr2 != sign_length + buf_ptr1 {
+        Ok(token_value)
+    } else {
+        Err(())
+    }
 }
 unsafe fn scan_white_space() -> bool {
     while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace {
@@ -2114,12 +2123,15 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
         match *buffer.offset(buf_ptr2 as isize) as i32 {
             35 => {
                 buf_ptr2 += 1;
-                if !scan_integer() {
-                    log!("Illegal integer in integer literal");
-                    skip_token_print();
-                    lab25(singl_function);
-                    continue;
-                }
+                let token_value = match scan_integer() {
+                    Err(_) => {
+                        log!("Illegal integer in integer literal");
+                        skip_token_print();
+                        lab25(singl_function);
+                        continue;
+                    },
+                    Ok(t) => t
+                };
                 literal_loc =
                     str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 1i32 as str_ilk, true); /*integer_ilk */
                 if !hash_found {
@@ -2527,44 +2539,44 @@ unsafe fn scan_balanced_braces() -> bool {
     true
 }
 unsafe fn scan_a_field_token_and_eat_white() -> bool {
-    match *buffer.offset(buf_ptr2 as isize) as i32 {
-        123 => {
-            right_str_delim = 125i32 as u8;
+    match *buffer.offset(buf_ptr2 as isize) {
+        b'{' => {
+            right_str_delim = b'}';
             if !scan_balanced_braces() {
                 return false;
             }
         }
-        34 => {
-            right_str_delim = 34i32 as u8;
+        b'"'  => {
+            right_str_delim = b'"';
             if !scan_balanced_braces() {
                 return false;
             }
         }
-        48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 => {
-            if !scan_nonneg_integer() {
+        c if c.is_ascii_digit() => {
+            if scan_nonneg_integer().is_err() {
                 log!("A digit disappeared");
                 print_confusion();
                 panic!();
             }
             if store_field {
-                let mut tmp_ptr = buf_ptr1;
-                while tmp_ptr < buf_ptr2 {
+                let len = (buf_ptr2 - buf_ptr1) as usize;
+                let integer_str = slice::from_raw_parts(buffer.offset(buf_ptr1 as isize), len);
+                for c in integer_str.iter() {
                     if ex_buf_ptr == buf_size {
                         bib_field_too_long_print();
                         return false;
                     } else {
-                        *ex_buf.offset(ex_buf_ptr as isize) = *buffer.offset(tmp_ptr as isize);
+                        *ex_buf.offset(ex_buf_ptr as isize) = *c;
                         ex_buf_ptr += 1i32
                     }
-                    tmp_ptr += 1i32
                 }
             }
         }
         _ => {
-            scan_identifier(44i32 as u8, right_outer_delim, 35i32 as u8);
-            if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+            let scan_result = scan_identifier(44i32 as u8, right_outer_delim, 35i32 as u8);
+            if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
             } else {
-                bib_id_print();
+                bib_id_print(scan_result);
                 log!("a field part");
                 bib_err_print();
                 return false;
@@ -5432,11 +5444,10 @@ unsafe fn bst_entry_command() {
         return;
     }
     while *buffer.offset(buf_ptr2 as isize) as i32 != 125i32 {
-        /*right_brace */
-        scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*field */
-        if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+        let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*field */
+        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
         } else {
-            bst_id_print();
+            bst_id_print(scan_result);
             log!("entry");
             bst_err_print_and_look_for_blank_line();
             return;
@@ -5488,12 +5499,12 @@ unsafe fn bst_entry_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    while *buffer.offset(buf_ptr2 as isize) as i32 != 125i32 {
+    while *buffer.offset(buf_ptr2 as isize) != b'}' {
         /*right_brace */
-        scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*int_entry_var */
-        if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+        let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*int_entry_var */
+        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
         } else {
-            bst_id_print();
+            bst_id_print(scan_result);
             log!("entry");
             bst_err_print_and_look_for_blank_line();
             return;
@@ -5541,12 +5552,11 @@ unsafe fn bst_entry_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    while *buffer.offset(buf_ptr2 as isize) as i32 != 125i32 {
-        /*right_brace */
-        scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*str_entry_var */
-        if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+    while *buffer.offset(buf_ptr2 as isize) != b'}' {
+        let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*str_entry_var */
+        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
         } else {
-            bst_id_print();
+            bst_id_print(scan_result);
             log!("entry");
             bst_err_print_and_look_for_blank_line();
             return;
@@ -5626,10 +5636,10 @@ unsafe fn bst_execute_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+    let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
+    if scan_result == ScanResult::WhiteAdjacent || scan_result ==ScanResult::SpecifiedCharAdjacent {
     } else {
-        bst_id_print();
+        bst_id_print(scan_result);
         log!("execute");
         bst_err_print_and_look_for_blank_line();
         return;
@@ -5677,10 +5687,10 @@ unsafe fn bst_function_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+    let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
     } else {
-        bst_id_print();
+        bst_id_print(scan_result);
         log!("function");
         bst_err_print_and_look_for_blank_line();
         return;
@@ -5752,12 +5762,11 @@ unsafe fn bst_integers_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    while *buffer.offset(buf_ptr2 as isize) as i32 != 125i32 {
-        /*right_brace */
-        scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*int_global_var */
-        if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+    while *buffer.offset(buf_ptr2 as isize) != b'}' {
+        let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*int_global_var */
+        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
         } else {
-            bst_id_print();
+            bst_id_print(scan_result);
             log!("integers");
             bst_err_print_and_look_for_blank_line();
             return;
@@ -5811,10 +5820,10 @@ unsafe fn bst_iterate_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+    let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
     } else {
-        bst_id_print();
+        bst_id_print(scan_result);
         log!("iterate");
         bst_err_print_and_look_for_blank_line();
         return;
@@ -5872,10 +5881,10 @@ unsafe fn bst_macro_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+    let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
     } else {
-        bst_id_print();
+        bst_id_print(scan_result);
         log!("macro");
         bst_err_print_and_look_for_blank_line();
         return;
@@ -5981,10 +5990,11 @@ unsafe fn get_bib_command_or_entry_and_process() {
         eat_bib_print();
         return;
     }
-    scan_identifier(123i32 as u8, 40i32 as u8, 40i32 as u8);
-    if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+    // TODO: Replace this pattern by a function returning Result somehow
+    let scan_result = scan_identifier(123i32 as u8, 40i32 as u8, 40i32 as u8);
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
     } else {
-        bib_id_print();
+        bib_id_print(scan_result);
         log!("an entry type");
         bib_err_print();
         return;
@@ -6079,10 +6089,10 @@ unsafe fn get_bib_command_or_entry_and_process() {
                     eat_bib_print();
                     return;
                 }
-                scan_identifier(61i32 as u8, 61i32 as u8, 61i32 as u8);
-                if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+                let scan_result = scan_identifier(61i32 as u8, 61i32 as u8, 61i32 as u8);
+                if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
                 } else {
-                    bib_id_print();
+                    bib_id_print(scan_result);
                     log!("a string name");
                     bib_err_print();
                     return;
@@ -6322,10 +6332,10 @@ unsafe fn get_bib_command_or_entry_and_process() {
         if *buffer.offset(buf_ptr2 as isize) as i32 == right_outer_delim as i32 {
             break;
         }
-        scan_identifier(61i32 as u8, 61i32 as u8, 61i32 as u8);
-        if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+        let scan_result = scan_identifier(61i32 as u8, 61i32 as u8, 61i32 as u8);
+        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
         } else {
-            bib_id_print();
+            bib_id_print(scan_result);
             log!("a field name");
             bib_err_print();
             return;
@@ -6622,10 +6632,10 @@ unsafe fn bst_reverse_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result as i32 == 3i32 || scan_result as i32 == 1i32 {
+    let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
     } else {
-        bst_id_print();
+        bst_id_print(scan_result);
         log!("reverse");
         bst_err_print_and_look_for_blank_line();
         return;
@@ -6695,10 +6705,10 @@ unsafe fn bst_strings_command() {
     }
     while *buffer.offset(buf_ptr2 as isize) as i32 != 125i32 {
         /*right_brace */
-        scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-        if scan_result as i32 != 3i32 && scan_result as i32 != 1i32 {
+        let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
+        if scan_result != ScanResult::WhiteAdjacent && scan_result != ScanResult::SpecifiedCharAdjacent {
             /*specified_char_adjacent */
-            bst_id_print(); /*str_global_var */
+            bst_id_print(scan_result); /*str_global_var */
             log!("strings"); /*HASH_SIZE */
             bst_err_print_and_look_for_blank_line();
             return;
