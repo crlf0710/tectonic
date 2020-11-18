@@ -94,11 +94,7 @@ pub(crate) unsafe fn print_raw_char(s: UTF16_code) {
             }
         }
         Selector::NO_PRINT => {}
-        Selector::PSEUDO => {
-            if tally < trick_count {
-                trick_buf[(tally % error_line) as usize] = s
-            }
-        }
+        Selector::PSEUDO => unreachable!(),
         Selector::NEW_STRING => {
             if pool_ptr < pool_size {
                 str_pool[pool_ptr as usize] = s;
@@ -149,14 +145,8 @@ pub(crate) unsafe fn print_rust_char(s: char) {
         }
         Selector::NO_PRINT => {}
         Selector::PSEUDO => {
-            let len = s.len_utf8();
-            if tally + (len as i32) - 1 < trick_count {
-                let mut t = tally;
-                for &i in s.to_string().as_bytes() {
-                    // TODO: check
-                    trick_buf[(t % error_line) as usize] = i as u16;
-                    t += 1;
-                }
+            if tally < trick_count {
+                trick_buf[(tally % error_line) as usize] = s;
             }
         }
         Selector::NEW_STRING => unreachable!(),
@@ -169,7 +159,7 @@ pub(crate) unsafe fn print_rust_char(s: char) {
             .unwrap();
         }
     }
-    tally += s.len_utf8() as i32;
+    tally += 1;
 }
 pub(crate) unsafe fn print_chr(s: char) {
     print_char(s as i32)

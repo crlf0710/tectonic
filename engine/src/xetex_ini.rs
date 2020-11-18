@@ -508,7 +508,7 @@ pub(crate) static mut term_offset: i32 = 0;
 #[no_mangle]
 pub(crate) static mut file_offset: i32 = 0;
 #[no_mangle]
-pub(crate) static mut trick_buf: [UTF16_code; 256] = [0; 256];
+pub(crate) static mut trick_buf: [char; 256] = ['\u{0}'; 256];
 #[no_mangle]
 pub(crate) static mut trick_count: i32 = 0;
 #[no_mangle]

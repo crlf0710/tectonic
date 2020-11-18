@@ -72,8 +72,8 @@ use crate::xetex_math::{
 use crate::xetex_output::{
     print, print_char, print_chr, print_cs, print_cstr, print_current_string, print_esc,
     print_esc_cstr, print_file_line, print_file_name, print_hex, print_int, print_ln,
-    print_native_word, print_nl, print_nl_cstr, print_raw_char, print_roman_int, print_sa_num,
-    print_scaled, print_size, print_write_whatsit, sprint_cs,
+    print_native_word, print_nl, print_nl_cstr, print_raw_char, print_roman_int, print_rust_char,
+    print_sa_num, print_scaled, print_size, print_write_whatsit, sprint_cs,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
@@ -3488,11 +3488,11 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     n = half_error_line
                 }
                 for q in p..first_count {
-                    print_raw_char(trick_buf[(q % error_line) as usize]);
+                    print_rust_char(trick_buf[(q % error_line) as usize]);
                 }
                 print_ln();
                 for _ in 0..n {
-                    print_raw_char(' ' as i32 as UTF16_code);
+                    print_rust_char(' ');
                 }
                 let p = if m + n <= error_line {
                     first_count + m
@@ -3500,7 +3500,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     first_count + (error_line - n - 3)
                 };
                 for q in first_count..p {
-                    print_raw_char(trick_buf[(q % error_line) as usize]);
+                    print_rust_char(trick_buf[(q % error_line) as usize]);
                 }
                 if m + n > error_line {
                     print_cstr("...");
