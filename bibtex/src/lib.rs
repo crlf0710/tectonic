@@ -74,7 +74,6 @@ pub(crate) type buf_type = *mut u8;
 pub(crate) type hash_loc = i32;
 pub(crate) type str_ilk = u8;
 pub(crate) type hash_pointer = i32;
-pub(crate) type id_type = u8;
 pub(crate) type cite_number = i32;
 pub(crate) type str_ent_loc = i32;
 pub(crate) type lit_stk_loc = i32;
@@ -87,6 +86,12 @@ pub(crate) type aux_number = i32;
 pub(crate) type pds_len = u8;
 pub(crate) type pds_type = *const i8;
 pub(crate) type blt_in_range = i32;
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum IdType {
+    Illegal,
+    Legal
+}
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum StkType {
@@ -215,6 +220,26 @@ unsafe fn eoln(peekable: &mut peekable_input_t) -> bool {
 }
 
 lazy_static::lazy_static!{
+    static ref id_class: [IdType; 256] = {    
+        let mut ic = [IdType::Legal; 256];
+        for i in 0..32 {
+            ic[i] = IdType::Illegal;
+        }
+        ic[32] = IdType::Illegal;
+        ic[9] = IdType::Illegal;
+        ic[34] = IdType::Illegal;
+        ic[35] = IdType::Illegal;
+        ic[37] = IdType::Illegal;
+        ic[39] = IdType::Illegal;
+        ic[40] = IdType::Illegal;
+        ic[41] = IdType::Illegal;
+        ic[44] = IdType::Illegal;
+        ic[61] = IdType::Illegal;
+        ic[123] = IdType::Illegal;
+        ic[125] = IdType::Illegal;
+        ic
+    };
+
     static ref lex_class: [LexType; 256] = {
         let mut lc = [LexType::Illegal; 256];
         for i in 0..128 {
@@ -264,7 +289,6 @@ static mut undefined: i32 = 0;
 /*fatal_message */
 static mut history: TTHistory = TTHistory::SPOTLESS;
 static mut err_count: i32 = 0;
-static mut id_class: [u8; 256] = [0; 256];
 static mut char_width: [i32; 256] = [0; 256];
 static mut string_width: i32 = 0;
 static mut name_of_file: *mut u8 = ptr::null_mut();
@@ -1960,7 +1984,7 @@ unsafe fn scan_alpha() -> bool {
 unsafe fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) {
     buf_ptr1 = buf_ptr2;
     if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::Numeric {
-        while buf_ptr2 < last && id_class[*buffer.offset(buf_ptr2 as isize) as usize] == 1
+        while buf_ptr2 < last && id_class[*buffer.offset(buf_ptr2 as isize) as usize] == IdType::Legal
         {
             buf_ptr2 += 1;
         }
@@ -6866,28 +6890,6 @@ unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
         return 1i32;
     }
     history = TTHistory::SPOTLESS;
-    i = 0i32;
-    while i <= 255i32 {
-        id_class[i as usize] = 1i32 as id_type;
-        i += 1
-    }
-    i = 0i32;
-    while i <= 31i32 {
-        id_class[i as usize] = 0i32 as id_type;
-        i += 1
-    }
-    id_class[32] = 0i32 as id_type;
-    id_class[9] = 0i32 as id_type;
-    id_class[34] = 0i32 as id_type;
-    id_class[35] = 0i32 as id_type;
-    id_class[37] = 0i32 as id_type;
-    id_class[39] = 0i32 as id_type;
-    id_class[40] = 0i32 as id_type;
-    id_class[41] = 0i32 as id_type;
-    id_class[44] = 0i32 as id_type;
-    id_class[61] = 0i32 as id_type;
-    id_class[123] = 0i32 as id_type;
-    id_class[125] = 0i32 as id_type;
     i = 0i32;
     while i <= 127i32 {
         char_width[i as usize] = 0i32;
