@@ -441,7 +441,7 @@ macro_rules! abort(
     ($($arg:tt)*) => {{
         use std::io::Write;
         let v = format!($($arg)*);
-        bridge::error_buf = v.clone();
+        unsafe { bridge::error_buf = v.clone(); }
         panic!(v);
     }};
 );
