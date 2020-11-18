@@ -96,6 +96,19 @@ impl PoolString {
     }
 }
 
+impl std::fmt::Display for PoolString {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        for c in std::char::decode_utf16(self.as_slice().iter().cloned()) {
+            if let Ok(c) = c {
+                c.fmt(f)?;
+            } else {
+                return Err(std::fmt::Error);
+            }
+        }
+        Ok(())
+    }
+}
+
 const string_constants: [&str; 2] = ["this marks the start of the stringpool", ""];
 pub(crate) unsafe fn load_pool_strings(spare_size: usize) -> i32 {
     let mut g: str_number = 0i32;

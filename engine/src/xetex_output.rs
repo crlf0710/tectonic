@@ -124,7 +124,7 @@ pub(crate) unsafe fn print_chr(s: char) {
     print_char(s as i32)
 }
 pub(crate) unsafe fn print_char(s: i32) {
-    if (u8::from(selector) > u8::from(Selector::PSEUDO)) && !doing_special {
+    if selector == Selector::NEW_STRING && !doing_special {
         if s >= 0x10000 {
             print_raw_char((0xd800 + (s - 0x10000) / 1024) as UTF16_code, true);
             print_raw_char((0xdc00 + (s - 0x10000) % 1024) as UTF16_code, true);
@@ -169,50 +169,39 @@ pub(crate) unsafe fn print_char(s: i32) {
         } else {
             print_raw_char(('a' as i32 + l as i32 - 10) as UTF16_code, true);
         }
-    } else if s < 2048 {
-        print_raw_char((192 + s / 64) as UTF16_code, false);
-        print_raw_char((128 + s % 64) as UTF16_code, true);
-    } else if s < 0x10000 {
-        print_raw_char((224 + s / 4096) as UTF16_code, false);
-        print_raw_char((128 + s % 4096 / 64) as UTF16_code, false);
-        print_raw_char((128 + s % 64) as UTF16_code, true);
     } else {
-        print_raw_char((240 + s / 0x40000) as UTF16_code, false);
-        print_raw_char((128 + s % 0x40000 / 4096) as UTF16_code, false);
-        print_raw_char((128 + s % 0x1000 / 64) as UTF16_code, false);
-        print_raw_char((128 + s % 64) as UTF16_code, true);
-    };
+        let mut b = [0; 4];
+        let bytes = std::char::from_u32(s as u32)
+            .unwrap()
+            .encode_utf8(&mut b)
+            .as_bytes();
+        let last = bytes.len() - 1;
+        for &c in &bytes[..last] {
+            print_raw_char(c as u16, false);
+        }
+        print_raw_char(bytes[last] as u16, true);
+    }
 }
 pub(crate) unsafe fn print(s: i32) {
-    if s >= str_ptr {
-        return print_cstr("???");
-    } else {
-        if s <= BIGGEST_CHAR {
-            if s < 0 {
-                return print_cstr("???");
-            } else {
-                if u8::from(selector) > u8::from(Selector::PSEUDO) {
-                    print_char(s);
-                    return;
-                }
-                if s == get_int_par(IntPar::new_line_char) {
-                    /*:252 */
-                    if u8::from(selector) < u8::from(Selector::PSEUDO) {
-                        print_ln();
-                        return;
-                    }
-                }
+    if s < 0 || s >= str_ptr {
+        print_cstr("???");
+    } else if s <= BIGGEST_CHAR {
+        if s == get_int_par(IntPar::new_line_char) {
+            if selector == Selector::PSEUDO {
                 let nl = get_int_par(IntPar::new_line_char);
                 set_int_par(IntPar::new_line_char, -1);
                 print_char(s);
                 set_int_par(IntPar::new_line_char, nl);
-                return;
+            } else {
+                print_ln();
             }
+        } else {
+            print_char(s);
         }
-    }
-
-    for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
-        print_char(c.unwrap() as i32)
+    } else {
+        for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
+            print_char(c.unwrap() as i32)
+        }
     }
 }
 pub(crate) unsafe fn print_cstr(slice: &str) {
@@ -220,19 +209,20 @@ pub(crate) unsafe fn print_cstr(slice: &str) {
         print_char(s as i32);
     }
 }
+
 pub(crate) unsafe fn print_nl(s: str_number) {
-    if term_offset > 0 && u8::from(selector) & 1 != 0
-        || file_offset > 0 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
-    {
-        print_ln();
+    match selector {
+        Selector::TERM_ONLY | Selector::TERM_AND_LOG if term_offset > 0 => print_ln(),
+        Selector::LOG_ONLY | Selector::TERM_AND_LOG if file_offset > 0 => print_ln(),
+        _ => {}
     }
     print(s);
 }
 pub(crate) unsafe fn print_nl_cstr(slice: &str) {
-    if term_offset > 0 && u8::from(selector) & 1 != 0
-        || file_offset > 0 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
-    {
-        print_ln();
+    match selector {
+        Selector::TERM_ONLY | Selector::TERM_AND_LOG if term_offset > 0 => print_ln(),
+        Selector::LOG_ONLY | Selector::TERM_AND_LOG if file_offset > 0 => print_ln(),
+        _ => {}
     }
     print_cstr(slice);
 }

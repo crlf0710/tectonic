@@ -2056,10 +2056,8 @@ unsafe fn special_out(p: &Special) {
         dvi_four(len as i32);
     }
 
-    {
-        for &k in cur_str.as_slice() {
-            dvi_out(k as u8);
-        }
+    for &k in cur_str.as_slice() {
+        dvi_out(k as u8);
     }
     pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
     doing_special = false;

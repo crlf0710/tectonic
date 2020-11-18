@@ -95,7 +95,8 @@ impl From<Selector> for u8 {
             TERM_AND_LOG => 19,
             PSEUDO => 20,
             NEW_STRING => 21,
-            Other(u) => u,
+            Other(u) if (0..16).contains(&u) => u,
+            _ => unreachable!(),
         }
     }
 }
