@@ -404,7 +404,6 @@ static mut field_name_loc: hash_loc = 0;
 static mut field_val_loc: hash_loc = 0;
 static mut store_field: bool = false;
 static mut right_outer_delim: u8 = 0;
-static mut right_str_delim: u8 = 0;
 static mut at_bib_command: bool = false;
 static mut cur_macro_loc: hash_loc = 0;
 static mut cite_info: *mut str_number = ptr::null_mut();
@@ -2007,20 +2006,15 @@ unsafe fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) -> ScanRe
     };
     scan_result
 }
-unsafe fn scan_nonneg_integer() -> Result<i32, ()> {
+unsafe fn scan_nonneg_integer() -> Result<&'static [u8], ()> {
     buf_ptr1 = buf_ptr2;
-    let mut token_value = 0;
-    while buf_ptr2 < last {
-        if let Some(d) = char::from(*buffer.offset(buf_ptr2 as isize)).to_digit(10) {
-            token_value = token_value * 10 + d as i32;
-            buf_ptr2 += 1;
-        } else {
-            break;
-        }
+    while buf_ptr2 < last && char::from(*buffer.offset(buf_ptr2 as isize)).is_ascii_digit() {
+        buf_ptr2 += 1;
     }
     // If nothing was read, the pointers are the same and false should be returned.
-    if buf_ptr1 != buf_ptr2 {
-        Ok(token_value)
+    let len = (buf_ptr2 - buf_ptr1) as usize;
+    if len != 0 {
+        Ok(slice::from_raw_parts(buffer.offset(buf_ptr1 as isize), len))
     } else {
         Err(())
     }
@@ -2382,7 +2376,7 @@ unsafe fn compress_bib_white() -> bool {
     }
     true
 }
-unsafe fn scan_balanced_braces() -> bool {
+unsafe fn scan_balanced_braces(right_str_delim: u8) -> bool {
     buf_ptr2 += 1i32;
     if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace || buf_ptr2 == last) && !compress_bib_white() {
         return false;
@@ -2541,37 +2535,37 @@ unsafe fn scan_balanced_braces() -> bool {
 unsafe fn scan_a_field_token_and_eat_white() -> bool {
     match *buffer.offset(buf_ptr2 as isize) {
         b'{' => {
-            right_str_delim = b'}';
-            if !scan_balanced_braces() {
+            if !scan_balanced_braces(b'}') {
                 return false;
             }
-        }
-        b'"'  => {
-            right_str_delim = b'"';
-            if !scan_balanced_braces() {
+        },
+        b'"' => {
+            if !scan_balanced_braces(b'"') {
                 return false;
             }
-        }
+        },
         c if c.is_ascii_digit() => {
-            if scan_nonneg_integer().is_err() {
-                log!("A digit disappeared");
-                print_confusion();
-                panic!();
-            }
-            if store_field {
-                let len = (buf_ptr2 - buf_ptr1) as usize;
-                let integer_str = slice::from_raw_parts(buffer.offset(buf_ptr1 as isize), len);
-                for c in integer_str.iter() {
-                    if ex_buf_ptr == buf_size {
-                        bib_field_too_long_print();
-                        return false;
-                    } else {
-                        *ex_buf.offset(ex_buf_ptr as isize) = *c;
-                        ex_buf_ptr += 1i32
+            match scan_nonneg_integer() {
+                Err(_) => {
+                    log!("A digit disappeared");
+                    print_confusion();
+                    panic!();
+                }
+                Ok(integer_str) => {
+                    if store_field {
+                        for c in integer_str.iter() {
+                            if ex_buf_ptr == buf_size {
+                                bib_field_too_long_print();
+                                return false;
+                            } else {
+                                *ex_buf.offset(ex_buf_ptr as isize) = *c;
+                                ex_buf_ptr += 1i32
+                            }
+                        }
                     }
                 }
             }
-        }
+        },
         _ => {
             let scan_result = scan_identifier(44i32 as u8, right_outer_delim, 35i32 as u8);
             if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
