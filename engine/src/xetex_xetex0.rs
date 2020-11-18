@@ -23,8 +23,8 @@ use crate::xetex_ext::{
     get_glyph_bounds, get_native_char_height_depth, get_native_char_sidebearings, getnativechardp,
     getnativecharht, getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1,
     gr_print_font_name, linebreak_next, linebreak_start, map_char_to_glyph, map_glyph_to_index,
-    ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, print_glyph_name, print_utf8_str,
-    Font, NativeFont, NativeFont::*,
+    ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, print_glyph_name, Font, NativeFont,
+    NativeFont::*,
 };
 use crate::xetex_ini::FONT_LETTER_SPACE;
 use crate::xetex_ini::{
@@ -72,8 +72,8 @@ use crate::xetex_math::{
 use crate::xetex_output::{
     print, print_char, print_chr, print_cs, print_cstr, print_current_string, print_esc,
     print_esc_cstr, print_file_line, print_file_name, print_hex, print_int, print_ln,
-    print_native_word, print_nl, print_nl_cstr, print_raw_char, print_roman_int, print_rust_char,
-    print_sa_num, print_scaled, print_size, print_write_whatsit, sprint_cs,
+    print_native_word, print_nl, print_nl_cstr, print_roman_int, print_rust_char,
+    print_rust_string, print_sa_num, print_scaled, print_size, print_write_whatsit, sprint_cs,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
@@ -883,9 +883,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_esc_cstr("XeTeXpicfile");
                         }
                         print_cstr("( ");
-                        for i in p.path() {
-                            print_raw_char(*i as UTF16_code);
-                        }
+                        print_rust_string(std::str::from_utf8(p.path()).unwrap());
                         print('\"' as i32);
                     }
                     WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
@@ -9650,15 +9648,13 @@ pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u
         print_nl_cstr("Unknown ");
         if !setting_name.is_empty() {
             print_cstr("selector `");
-            print_utf8_str(setting_name);
+            print_rust_string(std::str::from_utf8(setting_name).unwrap());
             print_cstr("\' for ");
         }
         print_cstr("feature `");
-        print_utf8_str(feature_name);
+        print_rust_string(std::str::from_utf8(feature_name).unwrap());
         print_cstr("\' in font `");
-        for b in name_of_file.bytes() {
-            print_raw_char(b as UTF16_code);
-        }
+        print_rust_string(&name_of_file);
         print_cstr("\'.");
     });
 }
@@ -9669,11 +9665,9 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
         } else {
             print_nl_cstr("Font mapping `");
         }
-        print_utf8_str(mapping_name.as_bytes());
+        print_rust_string(mapping_name);
         print_cstr("\' for font `");
-        for b in name_of_file.bytes() {
-            print_raw_char(b as UTF16_code);
-        }
+        print_rust_string(&name_of_file);
         match warningType {
             1 => print_cstr("\' not found."),
             2 => {
@@ -9687,9 +9681,7 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
 /*pub(crate) unsafe fn graphite_warning() {
     diagnostic(false, || {
         print_nl_cstr("Font `");
-        for b in name_of_file.bytes() {
-            print_raw_char(b as UTF16_code);
-        }
+        print_rust_string(&name_of_file);
         print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
     });
 }*/

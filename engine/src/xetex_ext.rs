@@ -33,7 +33,7 @@ use crate::xetex_ini::{
     name_of_file, DEPTH_BASE, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
     HEIGHT_BASE, PARAM_BASE,
 };
-use crate::xetex_output::{print_char, print_int, print_nl, print_raw_char};
+use crate::xetex_output::{print_char, print_int, print_nl};
 use crate::xetex_scaledmath::xn_over_d;
 use crate::xetex_texmfmp::{gettexstring, maketexstring, to_rust_string};
 use crate::xetex_xetex0::{
@@ -88,8 +88,6 @@ impl NativeFont {
 use NativeFont::*;
 
 pub(crate) type size_t = usize;
-
-pub(crate) type UTF16_code = u16;
 
 /* 16.16 version number */
 
@@ -287,13 +285,6 @@ pub(crate) unsafe fn get_encoding_mode_and_info(info: *mut i32) -> UnicodeMode {
         UnicodeMode::ICUMapping
     };
     result
-}
-
-pub(crate) unsafe fn print_utf8_str(string: &[u8]) {
-    for &c in string {
-        print_raw_char(c as UTF16_code);
-    }
-    /* bypass utf-8 encoding done in print_char() */
 }
 
 #[cfg(target_os = "macos")]

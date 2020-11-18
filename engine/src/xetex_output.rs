@@ -63,52 +63,14 @@ pub(crate) unsafe fn print_ln() {
 }
 pub(crate) unsafe fn print_raw_char(s: UTF16_code) {
     match selector {
-        Selector::TERM_AND_LOG => {
-            let stdout = rust_stdout.as_mut().unwrap();
-            let lg = log_file.as_mut().unwrap();
-            ttstub_output_putc(stdout, s as i32);
-            ttstub_output_putc(lg, s as i32);
-            term_offset += 1;
-            file_offset += 1;
-            if term_offset == max_print_line {
-                ttstub_output_putc(stdout, '\n' as i32);
-                term_offset = 0i32
-            }
-            if file_offset == max_print_line {
-                ttstub_output_putc(lg, '\n' as i32);
-                file_offset = 0i32
-            }
-        }
-        Selector::LOG_ONLY => {
-            ttstub_output_putc(log_file.as_mut().unwrap(), s as i32);
-            file_offset += 1;
-            if file_offset == max_print_line {
-                print_ln();
-            }
-        }
-        Selector::TERM_ONLY => {
-            ttstub_output_putc(rust_stdout.as_mut().unwrap(), s as i32);
-            term_offset += 1;
-            if term_offset == max_print_line {
-                print_ln();
-            }
-        }
-        Selector::NO_PRINT => {}
-        Selector::PSEUDO => unreachable!(),
         Selector::NEW_STRING => {
             if pool_ptr < pool_size {
                 str_pool[pool_ptr as usize] = s;
                 pool_ptr += 1
             }
         }
-        _ => {
-            ttstub_output_putc(
-                write_file[u8::from(selector) as usize].as_mut().unwrap(),
-                s as i32,
-            );
-        }
+        _ => unreachable!(),
     }
-    tally += 1;
 }
 pub(crate) unsafe fn print_rust_char(s: char) {
     use std::io::Write;
@@ -161,6 +123,64 @@ pub(crate) unsafe fn print_rust_char(s: char) {
     }
     tally += 1;
 }
+pub(crate) unsafe fn print_rust_string(s: &str) {
+    use std::io::Write;
+    let mut count = s.chars().count();
+    match selector {
+        Selector::TERM_AND_LOG => {
+            let stdout = rust_stdout.as_mut().unwrap();
+            let lg = log_file.as_mut().unwrap();
+            write!(stdout, "{}", s).unwrap();
+            write!(lg, "{}", s).unwrap();
+            term_offset += 1;
+            file_offset += 1;
+            if term_offset == max_print_line {
+                write!(stdout, "\n").unwrap();
+                term_offset = 0;
+            }
+            if file_offset == max_print_line {
+                write!(lg, "\n").unwrap();
+                file_offset = 0;
+            }
+        }
+        Selector::LOG_ONLY => {
+            write!(log_file.as_mut().unwrap(), "{}", s).unwrap();
+            file_offset += 1;
+            if file_offset == max_print_line {
+                print_ln();
+            }
+        }
+        Selector::TERM_ONLY => {
+            write!(rust_stdout.as_mut().unwrap(), "{}", s).unwrap();
+            term_offset += 1;
+            if term_offset == max_print_line {
+                print_ln();
+            }
+        }
+        Selector::NO_PRINT => {}
+        Selector::PSEUDO => {
+            count = 0;
+            for (t, c) in s
+                .chars()
+                .take((trick_count - tally).max(0) as usize)
+                .enumerate()
+            {
+                trick_buf[((tally as usize + t) % (error_line as usize))] = c;
+                count += 1;
+            }
+        }
+        Selector::NEW_STRING => unreachable!(),
+        _ => {
+            write!(
+                write_file[u8::from(selector) as usize].as_mut().unwrap(),
+                "{}",
+                s
+            )
+            .unwrap();
+        }
+    }
+    tally += count as i32;
+}
 pub(crate) unsafe fn print_chr(s: char) {
     print_char(s as i32)
 }
@@ -198,18 +218,14 @@ pub(crate) unsafe fn print_char(s: i32) {
         }
     }
     if s < 32 {
-        print_rust_char(char::from(b'^'));
-        print_rust_char(char::from(b'^'));
+        print_rust_string("^^");
         print_rust_char(char::from((s + 64) as u8));
     } else if s < 127 {
         print_rust_char(char::from(s as u8));
     } else if s == 127 {
-        print_rust_char(char::from(b'^'));
-        print_rust_char(char::from(b'^'));
-        print_rust_char(char::from(b'?'));
+        print_rust_string("^^?");
     } else if s < 160 {
-        print_rust_char(char::from(b'^'));
-        print_rust_char(char::from(b'^'));
+        print_rust_string("^^");
         for &l in &[(s / 16), (s % 16)] {
             if l < 10 {
                 print_rust_char(char::from(b'0' + l as u8));
