@@ -90,7 +90,7 @@ pub(crate) type blt_in_range = i32;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum IdType {
     Illegal,
-    Legal
+    Legal,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -120,7 +120,7 @@ enum ScanResult {
     IdNull,
     SpecifiedCharAdjacent,
     OtherCharAdjacent,
-    WhiteAdjacent
+    WhiteAdjacent,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -136,7 +136,7 @@ enum LexType {
     /// Things sometimes treated like |white_space|
     SepChar,
     /// When none of the above applies
-    OtherLex
+    OtherLex,
 }
 
 const hash_base: i32 = 1;
@@ -227,8 +227,8 @@ unsafe fn eoln(peekable: &mut peekable_input_t) -> bool {
     c == '\n' as i32 || c == '\r' as i32 || c == -1i32
 }
 
-lazy_static::lazy_static!{
-    static ref id_class: [IdType; 256] = {    
+lazy_static::lazy_static! {
+    static ref id_class: [IdType; 256] = {
         let mut ic = [IdType::Legal; 256];
         for i in 0..32 {
             ic[i] = IdType::Illegal;
@@ -666,7 +666,9 @@ unsafe fn print_bad_input_line() {
     }
     putc_log('\n' as i32);
     bf_ptr = 0i32;
-    while bf_ptr < buf_ptr2 && lex_class[*buffer.offset(bf_ptr as isize) as usize] == LexType::WhiteSpace {
+    while bf_ptr < buf_ptr2
+        && lex_class[*buffer.offset(bf_ptr as isize) as usize] == LexType::WhiteSpace
+    {
         /*white_space */
         bf_ptr += 1
     } /*empty */
@@ -1068,7 +1070,8 @@ unsafe fn output_bbl_line() {
     let bbl = bbl_file.as_mut().unwrap();
     if out_buf_length != 0 {
         while out_buf_length > 0i32 {
-            if !(lex_class[*out_buf.offset((out_buf_length - 1i32) as isize) as usize] == LexType::WhiteSpace)
+            if !(lex_class[*out_buf.offset((out_buf_length - 1i32) as isize) as usize]
+                == LexType::WhiteSpace)
             {
                 break;
             }
@@ -1955,8 +1958,8 @@ unsafe fn scan2(mut char1: u8, mut char2: u8) -> bool {
 unsafe fn scan2_white(mut char1: u8, mut char2: u8) -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last
-        && *buffer.offset(buf_ptr2 as isize) != char1 
-        && *buffer.offset(buf_ptr2 as isize) != char2 
+        && *buffer.offset(buf_ptr2 as isize) != char1
+        && *buffer.offset(buf_ptr2 as isize) != char2
         && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::WhiteSpace
     {
         buf_ptr2 += 1i32
@@ -1976,7 +1979,8 @@ unsafe fn scan3(mut char1: u8, mut char2: u8, mut char3: u8) -> bool {
 }
 unsafe fn scan_alpha() -> bool {
     buf_ptr1 = buf_ptr2;
-    while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::Alpha {
+    while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::Alpha
+    {
         buf_ptr2 += 1i32
     }
     buf_ptr2 - buf_ptr1 != 0
@@ -1985,7 +1989,8 @@ unsafe fn scan_identifier(mut char1: u8, mut char2: u8, mut char3: u8) -> ScanRe
     let scan_result;
     buf_ptr1 = buf_ptr2;
     if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::Numeric {
-        while buf_ptr2 < last && id_class[*buffer.offset(buf_ptr2 as isize) as usize] == IdType::Legal
+        while buf_ptr2 < last
+            && id_class[*buffer.offset(buf_ptr2 as isize) as usize] == IdType::Legal
         {
             buf_ptr2 += 1;
         }
@@ -2047,7 +2052,9 @@ unsafe fn scan_integer() -> Result<i32, ()> {
     }
 }
 unsafe fn scan_white_space() -> bool {
-    while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace {
+    while buf_ptr2 < last
+        && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
+    {
         buf_ptr2 += 1;
     }
     buf_ptr2 < last
@@ -2123,8 +2130,8 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                         skip_token_print();
                         lab25(singl_function);
                         continue;
-                    },
-                    Ok(t) => t
+                    }
+                    Ok(t) => t,
                 };
                 literal_loc =
                     str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 1i32 as str_ilk, true); /*integer_ilk */
@@ -2169,7 +2176,7 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                 buf_ptr2 += 1;
                 if buf_ptr2 < last
                     && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::WhiteSpace
-                    && *buffer.offset(buf_ptr2 as isize) != b'}' 
+                    && *buffer.offset(buf_ptr2 as isize) != b'}'
                     && *buffer.offset(buf_ptr2 as isize) != b'%'
                 {
                     skip_illegal_stuff_after_token_print();
@@ -2378,7 +2385,10 @@ unsafe fn compress_bib_white() -> bool {
 }
 unsafe fn scan_balanced_braces(right_str_delim: u8) -> bool {
     buf_ptr2 += 1i32;
-    if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace || buf_ptr2 == last) && !compress_bib_white() {
+    if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
+        || buf_ptr2 == last)
+        && !compress_bib_white()
+    {
         return false;
     }
     if ex_buf_ptr > 1i32 && *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 32i32 {
@@ -2403,8 +2413,11 @@ unsafe fn scan_balanced_braces(right_str_delim: u8) -> bool {
                         ex_buf_ptr += 1i32
                     }
                     buf_ptr2 += 1i32;
-                    if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                        || buf_ptr2 == last) && !compress_bib_white() {
+                    if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize]
+                        == LexType::WhiteSpace
+                        || buf_ptr2 == last)
+                        && !compress_bib_white()
+                    {
                         return false;
                     }
                     loop {
@@ -2419,8 +2432,11 @@ unsafe fn scan_balanced_braces(right_str_delim: u8) -> bool {
                                     ex_buf_ptr += 1i32
                                 }
                                 buf_ptr2 += 1i32;
-                                if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                                    || buf_ptr2 == last) && !compress_bib_white() {
+                                if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize]
+                                    == LexType::WhiteSpace
+                                    || buf_ptr2 == last)
+                                    && !compress_bib_white()
+                                {
                                     return false;
                                 }
                                 if bib_brace_level == 0i32 {
@@ -2437,8 +2453,11 @@ unsafe fn scan_balanced_braces(right_str_delim: u8) -> bool {
                                     ex_buf_ptr += 1i32
                                 }
                                 buf_ptr2 += 1i32;
-                                if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                                    || buf_ptr2 == last) && !compress_bib_white() {
+                                if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize]
+                                    == LexType::WhiteSpace
+                                    || buf_ptr2 == last)
+                                    && !compress_bib_white()
+                                {
                                     return false;
                                 }
                             }
@@ -2452,8 +2471,11 @@ unsafe fn scan_balanced_braces(right_str_delim: u8) -> bool {
                                     ex_buf_ptr += 1i32
                                 }
                                 buf_ptr2 += 1i32;
-                                if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                                    || buf_ptr2 == last) && !compress_bib_white() {
+                                if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize]
+                                    == LexType::WhiteSpace
+                                    || buf_ptr2 == last)
+                                    && !compress_bib_white()
+                                {
                                     return false;
                                 }
                             }
@@ -2473,8 +2495,11 @@ unsafe fn scan_balanced_braces(right_str_delim: u8) -> bool {
                         ex_buf_ptr += 1i32
                     }
                     buf_ptr2 += 1i32;
-                    if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                        || buf_ptr2 == last) && !compress_bib_white() {
+                    if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize]
+                        == LexType::WhiteSpace
+                        || buf_ptr2 == last)
+                        && !compress_bib_white()
+                    {
                         return false;
                     }
                 }
@@ -2538,29 +2563,27 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
             if !scan_balanced_braces(b'}') {
                 return false;
             }
-        },
+        }
         b'"' => {
             if !scan_balanced_braces(b'"') {
                 return false;
             }
-        },
-        c if c.is_ascii_digit() => {
-            match scan_nonneg_integer() {
-                Err(_) => {
-                    log!("A digit disappeared");
-                    print_confusion();
-                    panic!();
-                }
-                Ok(integer_str) => {
-                    if store_field {
-                        for c in integer_str.iter() {
-                            if ex_buf_ptr == buf_size {
-                                bib_field_too_long_print();
-                                return false;
-                            } else {
-                                *ex_buf.offset(ex_buf_ptr as isize) = *c;
-                                ex_buf_ptr += 1i32
-                            }
+        }
+        c if c.is_ascii_digit() => match scan_nonneg_integer() {
+            Err(_) => {
+                log!("A digit disappeared");
+                print_confusion();
+                panic!();
+            }
+            Ok(integer_str) => {
+                if store_field {
+                    for c in integer_str.iter() {
+                        if ex_buf_ptr == buf_size {
+                            bib_field_too_long_print();
+                            return false;
+                        } else {
+                            *ex_buf.offset(ex_buf_ptr as isize) = *c;
+                            ex_buf_ptr += 1i32
                         }
                     }
                 }
@@ -2568,7 +2591,9 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
         },
         _ => {
             let scan_result = scan_identifier(44i32 as u8, right_outer_delim, 35i32 as u8);
-            if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+            if scan_result == ScanResult::WhiteAdjacent
+                || scan_result == ScanResult::SpecifiedCharAdjacent
+            {
             } else {
                 bib_id_print(scan_result);
                 log!("a field part");
@@ -2606,8 +2631,11 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                         *str_start.offset(*ilk_info.offset(macro_name_loc as isize) as isize); /*space */
                     let mut tmp_end_ptr = *str_start
                         .offset((*ilk_info.offset(macro_name_loc as isize) + 1i32) as isize);
-                    if ex_buf_ptr == 0i32 && tmp_ptr < tmp_end_ptr
-                            && lex_class[*str_pool.offset(tmp_ptr as isize) as usize] == LexType::WhiteSpace {
+                    if ex_buf_ptr == 0i32
+                        && tmp_ptr < tmp_end_ptr
+                        && lex_class[*str_pool.offset(tmp_ptr as isize) as usize]
+                            == LexType::WhiteSpace
+                    {
                         if ex_buf_ptr == buf_size {
                             bib_field_too_long_print();
                             return false;
@@ -2617,13 +2645,16 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                         }
                         tmp_ptr += 1i32;
                         while tmp_ptr < tmp_end_ptr
-                            && lex_class[*str_pool.offset(tmp_ptr as isize) as usize] == LexType::WhiteSpace
+                            && lex_class[*str_pool.offset(tmp_ptr as isize) as usize]
+                                == LexType::WhiteSpace
                         {
                             tmp_ptr += 1i32
                         }
                     }
                     while tmp_ptr < tmp_end_ptr {
-                        if lex_class[*str_pool.offset(tmp_ptr as isize) as usize] != LexType::WhiteSpace {
+                        if lex_class[*str_pool.offset(tmp_ptr as isize) as usize]
+                            != LexType::WhiteSpace
+                        {
                             /*white_space */
                             if ex_buf_ptr == buf_size {
                                 bib_field_too_long_print();
@@ -2673,7 +2704,10 @@ unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
     }
     if store_field {
         /*262: */
-        if !at_bib_command && ex_buf_ptr > 0i32 && *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 32i32 {
+        if !at_bib_command
+            && ex_buf_ptr > 0i32
+            && *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 32i32
+        {
             /*space */
             ex_buf_ptr -= 1i32
         } /*str_literal */
@@ -2694,8 +2728,7 @@ unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
             /*263: */
             match command_num {
                 1 => {
-                    *s_preamble.add(preamble_ptr) =
-                        *hash_text.offset(field_val_loc as isize);
+                    *s_preamble.add(preamble_ptr) = *hash_text.offset(field_val_loc as isize);
                     preamble_ptr += 1;
                 }
                 2 => {
@@ -2785,10 +2818,14 @@ unsafe fn name_scan_for_and(mut pop_lit_var: str_number) {
                 ex_buf_ptr += 1i32;
                 if preceding_white {
                     /*387: */
-                    if ex_buf_ptr <= ex_buf_length - 3i32 && (*ex_buf.offset(ex_buf_ptr as isize) as i32 == 'n' as i32
-                            || *ex_buf.offset(ex_buf_ptr as isize) as i32 == 'N' as i32) && (*ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 'd' as i32
-                                || *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 'D' as i32) && lex_class[*ex_buf.offset((ex_buf_ptr + 2i32) as isize) as usize]
-                                    == LexType::WhiteSpace {
+                    if ex_buf_ptr <= ex_buf_length - 3i32
+                        && (*ex_buf.offset(ex_buf_ptr as isize) as i32 == 'n' as i32
+                            || *ex_buf.offset(ex_buf_ptr as isize) as i32 == 'N' as i32)
+                        && (*ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 'd' as i32
+                            || *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 'D' as i32)
+                        && lex_class[*ex_buf.offset((ex_buf_ptr + 2i32) as isize) as usize]
+                            == LexType::WhiteSpace
+                    {
                         ex_buf_ptr += 2;
                         and_found = true;
                     }
@@ -2851,7 +2888,8 @@ unsafe fn von_token_found() -> bool {
                 name_bf_ptr += 1i32;
                 name_bf_yptr = name_bf_ptr;
                 while name_bf_ptr < name_bf_xptr
-                    && char::from(*sv_buffer.offset(name_bf_ptr as isize)).is_ascii_alphabetic()              {
+                    && char::from(*sv_buffer.offset(name_bf_ptr as isize)).is_ascii_alphabetic()
+                {
                     name_bf_ptr += 1;
                 }
                 control_seq_loc = str_lookup(
@@ -2885,9 +2923,7 @@ unsafe fn von_token_found() -> bool {
                     } else if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 125i32 {
                         /*right_brace */
                         nm_brace_level -= 1i32
-                    } else if *sv_buffer.offset(name_bf_ptr as isize) as i32
-                        == 123i32
-                    {
+                    } else if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 123i32 {
                         /*left_brace */
                         nm_brace_level += 1i32
                     }
@@ -2949,7 +2985,10 @@ unsafe fn enough_text_chars(mut enough_chars: buf_pointer) -> bool {
         if *ex_buf.offset((ex_buf_yptr - 1i32) as isize) as i32 == 123i32 {
             /*left_brace */
             brace_level += 1i32;
-            if brace_level == 1i32 && ex_buf_yptr < ex_buf_ptr && *ex_buf.offset(ex_buf_yptr as isize) as i32 == 92i32 {
+            if brace_level == 1i32
+                && ex_buf_yptr < ex_buf_ptr
+                && *ex_buf.offset(ex_buf_yptr as isize) as i32 == 92i32
+            {
                 /*backslash */
                 ex_buf_yptr += 1i32;
                 while ex_buf_yptr < ex_buf_ptr && brace_level > 0i32 {
@@ -3112,8 +3151,7 @@ unsafe fn figure_out_the_formatted_name() {
                             name_bf_ptr = *name_tok.offset(cur_token as isize);
                             name_bf_xptr = *name_tok.offset((cur_token + 1i32) as isize);
                             while name_bf_ptr < name_bf_xptr {
-                                if (*sv_buffer.offset(name_bf_ptr as isize)).is_ascii_alphabetic()
-                                {
+                                if (*sv_buffer.offset(name_bf_ptr as isize)).is_ascii_alphabetic() {
                                     if ex_buf_ptr == buf_size {
                                         buffer_overflow();
                                     }
@@ -3123,8 +3161,10 @@ unsafe fn figure_out_the_formatted_name() {
                                     break;
                                 } else {
                                     if name_bf_ptr + 1i32 < name_bf_xptr
-                                        && *sv_buffer.offset(name_bf_ptr as isize) as i32 == 123i32 && *sv_buffer.offset((name_bf_ptr + 1i32) as isize) as i32
-                                            == 92i32 {
+                                        && *sv_buffer.offset(name_bf_ptr as isize) as i32 == 123i32
+                                        && *sv_buffer.offset((name_bf_ptr + 1i32) as isize) as i32
+                                            == 92i32
+                                    {
                                         /*backslash */
                                         /*417: */
                                         if ex_buf_ptr + 2i32 > buf_size {
@@ -3136,16 +3176,13 @@ unsafe fn figure_out_the_formatted_name() {
                                         ex_buf_ptr += 1i32;
                                         name_bf_ptr += 2i32;
                                         let mut nm_brace_level = 1i32;
-                                        while name_bf_ptr < name_bf_xptr
-                                            && nm_brace_level > 0i32
-                                        {
+                                        while name_bf_ptr < name_bf_xptr && nm_brace_level > 0i32 {
                                             if *sv_buffer.offset(name_bf_ptr as isize) as i32
                                                 == 125i32
                                             {
                                                 /*right_brace */
                                                 nm_brace_level -= 1i32
-                                            } else if *sv_buffer.offset(name_bf_ptr as isize)
-                                                as i32
+                                            } else if *sv_buffer.offset(name_bf_ptr as isize) as i32
                                                 == 123i32
                                             {
                                                 /*left_brace */
@@ -3176,7 +3213,8 @@ unsafe fn figure_out_the_formatted_name() {
                                     *ex_buf.offset(ex_buf_ptr as isize) = 46i32 as u8;
                                     ex_buf_ptr += 1i32
                                 }
-                                if lex_class[*name_sep_char.offset(cur_token as isize) as usize] == LexType::SepChar
+                                if lex_class[*name_sep_char.offset(cur_token as isize) as usize]
+                                    == LexType::SepChar
                                 {
                                     /*sep_char */
                                     if ex_buf_ptr == buf_size {
@@ -3417,7 +3455,9 @@ unsafe fn add_out_pool(mut p_str: str_number) {
             /*325: */
             out_buf_ptr = 79i32 + 1i32;
             while out_buf_ptr < end_ptr {
-                if !(lex_class[*out_buf.offset(out_buf_ptr as isize) as usize] != LexType::WhiteSpace) {
+                if !(lex_class[*out_buf.offset(out_buf_ptr as isize) as usize]
+                    != LexType::WhiteSpace)
+                {
                     break;
                 }
                 /*white_space */
@@ -3429,7 +3469,8 @@ unsafe fn add_out_pool(mut p_str: str_number) {
             } else {
                 break_pt_found = true;
                 while out_buf_ptr + 1i32 < end_ptr {
-                    if !(lex_class[*out_buf.offset((out_buf_ptr + 1i32) as isize) as usize] == LexType::WhiteSpace)
+                    if !(lex_class[*out_buf.offset((out_buf_ptr + 1i32) as isize) as usize]
+                        == LexType::WhiteSpace)
                     {
                         break;
                     }
@@ -3855,13 +3896,15 @@ unsafe fn x_change_case() {
             if *ex_buf.offset(ex_buf_ptr as isize) == b'{' {
                 /*left_brace */
                 brace_level += 1i32;
-                if brace_level == 1i32 && ex_buf_ptr + 4i32 <= ex_buf_length && *ex_buf.offset((ex_buf_ptr + 1i32) as isize) == b'\\' {
+                if brace_level == 1i32
+                    && ex_buf_ptr + 4i32 <= ex_buf_length
+                    && *ex_buf.offset((ex_buf_ptr + 1i32) as isize) == b'\\'
+                {
                     if conversion_type == ConversionType::TitleLowers {
                         if ex_buf_ptr == 0i32 {
                             current_block = 17_089_879_097_653_631_793;
                         } else if prev_colon
-                            && lex_class
-                                [*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
+                            && lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
                                 == LexType::WhiteSpace
                         {
                             current_block = 17_089_879_097_653_631_793;
@@ -3893,10 +3936,8 @@ unsafe fn x_change_case() {
                                 if hash_found {
                                     /*373: */
                                     match conversion_type {
-                                        ConversionType::TitleLowers
-                                        | ConversionType::AllLowers => {
-                                            match *ilk_info.offset(control_seq_loc as isize)
-                                            {
+                                        ConversionType::TitleLowers | ConversionType::AllLowers => {
+                                            match *ilk_info.offset(control_seq_loc as isize) {
                                                 11 | 9 | 3 | 5 | 7 => {
                                                     lower_case(
                                                         ex_buf,
@@ -3908,8 +3949,7 @@ unsafe fn x_change_case() {
                                             }
                                         }
                                         ConversionType::AllUppers => {
-                                            match *ilk_info.offset(control_seq_loc as isize)
-                                            {
+                                            match *ilk_info.offset(control_seq_loc as isize) {
                                                 10 | 8 | 2 | 4 | 6 => {
                                                     upper_case(
                                                         ex_buf,
@@ -3926,31 +3966,28 @@ unsafe fn x_change_case() {
                                                     while ex_buf_xptr < ex_buf_ptr {
                                                         *ex_buf.offset(
                                                             (ex_buf_xptr - 1i32) as isize,
-                                                        ) = *ex_buf
-                                                            .offset(ex_buf_xptr as isize);
+                                                        ) = *ex_buf.offset(ex_buf_xptr as isize);
                                                         ex_buf_xptr += 1i32
                                                     }
                                                     ex_buf_xptr -= 1i32;
                                                     while ex_buf_ptr < ex_buf_length
                                                         && lex_class[*ex_buf
                                                             .offset(ex_buf_ptr as isize)
-                                                            as usize] == LexType::WhiteSpace
+                                                            as usize]
+                                                            == LexType::WhiteSpace
                                                     {
                                                         ex_buf_ptr += 1i32
                                                     }
                                                     let mut tmp_ptr = ex_buf_ptr;
                                                     while tmp_ptr < ex_buf_length {
                                                         *ex_buf.offset(
-                                                            (tmp_ptr
-                                                                - (ex_buf_ptr
-                                                                    - ex_buf_xptr))
+                                                            (tmp_ptr - (ex_buf_ptr - ex_buf_xptr))
                                                                 as isize,
-                                                        ) = *ex_buf
-                                                            .offset(tmp_ptr as isize);
+                                                        ) = *ex_buf.offset(tmp_ptr as isize);
                                                         tmp_ptr += 1i32
                                                     }
-                                                    ex_buf_length = tmp_ptr
-                                                        - (ex_buf_ptr - ex_buf_xptr);
+                                                    ex_buf_length =
+                                                        tmp_ptr - (ex_buf_ptr - ex_buf_xptr);
                                                     ex_buf_ptr = ex_buf_xptr
                                                 }
                                                 _ => {}
@@ -3964,33 +4001,21 @@ unsafe fn x_change_case() {
                                     && brace_level > 0i32
                                     && *ex_buf.offset(ex_buf_ptr as isize) as i32 != 92i32
                                 {
-                                    if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 125i32
-                                    {
+                                    if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 125i32 {
                                         /*right_brace */
                                         brace_level -= 1i32
-                                    } else if *ex_buf.offset(ex_buf_ptr as isize) as i32
-                                        == 123i32
-                                    {
+                                    } else if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 123i32 {
                                         /*left_brace */
                                         brace_level += 1i32
                                     }
                                     ex_buf_ptr += 1i32
                                 }
                                 match conversion_type {
-                                    ConversionType::AllLowers
-                                    | ConversionType::TitleLowers => {
-                                        lower_case(
-                                            ex_buf,
-                                            ex_buf_xptr,
-                                            ex_buf_ptr - ex_buf_xptr,
-                                        );
+                                    ConversionType::AllLowers | ConversionType::TitleLowers => {
+                                        lower_case(ex_buf, ex_buf_xptr, ex_buf_ptr - ex_buf_xptr);
                                     }
                                     ConversionType::AllUppers => {
-                                        upper_case(
-                                            ex_buf,
-                                            ex_buf_xptr,
-                                            ex_buf_ptr - ex_buf_xptr,
-                                        );
+                                        upper_case(ex_buf, ex_buf_xptr, ex_buf_ptr - ex_buf_xptr);
                                     }
                                     ConversionType::BadConversion => {}
                                 }
@@ -4010,14 +4035,18 @@ unsafe fn x_change_case() {
                 /*377: */
                 match conversion_type {
                     ConversionType::TitleLowers => {
-                        if ex_buf_ptr != 0i32 && !(prev_colon
-                                && lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize] == LexType::WhiteSpace) {
+                        if ex_buf_ptr != 0i32
+                            && !(prev_colon
+                                && lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
+                                    == LexType::WhiteSpace)
+                        {
                             lower_case(ex_buf, ex_buf_ptr, 1i32);
                         }
                         if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 58i32 {
                             /*colon */
                             prev_colon = true
-                        } else if lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] != LexType::WhiteSpace
+                        } else if lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize]
+                            != LexType::WhiteSpace
                         {
                             /*white_space */
                             prev_colon = false
@@ -4289,9 +4318,11 @@ unsafe fn x_format_name() {
                         break;
                     }
                     _ => {
-                        if von_start > 0i32 && !(lex_class[*name_sep_char.offset(von_start as isize) as usize]
+                        if von_start > 0i32
+                            && !(lex_class[*name_sep_char.offset(von_start as isize) as usize]
                                 != LexType::SepChar
-                                || *name_sep_char.offset(von_start as isize) as i32 == 126i32) {
+                                || *name_sep_char.offset(von_start as isize) as i32 == 126i32)
+                        {
                             von_start -= 1i32;
                             current_block_127 = 248_631_179_418_912_492;
                             continue;
@@ -4426,7 +4457,10 @@ unsafe fn x_purify() {
                     if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 123i32 {
                         /*left_brace */
                         brace_level += 1i32;
-                        if brace_level == 1i32 && ex_buf_ptr + 1i32 < ex_buf_length && *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 92i32 {
+                        if brace_level == 1i32
+                            && ex_buf_ptr + 1i32 < ex_buf_length
+                            && *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 92i32
+                        {
                             /*backslash */
                             /*433: */
                             ex_buf_ptr += 1i32;
@@ -4464,17 +4498,14 @@ unsafe fn x_purify() {
                                     && brace_level > 0i32
                                     && *ex_buf.offset(ex_buf_ptr as isize) as i32 != 92i32
                                 {
-                                    match lex_class
-                                        [*ex_buf.offset(ex_buf_ptr as isize) as usize]
-                                    {
+                                    match lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] {
                                         LexType::Alpha | LexType::Numeric => {
                                             *ex_buf.offset(ex_buf_xptr as isize) =
                                                 *ex_buf.offset(ex_buf_ptr as isize);
                                             ex_buf_xptr += 1i32
                                         }
                                         _ => {
-                                            if *ex_buf.offset(ex_buf_ptr as isize) as i32
-                                                == 125i32
+                                            if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 125i32
                                             {
                                                 /*right_brace */
                                                 brace_level -= 1i32
@@ -4539,7 +4570,6 @@ unsafe fn x_substring() {
         }
         if pop_lit1 <= 0i32 || pop_lit2 == 0i32 || pop_lit2 > sp_length || pop_lit2 < -sp_length {
             push_lit_stk(s_null, StkType::Str);
-            
         } else {
             if pop_lit2 > 0i32 {
                 if pop_lit1 > sp_length - (pop_lit2 - 1i32) {
@@ -4618,7 +4648,10 @@ unsafe fn x_text_length() {
             if *str_pool.offset((sp_ptr - 1i32) as isize) as i32 == 123i32 {
                 /*left_brace */
                 sp_brace_level += 1i32;
-                if sp_brace_level == 1i32 && sp_ptr < sp_end && *str_pool.offset(sp_ptr as isize) as i32 == 92i32 {
+                if sp_brace_level == 1i32
+                    && sp_ptr < sp_end
+                    && *str_pool.offset(sp_ptr as isize) as i32 == 92i32
+                {
                     /*backslash */
                     sp_ptr += 1i32;
                     while sp_ptr < sp_end && sp_brace_level > 0i32 {
@@ -4658,7 +4691,6 @@ unsafe fn x_text_prefix() {
         push_lit_stk(s_null, StkType::Str);
     } else if pop_lit1 <= 0i32 {
         push_lit_stk(s_null, StkType::Str);
-        
     } else {
         sp_ptr = *str_start.offset(pop_lit2 as isize);
         sp_end = *str_start.offset((pop_lit2 + 1i32) as isize);
@@ -4670,7 +4702,10 @@ unsafe fn x_text_prefix() {
             if *str_pool.offset((sp_xptr1 - 1i32) as isize) as i32 == 123i32 {
                 /*left_brace */
                 sp_brace_level += 1i32;
-                if sp_brace_level == 1i32 && sp_xptr1 < sp_end && *str_pool.offset(sp_xptr1 as isize) as i32 == 92i32 {
+                if sp_brace_level == 1i32
+                    && sp_xptr1 < sp_end
+                    && *str_pool.offset(sp_xptr1 as isize) as i32 == 92i32
+                {
                     /*backslash */
                     sp_xptr1 += 1i32;
                     while sp_xptr1 < sp_end && sp_brace_level > 0i32 {
@@ -4789,13 +4824,14 @@ unsafe fn x_width() {
                                         3 => string_width += 1014i32,
                                         _ => {
                                             string_width += char_width
-                                                    [*ex_buf.offset(ex_buf_xptr as isize) as usize]
+                                                [*ex_buf.offset(ex_buf_xptr as isize) as usize]
                                         }
                                     }
                                 }
                             }
                             while ex_buf_ptr < ex_buf_length
-                                && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] == LexType::WhiteSpace
+                                && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize]
+                                    == LexType::WhiteSpace
                             {
                                 ex_buf_ptr += 1i32
                             }
@@ -4810,7 +4846,8 @@ unsafe fn x_width() {
                                     /*left_brace */
                                     brace_level += 1i32
                                 } else {
-                                    string_width += char_width[*ex_buf.offset(ex_buf_ptr as isize) as usize]
+                                    string_width +=
+                                        char_width[*ex_buf.offset(ex_buf_ptr as isize) as usize]
                                 }
                                 ex_buf_ptr += 1i32
                             }
@@ -5439,7 +5476,9 @@ unsafe fn bst_entry_command() {
     }
     while *buffer.offset(buf_ptr2 as isize) as i32 != 125i32 {
         let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*field */
-        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+        if scan_result == ScanResult::WhiteAdjacent
+            || scan_result == ScanResult::SpecifiedCharAdjacent
+        {
         } else {
             bst_id_print(scan_result);
             log!("entry");
@@ -5496,7 +5535,9 @@ unsafe fn bst_entry_command() {
     while *buffer.offset(buf_ptr2 as isize) != b'}' {
         /*right_brace */
         let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*int_entry_var */
-        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+        if scan_result == ScanResult::WhiteAdjacent
+            || scan_result == ScanResult::SpecifiedCharAdjacent
+        {
         } else {
             bst_id_print(scan_result);
             log!("entry");
@@ -5548,7 +5589,9 @@ unsafe fn bst_entry_command() {
     }
     while *buffer.offset(buf_ptr2 as isize) != b'}' {
         let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*str_entry_var */
-        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+        if scan_result == ScanResult::WhiteAdjacent
+            || scan_result == ScanResult::SpecifiedCharAdjacent
+        {
         } else {
             bst_id_print(scan_result);
             log!("entry");
@@ -5631,7 +5674,8 @@ unsafe fn bst_execute_command() {
         return;
     }
     let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result == ScanResult::WhiteAdjacent || scan_result ==ScanResult::SpecifiedCharAdjacent {
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent
+    {
     } else {
         bst_id_print(scan_result);
         log!("execute");
@@ -5682,7 +5726,8 @@ unsafe fn bst_function_command() {
         return;
     }
     let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent
+    {
     } else {
         bst_id_print(scan_result);
         log!("function");
@@ -5758,7 +5803,9 @@ unsafe fn bst_integers_command() {
     }
     while *buffer.offset(buf_ptr2 as isize) != b'}' {
         let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8); /*int_global_var */
-        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+        if scan_result == ScanResult::WhiteAdjacent
+            || scan_result == ScanResult::SpecifiedCharAdjacent
+        {
         } else {
             bst_id_print(scan_result);
             log!("integers");
@@ -5815,7 +5862,8 @@ unsafe fn bst_iterate_command() {
         return;
     }
     let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent
+    {
     } else {
         bst_id_print(scan_result);
         log!("iterate");
@@ -5876,7 +5924,8 @@ unsafe fn bst_macro_command() {
         return;
     }
     let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent
+    {
     } else {
         bst_id_print(scan_result);
         log!("macro");
@@ -5986,7 +6035,8 @@ unsafe fn get_bib_command_or_entry_and_process() {
     }
     // TODO: Replace this pattern by a function returning Result somehow
     let scan_result = scan_identifier(123i32 as u8, 40i32 as u8, 40i32 as u8);
-    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent
+    {
     } else {
         bib_id_print(scan_result);
         log!("an entry type");
@@ -6084,7 +6134,9 @@ unsafe fn get_bib_command_or_entry_and_process() {
                     return;
                 }
                 let scan_result = scan_identifier(61i32 as u8, 61i32 as u8, 61i32 as u8);
-                if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+                if scan_result == ScanResult::WhiteAdjacent
+                    || scan_result == ScanResult::SpecifiedCharAdjacent
+                {
                 } else {
                     bib_id_print(scan_result);
                     log!("a string name");
@@ -6327,7 +6379,9 @@ unsafe fn get_bib_command_or_entry_and_process() {
             break;
         }
         let scan_result = scan_identifier(61i32 as u8, 61i32 as u8, 61i32 as u8);
-        if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+        if scan_result == ScanResult::WhiteAdjacent
+            || scan_result == ScanResult::SpecifiedCharAdjacent
+        {
         } else {
             bib_id_print(scan_result);
             log!("a field name");
@@ -6627,7 +6681,8 @@ unsafe fn bst_reverse_command() {
         return;
     }
     let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent {
+    if scan_result == ScanResult::WhiteAdjacent || scan_result == ScanResult::SpecifiedCharAdjacent
+    {
     } else {
         bst_id_print(scan_result);
         log!("reverse");
@@ -6700,7 +6755,9 @@ unsafe fn bst_strings_command() {
     while *buffer.offset(buf_ptr2 as isize) as i32 != 125i32 {
         /*right_brace */
         let scan_result = scan_identifier(125i32 as u8, 37i32 as u8, 37i32 as u8);
-        if scan_result != ScanResult::WhiteAdjacent && scan_result != ScanResult::SpecifiedCharAdjacent {
+        if scan_result != ScanResult::WhiteAdjacent
+            && scan_result != ScanResult::SpecifiedCharAdjacent
+        {
             /*specified_char_adjacent */
             bst_id_print(scan_result); /*str_global_var */
             log!("strings"); /*HASH_SIZE */
