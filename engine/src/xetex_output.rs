@@ -123,38 +123,60 @@ pub(crate) unsafe fn print_rust_char(s: char) {
     }
     tally += 1;
 }
+// TODO: optimize
 pub(crate) unsafe fn print_rust_string(s: &str) {
     use std::io::Write;
-    let mut count = s.chars().count();
+    let mut count = s.chars().count() as i32;
     match selector {
         Selector::TERM_AND_LOG => {
-            let stdout = rust_stdout.as_mut().unwrap();
-            let lg = log_file.as_mut().unwrap();
-            write!(stdout, "{}", s).unwrap();
-            write!(lg, "{}", s).unwrap();
-            term_offset += 1;
-            file_offset += 1;
-            if term_offset == max_print_line {
-                write!(stdout, "\n").unwrap();
-                term_offset = 0;
-            }
-            if file_offset == max_print_line {
-                write!(lg, "\n").unwrap();
-                file_offset = 0;
+            if file_offset + count <= max_print_line && term_offset + count <= max_print_line {
+                let stdout = rust_stdout.as_mut().unwrap();
+                let lg = log_file.as_mut().unwrap();
+                write!(stdout, "{}", s).unwrap();
+                write!(lg, "{}", s).unwrap();
+                term_offset += count;
+                file_offset += count;
+                if term_offset == max_print_line {
+                    write!(stdout, "\n").unwrap();
+                    term_offset = 0;
+                }
+                if file_offset == max_print_line {
+                    write!(lg, "\n").unwrap();
+                    file_offset = 0;
+                }
+            } else {
+                for c in s.chars() {
+                    print_rust_char(c);
+                }
+                return;
             }
         }
         Selector::LOG_ONLY => {
-            write!(log_file.as_mut().unwrap(), "{}", s).unwrap();
-            file_offset += 1;
-            if file_offset == max_print_line {
-                print_ln();
+            if file_offset + count <= max_print_line {
+                write!(log_file.as_mut().unwrap(), "{}", s).unwrap();
+                file_offset += count;
+                if file_offset == max_print_line {
+                    print_ln();
+                }
+            } else {
+                for c in s.chars() {
+                    print_rust_char(c);
+                }
+                return;
             }
         }
         Selector::TERM_ONLY => {
-            write!(rust_stdout.as_mut().unwrap(), "{}", s).unwrap();
-            term_offset += 1;
-            if term_offset == max_print_line {
-                print_ln();
+            if term_offset + count <= max_print_line {
+                write!(rust_stdout.as_mut().unwrap(), "{}", s).unwrap();
+                term_offset += count;
+                if term_offset == max_print_line {
+                    print_ln();
+                }
+            } else {
+                for c in s.chars() {
+                    print_rust_char(c);
+                }
+                return;
             }
         }
         Selector::NO_PRINT => {}
@@ -179,7 +201,7 @@ pub(crate) unsafe fn print_rust_string(s: &str) {
             .unwrap();
         }
     }
-    tally += count as i32;
+    tally += count;
 }
 pub(crate) unsafe fn print_chr(s: char) {
     print_char(s as i32)
