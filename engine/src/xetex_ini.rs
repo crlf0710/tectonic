@@ -23,7 +23,7 @@ use crate::xetex_output::{
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
 use crate::xetex_stringpool::{
-    load_pool_strings, make_string, PoolString, BIGGEST_CHAR, EMPTY_STRING, TOO_BIG_CHAR,
+    load_pool_strings, make_string, PoolString, EMPTY_STRING, TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::synctex_init_command;
 use crate::xetex_texmfmp::maketexstring;
@@ -4336,7 +4336,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: *const i8, input_file_name: *const
         }
     }
 
-    if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) < BIGGEST_CHAR {
+    if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) < TOO_BIG_CHAR {
         cur_input.limit -= 1
     } else {
         BUFFER[cur_input.limit as usize] = get_int_par(IntPar::end_line_char);

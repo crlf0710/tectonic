@@ -2198,7 +2198,7 @@ unsafe fn pic_out(p: &Picture) {
 
     print('(' as i32);
     for i in p.path() {
-        print_raw_char(*i as UTF16_code, true);
+        print_raw_char(*i as UTF16_code);
     }
     print(')' as i32);
 

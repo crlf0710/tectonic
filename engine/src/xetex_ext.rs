@@ -291,7 +291,7 @@ pub(crate) unsafe fn get_encoding_mode_and_info(info: *mut i32) -> UnicodeMode {
 
 pub(crate) unsafe fn print_utf8_str(string: &[u8]) {
     for &c in string {
-        print_raw_char(c as UTF16_code, true);
+        print_raw_char(c as UTF16_code);
     }
     /* bypass utf-8 encoding done in print_char() */
 }

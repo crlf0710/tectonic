@@ -24,7 +24,7 @@ use crate::xetex_ini::{
 };
 use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
 
-use crate::xetex_stringpool::{PoolString, BIGGEST_CHAR, TOO_BIG_CHAR};
+use crate::xetex_stringpool::{PoolString, TOO_BIG_CHAR};
 use crate::xetex_xetex0::{
     append_to_vlist, badness, char_pw, delete_glue_ref, effective_char, flush_list,
     flush_node_list, free_node, get_avail, get_node, hpack, max_hyphenatable_length, new_character,
@@ -789,7 +789,7 @@ pub(crate) unsafe fn line_break(d: bool) {
                 if hyf_char < 0 {
                     return c;
                 }
-                if hyf_char > BIGGEST_CHAR {
+                if hyf_char >= TOO_BIG_CHAR {
                     return c;
                 }
 

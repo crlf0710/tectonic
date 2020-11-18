@@ -15,7 +15,7 @@ use super::xetex_consts::{
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
 use crate::xetex_scaledmath::Scaled;
-use crate::xetex_stringpool::{PoolString, BIGGEST_CHAR};
+use crate::xetex_stringpool::{PoolString, TOO_BIG_CHAR};
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
@@ -61,17 +61,15 @@ pub(crate) unsafe fn print_ln() {
         }
     };
 }
-pub(crate) unsafe fn print_raw_char(s: UTF16_code, incr_offset: bool) {
+pub(crate) unsafe fn print_raw_char(s: UTF16_code) {
     match selector {
         Selector::TERM_AND_LOG => {
             let stdout = rust_stdout.as_mut().unwrap();
             let lg = log_file.as_mut().unwrap();
             ttstub_output_putc(stdout, s as i32);
             ttstub_output_putc(lg, s as i32);
-            if incr_offset {
-                term_offset += 1;
-                file_offset += 1
-            }
+            term_offset += 1;
+            file_offset += 1;
             if term_offset == max_print_line {
                 ttstub_output_putc(stdout, '\n' as i32);
                 term_offset = 0i32
@@ -83,18 +81,14 @@ pub(crate) unsafe fn print_raw_char(s: UTF16_code, incr_offset: bool) {
         }
         Selector::LOG_ONLY => {
             ttstub_output_putc(log_file.as_mut().unwrap(), s as i32);
-            if incr_offset {
-                file_offset += 1
-            }
+            file_offset += 1;
             if file_offset == max_print_line {
                 print_ln();
             }
         }
         Selector::TERM_ONLY => {
             ttstub_output_putc(rust_stdout.as_mut().unwrap(), s as i32);
-            if incr_offset {
-                term_offset += 1
-            }
+            term_offset += 1;
             if term_offset == max_print_line {
                 print_ln();
             }
@@ -132,11 +126,11 @@ pub(crate) unsafe fn print_rust_char(s: char) {
             file_offset += 1;
             if term_offset == max_print_line {
                 write!(stdout, "\n").unwrap();
-                term_offset = 0i32
+                term_offset = 0;
             }
             if file_offset == max_print_line {
                 write!(lg, "\n").unwrap();
-                file_offset = 0i32
+                file_offset = 0;
             }
         }
         Selector::LOG_ONLY => {
@@ -184,15 +178,15 @@ pub(crate) unsafe fn print_char(s: i32) {
     if selector == Selector::NEW_STRING {
         if !doing_special {
             if s >= 0x10000 {
-                print_raw_char((0xd800 + (s - 0x10000) / 1024) as UTF16_code, true);
-                print_raw_char((0xdc00 + (s - 0x10000) % 1024) as UTF16_code, true);
+                print_raw_char((0xd800 + (s - 0x10000) / 1024) as UTF16_code);
+                print_raw_char((0xdc00 + (s - 0x10000) % 1024) as UTF16_code);
             } else {
-                print_raw_char(s as UTF16_code, true);
+                print_raw_char(s as UTF16_code);
             }
             return;
         } else {
             if s < 127 {
-                print_raw_char(s as UTF16_code, true);
+                print_raw_char(s as UTF16_code);
             } else {
                 // TODO: check is reachable
                 let mut b = [0; 4];
@@ -200,11 +194,9 @@ pub(crate) unsafe fn print_char(s: i32) {
                     .unwrap()
                     .encode_utf8(&mut b)
                     .as_bytes();
-                let last = bytes.len() - 1;
-                for &c in &bytes[..last] {
-                    print_raw_char(c as u16, false);
+                for &c in bytes {
+                    print_raw_char(c as u16);
                 }
-                print_raw_char(bytes[last] as u16, true);
             }
             return;
         }
@@ -242,7 +234,7 @@ pub(crate) unsafe fn print_char(s: i32) {
 pub(crate) unsafe fn print(s: i32) {
     if s < 0 || s >= str_ptr {
         print_cstr("???");
-    } else if s <= BIGGEST_CHAR {
+    } else if s < TOO_BIG_CHAR {
         if s == get_int_par(IntPar::new_line_char) {
             if selector == Selector::PSEUDO {
                 let nl = get_int_par(IntPar::new_line_char);

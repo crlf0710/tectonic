@@ -82,8 +82,8 @@ use crate::xetex_scaledmath::{
 };
 use crate::xetex_shipout::{finalize_dvi_file, new_edge, out_what, ship_out};
 use crate::xetex_stringpool::{
-    append_str, make_string, search_string, slow_make_string, str_eq_buf, PoolString, BIGGEST_CHAR,
-    EMPTY_STRING, TOO_BIG_CHAR,
+    append_str, make_string, search_string, slow_make_string, str_eq_buf, PoolString, EMPTY_STRING,
+    TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
 use crate::xetex_texmfmp::{
@@ -164,12 +164,13 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
             print_esc_cstr("CLOBBERED.");
             return;
         }
-        if *LLIST_info(p as usize) >= CS_TOKEN_FLAG {
-            print_cs(*LLIST_info(p as usize) - CS_TOKEN_FLAG);
+        let info = *LLIST_info(p as usize);
+        if info >= CS_TOKEN_FLAG {
+            print_cs(info - CS_TOKEN_FLAG);
         } else {
-            let m = Cmd::from((*LLIST_info(p as usize) / MAX_CHAR_VAL) as u16);
-            let c = *LLIST_info(p as usize) % MAX_CHAR_VAL;
-            if *LLIST_info(p as usize) < 0 {
+            let m = Cmd::from((info / MAX_CHAR_VAL) as u16);
+            let c = info % MAX_CHAR_VAL;
+            if info < 0 {
                 print_esc_cstr("BAD.");
             } else {
                 // Display the token `$(m,c)$`
@@ -883,7 +884,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         print_cstr("( ");
                         for i in p.path() {
-                            print_raw_char(*i as UTF16_code, true);
+                            print_raw_char(*i as UTF16_code);
                         }
                         print('\"' as i32);
                     }
@@ -2639,7 +2640,7 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
 }
 pub(crate) unsafe fn prim_lookup(s: str_number) -> usize {
     let mut l = 0;
-    let mut p = if s <= BIGGEST_CHAR {
+    let mut p = if s < TOO_BIG_CHAR {
         if s < 0 {
             return UNDEFINED_PRIMITIVE as usize;
         } else {
@@ -3487,11 +3488,11 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     n = half_error_line
                 }
                 for q in p..first_count {
-                    print_raw_char(trick_buf[(q % error_line) as usize], true);
+                    print_raw_char(trick_buf[(q % error_line) as usize]);
                 }
                 print_ln();
                 for _ in 0..n {
-                    print_raw_char(' ' as i32 as UTF16_code, true);
+                    print_raw_char(' ' as i32 as UTF16_code);
                 }
                 let p = if m + n <= error_line {
                     first_count + m
@@ -3499,7 +3500,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     first_count + (error_line - n - 3)
                 };
                 for q in first_count..p {
-                    print_raw_char(trick_buf[(q % error_line) as usize], true);
+                    print_raw_char(trick_buf[(q % error_line) as usize]);
                 }
                 if m + n > error_line {
                     print_cstr("...");
@@ -5539,7 +5540,7 @@ pub(crate) unsafe fn scan_usv_num(input: &mut input_state_t) -> i32 {
 }
 pub(crate) unsafe fn scan_char_num(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
-    if val < 0 || val > BIGGEST_CHAR {
+    if val < 0 || val >= TOO_BIG_CHAR {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -9308,7 +9309,7 @@ pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (bool, Option<
             }
         };
         loop {
-            if cmd > Cmd::OtherChar || chr > BIGGEST_CHAR {
+            if cmd > Cmd::OtherChar || chr >= TOO_BIG_CHAR {
                 back_input(input, tok);
                 break;
             } else {
@@ -9656,7 +9657,7 @@ pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u
         print_utf8_str(feature_name);
         print_cstr("\' in font `");
         for b in name_of_file.bytes() {
-            print_raw_char(b as UTF16_code, true);
+            print_raw_char(b as UTF16_code);
         }
         print_cstr("\'.");
     });
@@ -9671,7 +9672,7 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
         print_utf8_str(mapping_name.as_bytes());
         print_cstr("\' for font `");
         for b in name_of_file.bytes() {
-            print_raw_char(b as UTF16_code, true);
+            print_raw_char(b as UTF16_code);
         }
         match warningType {
             1 => print_cstr("\' not found."),
@@ -9687,7 +9688,7 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
     diagnostic(false, || {
         print_nl_cstr("Font `");
         for b in name_of_file.bytes() {
-            print_raw_char(b as UTF16_code, true);
+            print_raw_char(b as UTF16_code);
         }
         print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
     });
@@ -12847,7 +12848,7 @@ pub(crate) unsafe fn append_discretionary(input: &mut input_state_t, chr: i32) {
     if chr == 1 {
         let c = HYPHEN_CHAR[EQTB[CUR_FONT_LOC].val as usize];
         if c >= 0 {
-            if c <= BIGGEST_CHAR {
+            if c < TOO_BIG_CHAR {
                 MEM[cur_list.tail + 1].b32.s0 =
                     new_character(EQTB[CUR_FONT_LOC].val as usize, c as UTF16_code).tex_int()
             }
