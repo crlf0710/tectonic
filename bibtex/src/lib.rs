@@ -32,7 +32,7 @@ mod core_memory {
         mut size: size_t,
     ) -> *mut libc::c_void {
         let size = size as libc::size_t; //FIXME
-        let mut new_mem: *mut libc::c_void = 0 as *mut libc::c_void;
+        let mut new_mem: *mut libc::c_void = std::ptr::null_mut::<libc::c_void>();
         if old_ptr.is_null() {
             new_mem = xmalloc(size as size_t)
         } else {
@@ -543,7 +543,7 @@ unsafe fn buffer_overflow() {
         name_sep_char as *mut libc::c_void,
         ((buf_size + 20000i32 + 1i32) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as _,
     ) as *mut u8;
-    buf_size = buf_size + 20000i32;
+    buf_size += 20000i32;
 }
 unsafe fn input_ln(peekable: &mut Option<peekable_input_t>) -> bool {
     last = 0i32;
@@ -620,8 +620,8 @@ unsafe fn print_bad_input_line() {
     bf_ptr = 0i32;
     loop {
         let fresh1 = bf_ptr;
-        bf_ptr = bf_ptr + 1;
-        if !(fresh1 < buf_ptr2) {
+        bf_ptr += 1;
+        if fresh1 >= buf_ptr2 {
             break;
         }
         putc_log(' ' as i32);
@@ -657,7 +657,7 @@ unsafe fn sam_wrong_file_name_print() {
     name_ptr = 0i32;
     while name_ptr <= name_length {
         let fresh2 = name_ptr;
-        name_ptr = name_ptr + 1;
+        name_ptr += 1;
         ttstub_output_putc(output, *name_of_file.offset(fresh2 as isize) as i32);
     }
     ttstub_output_putc(output, '\'' as i32);
@@ -702,13 +702,13 @@ unsafe fn aux_err_white_space_in_argument_print() {
     log!("White space in argument");
 }
 unsafe fn print_bib_name() {
-    print_a_pool_str(*bib_list.offset(bib_ptr as isize));
+    print_a_pool_str(*bib_list.add(bib_ptr));
     print_a_pool_str(s_bib_extension);
     putc_log('\n' as i32);
 }
 unsafe fn log_pr_bib_name() {
     let lg = log_file.as_mut().unwrap();
-    out_pool_str(lg, *bib_list.offset(bib_ptr as isize));
+    out_pool_str(lg, *bib_list.add(bib_ptr));
     out_pool_str(lg, s_bib_extension);
     ttstub_output_putc(lg, '\n' as i32);
 }
@@ -750,11 +750,11 @@ unsafe fn check_cite_overflow(mut last_cite: cite_number) {
             ((max_cites + 750i32 + 1i32) as u64)
                 .wrapping_mul(::std::mem::size_of::<str_number>() as u64) as _,
         ) as *mut str_number;
-        max_cites = max_cites + 750i32;
+        max_cites += 750i32;
         while last_cite < max_cites {
             *type_list.offset(last_cite as isize) = 0i32;
             *cite_info.offset(last_cite as isize) = 0i32;
-            last_cite = last_cite + 1i32
+            last_cite += 1i32
         }
     };
 }
@@ -883,8 +883,8 @@ unsafe fn check_field_overflow(mut total_fields: i32) {
             loop {
                 *field_info.offset(f_ptr as isize) = 0i32;
                 let fresh3 = f_ptr;
-                f_ptr = f_ptr + 1;
-                if !(fresh3 < for_end) {
+                f_ptr += 1;
+                if fresh3 >= for_end {
                     break;
                 }
                 /*missing */
@@ -1049,7 +1049,7 @@ unsafe fn output_bbl_line() {
                 break;
             }
             /*white_space */
-            out_buf_length = out_buf_length - 1i32
+            out_buf_length -= 1i32
         }
         if out_buf_length == 0i32 {
             return;
@@ -1115,7 +1115,7 @@ unsafe fn make_string() -> str_number {
         log!("number of strings {}\n", max_strings);
         panic!();
     }
-    str_ptr = str_ptr + 1i32;
+    str_ptr += 1i32;
     *str_start.offset(str_ptr as isize) = pool_ptr;
     str_ptr - 1i32
 }
@@ -1150,8 +1150,8 @@ unsafe fn lower_case(mut buf: buf_type, mut bf_ptr: buf_pointer, mut len: buf_po
                     *buf.offset(i as isize) = (*buf.offset(i as isize) as i32 + 32i32) as u8
                 }
                 let fresh4 = i;
-                i = i + 1;
-                if !(fresh4 < for_end) {
+                i += 1;
+                if fresh4 >= for_end {
                     break;
                 }
             }
@@ -1172,8 +1172,8 @@ unsafe fn upper_case(mut buf: buf_type, mut bf_ptr: buf_pointer, mut len: buf_po
                     *buf.offset(i as isize) = (*buf.offset(i as isize) as i32 - 32i32) as u8
                 }
                 let fresh5 = i;
-                i = i + 1;
-                if !(fresh5 < for_end) {
+                i += 1;
+                if fresh5 >= for_end {
                     break;
                 }
             }
@@ -1196,9 +1196,9 @@ unsafe fn str_lookup(
     while k < j + l {
         h = h + h + *buf.offset(k as isize) as i32;
         while h >= hash_prime {
-            h = h - hash_prime
+            h -= hash_prime
         }
-        k = k + 1i32
+        k += 1i32
     }
     p = h + 1i32;
     hash_found = false;
@@ -1228,7 +1228,7 @@ unsafe fn str_lookup(
                         log!("hash size {}\n", hash_size);
                         panic!();
                     }
-                    hash_used = hash_used - 1i32;
+                    hash_used -= 1i32;
                     if *hash_text.offset(hash_used as isize) == 0i32 {
                         break;
                     }
@@ -1245,8 +1245,8 @@ unsafe fn str_lookup(
                 k = j;
                 while k < j + l {
                     *str_pool.offset(pool_ptr as isize) = *buf.offset(k as isize);
-                    pool_ptr = pool_ptr + 1i32;
-                    k = k + 1i32
+                    pool_ptr += 1i32;
+                    k += 1i32
                 }
                 *hash_text.offset(p as isize) = make_string()
             }
@@ -1264,7 +1264,7 @@ unsafe fn pre_define(pds: pds_type, len: pds_len, ilk: str_ilk) {
             *buffer.offset(i as isize) = *pds.offset((i as i32 - 1i32) as isize) as u8;
             let fresh6 = i;
             i = i.wrapping_add(1);
-            if !((fresh6 as i32) < for_end) {
+            if (fresh6 as i32) >= for_end {
                 break;
             }
         }
@@ -1287,7 +1287,7 @@ unsafe fn int_to_ASCII(
         }
         /* str_found */
         *int_buf.offset(int_ptr as isize) = 45i32 as u8; /*minus_sign */
-        int_ptr = int_ptr + 1i32;
+        int_ptr += 1i32;
         the_int = -the_int
     }
     int_xptr = int_ptr;
@@ -1296,20 +1296,20 @@ unsafe fn int_to_ASCII(
             buffer_overflow();
         }
         *int_buf.offset(int_ptr as isize) = ('0' as i32 + the_int % 10i32) as u8;
-        int_ptr = int_ptr + 1i32;
-        the_int = the_int / 10i32;
+        int_ptr += 1i32;
+        the_int /= 10i32;
         if the_int == 0i32 {
             break;
         }
     }
     *int_end = int_ptr;
-    int_ptr = int_ptr - 1i32;
+    int_ptr -= 1i32;
     while int_xptr < int_ptr {
         int_tmp_val = *int_buf.offset(int_xptr as isize);
         *int_buf.offset(int_xptr as isize) = *int_buf.offset(int_ptr as isize);
         *int_buf.offset(int_ptr as isize) = int_tmp_val;
-        int_ptr = int_ptr - 1i32;
-        int_xptr = int_xptr + 1i32
+        int_ptr -= 1i32;
+        int_xptr += 1i32
     }
 }
 unsafe fn add_database_cite(mut new_cite: *mut cite_number) {
@@ -1318,7 +1318,7 @@ unsafe fn add_database_cite(mut new_cite: *mut cite_number) {
     *cite_list.offset(*new_cite as isize) = *hash_text.offset(cite_loc as isize);
     *ilk_info.offset(cite_loc as isize) = *new_cite;
     *ilk_info.offset(lc_cite_loc as isize) = cite_loc;
-    *new_cite = *new_cite + 1i32;
+    *new_cite += 1i32;
 }
 unsafe fn find_cite_locs_for_this_cite_key(mut cite_str: str_number) -> bool {
     ex_buf_ptr = 0i32;
@@ -1326,8 +1326,8 @@ unsafe fn find_cite_locs_for_this_cite_key(mut cite_str: str_number) -> bool {
     let mut tmp_end_ptr = *str_start.offset((cite_str + 1i32) as isize);
     while tmp_ptr < tmp_end_ptr {
         *ex_buf.offset(ex_buf_ptr as isize) = *str_pool.offset(tmp_ptr as isize);
-        ex_buf_ptr = ex_buf_ptr + 1i32;
-        tmp_ptr = tmp_ptr + 1i32
+        ex_buf_ptr += 1i32;
+        tmp_ptr += 1i32
     }
     cite_loc = str_lookup(
         ex_buf,
@@ -1385,21 +1385,15 @@ unsafe fn less_than(mut arg1: cite_number, mut arg2: cite_number) -> bool {
             } else {
                 return true;
             }
-        } else {
-            if char2 as i32 == 127i32 {
-                /*end_of_string */
-                return false;
-            } else {
-                if (char1 as i32) < char2 as i32 {
-                    return true;
-                } else {
-                    if char1 as i32 > char2 as i32 {
-                        return false;
-                    }
-                }
-            }
+        } else if char2 as i32 == 127i32 {
+            /*end_of_string */
+            return false;
+        } else if (char1 as i32) < char2 as i32 {
+            return true;
+        } else if char1 as i32 > char2 as i32 {
+            return false;
         }
-        char_ptr = char_ptr + 1i32
+        char_ptr += 1i32
     }
 }
 unsafe fn quick_sort(mut left_end: cite_number, mut right_end: cite_number) {
@@ -1426,15 +1420,15 @@ unsafe fn quick_sort(mut left_end: cite_number, mut right_end: cite_number) {
                     ) {
                         swap(right - 1i32, right); /*n_bst_execute */
                         let fresh7 = right; /*n_bst_function */
-                        right = right - 1; /*n_bst_integers */
-                        if !(fresh7 > for_end_0) {
+                        right -= 1; /*n_bst_integers */
+                        if fresh7 <= for_end_0 {
                             break; /*n_bst_iterate */
                         }
                     }
                 } /*n_bst_macro */
                 let fresh8 = insert_ptr; /*n_bst_read */
-                insert_ptr = insert_ptr + 1; /*n_bst_reverse */
-                if !(fresh8 < for_end) {
+                insert_ptr += 1; /*n_bst_reverse */
+                if fresh8 >= for_end {
                     break; /*n_bst_sort */
                 }
             }
@@ -1478,15 +1472,15 @@ unsafe fn quick_sort(mut left_end: cite_number, mut right_end: cite_number) {
         right = right_end; /*n_aa */
         loop {
             while less_than(*cite_info.offset(left as isize), partition) {
-                left = left + 1i32
+                left += 1i32
             } /*n_aa_upper */
             while less_than(partition, *cite_info.offset(right as isize)) {
-                right = right - 1i32
+                right -= 1i32
             } /*n_o */
             if left < right {
                 swap(left, right); /*n_o_upper */
-                left = left + 1i32; /*n_l */
-                right = right - 1i32
+                left += 1i32; /*n_l */
+                right -= 1i32
             } /*n_l_upper */
             if left == right + 1i32 {
                 break; /*n_ss */
@@ -1881,7 +1875,7 @@ unsafe fn pre_def_certain_strings() {
     *fn_type.offset(pre_def_loc as isize) = FnClass::Field;
     *ilk_info.offset(pre_def_loc as isize) = num_fields;
     crossref_num = num_fields;
-    num_fields = num_fields + 1i32;
+    num_fields += 1i32;
     num_pre_defined_fields = num_fields;
     pre_define(
         b"sort.key$   \x00" as *const u8 as *const i8,
@@ -1891,7 +1885,7 @@ unsafe fn pre_def_certain_strings() {
     *fn_type.offset(pre_def_loc as isize) = FnClass::StrEntryVar;
     *ilk_info.offset(pre_def_loc as isize) = num_ent_strs;
     sort_key_num = num_ent_strs;
-    num_ent_strs = num_ent_strs + 1i32;
+    num_ent_strs += 1i32;
     pre_define(
         b"entry.max$  \x00" as *const u8 as *const i8,
         10i32 as pds_len,
@@ -1920,7 +1914,7 @@ unsafe fn scan1_white(mut char1: u8) -> bool {
         && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::WhiteSpace
         && *buffer.offset(buf_ptr2 as isize) != char1
     {
-        buf_ptr2 = buf_ptr2 + 1i32
+        buf_ptr2 += 1i32
     }
     buf_ptr2 < last
 }
@@ -1941,7 +1935,7 @@ unsafe fn scan2_white(mut char1: u8, mut char2: u8) -> bool {
         && *buffer.offset(buf_ptr2 as isize) != char2 
         && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::WhiteSpace
     {
-        buf_ptr2 = buf_ptr2 + 1i32
+        buf_ptr2 += 1i32
     }
     buf_ptr2 < last
 }
@@ -1952,14 +1946,14 @@ unsafe fn scan3(mut char1: u8, mut char2: u8, mut char3: u8) -> bool {
         && *buffer.offset(buf_ptr2 as isize) as i32 != char2 as i32
         && *buffer.offset(buf_ptr2 as isize) as i32 != char3 as i32
     {
-        buf_ptr2 = buf_ptr2 + 1i32
+        buf_ptr2 += 1i32
     }
     buf_ptr2 < last
 }
 unsafe fn scan_alpha() -> bool {
     buf_ptr1 = buf_ptr2;
     while buf_ptr2 < last && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::Alpha {
-        buf_ptr2 = buf_ptr2 + 1i32
+        buf_ptr2 += 1i32
     }
     buf_ptr2 - buf_ptr1 != 0
 }
@@ -2033,11 +2027,9 @@ unsafe fn scan_white_space() -> bool {
 }
 unsafe fn eat_bst_white_space() -> bool {
     loop {
-        if scan_white_space() {
-            if *buffer.offset(buf_ptr2 as isize) != b'%' {
-                /*comment */
-                return true;
-            }
+        if scan_white_space() && *buffer.offset(buf_ptr2 as isize) != b'%' {
+            /*comment */
+            return true;
         }
         if !input_ln(&mut bst_file) {
             return false;
@@ -2091,13 +2083,13 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
     }
     single_ptr = 0;
     loop {
-        if !(*buffer.offset(buf_ptr2 as isize) as i32 != 125) {
+        if *buffer.offset(buf_ptr2 as isize) as i32 == 125 {
             /*right_brace */
             break;
         }
         match *buffer.offset(buf_ptr2 as isize) as i32 {
             35 => {
-                buf_ptr2 = buf_ptr2 + 1;
+                buf_ptr2 += 1;
                 if !scan_integer() {
                     log!("Illegal integer in integer literal");
                     skip_token_print();
@@ -2127,12 +2119,12 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                             .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
                             as _,
                     ) as *mut hash_ptr2;
-                    single_fn_space = single_fn_space + 100i32
+                    single_fn_space += 100i32
                 }
-                single_ptr = single_ptr + 1
+                single_ptr += 1
             }
             34 => {
-                buf_ptr2 = buf_ptr2 + 1;
+                buf_ptr2 += 1;
                 if !scan1(34) {
                     log!("No `\"\' to end string literal");
                     skip_token_print();
@@ -2144,7 +2136,7 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                     str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 0i32 as str_ilk, true);
 
                 *fn_type.offset(literal_loc as isize) = FnClass::StrLiteral;
-                buf_ptr2 = buf_ptr2 + 1;
+                buf_ptr2 += 1;
                 if buf_ptr2 < last
                     && lex_class[*buffer.offset(buf_ptr2 as isize) as usize] != LexType::WhiteSpace
                     && *buffer.offset(buf_ptr2 as isize) != b'}' 
@@ -2162,12 +2154,12 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                             .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
                             as _,
                     ) as *mut hash_ptr2;
-                    single_fn_space = single_fn_space + 100i32
+                    single_fn_space += 100i32
                 }
-                single_ptr = single_ptr + 1
+                single_ptr += 1
             }
             39 => {
-                buf_ptr2 = buf_ptr2 + 1;
+                buf_ptr2 += 1;
                 scan2_white(125 /*right_brace */, 37 /*comment */);
                 lower_case(buffer, buf_ptr1, buf_ptr2 - buf_ptr1);
                 fn_loc = str_lookup(
@@ -2195,9 +2187,9 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                                 .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
                                 as _,
                         ) as *mut hash_ptr2;
-                        single_fn_space = single_fn_space + 100i32
+                        single_fn_space += 100i32
                     }
-                    single_ptr = single_ptr + 1;
+                    single_ptr += 1;
                     *singl_function.offset(single_ptr as isize) = fn_loc;
                     if single_ptr == single_fn_space {
                         singl_function = xrealloc(
@@ -2206,9 +2198,9 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                                 .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
                                 as _,
                         ) as *mut hash_ptr2;
-                        single_fn_space = single_fn_space + 100i32
+                        single_fn_space += 100i32
                     }
-                    single_ptr = single_ptr + 1
+                    single_ptr += 1
                 }
             }
             123 => {
@@ -2220,7 +2212,7 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                     print_confusion();
                     panic!();
                 }
-                impl_fn_num = impl_fn_num + 1;
+                impl_fn_num += 1;
                 *fn_type.offset(impl_fn_loc as isize) = FnClass::WizDefined;
                 *singl_function.offset(single_ptr as isize) = quote_next_fn;
                 if single_ptr == single_fn_space {
@@ -2230,9 +2222,9 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                             .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
                             as _,
                     ) as *mut hash_ptr2;
-                    single_fn_space = single_fn_space + 100i32
+                    single_fn_space += 100i32
                 }
-                single_ptr = single_ptr + 1;
+                single_ptr += 1;
 
                 *singl_function.offset(single_ptr as isize) = impl_fn_loc;
                 if single_ptr == single_fn_space {
@@ -2242,11 +2234,11 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                             .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
                             as _,
                     ) as *mut hash_ptr2;
-                    single_fn_space = single_fn_space + 100i32
+                    single_fn_space += 100i32
                 }
-                single_ptr = single_ptr + 1;
+                single_ptr += 1;
 
-                buf_ptr2 = buf_ptr2 + 1;
+                buf_ptr2 += 1;
                 scan_fn_def(impl_fn_loc);
             }
             _ => {
@@ -2276,9 +2268,9 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
                                 .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64)
                                 as _,
                         ) as *mut hash_ptr2;
-                        single_fn_space = single_fn_space + 100i32
+                        single_fn_space += 100i32
                     }
-                    single_ptr = single_ptr + 1
+                    single_ptr += 1
                 }
             }
         }
@@ -2301,25 +2293,25 @@ unsafe fn scan_fn_def(mut fn_hash_loc: hash_loc) {
             ((single_fn_space + 100i32 + 1i32) as u64)
                 .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64) as _,
         ) as *mut hash_ptr2;
-        single_fn_space = single_fn_space + 100i32
+        single_fn_space += 100i32
     }
-    single_ptr = single_ptr + 1i32;
+    single_ptr += 1i32;
     while single_ptr + wiz_def_ptr > wiz_fn_space {
         wiz_functions = xrealloc(
             wiz_functions as *mut libc::c_void,
             ((wiz_fn_space + 3000i32 + 1i32) as u64)
                 .wrapping_mul(::std::mem::size_of::<hash_ptr2>() as u64) as _,
         ) as *mut hash_ptr2;
-        wiz_fn_space = wiz_fn_space + 3000i32
+        wiz_fn_space += 3000i32
     }
     *ilk_info.offset(fn_hash_loc as isize) = wiz_def_ptr;
     copy_ptr = 0i32;
     while copy_ptr < single_ptr {
         *wiz_functions.offset(wiz_def_ptr as isize) = *singl_function.offset(copy_ptr as isize);
-        copy_ptr = copy_ptr + 1i32;
-        wiz_def_ptr = wiz_def_ptr + 1i32
+        copy_ptr += 1i32;
+        wiz_def_ptr += 1i32
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
 
     unsafe fn exit(singl_function: *mut i32) {
         free(singl_function as *mut libc::c_void);
@@ -2331,7 +2323,7 @@ unsafe fn eat_bib_white_space() -> bool {
         if !input_ln(&mut bib_file[bib_ptr]) {
             return false;
         }
-        bib_line_num = bib_line_num + 1i32;
+        bib_line_num += 1i32;
         buf_ptr2 = 0i32
     }
     true
@@ -2342,32 +2334,28 @@ unsafe fn compress_bib_white() -> bool {
         return false;
     } else {
         *ex_buf.offset(ex_buf_ptr as isize) = 32i32 as u8;
-        ex_buf_ptr = ex_buf_ptr + 1i32
+        ex_buf_ptr += 1i32
     }
     while !scan_white_space() {
         if !input_ln(&mut bib_file[bib_ptr]) {
             eat_bib_print();
             return false;
         }
-        bib_line_num = bib_line_num + 1i32;
+        bib_line_num += 1i32;
         buf_ptr2 = 0i32
     }
     true
 }
 unsafe fn scan_balanced_braces() -> bool {
-    buf_ptr2 = buf_ptr2 + 1i32;
-    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace || buf_ptr2 == last {
-        if !compress_bib_white() {
-            return false;
-        }
+    buf_ptr2 += 1i32;
+    if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace || buf_ptr2 == last) && !compress_bib_white() {
+        return false;
     }
-    if ex_buf_ptr > 1i32 {
-        if *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 32i32 {
+    if ex_buf_ptr > 1i32 && *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 32i32 {
+        /*space */
+        if *ex_buf.offset((ex_buf_ptr - 2i32) as isize) as i32 == 32i32 {
             /*space */
-            if *ex_buf.offset((ex_buf_ptr - 2i32) as isize) as i32 == 32i32 {
-                /*space */
-                ex_buf_ptr = ex_buf_ptr - 1i32
-            }
+            ex_buf_ptr -= 1i32
         }
     } /*255: */
     bib_brace_level = 0i32;
@@ -2376,61 +2364,52 @@ unsafe fn scan_balanced_braces() -> bool {
         while *buffer.offset(buf_ptr2 as isize) as i32 != right_str_delim as i32 {
             match *buffer.offset(buf_ptr2 as isize) as i32 {
                 123 => {
-                    bib_brace_level = bib_brace_level + 1i32; /*left_brace */
+                    bib_brace_level += 1i32; /*left_brace */
                     if ex_buf_ptr == buf_size {
                         bib_field_too_long_print(); /*right_brace */
                         return false;
                     } else {
                         *ex_buf.offset(ex_buf_ptr as isize) = 123i32 as u8; /*left_brace */
-                        ex_buf_ptr = ex_buf_ptr + 1i32
+                        ex_buf_ptr += 1i32
                     }
-                    buf_ptr2 = buf_ptr2 + 1i32;
-                    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                        || buf_ptr2 == last
-                    {
-                        if !compress_bib_white() {
-                            return false;
-                        }
+                    buf_ptr2 += 1i32;
+                    if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
+                        || buf_ptr2 == last) && !compress_bib_white() {
+                        return false;
                     }
                     loop {
                         match *buffer.offset(buf_ptr2 as isize) as i32 {
                             125 => {
-                                bib_brace_level = bib_brace_level - 1i32;
+                                bib_brace_level -= 1i32;
                                 if ex_buf_ptr == buf_size {
                                     bib_field_too_long_print();
                                     return false;
                                 } else {
                                     *ex_buf.offset(ex_buf_ptr as isize) = 125i32 as u8;
-                                    ex_buf_ptr = ex_buf_ptr + 1i32
+                                    ex_buf_ptr += 1i32
                                 }
-                                buf_ptr2 = buf_ptr2 + 1i32;
-                                if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                                    || buf_ptr2 == last
-                                {
-                                    if !compress_bib_white() {
-                                        return false;
-                                    }
+                                buf_ptr2 += 1i32;
+                                if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
+                                    || buf_ptr2 == last) && !compress_bib_white() {
+                                    return false;
                                 }
                                 if bib_brace_level == 0i32 {
                                     break;
                                 }
                             }
                             123 => {
-                                bib_brace_level = bib_brace_level + 1i32;
+                                bib_brace_level += 1i32;
                                 if ex_buf_ptr == buf_size {
                                     bib_field_too_long_print();
                                     return false;
                                 } else {
                                     *ex_buf.offset(ex_buf_ptr as isize) = 123i32 as u8;
-                                    ex_buf_ptr = ex_buf_ptr + 1i32
+                                    ex_buf_ptr += 1i32
                                 }
-                                buf_ptr2 = buf_ptr2 + 1i32;
-                                if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                                    || buf_ptr2 == last
-                                {
-                                    if !compress_bib_white() {
-                                        return false;
-                                    }
+                                buf_ptr2 += 1i32;
+                                if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
+                                    || buf_ptr2 == last) && !compress_bib_white() {
+                                    return false;
                                 }
                             }
                             _ => {
@@ -2440,15 +2419,12 @@ unsafe fn scan_balanced_braces() -> bool {
                                 } else {
                                     *ex_buf.offset(ex_buf_ptr as isize) =
                                         *buffer.offset(buf_ptr2 as isize);
-                                    ex_buf_ptr = ex_buf_ptr + 1i32
+                                    ex_buf_ptr += 1i32
                                 }
-                                buf_ptr2 = buf_ptr2 + 1i32;
-                                if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                                    || buf_ptr2 == last
-                                {
-                                    if !compress_bib_white() {
-                                        return false;
-                                    }
+                                buf_ptr2 += 1i32;
+                                if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
+                                    || buf_ptr2 == last) && !compress_bib_white() {
+                                    return false;
                                 }
                             }
                         }
@@ -2464,15 +2440,12 @@ unsafe fn scan_balanced_braces() -> bool {
                         return false;
                     } else {
                         *ex_buf.offset(ex_buf_ptr as isize) = *buffer.offset(buf_ptr2 as isize);
-                        ex_buf_ptr = ex_buf_ptr + 1i32
+                        ex_buf_ptr += 1i32
                     }
-                    buf_ptr2 = buf_ptr2 + 1i32;
-                    if lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
-                        || buf_ptr2 == last
-                    {
-                        if !compress_bib_white() {
-                            return false;
-                        }
+                    buf_ptr2 += 1i32;
+                    if (lex_class[*buffer.offset(buf_ptr2 as isize) as usize] == LexType::WhiteSpace
+                        || buf_ptr2 == last) && !compress_bib_white() {
+                        return false;
                     }
                 }
             }
@@ -2481,8 +2454,8 @@ unsafe fn scan_balanced_braces() -> bool {
         while *buffer.offset(buf_ptr2 as isize) as i32 != right_str_delim as i32 {
             if *buffer.offset(buf_ptr2 as isize) as i32 == 123i32 {
                 /*left_brace */
-                bib_brace_level = bib_brace_level + 1i32;
-                buf_ptr2 = buf_ptr2 + 1i32;
+                bib_brace_level += 1i32;
+                buf_ptr2 += 1i32;
                 if !eat_bib_white_space() {
                     eat_bib_print();
                     return false;
@@ -2491,27 +2464,25 @@ unsafe fn scan_balanced_braces() -> bool {
                     /*256: */
                     if *buffer.offset(buf_ptr2 as isize) as i32 == 125i32 {
                         /*right_brace */
-                        bib_brace_level = bib_brace_level - 1i32;
-                        buf_ptr2 = buf_ptr2 + 1i32;
+                        bib_brace_level -= 1i32;
+                        buf_ptr2 += 1i32;
                         if !eat_bib_white_space() {
                             eat_bib_print();
                             return false;
                         }
                     } else if *buffer.offset(buf_ptr2 as isize) as i32 == 123i32 {
                         /*left_brace */
-                        bib_brace_level = bib_brace_level + 1i32;
-                        buf_ptr2 = buf_ptr2 + 1i32;
+                        bib_brace_level += 1i32;
+                        buf_ptr2 += 1i32;
                         if !eat_bib_white_space() {
                             eat_bib_print();
                             return false;
                         }
                     } else {
-                        buf_ptr2 = buf_ptr2 + 1i32;
-                        if !scan2(125i32 as u8, 123i32 as u8) {
-                            if !eat_bib_white_space() {
-                                eat_bib_print();
-                                return false;
-                            }
+                        buf_ptr2 += 1i32;
+                        if !scan2(125i32 as u8, 123i32 as u8) && !eat_bib_white_space() {
+                            eat_bib_print();
+                            return false;
                         }
                     }
                 }
@@ -2520,17 +2491,15 @@ unsafe fn scan_balanced_braces() -> bool {
                 bib_unbalanced_braces_print(); /*right_brace */
                 return false;
             } else {
-                buf_ptr2 = buf_ptr2 + 1i32; /*double_quote */
-                if !scan3(right_str_delim, 123i32 as u8, 125i32 as u8) {
-                    if !eat_bib_white_space() {
-                        eat_bib_print();
-                        return false;
-                    }
+                buf_ptr2 += 1i32; /*double_quote */
+                if !scan3(right_str_delim, 123i32 as u8, 125i32 as u8) && !eat_bib_white_space() {
+                    eat_bib_print();
+                    return false;
                 }
             }
         }
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     true
 }
 unsafe fn scan_a_field_token_and_eat_white() -> bool {
@@ -2561,9 +2530,9 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                         return false;
                     } else {
                         *ex_buf.offset(ex_buf_ptr as isize) = *buffer.offset(tmp_ptr as isize);
-                        ex_buf_ptr = ex_buf_ptr + 1i32
+                        ex_buf_ptr += 1i32
                     }
-                    tmp_ptr = tmp_ptr + 1i32
+                    tmp_ptr += 1i32
                 }
             }
         }
@@ -2586,15 +2555,13 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                     false,
                 );
                 let mut store_token = true;
-                if at_bib_command {
-                    if command_num == 2i32 {
-                        /*n_bib_string */
-                        if macro_name_loc == cur_macro_loc {
-                            store_token = false;
-                            macro_warn_print();
-                            log!("used in its own definition\n");
-                            bib_warn_print();
-                        }
+                if at_bib_command && command_num == 2i32 {
+                    /*n_bib_string */
+                    if macro_name_loc == cur_macro_loc {
+                        store_token = false;
+                        macro_warn_print();
+                        log!("used in its own definition\n");
+                        bib_warn_print();
                     }
                 }
                 if !hash_found {
@@ -2609,23 +2576,20 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                         *str_start.offset(*ilk_info.offset(macro_name_loc as isize) as isize); /*space */
                     let mut tmp_end_ptr = *str_start
                         .offset((*ilk_info.offset(macro_name_loc as isize) + 1i32) as isize);
-                    if ex_buf_ptr == 0i32 {
-                        if tmp_ptr < tmp_end_ptr
+                    if ex_buf_ptr == 0i32 && tmp_ptr < tmp_end_ptr
+                            && lex_class[*str_pool.offset(tmp_ptr as isize) as usize] == LexType::WhiteSpace {
+                        if ex_buf_ptr == buf_size {
+                            bib_field_too_long_print();
+                            return false;
+                        } else {
+                            *ex_buf.offset(ex_buf_ptr as isize) = 32i32 as u8;
+                            ex_buf_ptr += 1i32
+                        }
+                        tmp_ptr += 1i32;
+                        while tmp_ptr < tmp_end_ptr
                             && lex_class[*str_pool.offset(tmp_ptr as isize) as usize] == LexType::WhiteSpace
                         {
-                            if ex_buf_ptr == buf_size {
-                                bib_field_too_long_print();
-                                return false;
-                            } else {
-                                *ex_buf.offset(ex_buf_ptr as isize) = 32i32 as u8;
-                                ex_buf_ptr = ex_buf_ptr + 1i32
-                            }
-                            tmp_ptr = tmp_ptr + 1i32;
-                            while tmp_ptr < tmp_end_ptr
-                                && lex_class[*str_pool.offset(tmp_ptr as isize) as usize] == LexType::WhiteSpace
-                            {
-                                tmp_ptr = tmp_ptr + 1i32
-                            }
+                            tmp_ptr += 1i32
                         }
                     }
                     while tmp_ptr < tmp_end_ptr {
@@ -2637,7 +2601,7 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                             } else {
                                 *ex_buf.offset(ex_buf_ptr as isize) =
                                     *str_pool.offset(tmp_ptr as isize);
-                                ex_buf_ptr = ex_buf_ptr + 1i32
+                                ex_buf_ptr += 1i32
                             }
                         } else if *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 != 32i32 {
                             /*space */
@@ -2646,10 +2610,10 @@ unsafe fn scan_a_field_token_and_eat_white() -> bool {
                                 return false;
                             } else {
                                 *ex_buf.offset(ex_buf_ptr as isize) = 32i32 as u8;
-                                ex_buf_ptr = ex_buf_ptr + 1i32
+                                ex_buf_ptr += 1i32
                             }
                         }
-                        tmp_ptr = tmp_ptr + 1i32
+                        tmp_ptr += 1i32
                     }
                 }
             }
@@ -2668,7 +2632,7 @@ unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
     }
     while *buffer.offset(buf_ptr2 as isize) as i32 == 35i32 {
         /*concat_char */
-        buf_ptr2 = buf_ptr2 + 1i32;
+        buf_ptr2 += 1i32;
         if !eat_bib_white_space() {
             eat_bib_print();
             return false;
@@ -2679,13 +2643,9 @@ unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
     }
     if store_field {
         /*262: */
-        if !at_bib_command {
-            if ex_buf_ptr > 0i32 {
-                if *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 32i32 {
-                    /*space */
-                    ex_buf_ptr = ex_buf_ptr - 1i32
-                }
-            }
+        if !at_bib_command && ex_buf_ptr > 0i32 && *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 32i32 {
+            /*space */
+            ex_buf_ptr -= 1i32
         } /*str_literal */
         if !at_bib_command && *ex_buf.offset(0) as i32 == 32i32 && ex_buf_ptr > 0i32 {
             ex_buf_xptr = 1i32
@@ -2704,7 +2664,7 @@ unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
             /*263: */
             match command_num {
                 1 => {
-                    *s_preamble.offset(preamble_ptr as isize) =
+                    *s_preamble.add(preamble_ptr) =
                         *hash_text.offset(field_val_loc as isize);
                     preamble_ptr += 1;
                 }
@@ -2736,7 +2696,7 @@ unsafe fn scan_and_store_the_field_value_and_eat_white() -> bool {
                     let mut tmp_ptr = ex_buf_xptr;
                     while tmp_ptr < ex_buf_ptr {
                         *out_buf.offset(tmp_ptr as isize) = *ex_buf.offset(tmp_ptr as isize);
-                        tmp_ptr = tmp_ptr + 1i32
+                        tmp_ptr += 1i32
                     }
                     lower_case(out_buf, ex_buf_xptr, ex_buf_ptr - ex_buf_xptr);
                     lc_cite_loc = str_lookup(
@@ -2777,7 +2737,7 @@ unsafe fn decr_brace_level(mut pop_lit_var: str_number) {
     if brace_level == 0i32 {
         braces_unbalanced_complaint(pop_lit_var);
     } else {
-        brace_level = brace_level - 1i32
+        brace_level -= 1i32
     };
 }
 unsafe fn check_brace_level(mut pop_lit_var: str_number) {
@@ -2792,55 +2752,46 @@ unsafe fn name_scan_for_and(mut pop_lit_var: str_number) {
     while !and_found && ex_buf_ptr < ex_buf_length {
         match *ex_buf.offset(ex_buf_ptr as isize) as i32 {
             97 | 65 => {
-                ex_buf_ptr = ex_buf_ptr + 1i32;
+                ex_buf_ptr += 1i32;
                 if preceding_white {
                     /*387: */
-                    if ex_buf_ptr <= ex_buf_length - 3i32 {
-                        if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 'n' as i32
-                            || *ex_buf.offset(ex_buf_ptr as isize) as i32 == 'N' as i32
-                        {
-                            if *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 'd' as i32
-                                || *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 'D' as i32
-                            {
-                                if lex_class[*ex_buf.offset((ex_buf_ptr + 2i32) as isize) as usize]
-                                    == LexType::WhiteSpace
-                                {
-                                    ex_buf_ptr += 2;
-                                    and_found = true;
-                                }
-                            }
-                        }
+                    if ex_buf_ptr <= ex_buf_length - 3i32 && (*ex_buf.offset(ex_buf_ptr as isize) as i32 == 'n' as i32
+                            || *ex_buf.offset(ex_buf_ptr as isize) as i32 == 'N' as i32) && (*ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 'd' as i32
+                                || *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 'D' as i32) && lex_class[*ex_buf.offset((ex_buf_ptr + 2i32) as isize) as usize]
+                                    == LexType::WhiteSpace {
+                        ex_buf_ptr += 2;
+                        and_found = true;
                     }
                 }
                 preceding_white = false
             }
             123 => {
-                brace_level = brace_level + 1i32;
-                ex_buf_ptr = ex_buf_ptr + 1i32;
+                brace_level += 1i32;
+                ex_buf_ptr += 1i32;
                 while brace_level > 0i32 && ex_buf_ptr < ex_buf_length {
                     if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 125i32 {
                         /*right_brace */
-                        brace_level = brace_level - 1i32
+                        brace_level -= 1i32
                     } else if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 123i32 {
                         /*left_brace */
-                        brace_level = brace_level + 1i32
+                        brace_level += 1i32
                     }
-                    ex_buf_ptr = ex_buf_ptr + 1i32
+                    ex_buf_ptr += 1i32
                 }
                 preceding_white = false
             }
             125 => {
                 decr_brace_level(pop_lit_var);
-                ex_buf_ptr = ex_buf_ptr + 1i32;
+                ex_buf_ptr += 1i32;
                 preceding_white = false
             }
             _ => {
                 if lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] == LexType::WhiteSpace {
                     /*white_space */
-                    ex_buf_ptr = ex_buf_ptr + 1i32;
+                    ex_buf_ptr += 1i32;
                     preceding_white = true
                 } else {
-                    ex_buf_ptr = ex_buf_ptr + 1i32;
+                    ex_buf_ptr += 1i32;
                     preceding_white = false
                 }
             }
@@ -2855,86 +2806,78 @@ unsafe fn von_token_found() -> bool {
             && *sv_buffer.offset(name_bf_ptr as isize) as i32 <= 'Z' as i32
         {
             return false;
-        } else {
-            if *sv_buffer.offset(name_bf_ptr as isize) as i32 >= 'a' as i32
-                && *sv_buffer.offset(name_bf_ptr as isize) as i32 <= 'z' as i32
+        } else if *sv_buffer.offset(name_bf_ptr as isize) as i32 >= 'a' as i32
+            && *sv_buffer.offset(name_bf_ptr as isize) as i32 <= 'z' as i32
+        {
+            return true;
+        } else if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 123i32 {
+            /*left_brace */
+            nm_brace_level += 1i32; /*401: */
+            name_bf_ptr += 1i32;
+            if name_bf_ptr + 2i32 < name_bf_xptr
+                && *sv_buffer.offset(name_bf_ptr as isize) as i32 == 92i32
             {
-                return true;
-            } else {
-                if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 123i32 {
-                    /*left_brace */
-                    nm_brace_level = nm_brace_level + 1i32; /*401: */
-                    name_bf_ptr = name_bf_ptr + 1i32;
-                    if name_bf_ptr + 2i32 < name_bf_xptr
-                        && *sv_buffer.offset(name_bf_ptr as isize) as i32 == 92i32
-                    {
-                        /*399: */
-                        name_bf_ptr = name_bf_ptr + 1i32;
-                        name_bf_yptr = name_bf_ptr;
-                        while name_bf_ptr < name_bf_xptr
-                            && char::from(*sv_buffer.offset(name_bf_ptr as isize)).is_ascii_alphabetic()              {
-                            name_bf_ptr += 1;
-                        }
-                        control_seq_loc = str_lookup(
-                            sv_buffer,
-                            name_bf_yptr,
-                            name_bf_ptr - name_bf_yptr,
-                            14i32 as str_ilk,
-                            false,
-                        );
-                        if hash_found {
-                            /*400: */
-                            match *ilk_info.offset(control_seq_loc as isize) {
-                                3 | 5 | 7 | 9 | 11 => return false,
-                                0 | 1 | 2 | 4 | 6 | 8 | 10 | 12 => return true,
-                                _ => {
-                                    log!("Control-sequence hash error");
-                                    print_confusion();
-                                    panic!();
-                                }
-                            }
-                        }
-                        while name_bf_ptr < name_bf_xptr && nm_brace_level > 0i32 {
-                            if *sv_buffer.offset(name_bf_ptr as isize) as i32 >= 'A' as i32
-                                && *sv_buffer.offset(name_bf_ptr as isize) as i32 <= 'Z' as i32
-                            {
-                                return false;
-                            } else {
-                                if *sv_buffer.offset(name_bf_ptr as isize) as i32 >= 'a' as i32
-                                    && *sv_buffer.offset(name_bf_ptr as isize) as i32 <= 'z' as i32
-                                {
-                                    return true;
-                                } else {
-                                    if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 125i32 {
-                                        /*right_brace */
-                                        nm_brace_level = nm_brace_level - 1i32
-                                    } else if *sv_buffer.offset(name_bf_ptr as isize) as i32
-                                        == 123i32
-                                    {
-                                        /*left_brace */
-                                        nm_brace_level = nm_brace_level + 1i32
-                                    }
-                                }
-                            }
-                            name_bf_ptr = name_bf_ptr + 1i32
-                        }
-                        return false;
-                    } else {
-                        while nm_brace_level > 0i32 && name_bf_ptr < name_bf_xptr {
-                            if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 125i32 {
-                                /*right_brace */
-                                nm_brace_level = nm_brace_level - 1i32
-                            } else if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 123i32 {
-                                /*left_brace */
-                                nm_brace_level = nm_brace_level + 1i32
-                            }
-                            name_bf_ptr = name_bf_ptr + 1i32
+                /*399: */
+                name_bf_ptr += 1i32;
+                name_bf_yptr = name_bf_ptr;
+                while name_bf_ptr < name_bf_xptr
+                    && char::from(*sv_buffer.offset(name_bf_ptr as isize)).is_ascii_alphabetic()              {
+                    name_bf_ptr += 1;
+                }
+                control_seq_loc = str_lookup(
+                    sv_buffer,
+                    name_bf_yptr,
+                    name_bf_ptr - name_bf_yptr,
+                    14i32 as str_ilk,
+                    false,
+                );
+                if hash_found {
+                    /*400: */
+                    match *ilk_info.offset(control_seq_loc as isize) {
+                        3 | 5 | 7 | 9 | 11 => return false,
+                        0 | 1 | 2 | 4 | 6 | 8 | 10 | 12 => return true,
+                        _ => {
+                            log!("Control-sequence hash error");
+                            print_confusion();
+                            panic!();
                         }
                     }
-                } else {
-                    name_bf_ptr = name_bf_ptr + 1i32
+                }
+                while name_bf_ptr < name_bf_xptr && nm_brace_level > 0i32 {
+                    if *sv_buffer.offset(name_bf_ptr as isize) as i32 >= 'A' as i32
+                        && *sv_buffer.offset(name_bf_ptr as isize) as i32 <= 'Z' as i32
+                    {
+                        return false;
+                    } else if *sv_buffer.offset(name_bf_ptr as isize) as i32 >= 'a' as i32
+                        && *sv_buffer.offset(name_bf_ptr as isize) as i32 <= 'z' as i32
+                    {
+                        return true;
+                    } else if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 125i32 {
+                        /*right_brace */
+                        nm_brace_level -= 1i32
+                    } else if *sv_buffer.offset(name_bf_ptr as isize) as i32
+                        == 123i32
+                    {
+                        /*left_brace */
+                        nm_brace_level += 1i32
+                    }
+                    name_bf_ptr += 1i32
+                }
+                return false;
+            } else {
+                while nm_brace_level > 0i32 && name_bf_ptr < name_bf_xptr {
+                    if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 125i32 {
+                        /*right_brace */
+                        nm_brace_level -= 1i32
+                    } else if *sv_buffer.offset(name_bf_ptr as isize) as i32 == 123i32 {
+                        /*left_brace */
+                        nm_brace_level += 1i32
+                    }
+                    name_bf_ptr += 1i32
                 }
             }
+        } else {
+            name_bf_ptr += 1i32
         }
     }
     false
@@ -2947,19 +2890,19 @@ unsafe fn von_name_ends_and_last_name_starts_stuff() {
         if von_token_found() {
             return;
         }
-        von_end = von_end - 1i32
+        von_end -= 1i32
     }
 }
 unsafe fn skip_stuff_at_sp_brace_level_greater_than_one() {
     while sp_brace_level > 1i32 && sp_ptr < sp_end {
         if *str_pool.offset(sp_ptr as isize) as i32 == 125i32 {
             /*right_brace */
-            sp_brace_level = sp_brace_level - 1i32
+            sp_brace_level -= 1i32
         } else if *str_pool.offset(sp_ptr as isize) as i32 == 123i32 {
             /*left_brace */
-            sp_brace_level = sp_brace_level + 1i32
+            sp_brace_level += 1i32
         }
-        sp_ptr = sp_ptr + 1i32
+        sp_ptr += 1i32
     }
 }
 unsafe fn brace_lvl_one_letters_complaint() {
@@ -2972,31 +2915,29 @@ unsafe fn enough_text_chars(mut enough_chars: buf_pointer) -> bool {
     let mut num_text_chars = 0i32;
     ex_buf_yptr = ex_buf_xptr;
     while ex_buf_yptr < ex_buf_ptr && num_text_chars < enough_chars {
-        ex_buf_yptr = ex_buf_yptr + 1i32;
+        ex_buf_yptr += 1i32;
         if *ex_buf.offset((ex_buf_yptr - 1i32) as isize) as i32 == 123i32 {
             /*left_brace */
-            brace_level = brace_level + 1i32;
-            if brace_level == 1i32 && ex_buf_yptr < ex_buf_ptr {
-                if *ex_buf.offset(ex_buf_yptr as isize) as i32 == 92i32 {
-                    /*backslash */
-                    ex_buf_yptr = ex_buf_yptr + 1i32;
-                    while ex_buf_yptr < ex_buf_ptr && brace_level > 0i32 {
-                        if *ex_buf.offset(ex_buf_yptr as isize) as i32 == 125i32 {
-                            /*right_brace */
-                            brace_level = brace_level - 1i32
-                        } else if *ex_buf.offset(ex_buf_yptr as isize) as i32 == 123i32 {
-                            /*left_brace */
-                            brace_level = brace_level + 1i32
-                        }
-                        ex_buf_yptr = ex_buf_yptr + 1i32
+            brace_level += 1i32;
+            if brace_level == 1i32 && ex_buf_yptr < ex_buf_ptr && *ex_buf.offset(ex_buf_yptr as isize) as i32 == 92i32 {
+                /*backslash */
+                ex_buf_yptr += 1i32;
+                while ex_buf_yptr < ex_buf_ptr && brace_level > 0i32 {
+                    if *ex_buf.offset(ex_buf_yptr as isize) as i32 == 125i32 {
+                        /*right_brace */
+                        brace_level -= 1i32
+                    } else if *ex_buf.offset(ex_buf_yptr as isize) as i32 == 123i32 {
+                        /*left_brace */
+                        brace_level += 1i32
                     }
+                    ex_buf_yptr += 1i32
                 }
             }
         } else if *ex_buf.offset((ex_buf_yptr - 1i32) as isize) as i32 == 125i32 {
             /*right_brace */
-            brace_level = brace_level - 1i32
+            brace_level -= 1i32
         }
-        num_text_chars = num_text_chars + 1i32
+        num_text_chars += 1i32
     }
     num_text_chars >= enough_chars
 }
@@ -3010,8 +2951,8 @@ unsafe fn figure_out_the_formatted_name() {
     while sp_ptr < sp_end {
         if *str_pool.offset(sp_ptr as isize) as i32 == 123i32 {
             /*left_brace */
-            sp_brace_level = sp_brace_level + 1i32;
-            sp_ptr = sp_ptr + 1i32;
+            sp_brace_level += 1i32;
+            sp_ptr += 1i32;
             sp_xptr1 = sp_ptr;
             let mut alpha_found = false;
             let mut double_letter = false;
@@ -3019,7 +2960,7 @@ unsafe fn figure_out_the_formatted_name() {
             let mut to_be_written = true;
             while !end_of_group && sp_ptr < sp_end {
                 if (*str_pool.offset(sp_ptr as isize)).is_ascii_alphabetic() {
-                    sp_ptr = sp_ptr + 1i32;
+                    sp_ptr += 1i32;
                     if alpha_found {
                         brace_lvl_one_letters_complaint();
                         to_be_written = false
@@ -3079,22 +3020,22 @@ unsafe fn figure_out_the_formatted_name() {
                             }
                         }
                         if double_letter {
-                            sp_ptr = sp_ptr + 1i32
+                            sp_ptr += 1i32
                         }
                     }
                     alpha_found = true
                 } else if *str_pool.offset(sp_ptr as isize) as i32 == 125i32 {
                     /*right_brace */
-                    sp_brace_level = sp_brace_level - 1i32;
-                    sp_ptr = sp_ptr + 1i32;
+                    sp_brace_level -= 1i32;
+                    sp_ptr += 1i32;
                     end_of_group = true
                 } else if *str_pool.offset(sp_ptr as isize) as i32 == 123i32 {
                     /*left_brace */
-                    sp_brace_level = sp_brace_level + 1i32;
-                    sp_ptr = sp_ptr + 1i32;
+                    sp_brace_level += 1i32;
+                    sp_ptr += 1i32;
                     skip_stuff_at_sp_brace_level_greater_than_one();
                 } else {
-                    sp_ptr = sp_ptr + 1i32
+                    sp_ptr += 1i32
                 }
             }
             if !(end_of_group && to_be_written) {
@@ -3108,17 +3049,17 @@ unsafe fn figure_out_the_formatted_name() {
                 if (*str_pool.offset(sp_ptr as isize)).is_ascii_alphabetic()
                     && sp_brace_level == 1i32
                 {
-                    sp_ptr = sp_ptr + 1i32;
+                    sp_ptr += 1i32;
                     if double_letter {
-                        sp_ptr = sp_ptr + 1i32
+                        sp_ptr += 1i32
                     }
                     let mut use_default = true;
                     sp_xptr2 = sp_ptr;
                     if *str_pool.offset(sp_ptr as isize) as i32 == 123i32 {
                         /*left_brace */
                         use_default = false; /*416: */
-                        sp_brace_level = sp_brace_level + 1i32;
-                        sp_ptr = sp_ptr + 1i32;
+                        sp_brace_level += 1i32;
+                        sp_ptr += 1i32;
                         sp_xptr1 = sp_ptr;
                         skip_stuff_at_sp_brace_level_greater_than_one();
                         sp_xptr2 = sp_ptr - 1i32
@@ -3134,8 +3075,8 @@ unsafe fn figure_out_the_formatted_name() {
                             while name_bf_ptr < name_bf_xptr {
                                 *ex_buf.offset(ex_buf_ptr as isize) =
                                     *sv_buffer.offset(name_bf_ptr as isize);
-                                ex_buf_ptr = ex_buf_ptr + 1i32;
-                                name_bf_ptr = name_bf_ptr + 1i32
+                                ex_buf_ptr += 1i32;
+                                name_bf_ptr += 1i32
                             }
                         } else {
                             name_bf_ptr = *name_tok.offset(cur_token as isize);
@@ -3148,57 +3089,53 @@ unsafe fn figure_out_the_formatted_name() {
                                     }
                                     *ex_buf.offset(ex_buf_ptr as isize) =
                                         *sv_buffer.offset(name_bf_ptr as isize);
-                                    ex_buf_ptr = ex_buf_ptr + 1i32;
+                                    ex_buf_ptr += 1i32;
                                     break;
                                 } else {
                                     if name_bf_ptr + 1i32 < name_bf_xptr
-                                        && *sv_buffer.offset(name_bf_ptr as isize) as i32 == 123i32
-                                    {
-                                        if *sv_buffer.offset((name_bf_ptr + 1i32) as isize) as i32
-                                            == 92i32
+                                        && *sv_buffer.offset(name_bf_ptr as isize) as i32 == 123i32 && *sv_buffer.offset((name_bf_ptr + 1i32) as isize) as i32
+                                            == 92i32 {
+                                        /*backslash */
+                                        /*417: */
+                                        if ex_buf_ptr + 2i32 > buf_size {
+                                            buffer_overflow(); /*left_brace */
+                                        } /*backslash */
+                                        *ex_buf.offset(ex_buf_ptr as isize) = 123i32 as u8;
+                                        ex_buf_ptr += 1i32;
+                                        *ex_buf.offset(ex_buf_ptr as isize) = 92i32 as u8;
+                                        ex_buf_ptr += 1i32;
+                                        name_bf_ptr += 2i32;
+                                        let mut nm_brace_level = 1i32;
+                                        while name_bf_ptr < name_bf_xptr
+                                            && nm_brace_level > 0i32
                                         {
-                                            /*backslash */
-                                            /*417: */
-                                            if ex_buf_ptr + 2i32 > buf_size {
-                                                buffer_overflow(); /*left_brace */
-                                            } /*backslash */
-                                            *ex_buf.offset(ex_buf_ptr as isize) = 123i32 as u8;
-                                            ex_buf_ptr = ex_buf_ptr + 1i32;
-                                            *ex_buf.offset(ex_buf_ptr as isize) = 92i32 as u8;
-                                            ex_buf_ptr = ex_buf_ptr + 1i32;
-                                            name_bf_ptr = name_bf_ptr + 2i32;
-                                            let mut nm_brace_level = 1i32;
-                                            while name_bf_ptr < name_bf_xptr
-                                                && nm_brace_level > 0i32
+                                            if *sv_buffer.offset(name_bf_ptr as isize) as i32
+                                                == 125i32
                                             {
-                                                if *sv_buffer.offset(name_bf_ptr as isize) as i32
-                                                    == 125i32
-                                                {
-                                                    /*right_brace */
-                                                    nm_brace_level = nm_brace_level - 1i32
-                                                } else if *sv_buffer.offset(name_bf_ptr as isize)
-                                                    as i32
-                                                    == 123i32
-                                                {
-                                                    /*left_brace */
-                                                    nm_brace_level = nm_brace_level + 1i32
-                                                }
-                                                if ex_buf_ptr == buf_size {
-                                                    buffer_overflow();
-                                                }
-                                                *ex_buf.offset(ex_buf_ptr as isize) =
-                                                    *sv_buffer.offset(name_bf_ptr as isize);
-                                                ex_buf_ptr = ex_buf_ptr + 1i32;
-                                                name_bf_ptr = name_bf_ptr + 1i32
+                                                /*right_brace */
+                                                nm_brace_level -= 1i32
+                                            } else if *sv_buffer.offset(name_bf_ptr as isize)
+                                                as i32
+                                                == 123i32
+                                            {
+                                                /*left_brace */
+                                                nm_brace_level += 1i32
                                             }
-                                            break;
+                                            if ex_buf_ptr == buf_size {
+                                                buffer_overflow();
+                                            }
+                                            *ex_buf.offset(ex_buf_ptr as isize) =
+                                                *sv_buffer.offset(name_bf_ptr as isize);
+                                            ex_buf_ptr += 1i32;
+                                            name_bf_ptr += 1i32
                                         }
+                                        break;
                                     }
-                                    name_bf_ptr = name_bf_ptr + 1i32
+                                    name_bf_ptr += 1i32
                                 }
                             }
                         }
-                        cur_token = cur_token + 1i32;
+                        cur_token += 1i32;
                         if cur_token < last_token {
                             /*418: */
                             if use_default {
@@ -3207,7 +3144,7 @@ unsafe fn figure_out_the_formatted_name() {
                                         buffer_overflow(); /*period */
                                     }
                                     *ex_buf.offset(ex_buf_ptr as isize) = 46i32 as u8;
-                                    ex_buf_ptr = ex_buf_ptr + 1i32
+                                    ex_buf_ptr += 1i32
                                 }
                                 if lex_class[*name_sep_char.offset(cur_token as isize) as usize] == LexType::SepChar
                                 {
@@ -3217,20 +3154,20 @@ unsafe fn figure_out_the_formatted_name() {
                                     } /*space */
                                     *ex_buf.offset(ex_buf_ptr as isize) =
                                         *name_sep_char.offset(cur_token as isize);
-                                    ex_buf_ptr = ex_buf_ptr + 1i32
+                                    ex_buf_ptr += 1i32
                                 } else if cur_token == last_token - 1i32 || !enough_text_chars(3i32)
                                 {
                                     if ex_buf_ptr == buf_size {
                                         buffer_overflow();
                                     }
                                     *ex_buf.offset(ex_buf_ptr as isize) = 126i32 as u8;
-                                    ex_buf_ptr = ex_buf_ptr + 1i32
+                                    ex_buf_ptr += 1i32
                                 } else {
                                     if ex_buf_ptr == buf_size {
                                         buffer_overflow();
                                     }
                                     *ex_buf.offset(ex_buf_ptr as isize) = 32i32 as u8;
-                                    ex_buf_ptr = ex_buf_ptr + 1i32
+                                    ex_buf_ptr += 1i32
                                 }
                             } else {
                                 if ex_buf_length + (sp_xptr2 - sp_xptr1) > buf_size {
@@ -3240,8 +3177,8 @@ unsafe fn figure_out_the_formatted_name() {
                                 while sp_ptr < sp_xptr2 {
                                     *ex_buf.offset(ex_buf_ptr as isize) =
                                         *str_pool.offset(sp_ptr as isize);
-                                    ex_buf_ptr = ex_buf_ptr + 1i32;
-                                    sp_ptr = sp_ptr + 1i32
+                                    ex_buf_ptr += 1i32;
+                                    sp_ptr += 1i32
                                 }
                             }
                         }
@@ -3251,59 +3188,57 @@ unsafe fn figure_out_the_formatted_name() {
                     }
                 } else if *str_pool.offset(sp_ptr as isize) as i32 == 125i32 {
                     /*right_brace */
-                    sp_brace_level = sp_brace_level - 1i32; /*right_brace */
-                    sp_ptr = sp_ptr + 1i32;
+                    sp_brace_level -= 1i32; /*right_brace */
+                    sp_ptr += 1i32;
                     if sp_brace_level > 0i32 {
                         if ex_buf_ptr == buf_size {
                             buffer_overflow();
                         }
                         *ex_buf.offset(ex_buf_ptr as isize) = 125i32 as u8;
-                        ex_buf_ptr = ex_buf_ptr + 1i32
+                        ex_buf_ptr += 1i32
                     }
                 } else if *str_pool.offset(sp_ptr as isize) as i32 == 123i32 {
                     /*left_brace */
-                    sp_brace_level = sp_brace_level + 1i32; /*left_brace */
-                    sp_ptr = sp_ptr + 1i32;
+                    sp_brace_level += 1i32; /*left_brace */
+                    sp_ptr += 1i32;
                     if ex_buf_ptr == buf_size {
                         buffer_overflow();
                     }
                     *ex_buf.offset(ex_buf_ptr as isize) = 123i32 as u8;
-                    ex_buf_ptr = ex_buf_ptr + 1i32
+                    ex_buf_ptr += 1i32
                 } else {
                     if ex_buf_ptr == buf_size {
                         buffer_overflow();
                     }
                     *ex_buf.offset(ex_buf_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-                    ex_buf_ptr = ex_buf_ptr + 1i32;
-                    sp_ptr = sp_ptr + 1i32
+                    ex_buf_ptr += 1i32;
+                    sp_ptr += 1i32
                 }
             }
-            if ex_buf_ptr > 0i32 {
-                if *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 126i32 {
-                    /*tie */
-                    /*420: */
-                    ex_buf_ptr = ex_buf_ptr - 1i32; /*space */
-                    if !(*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 126i32) {
-                        if !enough_text_chars(3i32) {
-                            ex_buf_ptr = ex_buf_ptr + 1i32
-                        } else {
-                            *ex_buf.offset(ex_buf_ptr as isize) = 32i32 as u8;
-                            ex_buf_ptr = ex_buf_ptr + 1i32
-                        }
+            if ex_buf_ptr > 0i32 && *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 126i32 {
+                /*tie */
+                /*420: */
+                ex_buf_ptr -= 1i32; /*space */
+                if *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 != 126i32 {
+                    if !enough_text_chars(3i32) {
+                        ex_buf_ptr += 1i32
+                    } else {
+                        *ex_buf.offset(ex_buf_ptr as isize) = 32i32 as u8;
+                        ex_buf_ptr += 1i32
                     }
                 }
             }
         } else if *str_pool.offset(sp_ptr as isize) as i32 == 125i32 {
             /*right_brace */
             braces_unbalanced_complaint(pop_lit1);
-            sp_ptr = sp_ptr + 1i32
+            sp_ptr += 1i32
         } else {
             if ex_buf_ptr == buf_size {
                 buffer_overflow();
             }
             *ex_buf.offset(ex_buf_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-            ex_buf_ptr = ex_buf_ptr + 1i32;
-            sp_ptr = sp_ptr + 1i32
+            ex_buf_ptr += 1i32;
+            sp_ptr += 1i32
         }
     }
     if sp_brace_level > 0i32 {
@@ -3325,9 +3260,9 @@ unsafe fn push_lit_stk(mut push_lt: i32, mut push_type: StkType) {
             ((lit_stk_size + 100i32 + 1i32) as u64)
                 .wrapping_mul(::std::mem::size_of::<StkType>() as u64) as _,
         ) as *mut StkType;
-        lit_stk_size = lit_stk_size + 100i32
+        lit_stk_size += 100i32
     }
-    lit_stk_ptr = lit_stk_ptr + 1i32;
+    lit_stk_ptr += 1i32;
 }
 unsafe fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut StkType) {
     if lit_stk_ptr == 0i32 {
@@ -3336,7 +3271,7 @@ unsafe fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut StkType) {
         *pop_type = StkType::Empty;
     /*stk_empty */
     } else {
-        lit_stk_ptr = lit_stk_ptr - 1i32;
+        lit_stk_ptr -= 1i32;
         *pop_lit = *lit_stack.offset(lit_stk_ptr as isize);
         *pop_type = *lit_stk_type.offset(lit_stk_ptr as isize);
         if *pop_type as i32 == 1i32 {
@@ -3347,7 +3282,7 @@ unsafe fn pop_lit_stk(mut pop_lit: *mut i32, mut pop_type: *mut StkType) {
                     print_confusion();
                     panic!();
                 }
-                str_ptr = str_ptr - 1i32;
+                str_ptr -= 1i32;
                 pool_ptr = *str_start.offset(str_ptr as isize)
             }
         }
@@ -3405,8 +3340,8 @@ unsafe fn add_pool_buf_and_push() {
     ex_buf_ptr = 0i32;
     while ex_buf_ptr < ex_buf_length {
         *str_pool.offset(pool_ptr as isize) = *ex_buf.offset(ex_buf_ptr as isize);
-        pool_ptr = pool_ptr + 1i32;
-        ex_buf_ptr = ex_buf_ptr + 1i32
+        pool_ptr += 1i32;
+        ex_buf_ptr += 1i32
     }
     push_lit_stk(make_string(), StkType::Str);
 }
@@ -3418,7 +3353,7 @@ unsafe fn add_buf_pool(mut p_str: str_number) {
     ex_buf_ptr = ex_buf_length;
     for c in s.iter() {
         *ex_buf.offset(ex_buf_ptr as isize) = *c;
-        ex_buf_ptr = ex_buf_ptr + 1i32;
+        ex_buf_ptr += 1i32;
     }
     ex_buf_length = ex_buf_ptr;
 }
@@ -3434,7 +3369,7 @@ unsafe fn add_out_pool(mut p_str: str_number) {
     out_buf_ptr = out_buf_length;
     for c in s.iter() {
         *out_buf.offset(out_buf_ptr as isize) = *c;
-        out_buf_ptr = out_buf_ptr + 1i32
+        out_buf_ptr += 1i32
     }
     out_buf_length = out_buf_ptr;
     unbreakable_tail = false;
@@ -3446,7 +3381,7 @@ unsafe fn add_out_pool(mut p_str: str_number) {
         while lex_class[*out_buf.offset(out_buf_ptr as isize) as usize] != LexType::WhiteSpace
             && out_buf_ptr >= 3i32
         {
-            out_buf_ptr = out_buf_ptr - 1i32
+            out_buf_ptr -= 1i32
         }
         if out_buf_ptr == 3i32 - 1i32 {
             /*325: */
@@ -3456,7 +3391,7 @@ unsafe fn add_out_pool(mut p_str: str_number) {
                     break;
                 }
                 /*white_space */
-                out_buf_ptr = out_buf_ptr + 1i32
+                out_buf_ptr += 1i32
             }
             /*loop1_exit */
             if out_buf_ptr == end_ptr {
@@ -3469,7 +3404,7 @@ unsafe fn add_out_pool(mut p_str: str_number) {
                         break;
                     }
                     /*white_space */
-                    out_buf_ptr = out_buf_ptr + 1i32
+                    out_buf_ptr += 1i32
                 }
             }
         } else {
@@ -3485,8 +3420,8 @@ unsafe fn add_out_pool(mut p_str: str_number) {
             let mut tmp_ptr = break_ptr;
             while tmp_ptr < end_ptr {
                 *out_buf.offset(out_buf_ptr as isize) = *out_buf.offset(tmp_ptr as isize);
-                out_buf_ptr = out_buf_ptr + 1i32;
-                tmp_ptr = tmp_ptr + 1i32
+                out_buf_ptr += 1i32;
+                tmp_ptr += 1i32
             }
             out_buf_length = end_ptr - break_ptr + 2i32
         }
@@ -3602,9 +3537,9 @@ unsafe fn x_concatenate() {
     } else if pop_lit2 >= cmd_str_ptr {
         if pop_lit1 >= cmd_str_ptr {
             *str_start.offset(pop_lit1 as isize) = *str_start.offset((pop_lit1 + 1i32) as isize); /*354: */
-            str_ptr = str_ptr + 1i32;
+            str_ptr += 1i32;
             pool_ptr = *str_start.offset(str_ptr as isize);
-            lit_stk_ptr = lit_stk_ptr + 1i32
+            lit_stk_ptr += 1i32
         } else if *str_start.offset((pop_lit2 + 1i32) as isize)
             - *str_start.offset(pop_lit2 as isize)
             == 0i32
@@ -3623,8 +3558,8 @@ unsafe fn x_concatenate() {
             sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
             while sp_ptr < sp_end {
                 *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-                pool_ptr = pool_ptr + 1i32;
-                sp_ptr = sp_ptr + 1i32
+                pool_ptr += 1i32;
+                sp_ptr += 1i32
             }
             push_lit_stk(make_string(), StkType::Str);
         }
@@ -3632,15 +3567,15 @@ unsafe fn x_concatenate() {
         if *str_start.offset((pop_lit2 + 1i32) as isize) - *str_start.offset(pop_lit2 as isize)
             == 0i32
         {
-            str_ptr = str_ptr + 1i32;
+            str_ptr += 1i32;
             pool_ptr = *str_start.offset(str_ptr as isize);
             *lit_stack.offset(lit_stk_ptr as isize) = pop_lit1;
-            lit_stk_ptr = lit_stk_ptr + 1i32
+            lit_stk_ptr += 1i32
         } else if *str_start.offset((pop_lit1 + 1i32) as isize)
             - *str_start.offset(pop_lit1 as isize)
             == 0i32
         {
-            lit_stk_ptr = lit_stk_ptr + 1i32
+            lit_stk_ptr += 1i32
         } else {
             sp_length = *str_start.offset((pop_lit1 + 1i32) as isize)
                 - *str_start.offset(pop_lit1 as isize);
@@ -3653,24 +3588,24 @@ unsafe fn x_concatenate() {
             sp_end = *str_start.offset(pop_lit1 as isize);
             sp_xptr1 = sp_ptr + sp2_length;
             while sp_ptr > sp_end {
-                sp_ptr = sp_ptr - 1i32;
-                sp_xptr1 = sp_xptr1 - 1i32;
+                sp_ptr -= 1i32;
+                sp_xptr1 -= 1i32;
                 *str_pool.offset(sp_xptr1 as isize) = *str_pool.offset(sp_ptr as isize)
             }
             sp_ptr = *str_start.offset(pop_lit2 as isize);
             sp_end = *str_start.offset((pop_lit2 + 1i32) as isize);
             while sp_ptr < sp_end {
                 *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-                pool_ptr = pool_ptr + 1i32;
-                sp_ptr = sp_ptr + 1i32
+                pool_ptr += 1i32;
+                sp_ptr += 1i32
             }
-            pool_ptr = pool_ptr + sp_length;
+            pool_ptr += sp_length;
             push_lit_stk(make_string(), StkType::Str);
         }
     } else if *str_start.offset((pop_lit1 + 1i32) as isize) - *str_start.offset(pop_lit1 as isize)
         == 0i32
     {
-        lit_stk_ptr = lit_stk_ptr + 1i32
+        lit_stk_ptr += 1i32
     } else if *str_start.offset((pop_lit2 + 1i32) as isize) - *str_start.offset(pop_lit2 as isize)
         == 0i32
     {
@@ -3687,15 +3622,15 @@ unsafe fn x_concatenate() {
         sp_end = *str_start.offset((pop_lit2 + 1i32) as isize);
         while sp_ptr < sp_end {
             *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-            pool_ptr = pool_ptr + 1i32;
-            sp_ptr = sp_ptr + 1i32
+            pool_ptr += 1i32;
+            sp_ptr += 1i32
         }
         sp_ptr = *str_start.offset(pop_lit1 as isize);
         sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
         while sp_ptr < sp_end {
             *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-            pool_ptr = pool_ptr + 1i32;
-            sp_ptr = sp_ptr + 1i32
+            pool_ptr += 1i32;
+            sp_ptr += 1i32
         }
         push_lit_stk(make_string(), StkType::Str);
     };
@@ -3743,8 +3678,8 @@ unsafe fn x_gets() {
                         *entry_strs
                             .offset((str_ent_ptr * (ent_str_size + 1i32) + ent_chr_ptr) as isize) =
                             *str_pool.offset(sp_ptr as isize);
-                        ent_chr_ptr = ent_chr_ptr + 1i32;
-                        sp_ptr = sp_ptr + 1i32
+                        ent_chr_ptr += 1i32;
+                        sp_ptr += 1i32
                     }
                     *entry_strs
                         .offset((str_ent_ptr * (ent_str_size + 1i32) + ent_chr_ptr) as isize) =
@@ -3783,8 +3718,8 @@ unsafe fn x_gets() {
                             *global_strs.offset(
                                 (str_glb_ptr * (glob_str_size + 1i32) + glob_chr_ptr) as isize,
                             ) = *str_pool.offset(sp_ptr as isize);
-                            glob_chr_ptr = glob_chr_ptr + 1i32;
-                            sp_ptr = sp_ptr + 1i32
+                            glob_chr_ptr += 1i32;
+                            sp_ptr += 1i32
                         }
                         *glb_str_end.offset(str_glb_ptr as isize) = glob_chr_ptr
                     }
@@ -3804,7 +3739,7 @@ unsafe fn x_add_period() {
     if pop_typ1 != StkType::Str {
         print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Str);
         push_lit_stk(s_null, StkType::Str);
-    } else if get_string_from_pool(pop_lit1).len() == 0 {
+    } else if get_string_from_pool(pop_lit1).is_empty() {
         push_lit_stk(s_null, StkType::Str);
     } else {
         /*362: */
@@ -3889,152 +3824,148 @@ unsafe fn x_change_case() {
         while ex_buf_ptr < ex_buf_length {
             if *ex_buf.offset(ex_buf_ptr as isize) == b'{' {
                 /*left_brace */
-                brace_level = brace_level + 1i32;
-                if !(brace_level != 1i32) {
-                    if !(ex_buf_ptr + 4i32 > ex_buf_length) {
-                        if !(*ex_buf.offset((ex_buf_ptr + 1i32) as isize) != b'\\') {
-                            if conversion_type == ConversionType::TitleLowers {
-                                if ex_buf_ptr == 0i32 {
-                                    current_block = 17089879097653631793;
-                                } else if prev_colon
-                                    && lex_class
-                                        [*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
-                                        == LexType::WhiteSpace
+                brace_level += 1i32;
+                if brace_level == 1i32 && ex_buf_ptr + 4i32 <= ex_buf_length && *ex_buf.offset((ex_buf_ptr + 1i32) as isize) == b'\\' {
+                    if conversion_type == ConversionType::TitleLowers {
+                        if ex_buf_ptr == 0i32 {
+                            current_block = 17_089_879_097_653_631_793;
+                        } else if prev_colon
+                            && lex_class
+                                [*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize]
+                                == LexType::WhiteSpace
+                        {
+                            current_block = 17_089_879_097_653_631_793;
+                        } else {
+                            current_block = 6_417_057_564_578_538_666;
+                        }
+                    } else {
+                        current_block = 6_417_057_564_578_538_666;
+                    }
+                    match current_block {
+                        17_089_879_097_653_631_793 => {}
+                        _ => {
+                            ex_buf_ptr += 1i32;
+                            while ex_buf_ptr < ex_buf_length && brace_level > 0i32 {
+                                ex_buf_ptr += 1i32;
+                                ex_buf_xptr = ex_buf_ptr;
+                                while ex_buf_ptr < ex_buf_length
+                                    && (*ex_buf.offset(ex_buf_ptr as isize)).is_ascii_alphabetic()
                                 {
-                                    current_block = 17089879097653631793;
-                                } else {
-                                    current_block = 6417057564578538666;
+                                    ex_buf_ptr += 1i32
                                 }
-                            } else {
-                                current_block = 6417057564578538666;
-                            }
-                            match current_block {
-                                17089879097653631793 => {}
-                                _ => {
-                                    ex_buf_ptr = ex_buf_ptr + 1i32;
-                                    while ex_buf_ptr < ex_buf_length && brace_level > 0i32 {
-                                        ex_buf_ptr = ex_buf_ptr + 1i32;
-                                        ex_buf_xptr = ex_buf_ptr;
-                                        while ex_buf_ptr < ex_buf_length
-                                            && (*ex_buf.offset(ex_buf_ptr as isize)).is_ascii_alphabetic()
-                                        {
-                                            ex_buf_ptr = ex_buf_ptr + 1i32
+                                control_seq_loc = str_lookup(
+                                    ex_buf,
+                                    ex_buf_xptr,
+                                    ex_buf_ptr - ex_buf_xptr,
+                                    14i32 as str_ilk,
+                                    false,
+                                );
+                                if hash_found {
+                                    /*373: */
+                                    match conversion_type {
+                                        ConversionType::TitleLowers
+                                        | ConversionType::AllLowers => {
+                                            match *ilk_info.offset(control_seq_loc as isize)
+                                            {
+                                                11 | 9 | 3 | 5 | 7 => {
+                                                    lower_case(
+                                                        ex_buf,
+                                                        ex_buf_xptr,
+                                                        ex_buf_ptr - ex_buf_xptr,
+                                                    );
+                                                }
+                                                _ => {}
+                                            }
                                         }
-                                        control_seq_loc = str_lookup(
+                                        ConversionType::AllUppers => {
+                                            match *ilk_info.offset(control_seq_loc as isize)
+                                            {
+                                                10 | 8 | 2 | 4 | 6 => {
+                                                    upper_case(
+                                                        ex_buf,
+                                                        ex_buf_xptr,
+                                                        ex_buf_ptr - ex_buf_xptr,
+                                                    );
+                                                }
+                                                0 | 1 | 12 => {
+                                                    upper_case(
+                                                        ex_buf,
+                                                        ex_buf_xptr,
+                                                        ex_buf_ptr - ex_buf_xptr,
+                                                    );
+                                                    while ex_buf_xptr < ex_buf_ptr {
+                                                        *ex_buf.offset(
+                                                            (ex_buf_xptr - 1i32) as isize,
+                                                        ) = *ex_buf
+                                                            .offset(ex_buf_xptr as isize);
+                                                        ex_buf_xptr += 1i32
+                                                    }
+                                                    ex_buf_xptr -= 1i32;
+                                                    while ex_buf_ptr < ex_buf_length
+                                                        && lex_class[*ex_buf
+                                                            .offset(ex_buf_ptr as isize)
+                                                            as usize] == LexType::WhiteSpace
+                                                    {
+                                                        ex_buf_ptr += 1i32
+                                                    }
+                                                    let mut tmp_ptr = ex_buf_ptr;
+                                                    while tmp_ptr < ex_buf_length {
+                                                        *ex_buf.offset(
+                                                            (tmp_ptr
+                                                                - (ex_buf_ptr
+                                                                    - ex_buf_xptr))
+                                                                as isize,
+                                                        ) = *ex_buf
+                                                            .offset(tmp_ptr as isize);
+                                                        tmp_ptr += 1i32
+                                                    }
+                                                    ex_buf_length = tmp_ptr
+                                                        - (ex_buf_ptr - ex_buf_xptr);
+                                                    ex_buf_ptr = ex_buf_xptr
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                        ConversionType::BadConversion => {}
+                                    }
+                                }
+                                ex_buf_xptr = ex_buf_ptr;
+                                while ex_buf_ptr < ex_buf_length
+                                    && brace_level > 0i32
+                                    && *ex_buf.offset(ex_buf_ptr as isize) as i32 != 92i32
+                                {
+                                    if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 125i32
+                                    {
+                                        /*right_brace */
+                                        brace_level -= 1i32
+                                    } else if *ex_buf.offset(ex_buf_ptr as isize) as i32
+                                        == 123i32
+                                    {
+                                        /*left_brace */
+                                        brace_level += 1i32
+                                    }
+                                    ex_buf_ptr += 1i32
+                                }
+                                match conversion_type {
+                                    ConversionType::AllLowers
+                                    | ConversionType::TitleLowers => {
+                                        lower_case(
                                             ex_buf,
                                             ex_buf_xptr,
                                             ex_buf_ptr - ex_buf_xptr,
-                                            14i32 as str_ilk,
-                                            false,
                                         );
-                                        if hash_found {
-                                            /*373: */
-                                            match conversion_type {
-                                                ConversionType::TitleLowers
-                                                | ConversionType::AllLowers => {
-                                                    match *ilk_info.offset(control_seq_loc as isize)
-                                                    {
-                                                        11 | 9 | 3 | 5 | 7 => {
-                                                            lower_case(
-                                                                ex_buf,
-                                                                ex_buf_xptr,
-                                                                ex_buf_ptr - ex_buf_xptr,
-                                                            );
-                                                        }
-                                                        _ => {}
-                                                    }
-                                                }
-                                                ConversionType::AllUppers => {
-                                                    match *ilk_info.offset(control_seq_loc as isize)
-                                                    {
-                                                        10 | 8 | 2 | 4 | 6 => {
-                                                            upper_case(
-                                                                ex_buf,
-                                                                ex_buf_xptr,
-                                                                ex_buf_ptr - ex_buf_xptr,
-                                                            );
-                                                        }
-                                                        0 | 1 | 12 => {
-                                                            upper_case(
-                                                                ex_buf,
-                                                                ex_buf_xptr,
-                                                                ex_buf_ptr - ex_buf_xptr,
-                                                            );
-                                                            while ex_buf_xptr < ex_buf_ptr {
-                                                                *ex_buf.offset(
-                                                                    (ex_buf_xptr - 1i32) as isize,
-                                                                ) = *ex_buf
-                                                                    .offset(ex_buf_xptr as isize);
-                                                                ex_buf_xptr = ex_buf_xptr + 1i32
-                                                            }
-                                                            ex_buf_xptr = ex_buf_xptr - 1i32;
-                                                            while ex_buf_ptr < ex_buf_length
-                                                                && lex_class[*ex_buf
-                                                                    .offset(ex_buf_ptr as isize)
-                                                                    as usize] == LexType::WhiteSpace
-                                                            {
-                                                                ex_buf_ptr = ex_buf_ptr + 1i32
-                                                            }
-                                                            let mut tmp_ptr = ex_buf_ptr;
-                                                            while tmp_ptr < ex_buf_length {
-                                                                *ex_buf.offset(
-                                                                    (tmp_ptr
-                                                                        - (ex_buf_ptr
-                                                                            - ex_buf_xptr))
-                                                                        as isize,
-                                                                ) = *ex_buf
-                                                                    .offset(tmp_ptr as isize);
-                                                                tmp_ptr = tmp_ptr + 1i32
-                                                            }
-                                                            ex_buf_length = tmp_ptr
-                                                                - (ex_buf_ptr - ex_buf_xptr);
-                                                            ex_buf_ptr = ex_buf_xptr
-                                                        }
-                                                        _ => {}
-                                                    }
-                                                }
-                                                ConversionType::BadConversion => {}
-                                            }
-                                        }
-                                        ex_buf_xptr = ex_buf_ptr;
-                                        while ex_buf_ptr < ex_buf_length
-                                            && brace_level > 0i32
-                                            && *ex_buf.offset(ex_buf_ptr as isize) as i32 != 92i32
-                                        {
-                                            if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 125i32
-                                            {
-                                                /*right_brace */
-                                                brace_level = brace_level - 1i32
-                                            } else if *ex_buf.offset(ex_buf_ptr as isize) as i32
-                                                == 123i32
-                                            {
-                                                /*left_brace */
-                                                brace_level = brace_level + 1i32
-                                            }
-                                            ex_buf_ptr = ex_buf_ptr + 1i32
-                                        }
-                                        match conversion_type {
-                                            ConversionType::AllLowers
-                                            | ConversionType::TitleLowers => {
-                                                lower_case(
-                                                    ex_buf,
-                                                    ex_buf_xptr,
-                                                    ex_buf_ptr - ex_buf_xptr,
-                                                );
-                                            }
-                                            ConversionType::AllUppers => {
-                                                upper_case(
-                                                    ex_buf,
-                                                    ex_buf_xptr,
-                                                    ex_buf_ptr - ex_buf_xptr,
-                                                );
-                                            }
-                                            ConversionType::BadConversion => {}
-                                        }
                                     }
-                                    ex_buf_ptr = ex_buf_ptr - 1i32
+                                    ConversionType::AllUppers => {
+                                        upper_case(
+                                            ex_buf,
+                                            ex_buf_xptr,
+                                            ex_buf_ptr - ex_buf_xptr,
+                                        );
+                                    }
+                                    ConversionType::BadConversion => {}
                                 }
                             }
+                            ex_buf_ptr -= 1i32
                         }
                     }
                 }
@@ -4049,12 +3980,9 @@ unsafe fn x_change_case() {
                 /*377: */
                 match conversion_type {
                     ConversionType::TitleLowers => {
-                        if !(ex_buf_ptr == 0i32) {
-                            if !(prev_colon
-                                && lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize] == LexType::WhiteSpace)
-                            {
-                                lower_case(ex_buf, ex_buf_ptr, 1i32);
-                            }
+                        if ex_buf_ptr != 0i32 && !(prev_colon
+                                && lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize] == LexType::WhiteSpace) {
+                            lower_case(ex_buf, ex_buf_ptr, 1i32);
                         }
                         if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 58i32 {
                             /*colon */
@@ -4070,7 +3998,7 @@ unsafe fn x_change_case() {
                     ConversionType::BadConversion => {}
                 }
             }
-            ex_buf_ptr = ex_buf_ptr + 1i32
+            ex_buf_ptr += 1i32
         }
         check_brace_level(pop_lit2);
         add_pool_buf_and_push();
@@ -4142,7 +4070,7 @@ unsafe fn x_empty() {
                     push_lit_stk(0i32, StkType::Int);
                     return;
                 }
-                sp_ptr = sp_ptr + 1i32
+                sp_ptr += 1i32
             }
             push_lit_stk(1i32, StkType::Int);
         }
@@ -4175,12 +4103,12 @@ unsafe fn x_format_name() {
         ex_buf_ptr = 0i32;
         num_names = 0i32;
         while num_names < pop_lit2 && ex_buf_ptr < ex_buf_length {
-            num_names = num_names + 1i32;
+            num_names += 1i32;
             ex_buf_xptr = ex_buf_ptr;
             name_scan_for_and(pop_lit3);
         }
         if ex_buf_ptr < ex_buf_length {
-            ex_buf_ptr = ex_buf_ptr - 4i32
+            ex_buf_ptr -= 4i32
         }
         if num_names < pop_lit2 {
             if pop_lit2 == 1i32 {
@@ -4194,9 +4122,9 @@ unsafe fn x_format_name() {
         }
         while ex_buf_ptr > ex_buf_xptr {
             match lex_class[*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as usize] {
-                LexType::WhiteSpace | LexType::SepChar => ex_buf_ptr = ex_buf_ptr - 1i32,
+                LexType::WhiteSpace | LexType::SepChar => ex_buf_ptr -= 1i32,
                 _ => {
-                    if !(*ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 == 44i32) {
+                    if *ex_buf.offset((ex_buf_ptr - 1i32) as isize) as i32 != 44i32 {
                         break;
                     }
                     /*comma */
@@ -4204,7 +4132,7 @@ unsafe fn x_format_name() {
                     print_a_pool_str(pop_lit3);
                     log!("\" has a comma at the end");
                     bst_ex_warn_print();
-                    ex_buf_ptr = ex_buf_ptr - 1i32
+                    ex_buf_ptr -= 1i32
                 }
             }
         }
@@ -4223,7 +4151,7 @@ unsafe fn x_format_name() {
                         putc_log('\"' as i32);
                         bst_ex_warn_print();
                     } else {
-                        num_commas = num_commas + 1i32;
+                        num_commas += 1i32;
                         if num_commas == 1i32 {
                             comma1 = num_tokens
                         } else {
@@ -4232,43 +4160,43 @@ unsafe fn x_format_name() {
                         *name_sep_char.offset(num_tokens as isize) = 44i32 as u8
                         /*comma */
                     }
-                    ex_buf_xptr = ex_buf_xptr + 1i32;
+                    ex_buf_xptr += 1i32;
                     token_starting = true
                 }
                 123 => {
-                    brace_level = brace_level + 1i32;
+                    brace_level += 1i32;
                     if token_starting {
                         *name_tok.offset(num_tokens as isize) = name_bf_ptr;
-                        num_tokens = num_tokens + 1i32
+                        num_tokens += 1i32
                     }
                     *sv_buffer.offset(name_bf_ptr as isize) = *ex_buf.offset(ex_buf_xptr as isize);
-                    name_bf_ptr = name_bf_ptr + 1i32;
-                    ex_buf_xptr = ex_buf_xptr + 1i32;
+                    name_bf_ptr += 1i32;
+                    ex_buf_xptr += 1i32;
                     while brace_level > 0i32 && ex_buf_xptr < ex_buf_ptr {
                         if *ex_buf.offset(ex_buf_xptr as isize) as i32 == 125i32 {
                             /*right_brace */
-                            brace_level = brace_level - 1i32
+                            brace_level -= 1i32
                         } else if *ex_buf.offset(ex_buf_xptr as isize) as i32 == 123i32 {
                             /*left_brace */
-                            brace_level = brace_level + 1i32
+                            brace_level += 1i32
                         } /*space */
                         *sv_buffer.offset(name_bf_ptr as isize) =
                             *ex_buf.offset(ex_buf_xptr as isize);
-                        name_bf_ptr = name_bf_ptr + 1i32;
-                        ex_buf_xptr = ex_buf_xptr + 1i32
+                        name_bf_ptr += 1i32;
+                        ex_buf_xptr += 1i32
                     }
                     token_starting = false
                 }
                 125 => {
                     if token_starting {
                         *name_tok.offset(num_tokens as isize) = name_bf_ptr;
-                        num_tokens = num_tokens + 1i32
+                        num_tokens += 1i32
                     }
                     log!("Name {} of \"", pop_lit2);
                     print_a_pool_str(pop_lit3);
                     log!("\" isn\'t brace balanced");
                     bst_ex_warn_print();
-                    ex_buf_xptr = ex_buf_xptr + 1i32;
+                    ex_buf_xptr += 1i32;
                     token_starting = false
                 }
                 _ => match lex_class[*ex_buf.offset(ex_buf_xptr as isize) as usize] {
@@ -4276,7 +4204,7 @@ unsafe fn x_format_name() {
                         if !token_starting {
                             *name_sep_char.offset(num_tokens as isize) = 32i32 as u8
                         }
-                        ex_buf_xptr = ex_buf_xptr + 1i32;
+                        ex_buf_xptr += 1i32;
                         token_starting = true
                     }
                     LexType::SepChar => {
@@ -4284,18 +4212,18 @@ unsafe fn x_format_name() {
                             *name_sep_char.offset(num_tokens as isize) =
                                 *ex_buf.offset(ex_buf_xptr as isize)
                         }
-                        ex_buf_xptr = ex_buf_xptr + 1i32;
+                        ex_buf_xptr += 1i32;
                         token_starting = true
                     }
                     _ => {
                         if token_starting {
                             *name_tok.offset(num_tokens as isize) = name_bf_ptr;
-                            num_tokens = num_tokens + 1i32
+                            num_tokens += 1i32
                         }
                         *sv_buffer.offset(name_bf_ptr as isize) =
                             *ex_buf.offset(ex_buf_xptr as isize);
-                        name_bf_ptr = name_bf_ptr + 1i32;
-                        ex_buf_xptr = ex_buf_xptr + 1i32;
+                        name_bf_ptr += 1i32;
+                        ex_buf_xptr += 1i32;
                         token_starting = false
                     }
                 },
@@ -4309,41 +4237,38 @@ unsafe fn x_format_name() {
             let mut current_block_127: u64;
             von_start = 0i32;
             loop {
-                if !(von_start < last_end - 1i32) {
-                    current_block_127 = 248631179418912492;
+                if von_start >= last_end - 1i32 {
+                    current_block_127 = 248_631_179_418_912_492;
                     break;
                 }
                 name_bf_ptr = *name_tok.offset(von_start as isize);
                 name_bf_xptr = *name_tok.offset((von_start + 1i32) as isize);
                 if von_token_found() {
                     von_name_ends_and_last_name_starts_stuff();
-                    current_block_127 = 7590078969446600227;
+                    current_block_127 = 7_590_078_969_446_600_227;
                     break;
                 } else {
-                    von_start = von_start + 1i32
+                    von_start += 1i32
                 }
             }
             loop {
                 match current_block_127 {
-                    7590078969446600227 => {
+                    7_590_078_969_446_600_227 => {
                         /*von_found */
                         first_end = von_start;
                         break;
                     }
                     _ => {
-                        if von_start > 0i32 {
-                            if !(lex_class[*name_sep_char.offset(von_start as isize) as usize]
+                        if von_start > 0i32 && !(lex_class[*name_sep_char.offset(von_start as isize) as usize]
                                 != LexType::SepChar
-                                || *name_sep_char.offset(von_start as isize) as i32 == 126i32)
-                            {
-                                von_start = von_start - 1i32;
-                                current_block_127 = 248631179418912492;
-                                continue;
-                            }
+                                || *name_sep_char.offset(von_start as isize) as i32 == 126i32) {
+                            von_start -= 1i32;
+                            current_block_127 = 248_631_179_418_912_492;
+                            continue;
                         }
                         /*loop2_exit */
                         von_end = von_start;
-                        current_block_127 = 7590078969446600227;
+                        current_block_127 = 7_590_078_969_446_600_227;
                     }
                 }
             }
@@ -4387,7 +4312,7 @@ unsafe fn x_int_to_chr() {
             pool_overflow();
         }
         *str_pool.offset(pool_ptr as isize) = pop_lit1 as u8;
-        pool_ptr = pool_ptr + 1i32;
+        pool_ptr += 1i32;
         push_lit_stk(make_string(), StkType::Str);
     };
 }
@@ -4432,7 +4357,7 @@ unsafe fn x_num_names() {
         num_names = 0i32;
         while ex_buf_ptr < ex_buf_length {
             name_scan_for_and(pop_lit1);
-            num_names = num_names + 1i32
+            num_names += 1i32
         }
         push_lit_stk(num_names, StkType::Int);
     };
@@ -4441,7 +4366,7 @@ unsafe fn x_preamble() {
     ex_buf_length = 0i32;
     preamble_ptr = 0;
     while preamble_ptr < num_preamble_strings {
-        add_buf_pool(*s_preamble.offset(preamble_ptr as isize));
+        add_buf_pool(*s_preamble.add(preamble_ptr));
         preamble_ptr += 1;
     }
     add_pool_buf_and_push();
@@ -4461,92 +4386,90 @@ unsafe fn x_purify() {
             match lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] {
                 LexType::WhiteSpace | LexType::SepChar => {
                     *ex_buf.offset(ex_buf_xptr as isize) = 32i32 as u8;
-                    ex_buf_xptr = ex_buf_xptr + 1i32
+                    ex_buf_xptr += 1i32
                 }
                 LexType::Alpha | LexType::Numeric => {
                     *ex_buf.offset(ex_buf_xptr as isize) = *ex_buf.offset(ex_buf_ptr as isize);
-                    ex_buf_xptr = ex_buf_xptr + 1i32
+                    ex_buf_xptr += 1i32
                 }
                 _ => {
                     if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 123i32 {
                         /*left_brace */
-                        brace_level = brace_level + 1i32;
-                        if brace_level == 1i32 && ex_buf_ptr + 1i32 < ex_buf_length {
-                            if *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 92i32 {
-                                /*backslash */
-                                /*433: */
-                                ex_buf_ptr = ex_buf_ptr + 1i32;
-                                while ex_buf_ptr < ex_buf_length && brace_level > 0i32 {
-                                    ex_buf_ptr = ex_buf_ptr + 1i32;
-                                    ex_buf_yptr = ex_buf_ptr;
-                                    while ex_buf_ptr < ex_buf_length
-                                        && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize]
-                                            == LexType::Alpha
-                                    {
-                                        ex_buf_ptr = ex_buf_ptr + 1i32
-                                    }
-                                    control_seq_loc = str_lookup(
-                                        ex_buf,
-                                        ex_buf_yptr,
-                                        ex_buf_ptr - ex_buf_yptr,
-                                        14i32 as str_ilk,
-                                        false,
-                                    );
-                                    if hash_found {
-                                        /*434: */
-                                        *ex_buf.offset(ex_buf_xptr as isize) =
-                                            *ex_buf.offset(ex_buf_yptr as isize);
-                                        ex_buf_xptr = ex_buf_xptr + 1i32;
-                                        match *ilk_info.offset(control_seq_loc as isize) {
-                                            2 | 3 | 4 | 5 | 12 => {
-                                                *ex_buf.offset(ex_buf_xptr as isize) =
-                                                    *ex_buf.offset((ex_buf_yptr + 1i32) as isize);
-                                                ex_buf_xptr = ex_buf_xptr + 1i32
-                                            }
-                                            _ => {}
+                        brace_level += 1i32;
+                        if brace_level == 1i32 && ex_buf_ptr + 1i32 < ex_buf_length && *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 92i32 {
+                            /*backslash */
+                            /*433: */
+                            ex_buf_ptr += 1i32;
+                            while ex_buf_ptr < ex_buf_length && brace_level > 0i32 {
+                                ex_buf_ptr += 1i32;
+                                ex_buf_yptr = ex_buf_ptr;
+                                while ex_buf_ptr < ex_buf_length
+                                    && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize]
+                                        == LexType::Alpha
+                                {
+                                    ex_buf_ptr += 1i32
+                                }
+                                control_seq_loc = str_lookup(
+                                    ex_buf,
+                                    ex_buf_yptr,
+                                    ex_buf_ptr - ex_buf_yptr,
+                                    14i32 as str_ilk,
+                                    false,
+                                );
+                                if hash_found {
+                                    /*434: */
+                                    *ex_buf.offset(ex_buf_xptr as isize) =
+                                        *ex_buf.offset(ex_buf_yptr as isize);
+                                    ex_buf_xptr += 1i32;
+                                    match *ilk_info.offset(control_seq_loc as isize) {
+                                        2 | 3 | 4 | 5 | 12 => {
+                                            *ex_buf.offset(ex_buf_xptr as isize) =
+                                                *ex_buf.offset((ex_buf_yptr + 1i32) as isize);
+                                            ex_buf_xptr += 1i32
                                         }
-                                    }
-                                    while ex_buf_ptr < ex_buf_length
-                                        && brace_level > 0i32
-                                        && *ex_buf.offset(ex_buf_ptr as isize) as i32 != 92i32
-                                    {
-                                        match lex_class
-                                            [*ex_buf.offset(ex_buf_ptr as isize) as usize]
-                                        {
-                                            LexType::Alpha | LexType::Numeric => {
-                                                *ex_buf.offset(ex_buf_xptr as isize) =
-                                                    *ex_buf.offset(ex_buf_ptr as isize);
-                                                ex_buf_xptr = ex_buf_xptr + 1i32
-                                            }
-                                            _ => {
-                                                if *ex_buf.offset(ex_buf_ptr as isize) as i32
-                                                    == 125i32
-                                                {
-                                                    /*right_brace */
-                                                    brace_level = brace_level - 1i32
-                                                } else if *ex_buf.offset(ex_buf_ptr as isize) as i32
-                                                    == 123i32
-                                                {
-                                                    /*left_brace */
-                                                    brace_level = brace_level + 1i32
-                                                }
-                                            }
-                                        }
-                                        ex_buf_ptr = ex_buf_ptr + 1i32
+                                        _ => {}
                                     }
                                 }
-                                ex_buf_ptr = ex_buf_ptr - 1i32
+                                while ex_buf_ptr < ex_buf_length
+                                    && brace_level > 0i32
+                                    && *ex_buf.offset(ex_buf_ptr as isize) as i32 != 92i32
+                                {
+                                    match lex_class
+                                        [*ex_buf.offset(ex_buf_ptr as isize) as usize]
+                                    {
+                                        LexType::Alpha | LexType::Numeric => {
+                                            *ex_buf.offset(ex_buf_xptr as isize) =
+                                                *ex_buf.offset(ex_buf_ptr as isize);
+                                            ex_buf_xptr += 1i32
+                                        }
+                                        _ => {
+                                            if *ex_buf.offset(ex_buf_ptr as isize) as i32
+                                                == 125i32
+                                            {
+                                                /*right_brace */
+                                                brace_level -= 1i32
+                                            } else if *ex_buf.offset(ex_buf_ptr as isize) as i32
+                                                == 123i32
+                                            {
+                                                /*left_brace */
+                                                brace_level += 1i32
+                                            }
+                                        }
+                                    }
+                                    ex_buf_ptr += 1i32
+                                }
                             }
+                            ex_buf_ptr -= 1i32
                         }
                     } else if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 125i32 {
                         /*right_brace */
                         if brace_level > 0i32 {
-                            brace_level = brace_level - 1i32
+                            brace_level -= 1i32
                         }
                     }
                 }
             } /*double_quote */
-            ex_buf_ptr = ex_buf_ptr + 1i32
+            ex_buf_ptr += 1i32
         }
         ex_buf_length = ex_buf_xptr;
         add_pool_buf_and_push();
@@ -4557,7 +4480,7 @@ unsafe fn x_quote() {
         pool_overflow();
     }
     *str_pool.offset(pool_ptr as isize) = 34i32 as u8;
-    pool_ptr = pool_ptr + 1i32;
+    pool_ptr += 1i32;
     push_lit_stk(make_string(), StkType::Str);
 }
 unsafe fn x_substring() {
@@ -4576,19 +4499,17 @@ unsafe fn x_substring() {
     } else {
         sp_length =
             *str_start.offset((pop_lit3 + 1i32) as isize) - *str_start.offset(pop_lit3 as isize);
-        if pop_lit1 >= sp_length {
-            if pop_lit2 == 1i32 || pop_lit2 == -1i32 {
-                if *lit_stack.offset(lit_stk_ptr as isize) >= cmd_str_ptr {
-                    str_ptr = str_ptr + 1i32;
-                    pool_ptr = *str_start.offset(str_ptr as isize)
-                }
-                lit_stk_ptr = lit_stk_ptr + 1i32;
-                return;
+        if pop_lit1 >= sp_length && (pop_lit2 == 1i32 || pop_lit2 == -1i32) {
+            if *lit_stack.offset(lit_stk_ptr as isize) >= cmd_str_ptr {
+                str_ptr += 1i32;
+                pool_ptr = *str_start.offset(str_ptr as isize)
             }
+            lit_stk_ptr += 1i32;
+            return;
         }
         if pop_lit1 <= 0i32 || pop_lit2 == 0i32 || pop_lit2 > sp_length || pop_lit2 < -sp_length {
             push_lit_stk(s_null, StkType::Str);
-            return;
+            
         } else {
             if pop_lit2 > 0i32 {
                 if pop_lit1 > sp_length - (pop_lit2 - 1i32) {
@@ -4596,14 +4517,12 @@ unsafe fn x_substring() {
                 }
                 sp_ptr = *str_start.offset(pop_lit3 as isize) + (pop_lit2 - 1i32);
                 sp_end = sp_ptr + pop_lit1;
-                if pop_lit2 == 1i32 {
-                    if pop_lit3 >= cmd_str_ptr {
-                        *str_start.offset((pop_lit3 + 1i32) as isize) = sp_end;
-                        str_ptr = str_ptr + 1i32;
-                        pool_ptr = *str_start.offset(str_ptr as isize);
-                        lit_stk_ptr = lit_stk_ptr + 1i32;
-                        return;
-                    }
+                if pop_lit2 == 1i32 && pop_lit3 >= cmd_str_ptr {
+                    *str_start.offset((pop_lit3 + 1i32) as isize) = sp_end;
+                    str_ptr += 1i32;
+                    pool_ptr = *str_start.offset(str_ptr as isize);
+                    lit_stk_ptr += 1i32;
+                    return;
                 }
             } else {
                 pop_lit2 = -pop_lit2;
@@ -4618,8 +4537,8 @@ unsafe fn x_substring() {
             }
             while sp_ptr < sp_end {
                 *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-                pool_ptr = pool_ptr + 1i32;
-                sp_ptr = sp_ptr + 1i32
+                pool_ptr += 1i32;
+                sp_ptr += 1i32
             }
             push_lit_stk(make_string(), StkType::Str);
         }
@@ -4631,12 +4550,12 @@ unsafe fn x_swap() {
     if pop_typ1 as i32 != 1i32 || pop_lit1 < cmd_str_ptr {
         push_lit_stk(pop_lit1, pop_typ1);
         if pop_typ2 as i32 == 1i32 && pop_lit2 >= cmd_str_ptr {
-            str_ptr = str_ptr + 1i32;
+            str_ptr += 1i32;
             pool_ptr = *str_start.offset(str_ptr as isize)
         }
         push_lit_stk(pop_lit2, pop_typ2);
     } else if pop_typ2 as i32 != 1i32 || pop_lit2 < cmd_str_ptr {
-        str_ptr = str_ptr + 1i32;
+        str_ptr += 1i32;
         pool_ptr = *str_start.offset(str_ptr as isize);
         push_lit_stk(pop_lit1, StkType::Str);
         push_lit_stk(pop_lit2, pop_typ2);
@@ -4647,8 +4566,8 @@ unsafe fn x_swap() {
         sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
         while sp_ptr < sp_end {
             *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-            pool_ptr = pool_ptr + 1i32;
-            sp_ptr = sp_ptr + 1i32
+            pool_ptr += 1i32;
+            sp_ptr += 1i32
         }
         push_lit_stk(make_string(), StkType::Str);
         add_pool_buf_and_push();
@@ -4665,34 +4584,32 @@ unsafe fn x_text_length() {
         sp_end = *str_start.offset((pop_lit1 + 1i32) as isize);
         sp_brace_level = 0i32;
         while sp_ptr < sp_end {
-            sp_ptr = sp_ptr + 1i32;
+            sp_ptr += 1i32;
             if *str_pool.offset((sp_ptr - 1i32) as isize) as i32 == 123i32 {
                 /*left_brace */
-                sp_brace_level = sp_brace_level + 1i32;
-                if sp_brace_level == 1i32 && sp_ptr < sp_end {
-                    if *str_pool.offset(sp_ptr as isize) as i32 == 92i32 {
-                        /*backslash */
-                        sp_ptr = sp_ptr + 1i32;
-                        while sp_ptr < sp_end && sp_brace_level > 0i32 {
-                            if *str_pool.offset(sp_ptr as isize) as i32 == 125i32 {
-                                /*right_brace */
-                                sp_brace_level = sp_brace_level - 1i32
-                            } else if *str_pool.offset(sp_ptr as isize) as i32 == 123i32 {
-                                /*left_brace */
-                                sp_brace_level = sp_brace_level + 1i32
-                            }
-                            sp_ptr = sp_ptr + 1i32
+                sp_brace_level += 1i32;
+                if sp_brace_level == 1i32 && sp_ptr < sp_end && *str_pool.offset(sp_ptr as isize) as i32 == 92i32 {
+                    /*backslash */
+                    sp_ptr += 1i32;
+                    while sp_ptr < sp_end && sp_brace_level > 0i32 {
+                        if *str_pool.offset(sp_ptr as isize) as i32 == 125i32 {
+                            /*right_brace */
+                            sp_brace_level -= 1i32
+                        } else if *str_pool.offset(sp_ptr as isize) as i32 == 123i32 {
+                            /*left_brace */
+                            sp_brace_level += 1i32
                         }
-                        num_text_chars = num_text_chars + 1i32
+                        sp_ptr += 1i32
                     }
+                    num_text_chars += 1i32
                 }
             } else if *str_pool.offset((sp_ptr - 1i32) as isize) as i32 == 125i32 {
                 /*right_brace */
                 if sp_brace_level > 0i32 {
-                    sp_brace_level = sp_brace_level - 1i32
+                    sp_brace_level -= 1i32
                 }
             } else {
-                num_text_chars = num_text_chars + 1i32
+                num_text_chars += 1i32
             }
         }
         push_lit_stk(num_text_chars, StkType::Int);
@@ -4711,7 +4628,7 @@ unsafe fn x_text_prefix() {
         push_lit_stk(s_null, StkType::Str);
     } else if pop_lit1 <= 0i32 {
         push_lit_stk(s_null, StkType::Str);
-        return;
+        
     } else {
         sp_ptr = *str_start.offset(pop_lit2 as isize);
         sp_end = *str_start.offset((pop_lit2 + 1i32) as isize);
@@ -4719,34 +4636,32 @@ unsafe fn x_text_prefix() {
         sp_brace_level = 0i32;
         sp_xptr1 = sp_ptr;
         while sp_xptr1 < sp_end && num_text_chars < pop_lit1 {
-            sp_xptr1 = sp_xptr1 + 1i32;
+            sp_xptr1 += 1i32;
             if *str_pool.offset((sp_xptr1 - 1i32) as isize) as i32 == 123i32 {
                 /*left_brace */
-                sp_brace_level = sp_brace_level + 1i32;
-                if sp_brace_level == 1i32 && sp_xptr1 < sp_end {
-                    if *str_pool.offset(sp_xptr1 as isize) as i32 == 92i32 {
-                        /*backslash */
-                        sp_xptr1 = sp_xptr1 + 1i32;
-                        while sp_xptr1 < sp_end && sp_brace_level > 0i32 {
-                            if *str_pool.offset(sp_xptr1 as isize) as i32 == 125i32 {
-                                /*right_brace */
-                                sp_brace_level = sp_brace_level - 1i32
-                            } else if *str_pool.offset(sp_xptr1 as isize) as i32 == 123i32 {
-                                /*left_brace */
-                                sp_brace_level = sp_brace_level + 1i32
-                            }
-                            sp_xptr1 = sp_xptr1 + 1i32
+                sp_brace_level += 1i32;
+                if sp_brace_level == 1i32 && sp_xptr1 < sp_end && *str_pool.offset(sp_xptr1 as isize) as i32 == 92i32 {
+                    /*backslash */
+                    sp_xptr1 += 1i32;
+                    while sp_xptr1 < sp_end && sp_brace_level > 0i32 {
+                        if *str_pool.offset(sp_xptr1 as isize) as i32 == 125i32 {
+                            /*right_brace */
+                            sp_brace_level -= 1i32
+                        } else if *str_pool.offset(sp_xptr1 as isize) as i32 == 123i32 {
+                            /*left_brace */
+                            sp_brace_level += 1i32
                         }
-                        num_text_chars = num_text_chars + 1i32
+                        sp_xptr1 += 1i32
                     }
+                    num_text_chars += 1i32
                 }
             } else if *str_pool.offset((sp_xptr1 - 1i32) as isize) as i32 == 125i32 {
                 /*right_brace */
                 if sp_brace_level > 0i32 {
-                    sp_brace_level = sp_brace_level - 1i32
+                    sp_brace_level -= 1i32
                 }
             } else {
-                num_text_chars = num_text_chars + 1i32
+                num_text_chars += 1i32
             }
         } /*right_brace */
         sp_end = sp_xptr1;
@@ -4758,14 +4673,14 @@ unsafe fn x_text_prefix() {
         } else {
             while sp_ptr < sp_end {
                 *str_pool.offset(pool_ptr as isize) = *str_pool.offset(sp_ptr as isize);
-                pool_ptr = pool_ptr + 1i32;
-                sp_ptr = sp_ptr + 1i32
+                pool_ptr += 1i32;
+                sp_ptr += 1i32
             }
         }
         while sp_brace_level > 0i32 {
             *str_pool.offset(pool_ptr as isize) = 125i32 as u8;
-            pool_ptr = pool_ptr + 1i32;
-            sp_brace_level = sp_brace_level - 1i32
+            pool_ptr += 1i32;
+            sp_brace_level -= 1i32
         }
         push_lit_stk(make_string(), StkType::Str);
     };
@@ -4809,23 +4724,23 @@ unsafe fn x_width() {
         while ex_buf_ptr < ex_buf_length {
             if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 123i32 {
                 /*left_brace */
-                brace_level = brace_level + 1i32;
+                brace_level += 1i32;
                 if brace_level == 1i32 && ex_buf_ptr + 1i32 < ex_buf_length {
                     if *ex_buf.offset((ex_buf_ptr + 1i32) as isize) as i32 == 92i32 {
                         /*backslash */
                         /*453: */
-                        ex_buf_ptr = ex_buf_ptr + 1i32;
+                        ex_buf_ptr += 1i32;
                         while ex_buf_ptr < ex_buf_length && brace_level > 0i32 {
-                            ex_buf_ptr = ex_buf_ptr + 1i32;
+                            ex_buf_ptr += 1i32;
                             ex_buf_xptr = ex_buf_ptr;
                             while ex_buf_ptr < ex_buf_length
                                 && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize]
                                     == LexType::Alpha
                             {
-                                ex_buf_ptr = ex_buf_ptr + 1i32
+                                ex_buf_ptr += 1i32
                             }
                             if ex_buf_ptr < ex_buf_length && ex_buf_ptr == ex_buf_xptr {
-                                ex_buf_ptr = ex_buf_ptr + 1i32
+                                ex_buf_ptr += 1i32
                             } else {
                                 control_seq_loc = str_lookup(
                                     ex_buf,
@@ -4837,14 +4752,13 @@ unsafe fn x_width() {
                                 if hash_found {
                                     /*454: */
                                     match *ilk_info.offset(control_seq_loc as isize) {
-                                        12 => string_width = string_width + 500i32,
-                                        4 => string_width = string_width + 722i32,
-                                        2 => string_width = string_width + 778i32,
-                                        5 => string_width = string_width + 903i32,
-                                        3 => string_width = string_width + 1014i32,
+                                        12 => string_width += 500i32,
+                                        4 => string_width += 722i32,
+                                        2 => string_width += 778i32,
+                                        5 => string_width += 903i32,
+                                        3 => string_width += 1014i32,
                                         _ => {
-                                            string_width = string_width
-                                                + char_width
+                                            string_width += char_width
                                                     [*ex_buf.offset(ex_buf_xptr as isize) as usize]
                                         }
                                     }
@@ -4853,7 +4767,7 @@ unsafe fn x_width() {
                             while ex_buf_ptr < ex_buf_length
                                 && lex_class[*ex_buf.offset(ex_buf_ptr as isize) as usize] == LexType::WhiteSpace
                             {
-                                ex_buf_ptr = ex_buf_ptr + 1i32
+                                ex_buf_ptr += 1i32
                             }
                             while ex_buf_ptr < ex_buf_length
                                 && brace_level > 0i32
@@ -4861,33 +4775,31 @@ unsafe fn x_width() {
                             {
                                 if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 125i32 {
                                     /*right_brace */
-                                    brace_level = brace_level - 1i32
+                                    brace_level -= 1i32
                                 } else if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 123i32 {
                                     /*left_brace */
-                                    brace_level = brace_level + 1i32
+                                    brace_level += 1i32
                                 } else {
-                                    string_width = string_width
-                                        + char_width[*ex_buf.offset(ex_buf_ptr as isize) as usize]
+                                    string_width += char_width[*ex_buf.offset(ex_buf_ptr as isize) as usize]
                                 }
-                                ex_buf_ptr = ex_buf_ptr + 1i32
+                                ex_buf_ptr += 1i32
                             }
                         }
-                        ex_buf_ptr = ex_buf_ptr - 1i32
+                        ex_buf_ptr -= 1i32
                     } else {
-                        string_width = string_width + char_width[123]
+                        string_width += char_width[123]
                     }
                 } else {
-                    string_width = string_width + char_width[123]
+                    string_width += char_width[123]
                 }
             } else if *ex_buf.offset(ex_buf_ptr as isize) as i32 == 125i32 {
                 /*right_brace */
                 decr_brace_level(pop_lit1);
-                string_width = string_width + char_width[125]
+                string_width += char_width[125]
             } else {
-                string_width =
-                    string_width + char_width[*ex_buf.offset(ex_buf_ptr as isize) as usize]
+                string_width += char_width[*ex_buf.offset(ex_buf_ptr as isize) as usize]
             }
-            ex_buf_ptr = ex_buf_ptr + 1i32
+            ex_buf_ptr += 1i32
         }
         check_brace_level(pop_lit1);
         push_lit_stk(string_width, StkType::Int);
@@ -4922,7 +4834,7 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                     bst_cant_mess_with_entries_print();
                 } else if *type_list.offset(cite_ptr as isize) == undefined {
                     execute_fn(b_default);
-                } else if !(*type_list.offset(cite_ptr as isize) == 0i32) {
+                } else if *type_list.offset(cite_ptr as isize) != 0i32 {
                     execute_fn(*type_list.offset(cite_ptr as isize));
                 }
             }
@@ -4981,7 +4893,7 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                             print_wrong_stk_lit(pop_lit1, pop_typ1, StkType::Int);
                             break;
                         } else {
-                            if !(pop_lit1 > 0i32) {
+                            if pop_lit1 <= 0i32 {
                                 break;
                             }
                             execute_fn(r_pop_lt1);
@@ -5003,10 +4915,10 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                 if *wiz_functions.offset(wiz_ptr as isize) != 1i32 - 1i32 {
                     execute_fn(*wiz_functions.offset(wiz_ptr as isize));
                 } else {
-                    wiz_ptr = wiz_ptr + 1i32;
+                    wiz_ptr += 1i32;
                     push_lit_stk(*wiz_functions.offset(wiz_ptr as isize), StkType::Fn);
                 }
-                wiz_ptr = wiz_ptr + 1i32
+                wiz_ptr += 1i32
             }
         }
         2 => push_lit_stk(*ilk_info.offset(ex_fn_loc as isize), StkType::Int),
@@ -5055,7 +4967,7 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                     /*end_of_string */
                     *ex_buf.offset(ex_buf_ptr as isize) = *entry_strs
                         .offset((str_ent_ptr * (ent_str_size + 1i32) + ex_buf_ptr) as isize); /* strip off the (assumed) ".aux" for subsequent futzing */
-                    ex_buf_ptr = ex_buf_ptr + 1i32
+                    ex_buf_ptr += 1i32
                 }
                 ex_buf_length = ex_buf_ptr;
                 add_pool_buf_and_push();
@@ -5074,8 +4986,8 @@ unsafe fn execute_fn(mut ex_fn_loc: hash_loc) {
                 while glob_chr_ptr < *glb_str_end.offset(str_glb_ptr as isize) {
                     *str_pool.offset(pool_ptr as isize) = *global_strs
                         .offset((str_glb_ptr * (glob_str_size + 1i32) + glob_chr_ptr) as isize);
-                    pool_ptr = pool_ptr + 1i32;
-                    glob_chr_ptr = glob_chr_ptr + 1i32
+                    pool_ptr += 1i32;
+                    glob_chr_ptr += 1i32
                 }
                 push_lit_stk(make_string(), StkType::Str);
             }
@@ -5114,7 +5026,7 @@ unsafe fn get_the_top_level_aux_file_name(mut aux_file_name: *const i8) -> i32 {
     name_ptr = 0i32;
     while name_ptr < name_length {
         *buffer.offset((name_ptr + 1i32) as isize) = *name_of_file.offset(name_ptr as isize);
-        name_ptr = name_ptr + 1i32
+        name_ptr += 1i32
     }
     top_lev_str = *hash_text
         .offset(str_lookup(buffer, 1i32, aux_name_length, 0i32 as str_ilk, true) as isize);
@@ -5137,7 +5049,7 @@ unsafe fn aux_bib_data_command() {
     bib_seen = true;
     while *buffer.offset(buf_ptr2 as isize) as i32 != 125i32 {
         /*right_brace */
-        buf_ptr2 = buf_ptr2 + 1i32;
+        buf_ptr2 += 1i32;
         if !scan2_white(125i32 as u8, 44i32 as u8) {
             aux_err_no_right_brace_print();
             aux_err_print();
@@ -5172,7 +5084,7 @@ unsafe fn aux_bib_data_command() {
             ) as *mut str_number;
             MAX_BIB_FILES += 20;
         }
-        *bib_list.offset(bib_ptr as isize) = *hash_text.offset(str_lookup(
+        *bib_list.add(bib_ptr) = *hash_text.offset(str_lookup(
             buffer,
             buf_ptr1,
             buf_ptr2 - buf_ptr1,
@@ -5185,7 +5097,7 @@ unsafe fn aux_bib_data_command() {
             aux_err_print();
             return;
         }
-        start_name(*bib_list.offset(bib_ptr as isize));
+        start_name(*bib_list.add(bib_ptr));
         bib_file.push(peekable_open(name_of_file as *mut i8, TTInputFormat::BIB));
         if bib_file[bib_ptr].is_none() {
             log!("I couldn\'t open database file ");
@@ -5204,7 +5116,7 @@ unsafe fn aux_bib_style_command() {
         return;
     }
     bst_seen = true;
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !scan1_white(125i32 as u8) {
         aux_err_no_right_brace_print();
         aux_err_print();
@@ -5252,7 +5164,7 @@ unsafe fn aux_citation_command() {
     'lab23: while *buffer.offset(buf_ptr2 as isize) as i32 != 125
     /*right_brace */
     {
-        buf_ptr2 = buf_ptr2 + 1;
+        buf_ptr2 += 1;
         if !scan2_white(125 /*right_brace */, 44 /*comma */) {
             aux_err_no_right_brace_print();
             aux_err_print();
@@ -5269,24 +5181,22 @@ unsafe fn aux_citation_command() {
             aux_err_print();
             return;
         }
-        if buf_ptr2 - buf_ptr1 == 1i32 {
-            if *buffer.offset(buf_ptr1 as isize) as i32 == 42i32 {
-                /*star */
-                if all_entries {
-                    log!("Multiple inclusions of entire database\n"); /*137: */
-                    aux_err_print();
-                    return;
-                } else {
-                    all_entries = true;
-                    all_marker = cite_ptr
-                }
-                continue 'lab23;
+        if buf_ptr2 - buf_ptr1 == 1i32 && *buffer.offset(buf_ptr1 as isize) as i32 == 42i32 {
+            /*star */
+            if all_entries {
+                log!("Multiple inclusions of entire database\n"); /*137: */
+                aux_err_print();
+                return;
+            } else {
+                all_entries = true;
+                all_marker = cite_ptr
             }
+            continue 'lab23;
         }
         let mut tmp_ptr = buf_ptr1;
         while tmp_ptr < buf_ptr2 {
             *ex_buf.offset(tmp_ptr as isize) = *buffer.offset(tmp_ptr as isize);
-            tmp_ptr = tmp_ptr + 1i32
+            tmp_ptr += 1i32
         }
         lower_case(ex_buf, buf_ptr1, buf_ptr2 - buf_ptr1);
         lc_cite_loc = str_lookup(
@@ -5326,14 +5236,14 @@ unsafe fn aux_citation_command() {
             *cite_list.offset(cite_ptr as isize) = *hash_text.offset(cite_loc as isize);
             *ilk_info.offset(cite_loc as isize) = cite_ptr;
             *ilk_info.offset(lc_cite_loc as isize) = cite_loc;
-            cite_ptr = cite_ptr + 1i32
+            cite_ptr += 1i32
         }
         continue 'lab23; /*next_cite */
     }
 }
 unsafe fn aux_input_command() {
     let mut aux_extension_ok: bool = false;
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !scan1_white(125i32 as u8) {
         aux_err_no_right_brace_print();
         aux_err_print();
@@ -5350,7 +5260,7 @@ unsafe fn aux_input_command() {
         aux_err_print();
         return;
     }
-    aux_ptr = aux_ptr + 1i32;
+    aux_ptr += 1i32;
     if aux_ptr == 20i32 {
         print_a_token();
         log!(": ");
@@ -5375,7 +5285,7 @@ unsafe fn aux_input_command() {
     if !aux_extension_ok {
         print_a_token();
         log!(" has a wrong extension");
-        aux_ptr = aux_ptr - 1i32;
+        aux_ptr -= 1i32;
         aux_err_print();
         return;
     }
@@ -5386,7 +5296,7 @@ unsafe fn aux_input_command() {
     if hash_found {
         log!("Already encountered file ");
         print_aux_name();
-        aux_ptr = aux_ptr - 1i32;
+        aux_ptr -= 1i32;
         aux_err_print();
         return;
     }
@@ -5490,7 +5400,7 @@ unsafe fn bst_entry_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("entry");
@@ -5521,7 +5431,7 @@ unsafe fn bst_entry_command() {
         }
         *fn_type.offset(fn_loc as isize) = FnClass::Field;
         *ilk_info.offset(fn_loc as isize) = num_fields;
-        num_fields = num_fields + 1i32;
+        num_fields += 1i32;
         if !eat_bst_white_space() {
             eat_bst_print();
             log!("entry");
@@ -5529,7 +5439,7 @@ unsafe fn bst_entry_command() {
             return;
         }
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("entry");
@@ -5547,7 +5457,7 @@ unsafe fn bst_entry_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("entry");
@@ -5578,7 +5488,7 @@ unsafe fn bst_entry_command() {
         }
         *fn_type.offset(fn_loc as isize) = FnClass::IntEntryVar;
         *ilk_info.offset(fn_loc as isize) = num_ent_ints;
-        num_ent_ints = num_ent_ints + 1i32;
+        num_ent_ints += 1i32;
         if !eat_bst_white_space() {
             eat_bst_print();
             log!("entry");
@@ -5586,7 +5496,7 @@ unsafe fn bst_entry_command() {
             return;
         }
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("entry");
@@ -5600,7 +5510,7 @@ unsafe fn bst_entry_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("entry");
@@ -5631,7 +5541,7 @@ unsafe fn bst_entry_command() {
         }
         *fn_type.offset(fn_loc as isize) = FnClass::StrEntryVar;
         *ilk_info.offset(fn_loc as isize) = num_ent_strs;
-        num_ent_strs = num_ent_strs + 1i32;
+        num_ent_strs += 1i32;
         if !eat_bst_white_space() {
             eat_bst_print();
             log!("entry");
@@ -5639,7 +5549,7 @@ unsafe fn bst_entry_command() {
             return;
         }
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
 }
 unsafe fn bad_argument_token() -> bool {
     lower_case(buffer, buf_ptr1, buf_ptr2 - buf_ptr1);
@@ -5655,16 +5565,14 @@ unsafe fn bad_argument_token() -> bool {
         log!(" is an unknown function");
         bst_err_print_and_look_for_blank_line();
         return true;
-    } else {
-        if *fn_type.offset(fn_loc as isize) as i32 != 0i32
-            && *fn_type.offset(fn_loc as isize) as i32 != 1i32
-        {
-            print_a_token();
-            log!(" has bad function type ");
-            print_fn_class(fn_loc);
-            bst_err_print_and_look_for_blank_line();
-            return true;
-        }
+    } else if *fn_type.offset(fn_loc as isize) as i32 != 0i32
+        && *fn_type.offset(fn_loc as isize) as i32 != 1i32
+    {
+        print_a_token();
+        log!(" has bad function type ");
+        print_fn_class(fn_loc);
+        bst_err_print_and_look_for_blank_line();
+        return true;
     }
     false
 }
@@ -5687,7 +5595,7 @@ unsafe fn bst_execute_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("execute");
@@ -5718,7 +5626,7 @@ unsafe fn bst_execute_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     init_command_execution();
     mess_with_entries = false;
     execute_fn(fn_loc);
@@ -5738,7 +5646,7 @@ unsafe fn bst_function_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("function");
@@ -5782,7 +5690,7 @@ unsafe fn bst_function_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("function");
@@ -5796,7 +5704,7 @@ unsafe fn bst_function_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     scan_fn_def(wiz_loc);
 }
 unsafe fn bst_integers_command() {
@@ -5813,7 +5721,7 @@ unsafe fn bst_integers_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("integers");
@@ -5851,7 +5759,7 @@ unsafe fn bst_integers_command() {
             return;
         }
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
 }
 unsafe fn bst_iterate_command() {
     if !read_seen {
@@ -5872,7 +5780,7 @@ unsafe fn bst_iterate_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("iterate");
@@ -5903,7 +5811,7 @@ unsafe fn bst_iterate_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     init_command_execution();
     mess_with_entries = true;
     sort_cite_ptr = 0i32;
@@ -5911,7 +5819,7 @@ unsafe fn bst_iterate_command() {
         cite_ptr = *cite_info.offset(sort_cite_ptr as isize);
         execute_fn(fn_loc);
         check_command_execution();
-        sort_cite_ptr = sort_cite_ptr + 1i32
+        sort_cite_ptr += 1i32
     }
 }
 unsafe fn bst_macro_command() {
@@ -5933,7 +5841,7 @@ unsafe fn bst_macro_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("macro");
@@ -5976,7 +5884,7 @@ unsafe fn bst_macro_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("macro");
@@ -5990,7 +5898,7 @@ unsafe fn bst_macro_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("macro");
@@ -6003,7 +5911,7 @@ unsafe fn bst_macro_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !scan1(34i32 as u8) {
         log!("There\'s no `\"\' to end macro definition");
         bst_err_print_and_look_for_blank_line();
@@ -6012,7 +5920,7 @@ unsafe fn bst_macro_command() {
     macro_def_loc = str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 0i32 as str_ilk, true);
     *fn_type.offset(macro_def_loc as isize) = FnClass::StrLiteral;
     *ilk_info.offset(macro_name_loc as isize) = *hash_text.offset(macro_def_loc as isize);
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("macro");
@@ -6026,7 +5934,7 @@ unsafe fn bst_macro_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
 }
 unsafe fn get_bib_command_or_entry_and_process() {
     let mut current_block: u64;
@@ -6106,7 +6014,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
                     bib_one_of_two_print(123i32 as u8, 40i32 as u8); /*right_paren */
                     return;
                 }
-                buf_ptr2 = buf_ptr2 + 1i32;
+                buf_ptr2 += 1i32;
                 if !eat_bib_white_space() {
                     eat_bib_print();
                     return;
@@ -6123,7 +6031,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
                     bib_err_print();
                     return;
                 }
-                buf_ptr2 = buf_ptr2 + 1i32;
+                buf_ptr2 += 1i32;
                 return;
             }
             2 => {
@@ -6142,7 +6050,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
                     bib_one_of_two_print(123i32 as u8, 40i32 as u8); /*right_paren */
                     return;
                 }
-                buf_ptr2 = buf_ptr2 + 1i32;
+                buf_ptr2 += 1i32;
                 if !eat_bib_white_space() {
                     eat_bib_print();
                     return;
@@ -6174,7 +6082,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
                     bib_equals_sign_print();
                     return;
                 }
-                buf_ptr2 = buf_ptr2 + 1i32;
+                buf_ptr2 += 1i32;
                 if !eat_bib_white_space() {
                     eat_bib_print();
                     return;
@@ -6191,7 +6099,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
                     bib_err_print();
                     return;
                 }
-                buf_ptr2 = buf_ptr2 + 1i32;
+                buf_ptr2 += 1i32;
                 return;
             }
             _ => bib_cmd_confusion(),
@@ -6225,7 +6133,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
         bib_one_of_two_print(123i32 as u8, 40i32 as u8); /*right_paren */
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bib_white_space() {
         eat_bib_print();
         return;
@@ -6239,7 +6147,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
     let mut tmp_ptr = buf_ptr1;
     while tmp_ptr < buf_ptr2 {
         *ex_buf.offset(tmp_ptr as isize) = *buffer.offset(tmp_ptr as isize);
-        tmp_ptr = tmp_ptr + 1i32
+        tmp_ptr += 1i32
     }
     lower_case(ex_buf, buf_ptr1, buf_ptr2 - buf_ptr1);
     if all_entries {
@@ -6275,9 +6183,9 @@ unsafe fn get_bib_command_or_entry_and_process() {
                         hash_found = true
                     }
                 }
-                current_block = 12387625063048049585;
+                current_block = 12_387_625_063_048_049_585;
             } else {
-                current_block = 3813860224257983916;
+                current_block = 3_813_860_224_257_983_916;
             }
         } else if !*entry_exists.offset(entry_cite_ptr as isize) {
             ex_buf_ptr = 0i32;
@@ -6287,8 +6195,8 @@ unsafe fn get_bib_command_or_entry_and_process() {
                 *str_start.offset((*cite_info.offset(entry_cite_ptr as isize) + 1i32) as isize);
             while tmp_ptr < tmp_end_ptr {
                 *ex_buf.offset(ex_buf_ptr as isize) = *str_pool.offset(tmp_ptr as isize);
-                ex_buf_ptr = ex_buf_ptr + 1i32;
-                tmp_ptr = tmp_ptr + 1i32
+                ex_buf_ptr += 1i32;
+                tmp_ptr += 1i32
             }
             lower_case(
                 ex_buf,
@@ -6308,15 +6216,15 @@ unsafe fn get_bib_command_or_entry_and_process() {
                 cite_key_disappeared_confusion();
             }
             if lc_xcite_loc == lc_cite_loc {
-                current_block = 12387625063048049585;
+                current_block = 12_387_625_063_048_049_585;
             } else {
-                current_block = 3813860224257983916;
+                current_block = 3_813_860_224_257_983_916;
             }
         } else {
-            current_block = 3813860224257983916;
+            current_block = 3_813_860_224_257_983_916;
         }
         match current_block {
-            12387625063048049585 => {}
+            12_387_625_063_048_049_585 => {}
             _ => {
                 if *type_list.offset(entry_cite_ptr as isize) == 0i32 {
                     /*empty */
@@ -6337,21 +6245,21 @@ unsafe fn get_bib_command_or_entry_and_process() {
         /*273: */
         if hash_found {
             if entry_cite_ptr < all_marker {
-                current_block_216 = 17170253997621722914;
+                current_block_216 = 17_170_253_997_621_722_914;
             } else {
                 *entry_exists.offset(entry_cite_ptr as isize) = true;
                 cite_loc = *ilk_info.offset(lc_cite_loc as isize);
-                current_block_216 = 763224442071743734;
+                current_block_216 = 763_224_442_071_743_734;
             }
         } else {
             cite_loc = str_lookup(buffer, buf_ptr1, buf_ptr2 - buf_ptr1, 9i32 as str_ilk, true);
             if hash_found {
                 hash_cite_confusion();
             }
-            current_block_216 = 763224442071743734;
+            current_block_216 = 763_224_442_071_743_734;
         }
         match current_block_216 {
-            763224442071743734 => {
+            763_224_442_071_743_734 => {
                 entry_cite_ptr = cite_ptr;
                 add_database_cite(&mut cite_ptr);
             }
@@ -6382,7 +6290,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
             bib_one_of_two_print(44i32 as u8, right_outer_delim);
             return;
         }
-        buf_ptr2 = buf_ptr2 + 1i32;
+        buf_ptr2 += 1i32;
         if !eat_bib_white_space() {
             eat_bib_print();
             return;
@@ -6408,11 +6316,9 @@ unsafe fn get_bib_command_or_entry_and_process() {
                 11i32 as str_ilk,
                 false,
             );
-            if hash_found {
-                if *fn_type.offset(field_name_loc as isize) as i32 == 4i32 {
-                    /*field */
-                    store_field = true
-                }
+            if hash_found && *fn_type.offset(field_name_loc as isize) as i32 == 4i32 {
+                /*field */
+                store_field = true
             }
         }
         if !eat_bib_white_space() {
@@ -6424,7 +6330,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
             bib_equals_sign_print(); /*missing */
             return;
         } /*empty */
-        buf_ptr2 = buf_ptr2 + 1i32; /*any_value */
+        buf_ptr2 += 1i32; /*any_value */
         if !eat_bib_white_space() {
             eat_bib_print();
             return;
@@ -6433,7 +6339,7 @@ unsafe fn get_bib_command_or_entry_and_process() {
             return;
         }
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
 }
 unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
     if read_seen {
@@ -6452,19 +6358,19 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
     let mut tmp_ptr = sv_ptr1;
     while tmp_ptr < sv_ptr2 {
         *sv_buffer.offset(tmp_ptr as isize) = *buffer.offset(tmp_ptr as isize);
-        tmp_ptr = tmp_ptr + 1i32
+        tmp_ptr += 1i32
     }
     check_field_overflow(num_fields * num_cites);
     field_ptr = 0i32;
     while field_ptr < max_fields {
         *field_info.offset(field_ptr as isize) = 0i32;
-        field_ptr = field_ptr + 1i32
+        field_ptr += 1i32
     }
     cite_ptr = 0i32;
     while cite_ptr < max_cites {
         *type_list.offset(cite_ptr as isize) = 0i32;
         *cite_info.offset(cite_ptr as isize) = 0i32;
-        cite_ptr = cite_ptr + 1i32
+        cite_ptr += 1i32
     }
     old_num_cites = num_cites;
     if all_entries {
@@ -6472,7 +6378,7 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
         while cite_ptr < old_num_cites {
             *cite_info.offset(cite_ptr as isize) = *cite_list.offset(cite_ptr as isize);
             *entry_exists.offset(cite_ptr as isize) = false;
-            cite_ptr = cite_ptr + 1i32
+            cite_ptr += 1i32
         }
         cite_ptr = all_marker
     } else {
@@ -6529,12 +6435,12 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
                         *field_info.offset(field_ptr as isize) =
                             *field_info.offset(field_parent_ptr as isize)
                     }
-                    field_ptr = field_ptr + 1i32;
-                    field_parent_ptr = field_parent_ptr + 1i32
+                    field_ptr += 1i32;
+                    field_parent_ptr += 1i32
                 }
             }
         }
-        cite_ptr = cite_ptr + 1i32
+        cite_ptr += 1i32
     }
     if (num_cites - 1i32) * num_fields + crossref_num >= max_fields {
         log!("field_info index is out of range");
@@ -6583,7 +6489,7 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
                 }
             }
         }
-        cite_ptr = cite_ptr + 1i32
+        cite_ptr += 1i32
     }
     cite_ptr = 0i32;
     while cite_ptr < num_cites {
@@ -6615,13 +6521,13 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
                 let mut tmp_ptr = cite_ptr * num_fields;
                 while field_ptr < field_end_ptr {
                     *field_info.offset(field_ptr as isize) = *field_info.offset(tmp_ptr as isize);
-                    field_ptr = field_ptr + 1i32;
-                    tmp_ptr = tmp_ptr + 1i32
+                    field_ptr += 1i32;
+                    tmp_ptr += 1i32
                 }
             }
-            cite_xptr = cite_xptr + 1i32
+            cite_xptr += 1i32
         }
-        cite_ptr = cite_ptr + 1i32
+        cite_ptr += 1i32
     }
     num_cites = cite_xptr;
     if all_entries {
@@ -6631,7 +6537,7 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
             if !*entry_exists.offset(cite_ptr as isize) {
                 print_missing_entry(*cite_info.offset(cite_ptr as isize));
             }
-            cite_ptr = cite_ptr + 1i32
+            cite_ptr += 1i32
         }
     }
     entry_ints = xmalloc(
@@ -6641,7 +6547,7 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
     int_ent_ptr = 0i32;
     while int_ent_ptr < num_ent_ints * num_cites {
         *entry_ints.offset(int_ent_ptr as isize) = 0i32;
-        int_ent_ptr = int_ent_ptr + 1i32
+        int_ent_ptr += 1i32
     }
     entry_strs = xmalloc(
         (((num_ent_strs + 1i32) * (num_cites + 1i32) * (ent_str_size + 1i32)) as u64)
@@ -6650,12 +6556,12 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
     str_ent_ptr = 0i32;
     while str_ent_ptr < num_ent_strs * num_cites {
         *entry_strs.offset((str_ent_ptr * (ent_str_size + 1i32) + 0i32) as isize) = 127i32 as u8;
-        str_ent_ptr = str_ent_ptr + 1i32
+        str_ent_ptr += 1i32
     }
     cite_ptr = 0i32;
     while cite_ptr < num_cites {
         *cite_info.offset(cite_ptr as isize) = cite_ptr;
-        cite_ptr = cite_ptr + 1i32
+        cite_ptr += 1i32
     }
     read_completed = true;
     buf_ptr2 = sv_ptr1;
@@ -6663,7 +6569,7 @@ unsafe fn bst_read_command(bibtex_config: &BibtexConfig) {
     let mut tmp_ptr = buf_ptr2;
     while tmp_ptr < last {
         *buffer.offset(tmp_ptr as isize) = *sv_buffer.offset(tmp_ptr as isize);
-        tmp_ptr = tmp_ptr + 1i32
+        tmp_ptr += 1i32
     }
 }
 unsafe fn bst_reverse_command() {
@@ -6685,7 +6591,7 @@ unsafe fn bst_reverse_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     if !eat_bst_white_space() {
         eat_bst_print();
         log!("reverse");
@@ -6716,13 +6622,13 @@ unsafe fn bst_reverse_command() {
         bst_err_print_and_look_for_blank_line();
         return;
     }
-    buf_ptr2 = buf_ptr2 + 1i32;
+    buf_ptr2 += 1i32;
     init_command_execution();
     mess_with_entries = true;
     if num_cites > 0i32 {
         sort_cite_ptr = num_cites;
         loop {
-            sort_cite_ptr = sort_cite_ptr - 1i32;
+            sort_cite_ptr -= 1i32;
             cite_ptr = *cite_info.offset(sort_cite_ptr as isize);
             execute_fn(fn_loc);
             check_command_execution();
@@ -6803,12 +6709,12 @@ unsafe fn bst_strings_command() {
                 ((max_glob_strs + 10i32 + 1i32) as u64)
                     .wrapping_mul(::std::mem::size_of::<i32>() as u64) as _,
             ) as *mut i32;
-            max_glob_strs = max_glob_strs + 10i32;
+            max_glob_strs += 10i32;
             str_glb_ptr = num_glb_strs;
             while str_glb_ptr < max_glob_strs {
                 *glb_str_ptr.offset(str_glb_ptr as isize) = 0i32;
                 *glb_str_end.offset(str_glb_ptr as isize) = 0i32;
-                str_glb_ptr = str_glb_ptr + 1i32
+                str_glb_ptr += 1i32
             }
         }
         num_glb_strs += 1;
@@ -6903,13 +6809,13 @@ unsafe fn compute_hash_prime() {
             j_prime = true; /*illegal_id_char */
             while n < o && j_prime as i32 != 0 {
                 while *hash_text.offset(n as isize) < j {
-                    let ref mut fresh11 = *hash_text.offset(n as isize); /*illegal_id_char */
+                    let fresh11 = &mut (*hash_text.offset(n as isize)); /*illegal_id_char */
                     *fresh11 += 2i32 * *hash_next.offset(n as isize)
                 } /*empty */
                 if *hash_text.offset(n as isize) == j {
                     j_prime = false
                 }
-                n = n + 1i32
+                n += 1i32
             }
             if j_prime {
                 break;
@@ -7107,7 +7013,7 @@ unsafe fn initialize(mut aux_file_name: *const i8) -> i32 {
     while str_glb_ptr < max_glob_strs {
         *glb_str_ptr.offset(str_glb_ptr as isize) = 0i32;
         *glb_str_end.offset(str_glb_ptr as isize) = 0i32;
-        str_glb_ptr = str_glb_ptr + 1i32
+        str_glb_ptr += 1i32
     }
     num_glb_strs = 0i32;
     entry_seen = false;
@@ -7264,7 +7170,7 @@ pub unsafe fn bibtex_main(bibtex_config: &BibtexConfig, mut aux_file_name: *cons
             }
         }
         last_check_for_aux_errors();
-        if !(bst_str == 0i32) {
+        if bst_str != 0i32 {
             bst_line_num = 0i32;
             bbl_line_num = 1i32;
             buf_ptr2 = last;
