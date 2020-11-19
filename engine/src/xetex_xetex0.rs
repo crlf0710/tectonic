@@ -16152,7 +16152,6 @@ pub(crate) unsafe fn close_files_and_terminate() {
     finalize_dvi_file();
     synctex_terminate(log_opened);
     if log_opened {
-        use std::io::Write;
         write!(log_file.as_mut().unwrap(), "\n").unwrap();
         ttstub_output_close(log_file.take().unwrap());
         log_file = None;

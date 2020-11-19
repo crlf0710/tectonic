@@ -53,12 +53,8 @@ pub(crate) unsafe fn print_ln() {
             term_offset = 0;
         }
         Selector::NO_PRINT | Selector::PSEUDO | Selector::NEW_STRING => {}
-        _ => {
-            write!(
-                write_file[u8::from(selector) as usize].as_mut().unwrap(),
-                "\n"
-            )
-            .unwrap();
+        Selector::File(u) => {
+            write!(write_file[u as usize].as_mut().unwrap(), "\n").unwrap();
         }
     };
 }
@@ -113,13 +109,8 @@ pub(crate) unsafe fn print_rust_char(s: char) {
             }
         }
         Selector::NEW_STRING => unreachable!(),
-        _ => {
-            write!(
-                write_file[u8::from(selector) as usize].as_mut().unwrap(),
-                "{}",
-                s
-            )
-            .unwrap();
+        Selector::File(u) => {
+            write!(write_file[u as usize].as_mut().unwrap(), "{}", s).unwrap();
         }
     }
     tally += 1;
@@ -193,71 +184,55 @@ pub(crate) unsafe fn print_rust_string(s: &str) {
             }
         }
         Selector::NEW_STRING => unreachable!(),
-        _ => {
-            write!(
-                write_file[u8::from(selector) as usize].as_mut().unwrap(),
-                "{}",
-                s
-            )
-            .unwrap();
+        Selector::File(u) => {
+            write!(write_file[u as usize].as_mut().unwrap(), "{}", s).unwrap();
         }
     }
     tally += count;
 }
-pub(crate) unsafe fn print_chr(s: char) {
-    print_char(s as i32)
-}
 pub(crate) unsafe fn print_char(s: i32) {
+    print_chr(std::char::from_u32(s as u32).unwrap())
+}
+pub(crate) unsafe fn print_chr(s: char) {
     if selector == Selector::NEW_STRING {
         if !doing_special {
-            if s >= 0x10000 {
-                print_raw_char((0xd800 + (s - 0x10000) / 1024) as UTF16_code);
-                print_raw_char((0xdc00 + (s - 0x10000) % 1024) as UTF16_code);
-            } else {
-                print_raw_char(s as UTF16_code);
+            let mut b = [0; 2];
+            for i in s.encode_utf16(&mut b) {
+                print_raw_char(*i);
             }
             return;
         } else {
-            if s < 127 {
-                print_raw_char(s as UTF16_code);
-            } else {
-                // TODO: check is reachable
-                let mut b = [0; 4];
-                let bytes = std::char::from_u32(s as u32)
-                    .unwrap()
-                    .encode_utf8(&mut b)
-                    .as_bytes();
-                for &c in bytes {
-                    print_raw_char(c as u16);
-                }
+            let mut b = [0; 4];
+            for c in s.encode_utf8(&mut b).bytes() {
+                print_raw_char(c as u16);
             }
             return;
         }
     }
-    if s == get_int_par(IntPar::new_line_char) {
+    if (s as i32) == get_int_par(IntPar::new_line_char) {
         if selector != Selector::PSEUDO {
             print_ln();
             return;
         }
     }
-    if s < 32 {
-        print_rust_string("^^");
-        print_rust_char(char::from((s + 64) as u8));
-    } else if s < 127 {
-        print_rust_char(char::from(s as u8));
-    } else if s == 127 {
-        print_rust_string("^^?");
-    } else if s < 160 {
-        print_rust_string("^^");
-        for &l in &[(s / 16), (s % 16)] {
-            if l < 10 {
-                print_rust_char(char::from(b'0' + l as u8));
-            } else {
-                print_rust_char(char::from(b'a' + (l as u8) - 10));
+    match s {
+        '\u{0}'..='\u{1f}' => {
+            print_rust_string("^^");
+            print_rust_char(char::from((s as u8) + 0x40));
+        }
+        '\u{7f}' => print_rust_string("^^?"),
+        '\u{80}'..='\u{9f}' => {
+            print_rust_string("^^");
+            let s = s as u8;
+            for &l in &[(s / 16), (s % 16)] {
+                if l < 10 {
+                    print_rust_char(char::from(b'0' + l));
+                } else {
+                    print_rust_char(char::from(b'a' + l - 10));
+                }
             }
         }
-    } else {
-        print_rust_char(std::char::from_u32(s as u32).unwrap());
+        _ => print_rust_char(s),
     }
 }
 pub(crate) unsafe fn print(s: i32) {
@@ -437,33 +412,51 @@ pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
         print_char(quote_char);
     }
     if a != 0 {
-        for &j in PoolString::from(a).as_slice() {
+        for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
+            let j = j.unwrap();
             if j as i32 == quote_char {
-                print(quote_char);
-                quote_char = 73 - quote_char;
-                print(quote_char);
+                print_chr(j);
+                let c = match j {
+                    '\"' => '\'',
+                    '\'' => '\"',
+                    _ => unreachable!(),
+                };
+                quote_char = c as i32;
+                print_chr(c);
             }
-            print(j as i32);
+            print_chr(j);
         }
     }
     if n != 0 {
-        for &j in PoolString::from(n).as_slice() {
+        for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
+            let j = j.unwrap();
             if j as i32 == quote_char {
-                print(quote_char);
-                quote_char = 73 - quote_char;
-                print(quote_char);
+                print_chr(j);
+                let c = match j {
+                    '\"' => '\'',
+                    '\'' => '\"',
+                    _ => unreachable!(),
+                };
+                quote_char = c as i32;
+                print_chr(c);
             }
-            print(j as i32);
+            print_chr(j);
         }
     }
     if e != 0 {
-        for &j in PoolString::from(e).as_slice() {
+        for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
+            let j = j.unwrap();
             if j as i32 == quote_char {
-                print(quote_char);
-                quote_char = 73 - quote_char;
-                print(quote_char);
+                print_chr(j);
+                let c = match j {
+                    '\"' => '\'',
+                    '\'' => '\"',
+                    _ => unreachable!(),
+                };
+                quote_char = c as i32;
+                print_chr(c);
             }
-            print(j as i32);
+            print_chr(j);
         }
     }
     if quote_char != 0 {
