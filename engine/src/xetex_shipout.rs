@@ -2056,10 +2056,8 @@ unsafe fn special_out(p: &Special) {
         dvi_four(len as i32);
     }
 
-    {
-        for &k in cur_str.as_slice() {
-            dvi_out(k as u8);
-        }
+    for &k in cur_str.as_slice() {
+        dvi_out(k as u8);
     }
     pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
     doing_special = false;
@@ -2111,12 +2109,13 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
     if j == 18 {
         selector = Selector::NEW_STRING
+    } else if j == 17 && (selector == Selector::TERM_AND_LOG) {
+        // Try to fix potential array out of bounds
+        selector = Selector::LOG_ONLY;
+        print_nl_cstr("");
     } else if write_open[j as usize] {
-        selector = (j as u8).into()
+        selector = Selector::File(j as u8);
     } else {
-        if j == 17 && (selector == Selector::TERM_AND_LOG) {
-            selector = Selector::LOG_ONLY
-        }
         print_nl_cstr("");
     }
 
@@ -2200,7 +2199,7 @@ unsafe fn pic_out(p: &Picture) {
 
     print('(' as i32);
     for i in p.path() {
-        print_raw_char(*i as UTF16_code, true);
+        print_raw_char(*i as UTF16_code);
     }
     print(')' as i32);
 

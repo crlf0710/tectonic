@@ -23,8 +23,8 @@ use crate::xetex_ext::{
     get_glyph_bounds, get_native_char_height_depth, get_native_char_sidebearings, getnativechardp,
     getnativecharht, getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1,
     gr_print_font_name, linebreak_next, linebreak_start, map_char_to_glyph, map_glyph_to_index,
-    ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, print_glyph_name, print_utf8_str,
-    Font, NativeFont, NativeFont::*,
+    ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, print_glyph_name, Font, NativeFont,
+    NativeFont::*,
 };
 use crate::xetex_ini::FONT_LETTER_SPACE;
 use crate::xetex_ini::{
@@ -72,8 +72,8 @@ use crate::xetex_math::{
 use crate::xetex_output::{
     print, print_char, print_chr, print_cs, print_cstr, print_current_string, print_esc,
     print_esc_cstr, print_file_line, print_file_name, print_hex, print_int, print_ln,
-    print_native_word, print_nl, print_nl_cstr, print_raw_char, print_roman_int, print_sa_num,
-    print_scaled, print_size, print_write_whatsit, sprint_cs,
+    print_native_word, print_nl, print_nl_cstr, print_roman_int, print_rust_char,
+    print_rust_string, print_sa_num, print_scaled, print_size, print_write_whatsit, sprint_cs,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
@@ -82,15 +82,15 @@ use crate::xetex_scaledmath::{
 };
 use crate::xetex_shipout::{finalize_dvi_file, new_edge, out_what, ship_out};
 use crate::xetex_stringpool::{
-    append_str, make_string, search_string, slow_make_string, str_eq_buf, PoolString, BIGGEST_CHAR,
-    EMPTY_STRING, TOO_BIG_CHAR,
+    append_str, make_string, search_string, slow_make_string, str_eq_buf, PoolString, EMPTY_STRING,
+    TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
 use crate::xetex_texmfmp::{
     getmd5sum, gettexstring, is_new_source, make_src_special, maketexstring, remember_source_info,
 };
 use crate::xetex_xetexd::*;
-use bridge::{ttstub_issue_warning, ttstub_output_close, ttstub_output_open, ttstub_output_putc};
+use bridge::{ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
 
 use bridge::{TTHistory, TTInputFormat};
 
@@ -142,8 +142,8 @@ pub(crate) unsafe fn badness(t: Scaled, s: Scaled) -> i32 {
 /*:112*/
 /*118:*/
 pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
-    let mut match_chr = '#' as i32; // character used in a `match`
-    let mut n = '0' as UTF16_code; // the highest parameter number, as an ASCII digit
+    let mut match_chr = '#'; // character used in a `match`
+    let mut n = b'0'; // the highest parameter number, as an ASCII digit
     tally = 0;
     while let Some(p) = popt {
         if !(tally < l) {
@@ -164,12 +164,13 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
             print_esc_cstr("CLOBBERED.");
             return;
         }
-        if *LLIST_info(p as usize) >= CS_TOKEN_FLAG {
-            print_cs(*LLIST_info(p as usize) - CS_TOKEN_FLAG);
+        let info = *LLIST_info(p as usize);
+        if info >= CS_TOKEN_FLAG {
+            print_cs(info - CS_TOKEN_FLAG);
         } else {
-            let m = Cmd::from((*LLIST_info(p as usize) / MAX_CHAR_VAL) as u16);
-            let c = *LLIST_info(p as usize) % MAX_CHAR_VAL;
-            if *LLIST_info(p as usize) < 0 {
+            let m = Cmd::from((info / MAX_CHAR_VAL) as u16);
+            let c = info % MAX_CHAR_VAL;
+            if info < 0 {
                 print_esc_cstr("BAD.");
             } else {
                 // Display the token `$(m,c)$`
@@ -183,26 +184,27 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                     | Cmd::SubMark
                     | Cmd::Spacer
                     | Cmd::Letter
-                    | Cmd::OtherChar => print_char(c),
+                    | Cmd::OtherChar => print_chr(std::char::from_u32(c as u32).unwrap()),
                     Cmd::MacParam => {
-                        print_char(c);
-                        print_char(c);
+                        let c = std::char::from_u32(c as u32).unwrap();
+                        print_chr(c);
+                        print_chr(c);
                     }
                     OUT_PARAM => {
-                        print_char(match_chr);
+                        print_chr(match_chr);
                         if c <= 0x9 {
-                            print_char(c + '0' as i32);
+                            print_chr(char::from((c as u8) + b'0'));
                         } else {
                             print_chr('!');
                             return;
                         }
                     }
                     MATCH => {
-                        match_chr = c;
-                        print_char(c);
+                        match_chr = std::char::from_u32(c as u32).unwrap();
+                        print_chr(match_chr);
                         n += 1;
-                        print_char(n as i32);
-                        if n as i32 > '9' as i32 {
+                        print_chr(char::from(n));
+                        if n > b'9' {
                             return;
                         }
                     }
@@ -882,9 +884,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_esc_cstr("XeTeXpicfile");
                         }
                         print_cstr("( ");
-                        for i in p.path() {
-                            print_raw_char(*i as UTF16_code, true);
-                        }
+                        print_rust_string(std::str::from_utf8(p.path()).unwrap());
                         print('\"' as i32);
                     }
                     WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
@@ -1752,7 +1752,7 @@ where
 {
     let oldsetting = selector;
     if get_int_par(IntPar::tracing_online) <= 0 && selector == Selector::TERM_AND_LOG {
-        selector = (u8::from(selector) - 1).into();
+        selector = Selector::LOG_ONLY;
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
         }
@@ -2418,16 +2418,16 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
             print_cstr("select font ");
             let font_name_str = FONT_NAME[chr_code as usize];
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[chr_code as usize] {
-                let mut quote_char = '\"' as i32 as UTF16_code;
+                let mut quote_char = '\"';
                 if PoolString::from(font_name_str)
                     .as_slice()
                     .contains(&('\"' as u16))
                 {
-                    quote_char = '\'' as i32 as UTF16_code;
+                    quote_char = '\'';
                 }
-                print_char(quote_char as i32);
+                print_chr(quote_char);
                 print(font_name_str);
-                print_char(quote_char as i32);
+                print_chr(quote_char);
             } else {
                 print(font_name_str);
             }
@@ -2639,7 +2639,7 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
 }
 pub(crate) unsafe fn prim_lookup(s: str_number) -> usize {
     let mut l = 0;
-    let mut p = if s <= BIGGEST_CHAR {
+    let mut p = if s < TOO_BIG_CHAR {
         if s < 0 {
             return UNDEFINED_PRIMITIVE as usize;
         } else {
@@ -3487,11 +3487,11 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     n = half_error_line
                 }
                 for q in p..first_count {
-                    print_raw_char(trick_buf[(q % error_line) as usize], true);
+                    print_rust_char(trick_buf[(q % error_line) as usize]);
                 }
                 print_ln();
                 for _ in 0..n {
-                    print_raw_char(' ' as i32 as UTF16_code, true);
+                    print_rust_char(' ');
                 }
                 let p = if m + n <= error_line {
                     first_count + m
@@ -3499,7 +3499,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     first_count + (error_line - n - 3)
                 };
                 for q in first_count..p {
-                    print_raw_char(trick_buf[(q % error_line) as usize], true);
+                    print_rust_char(trick_buf[(q % error_line) as usize]);
                 }
                 if m + n > error_line {
                     print_cstr("...");
@@ -4379,7 +4379,8 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     continue;
                                 }
                                 _ => {
-                                    if u8::from(selector) < u8::from(Selector::LOG_ONLY) {
+                                    if matches!(selector, Selector::NO_PRINT | Selector::TERM_ONLY)
+                                    {
                                         open_log_file();
                                     }
                                     fatal_error("*** (job aborted, no legal \\end found)");
@@ -5539,7 +5540,7 @@ pub(crate) unsafe fn scan_usv_num(input: &mut input_state_t) -> i32 {
 }
 pub(crate) unsafe fn scan_char_num(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
-    if val < 0 || val > BIGGEST_CHAR {
+    if val < 0 || val >= TOO_BIG_CHAR {
         if file_line_error_style_p != 0 {
             print_file_line();
         } else {
@@ -8274,16 +8275,16 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             let font_name_str = FONT_NAME[val as usize];
             match &FONT_LAYOUT_ENGINE[val as usize] {
                 Font::Native(_) => {
-                    let mut quote_char = '\"' as i32 as UTF16_code;
+                    let mut quote_char = '\"';
                     if PoolString::from(font_name_str)
                         .as_slice()
                         .contains(&('\"' as u16))
                     {
-                        quote_char = '\'' as i32 as UTF16_code;
+                        quote_char = '\'';
                     }
-                    print_char(quote_char as i32);
+                    print_chr(quote_char);
                     print(font_name_str);
-                    print_char(quote_char as i32);
+                    print_chr(quote_char);
                 }
                 _ => print(font_name_str),
             }
@@ -9178,17 +9179,17 @@ pub(crate) unsafe fn more_name(
     area_delimiter: &mut usize,
     ext_delimiter: &mut usize,
     quoted_filename: &mut bool,
-    file_name_quote_char: &mut Option<u16>,
+    file_name_quote_char: &mut Option<char>,
 ) -> bool {
     if stop_at_space_ && file_name_quote_char.is_none() && c as i32 == ' ' as i32 {
         return false;
     }
-    if stop_at_space_ && *file_name_quote_char == Some(c) {
+    if stop_at_space_ && file_name_quote_char.map(|qc| qc as i32) == Some(c as i32) {
         *file_name_quote_char = None;
         return true;
     }
     if stop_at_space_ && file_name_quote_char.is_none() && (c == '\"' as u16 || c == '\'' as u16) {
-        *file_name_quote_char = Some(c);
+        *file_name_quote_char = Some(char::from(c as u8));
         *quoted_filename = true;
         return true;
     }
@@ -9206,9 +9207,9 @@ pub(crate) unsafe fn more_name(
     }
     true
 }
-pub(crate) unsafe fn make_name<F>(mut f: F) -> (bool, Option<u16>)
+pub(crate) unsafe fn make_name<F>(mut f: F) -> (bool, Option<char>)
 where
-    F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<u16>),
+    F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<char>),
 {
     let mut area_delimiter = 0;
     let mut ext_delimiter = 0;
@@ -9298,7 +9299,7 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     name_in_progress = save_name_in_progress;
     result
 }
-pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (bool, Option<u16>) {
+pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (bool, Option<char>) {
     name_in_progress = true;
     let res = make_name(|a, e, q, qc| {
         let (mut tok, mut cmd, mut chr, _) = loop {
@@ -9308,7 +9309,7 @@ pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (bool, Option<
             }
         };
         loop {
-            if cmd > Cmd::OtherChar || chr > BIGGEST_CHAR {
+            if cmd > Cmd::OtherChar || chr >= TOO_BIG_CHAR {
                 back_input(input, tok);
                 break;
             } else {
@@ -9359,7 +9360,11 @@ pub(crate) unsafe fn open_log_file() {
         k += 1;
     }
     print_ln();
-    selector = (u8::from(old_setting) + 2).into();
+    selector = match old_setting {
+        Selector::NO_PRINT => Selector::LOG_ONLY,
+        Selector::TERM_ONLY => Selector::TERM_AND_LOG,
+        _ => unreachable!(),
+    };
 }
 
 /// `\TeX` will `\input` something
@@ -9649,15 +9654,13 @@ pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u
         print_nl_cstr("Unknown ");
         if !setting_name.is_empty() {
             print_cstr("selector `");
-            print_utf8_str(setting_name);
+            print_rust_string(std::str::from_utf8(setting_name).unwrap());
             print_cstr("\' for ");
         }
         print_cstr("feature `");
-        print_utf8_str(feature_name);
+        print_rust_string(std::str::from_utf8(feature_name).unwrap());
         print_cstr("\' in font `");
-        for b in name_of_file.bytes() {
-            print_raw_char(b as UTF16_code, true);
-        }
+        print_rust_string(&name_of_file);
         print_cstr("\'.");
     });
 }
@@ -9668,11 +9671,9 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
         } else {
             print_nl_cstr("Font mapping `");
         }
-        print_utf8_str(mapping_name.as_bytes());
+        print_rust_string(mapping_name);
         print_cstr("\' for font `");
-        for b in name_of_file.bytes() {
-            print_raw_char(b as UTF16_code, true);
-        }
+        print_rust_string(&name_of_file);
         match warningType {
             1 => print_cstr("\' not found."),
             2 => {
@@ -9686,9 +9687,7 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
 /*pub(crate) unsafe fn graphite_warning() {
     diagnostic(false, || {
         print_nl_cstr("Font `");
-        for b in name_of_file.bytes() {
-            print_raw_char(b as UTF16_code, true);
-        }
+        print_rust_string(&name_of_file);
         print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
     });
 }*/
@@ -12847,7 +12846,7 @@ pub(crate) unsafe fn append_discretionary(input: &mut input_state_t, chr: i32) {
     if chr == 1 {
         let c = HYPHEN_CHAR[EQTB[CUR_FONT_LOC].val as usize];
         if c >= 0 {
-            if c <= BIGGEST_CHAR {
+            if c < TOO_BIG_CHAR {
                 MEM[cur_list.tail + 1].b32.s0 =
                     new_character(EQTB[CUR_FONT_LOC].val as usize, c as UTF16_code).tex_int()
             }
@@ -13845,13 +13844,11 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
 pub(crate) unsafe fn new_interaction(chr: i32) {
     print_ln();
     interaction = InteractionMode::n(chr as u8).unwrap();
-    selector = if interaction == InteractionMode::Batch {
-        Selector::NO_PRINT
-    } else {
-        Selector::TERM_ONLY
-    };
-    if log_opened {
-        selector = (u8::from(selector)).wrapping_add(2).into()
+    selector = match (interaction, log_opened) {
+        (InteractionMode::Batch, false) => Selector::NO_PRINT,
+        (InteractionMode::Batch, true) => Selector::LOG_ONLY,
+        (_, false) => Selector::TERM_ONLY,
+        (_, true) => Selector::TERM_AND_LOG,
     };
 }
 pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32) {
@@ -16159,14 +16156,18 @@ pub(crate) unsafe fn close_files_and_terminate() {
     finalize_dvi_file();
     synctex_terminate(log_opened);
     if log_opened {
-        ttstub_output_putc(log_file.as_mut().unwrap(), '\n' as i32);
+        write!(log_file.as_mut().unwrap(), "\n").unwrap();
         ttstub_output_close(log_file.take().unwrap());
         log_file = None;
-        selector = u8::from(selector).wrapping_sub(2).into();
-        if selector == Selector::TERM_ONLY {
-            print_nl_cstr("Transcript written on ");
-            print(texmf_log_name);
-            print_chr('.');
+        match selector {
+            Selector::LOG_ONLY => selector = Selector::NO_PRINT,
+            Selector::TERM_AND_LOG => {
+                selector = Selector::TERM_ONLY;
+                print_nl_cstr("Transcript written on ");
+                print(texmf_log_name);
+                print_chr('.');
+            }
+            _ => unreachable!(),
         }
     }
     print_ln();

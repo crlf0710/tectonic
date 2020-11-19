@@ -10,7 +10,6 @@ use crate::xetex_ini::{
     BUFFER,
 };
 
-pub(crate) const BIGGEST_CHAR: i32 = u16::MAX as i32;
 pub(crate) const TOO_BIG_CHAR: i32 = 0x10000;
 pub(crate) const EMPTY_STRING: i32 = TOO_BIG_CHAR + 1;
 
@@ -93,6 +92,19 @@ impl PoolString {
     pub unsafe fn flush() {
         str_ptr -= 1;
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+    }
+}
+
+impl std::fmt::Display for PoolString {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        for c in std::char::decode_utf16(self.as_slice().iter().cloned()) {
+            if let Ok(c) = c {
+                c.fmt(f)?;
+            } else {
+                return Err(std::fmt::Error);
+            }
+        }
+        Ok(())
     }
 }
 

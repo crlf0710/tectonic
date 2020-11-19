@@ -9,13 +9,13 @@
 )]
 
 use super::xetex_consts::{
-    get_int_par, set_int_par, IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT,
-    EQTB_SIZE, HASH_BASE, NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+    get_int_par, IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE,
+    NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
 };
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
 use crate::xetex_scaledmath::Scaled;
-use crate::xetex_stringpool::{PoolString, BIGGEST_CHAR};
+use crate::xetex_stringpool::{PoolString, TOO_BIG_CHAR};
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
@@ -23,7 +23,6 @@ use super::xetex_ini::{
     pool_size, rust_stdout, selector, str_pool, str_ptr, tally, term_offset, trick_buf,
     trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
-use bridge::ttstub_output_putc;
 
 /* Extra stuff used in various change files for various reasons.  */
 /* Array allocations. Add 1 to size to account for Pascal indexing convention. */
@@ -37,64 +36,68 @@ pub(crate) type str_number = i32;
  * Licensed under the MIT License.
 */
 pub(crate) unsafe fn print_ln() {
+    use std::io::Write;
     match selector {
         Selector::TERM_AND_LOG => {
-            ttstub_output_putc(rust_stdout.as_mut().unwrap(), '\n' as i32);
-            ttstub_output_putc(log_file.as_mut().unwrap(), '\n' as i32);
-            term_offset = 0i32;
-            file_offset = 0i32
+            write!(rust_stdout.as_mut().unwrap(), "\n").unwrap();
+            write!(log_file.as_mut().unwrap(), "\n").unwrap();
+            term_offset = 0;
+            file_offset = 0;
         }
         Selector::LOG_ONLY => {
-            ttstub_output_putc(log_file.as_mut().unwrap(), '\n' as i32);
-            file_offset = 0i32
+            write!(log_file.as_mut().unwrap(), "\n").unwrap();
+            file_offset = 0;
         }
         Selector::TERM_ONLY => {
-            ttstub_output_putc(rust_stdout.as_mut().unwrap(), '\n' as i32);
-            term_offset = 0i32
+            write!(rust_stdout.as_mut().unwrap(), "\n").unwrap();
+            term_offset = 0;
         }
         Selector::NO_PRINT | Selector::PSEUDO | Selector::NEW_STRING => {}
-        _ => {
-            ttstub_output_putc(
-                write_file[u8::from(selector) as usize].as_mut().unwrap(),
-                '\n' as i32,
-            );
+        Selector::File(u) => {
+            write!(write_file[u as usize].as_mut().unwrap(), "\n").unwrap();
         }
     };
 }
-pub(crate) unsafe fn print_raw_char(s: UTF16_code, incr_offset: bool) {
+pub(crate) unsafe fn print_raw_char(s: UTF16_code) {
+    match selector {
+        Selector::NEW_STRING => {
+            if pool_ptr < pool_size {
+                str_pool[pool_ptr as usize] = s;
+                pool_ptr += 1
+            }
+        }
+        _ => unreachable!(),
+    }
+}
+pub(crate) unsafe fn print_rust_char(s: char) {
+    use std::io::Write;
     match selector {
         Selector::TERM_AND_LOG => {
             let stdout = rust_stdout.as_mut().unwrap();
             let lg = log_file.as_mut().unwrap();
-            ttstub_output_putc(stdout, s as i32);
-            ttstub_output_putc(lg, s as i32);
-            if incr_offset {
-                term_offset += 1;
-                file_offset += 1
-            }
+            write!(stdout, "{}", s).unwrap();
+            write!(lg, "{}", s).unwrap();
+            term_offset += 1;
+            file_offset += 1;
             if term_offset == max_print_line {
-                ttstub_output_putc(stdout, '\n' as i32);
-                term_offset = 0i32
+                write!(stdout, "\n").unwrap();
+                term_offset = 0;
             }
             if file_offset == max_print_line {
-                ttstub_output_putc(lg, '\n' as i32);
-                file_offset = 0i32
+                write!(lg, "\n").unwrap();
+                file_offset = 0;
             }
         }
         Selector::LOG_ONLY => {
-            ttstub_output_putc(log_file.as_mut().unwrap(), s as i32);
-            if incr_offset {
-                file_offset += 1
-            }
+            write!(log_file.as_mut().unwrap(), "{}", s).unwrap();
+            file_offset += 1;
             if file_offset == max_print_line {
                 print_ln();
             }
         }
         Selector::TERM_ONLY => {
-            ttstub_output_putc(rust_stdout.as_mut().unwrap(), s as i32);
-            if incr_offset {
-                term_offset += 1
-            }
+            write!(rust_stdout.as_mut().unwrap(), "{}", s).unwrap();
+            term_offset += 1;
             if term_offset == max_print_line {
                 print_ln();
             }
@@ -102,117 +105,145 @@ pub(crate) unsafe fn print_raw_char(s: UTF16_code, incr_offset: bool) {
         Selector::NO_PRINT => {}
         Selector::PSEUDO => {
             if tally < trick_count {
-                trick_buf[(tally % error_line) as usize] = s
+                trick_buf[(tally % error_line) as usize] = s;
             }
         }
-        Selector::NEW_STRING => {
-            if pool_ptr < pool_size {
-                str_pool[pool_ptr as usize] = s;
-                pool_ptr += 1
-            }
-        }
-        _ => {
-            ttstub_output_putc(
-                write_file[u8::from(selector) as usize].as_mut().unwrap(),
-                s as i32,
-            );
+        Selector::NEW_STRING => unreachable!(),
+        Selector::File(u) => {
+            write!(write_file[u as usize].as_mut().unwrap(), "{}", s).unwrap();
         }
     }
     tally += 1;
 }
-pub(crate) unsafe fn print_chr(s: char) {
-    print_char(s as i32)
+// TODO: optimize
+pub(crate) unsafe fn print_rust_string(s: &str) {
+    use std::io::Write;
+    let mut count = s.chars().count() as i32;
+    match selector {
+        Selector::TERM_AND_LOG => {
+            if file_offset + count <= max_print_line && term_offset + count <= max_print_line {
+                let stdout = rust_stdout.as_mut().unwrap();
+                let lg = log_file.as_mut().unwrap();
+                write!(stdout, "{}", s).unwrap();
+                write!(lg, "{}", s).unwrap();
+                term_offset += count;
+                file_offset += count;
+                if term_offset == max_print_line {
+                    write!(stdout, "\n").unwrap();
+                    term_offset = 0;
+                }
+                if file_offset == max_print_line {
+                    write!(lg, "\n").unwrap();
+                    file_offset = 0;
+                }
+            } else {
+                for c in s.chars() {
+                    print_rust_char(c);
+                }
+                return;
+            }
+        }
+        Selector::LOG_ONLY => {
+            if file_offset + count <= max_print_line {
+                write!(log_file.as_mut().unwrap(), "{}", s).unwrap();
+                file_offset += count;
+                if file_offset == max_print_line {
+                    print_ln();
+                }
+            } else {
+                for c in s.chars() {
+                    print_rust_char(c);
+                }
+                return;
+            }
+        }
+        Selector::TERM_ONLY => {
+            if term_offset + count <= max_print_line {
+                write!(rust_stdout.as_mut().unwrap(), "{}", s).unwrap();
+                term_offset += count;
+                if term_offset == max_print_line {
+                    print_ln();
+                }
+            } else {
+                for c in s.chars() {
+                    print_rust_char(c);
+                }
+                return;
+            }
+        }
+        Selector::NO_PRINT => {}
+        Selector::PSEUDO => {
+            count = 0;
+            for (t, c) in s
+                .chars()
+                .take((trick_count - tally).max(0) as usize)
+                .enumerate()
+            {
+                trick_buf[((tally as usize + t) % (error_line as usize))] = c;
+                count += 1;
+            }
+        }
+        Selector::NEW_STRING => unreachable!(),
+        Selector::File(u) => {
+            write!(write_file[u as usize].as_mut().unwrap(), "{}", s).unwrap();
+        }
+    }
+    tally += count;
 }
 pub(crate) unsafe fn print_char(s: i32) {
-    if (u8::from(selector) > u8::from(Selector::PSEUDO)) && !doing_special {
-        if s >= 0x10000 {
-            print_raw_char((0xd800 + (s - 0x10000) / 1024) as UTF16_code, true);
-            print_raw_char((0xdc00 + (s - 0x10000) % 1024) as UTF16_code, true);
+    print_chr(std::char::from_u32(s as u32).unwrap())
+}
+pub(crate) unsafe fn print_chr(s: char) {
+    if selector == Selector::NEW_STRING {
+        if !doing_special {
+            let mut b = [0; 2];
+            for i in s.encode_utf16(&mut b) {
+                print_raw_char(*i);
+            }
+            return;
         } else {
-            print_raw_char(s as UTF16_code, true);
+            let mut b = [0; 4];
+            for c in s.encode_utf8(&mut b).bytes() {
+                print_raw_char(c as u16);
+            }
+            return;
         }
-        return;
     }
-    if s == get_int_par(IntPar::new_line_char) {
-        /*:252 */
-        if u8::from(selector) < u8::from(Selector::PSEUDO) {
+    if (s as i32) == get_int_par(IntPar::new_line_char) {
+        if selector != Selector::PSEUDO {
             print_ln();
             return;
         }
     }
-    if s < 32 && !doing_special {
-        print_raw_char('^' as i32 as UTF16_code, true);
-        print_raw_char('^' as i32 as UTF16_code, true);
-        print_raw_char((s + 64) as UTF16_code, true);
-    } else if s < 127 {
-        print_raw_char(s as UTF16_code, true);
-    } else if s == 127 {
-        if !doing_special {
-            print_raw_char('^' as i32 as UTF16_code, true);
-            print_raw_char('^' as i32 as UTF16_code, true);
-            print_raw_char('?' as i32 as UTF16_code, true);
-        } else {
-            print_raw_char(s as UTF16_code, true);
+    match s {
+        '\u{0}'..='\u{1f}' => {
+            print_rust_string("^^");
+            print_rust_char(char::from((s as u8) + 0x40));
         }
-    } else if s < 160 && !doing_special {
-        print_raw_char('^' as i32 as UTF16_code, true);
-        print_raw_char('^' as i32 as UTF16_code, true);
-        let l = (s % 256 / 16) as i16;
-        if l < 10 {
-            print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
-        } else {
-            print_raw_char(('a' as i32 + l as i32 - 10) as UTF16_code, true);
-        }
-        let l = (s % 16) as i16;
-        if l < 10 {
-            print_raw_char(('0' as i32 + l as i32) as UTF16_code, true);
-        } else {
-            print_raw_char(('a' as i32 + l as i32 - 10) as UTF16_code, true);
-        }
-    } else if s < 2048 {
-        print_raw_char((192 + s / 64) as UTF16_code, false);
-        print_raw_char((128 + s % 64) as UTF16_code, true);
-    } else if s < 0x10000 {
-        print_raw_char((224 + s / 4096) as UTF16_code, false);
-        print_raw_char((128 + s % 4096 / 64) as UTF16_code, false);
-        print_raw_char((128 + s % 64) as UTF16_code, true);
-    } else {
-        print_raw_char((240 + s / 0x40000) as UTF16_code, false);
-        print_raw_char((128 + s % 0x40000 / 4096) as UTF16_code, false);
-        print_raw_char((128 + s % 0x1000 / 64) as UTF16_code, false);
-        print_raw_char((128 + s % 64) as UTF16_code, true);
-    };
-}
-pub(crate) unsafe fn print(s: i32) {
-    if s >= str_ptr {
-        return print_cstr("???");
-    } else {
-        if s <= BIGGEST_CHAR {
-            if s < 0 {
-                return print_cstr("???");
-            } else {
-                if u8::from(selector) > u8::from(Selector::PSEUDO) {
-                    print_char(s);
-                    return;
+        '\u{7f}' => print_rust_string("^^?"),
+        '\u{80}'..='\u{9f}' => {
+            print_rust_string("^^");
+            let s = s as u8;
+            for &l in &[(s / 16), (s % 16)] {
+                if l < 10 {
+                    print_rust_char(char::from(b'0' + l));
+                } else {
+                    print_rust_char(char::from(b'a' + l - 10));
                 }
-                if s == get_int_par(IntPar::new_line_char) {
-                    /*:252 */
-                    if u8::from(selector) < u8::from(Selector::PSEUDO) {
-                        print_ln();
-                        return;
-                    }
-                }
-                let nl = get_int_par(IntPar::new_line_char);
-                set_int_par(IntPar::new_line_char, -1);
-                print_char(s);
-                set_int_par(IntPar::new_line_char, nl);
-                return;
             }
         }
+        _ => print_rust_char(s),
     }
-
-    for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
-        print_char(c.unwrap() as i32)
+}
+pub(crate) unsafe fn print(s: i32) {
+    if s < 0 || s >= str_ptr {
+        print_cstr("???");
+    } else if s < TOO_BIG_CHAR {
+        print_char(s);
+    } else {
+        for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
+            print_chr(c.unwrap())
+        }
     }
 }
 pub(crate) unsafe fn print_cstr(slice: &str) {
@@ -220,19 +251,20 @@ pub(crate) unsafe fn print_cstr(slice: &str) {
         print_char(s as i32);
     }
 }
+
 pub(crate) unsafe fn print_nl(s: str_number) {
-    if term_offset > 0 && u8::from(selector) & 1 != 0
-        || file_offset > 0 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
-    {
-        print_ln();
+    match selector {
+        Selector::TERM_ONLY | Selector::TERM_AND_LOG if term_offset > 0 => print_ln(),
+        Selector::LOG_ONLY | Selector::TERM_AND_LOG if file_offset > 0 => print_ln(),
+        _ => {}
     }
     print(s);
 }
 pub(crate) unsafe fn print_nl_cstr(slice: &str) {
-    if term_offset > 0 && u8::from(selector) & 1 != 0
-        || file_offset > 0 && (u8::from(selector) >= u8::from(Selector::LOG_ONLY))
-    {
-        print_ln();
+    match selector {
+        Selector::TERM_ONLY | Selector::TERM_AND_LOG if term_offset > 0 => print_ln(),
+        Selector::LOG_ONLY | Selector::TERM_AND_LOG if file_offset > 0 => print_ln(),
+        _ => {}
     }
     print_cstr(slice);
 }
@@ -333,84 +365,113 @@ pub(crate) unsafe fn sprint_cs(p: i32) {
 }
 pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
     let mut must_quote: bool = false;
-    let mut quote_char: i32 = 0;
+    let mut quote_char = None;
     if a != 0 {
         for &j in PoolString::from(a).as_slice() {
-            if must_quote && quote_char != 0 {
+            if must_quote && quote_char.is_some() {
                 break;
             }
             if j as i32 == ' ' as i32 {
-                must_quote = true
-            } else if j as i32 == '\"' as i32 || j as i32 == '\'' as i32 {
                 must_quote = true;
-                quote_char = 73 - j as i32
+            } else if j as i32 == '\"' as i32 {
+                must_quote = true;
+                quote_char = Some('\'');
+            } else if j as i32 == '\'' as i32 {
+                must_quote = true;
+                quote_char = Some('\"');
             }
         }
     }
     if n != 0 {
         for &j in PoolString::from(n).as_slice() {
-            if must_quote && quote_char != 0 {
+            if must_quote && quote_char.is_some() {
                 break;
             }
             if j as i32 == ' ' as i32 {
-                must_quote = true
-            } else if j as i32 == '\"' as i32 || j as i32 == '\'' as i32 {
                 must_quote = true;
-                quote_char = 73 - j as i32
+            } else if j as i32 == '\"' as i32 {
+                must_quote = true;
+                quote_char = Some('\'');
+            } else if j as i32 == '\'' as i32 {
+                must_quote = true;
+                quote_char = Some('\"');
             }
         }
     }
     if e != 0 {
         for &j in PoolString::from(e).as_slice() {
-            if must_quote && quote_char != 0 {
+            if must_quote && quote_char.is_some() {
                 break;
             }
             if j as i32 == ' ' as i32 {
-                must_quote = true
-            } else if j as i32 == '\"' as i32 || j as i32 == '\'' as i32 {
                 must_quote = true;
-                quote_char = 73 - j as i32
+            } else if j as i32 == '\"' as i32 {
+                must_quote = true;
+                quote_char = Some('\'');
+            } else if j as i32 == '\'' as i32 {
+                must_quote = true;
+                quote_char = Some('\"');
             }
         }
     }
     if must_quote {
-        if quote_char == 0 {
-            quote_char = '\"' as i32
+        if let Some(qc) = quote_char {
+            print_chr(qc);
+        } else {
+            quote_char = Some('\"');
+            print_chr('\"');
         }
-        print_char(quote_char);
     }
     if a != 0 {
-        for &j in PoolString::from(a).as_slice() {
-            if j as i32 == quote_char {
-                print(quote_char);
-                quote_char = 73 - quote_char;
-                print(quote_char);
+        for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
+            let j = j.unwrap();
+            if Some(j) == quote_char {
+                print_chr(j);
+                let c = match j {
+                    '\"' => '\'',
+                    '\'' => '\"',
+                    _ => unreachable!(),
+                };
+                quote_char = Some(c);
+                print_chr(c);
             }
-            print(j as i32);
+            print_chr(j);
         }
     }
     if n != 0 {
-        for &j in PoolString::from(n).as_slice() {
-            if j as i32 == quote_char {
-                print(quote_char);
-                quote_char = 73 - quote_char;
-                print(quote_char);
+        for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
+            let j = j.unwrap();
+            if Some(j) == quote_char {
+                print_chr(j);
+                let c = match j {
+                    '\"' => '\'',
+                    '\'' => '\"',
+                    _ => unreachable!(),
+                };
+                quote_char = Some(c);
+                print_chr(c);
             }
-            print(j as i32);
+            print_chr(j);
         }
     }
     if e != 0 {
-        for &j in PoolString::from(e).as_slice() {
-            if j as i32 == quote_char {
-                print(quote_char);
-                quote_char = 73 - quote_char;
-                print(quote_char);
+        for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
+            let j = j.unwrap();
+            if Some(j) == quote_char {
+                print_chr(j);
+                let c = match j {
+                    '\"' => '\'',
+                    '\'' => '\"',
+                    _ => unreachable!(),
+                };
+                quote_char = Some(c);
+                print_chr(c);
             }
-            print(j as i32);
+            print_chr(j);
         }
     }
-    if quote_char != 0 {
-        print_char(quote_char);
+    if let Some(qc) = quote_char {
+        print_chr(qc);
     };
 }
 pub(crate) unsafe fn print_size(s: i32) {
@@ -515,8 +576,8 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
     }
 }
 pub(crate) unsafe fn print_current_string() {
-    for &c in PoolString::current().as_slice() {
-        print_char(c as i32);
+    for c in std::char::decode_utf16(PoolString::current().as_slice().iter().cloned()) {
+        print_chr(c.unwrap());
     }
 }
 pub(crate) unsafe fn print_scaled(s: Scaled) {
@@ -533,7 +594,7 @@ pub(crate) unsafe fn print_scaled(s: Scaled) {
         if delta > 0x10000 {
             s = s + 0x8000 - 50000
         }
-        print_char('0' as i32 + s / 0x10000);
+        print_chr(char::from(b'0' + (s / 0x10000) as u8));
         s = 10 * (s % 0x10000);
         delta *= 10;
         if !(s > delta) {

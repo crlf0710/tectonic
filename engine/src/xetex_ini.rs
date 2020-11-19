@@ -23,7 +23,7 @@ use crate::xetex_output::{
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
 use crate::xetex_stringpool::{
-    load_pool_strings, make_string, PoolString, BIGGEST_CHAR, EMPTY_STRING, TOO_BIG_CHAR,
+    load_pool_strings, make_string, PoolString, EMPTY_STRING, TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::synctex_init_command;
 use crate::xetex_texmfmp::maketexstring;
@@ -71,50 +71,13 @@ use bridge::OutputHandleWrapper;
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Selector {
-    FILE_0,
-    FILE_15,
     NO_PRINT,
     TERM_ONLY,
     LOG_ONLY,
     TERM_AND_LOG,
     PSEUDO,
     NEW_STRING,
-    // Looks like bug in `write_out`, should be deleted after oxidize
-    Other(u8),
-}
-
-impl From<Selector> for u8 {
-    fn from(u: Selector) -> Self {
-        use Selector::*;
-        match u {
-            FILE_0 => 0,
-            FILE_15 => 15,
-            NO_PRINT => 16,
-            TERM_ONLY => 17,
-            LOG_ONLY => 18,
-            TERM_AND_LOG => 19,
-            PSEUDO => 20,
-            NEW_STRING => 21,
-            Other(u) => u,
-        }
-    }
-}
-
-impl From<u8> for Selector {
-    fn from(u: u8) -> Self {
-        use Selector::*;
-        match u {
-            0 => FILE_0,
-            15 => FILE_15,
-            16 => NO_PRINT,
-            17 => TERM_ONLY,
-            18 => LOG_ONLY,
-            19 => TERM_AND_LOG,
-            20 => PSEUDO,
-            21 => NEW_STRING,
-            n => Other(n),
-        }
-    }
+    File(u8),
 }
 
 /*18: */
@@ -497,7 +460,7 @@ pub(crate) static mut rust_stdout: Option<OutputHandleWrapper> = None;
 #[no_mangle]
 pub(crate) static mut log_file: Option<OutputHandleWrapper> = None;
 #[no_mangle]
-pub(crate) static mut selector: Selector = Selector::FILE_0;
+pub(crate) static mut selector: Selector = Selector::File(0);
 #[no_mangle]
 pub(crate) static mut dig: [u8; 23] = [0; 23];
 #[no_mangle]
@@ -507,7 +470,7 @@ pub(crate) static mut term_offset: i32 = 0;
 #[no_mangle]
 pub(crate) static mut file_offset: i32 = 0;
 #[no_mangle]
-pub(crate) static mut trick_buf: [UTF16_code; 256] = [0; 256];
+pub(crate) static mut trick_buf: [char; 256] = ['\u{0}'; 256];
 #[no_mangle]
 pub(crate) static mut trick_count: i32 = 0;
 #[no_mangle]
@@ -4335,7 +4298,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: *const i8, input_file_name: *const
         }
     }
 
-    if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) < BIGGEST_CHAR {
+    if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) < TOO_BIG_CHAR {
         cur_input.limit -= 1
     } else {
         BUFFER[cur_input.limit as usize] = get_int_par(IntPar::end_line_char);

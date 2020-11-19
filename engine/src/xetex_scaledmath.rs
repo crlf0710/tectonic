@@ -113,6 +113,32 @@ impl Scaled {
     }
 }
 
+impl std::fmt::Display for Scaled {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut s = self.0;
+        if s < 0 {
+            '-'.fmt(f)?;
+            s = s.wrapping_neg(); // TODO: check
+        }
+        (s >> 16).fmt(f)?;
+        '.'.fmt(f)?;
+        s = 10 * (s & 0xffff) + 5;
+        let mut delta = 10;
+        loop {
+            if delta > 0x10000 {
+                s = s + 0x8000 - 50000
+            }
+            char::from(b'0' + (s >> 16) as u8).fmt(f)?;
+            s = 10 * (s & 0xffff);
+            delta *= 10;
+            if !(s > delta) {
+                break;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl From<i32> for Scaled {
     fn from(v: i32) -> Self {
         Self(v * Self::ONE.0)
