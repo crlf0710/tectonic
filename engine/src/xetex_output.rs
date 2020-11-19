@@ -365,63 +365,74 @@ pub(crate) unsafe fn sprint_cs(p: i32) {
 }
 pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
     let mut must_quote: bool = false;
-    let mut quote_char: i32 = 0;
+    let mut quote_char = None;
     if a != 0 {
         for &j in PoolString::from(a).as_slice() {
-            if must_quote && quote_char != 0 {
+            if must_quote && quote_char.is_some() {
                 break;
             }
             if j as i32 == ' ' as i32 {
-                must_quote = true
-            } else if j as i32 == '\"' as i32 || j as i32 == '\'' as i32 {
                 must_quote = true;
-                quote_char = 73 - j as i32
+            } else if j as i32 == '\"' as i32 {
+                must_quote = true;
+                quote_char = Some('\'');
+            } else if j as i32 == '\'' as i32 {
+                must_quote = true;
+                quote_char = Some('\"');
             }
         }
     }
     if n != 0 {
         for &j in PoolString::from(n).as_slice() {
-            if must_quote && quote_char != 0 {
+            if must_quote && quote_char.is_some() {
                 break;
             }
             if j as i32 == ' ' as i32 {
-                must_quote = true
-            } else if j as i32 == '\"' as i32 || j as i32 == '\'' as i32 {
                 must_quote = true;
-                quote_char = 73 - j as i32
+            } else if j as i32 == '\"' as i32 {
+                must_quote = true;
+                quote_char = Some('\'');
+            } else if j as i32 == '\'' as i32 {
+                must_quote = true;
+                quote_char = Some('\"');
             }
         }
     }
     if e != 0 {
         for &j in PoolString::from(e).as_slice() {
-            if must_quote && quote_char != 0 {
+            if must_quote && quote_char.is_some() {
                 break;
             }
             if j as i32 == ' ' as i32 {
-                must_quote = true
-            } else if j as i32 == '\"' as i32 || j as i32 == '\'' as i32 {
                 must_quote = true;
-                quote_char = 73 - j as i32
+            } else if j as i32 == '\"' as i32 {
+                must_quote = true;
+                quote_char = Some('\'');
+            } else if j as i32 == '\'' as i32 {
+                must_quote = true;
+                quote_char = Some('\"');
             }
         }
     }
     if must_quote {
-        if quote_char == 0 {
-            quote_char = '\"' as i32
+        if let Some(qc) = quote_char {
+            print_chr(qc);
+        } else {
+            quote_char = Some('\"');
+            print_chr('\"');
         }
-        print_char(quote_char);
     }
     if a != 0 {
         for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
             let j = j.unwrap();
-            if j as i32 == quote_char {
+            if Some(j) == quote_char {
                 print_chr(j);
                 let c = match j {
                     '\"' => '\'',
                     '\'' => '\"',
                     _ => unreachable!(),
                 };
-                quote_char = c as i32;
+                quote_char = Some(c);
                 print_chr(c);
             }
             print_chr(j);
@@ -430,14 +441,14 @@ pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
     if n != 0 {
         for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
             let j = j.unwrap();
-            if j as i32 == quote_char {
+            if Some(j) == quote_char {
                 print_chr(j);
                 let c = match j {
                     '\"' => '\'',
                     '\'' => '\"',
                     _ => unreachable!(),
                 };
-                quote_char = c as i32;
+                quote_char = Some(c);
                 print_chr(c);
             }
             print_chr(j);
@@ -446,21 +457,21 @@ pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
     if e != 0 {
         for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
             let j = j.unwrap();
-            if j as i32 == quote_char {
+            if Some(j) == quote_char {
                 print_chr(j);
                 let c = match j {
                     '\"' => '\'',
                     '\'' => '\"',
                     _ => unreachable!(),
                 };
-                quote_char = c as i32;
+                quote_char = Some(c);
                 print_chr(c);
             }
             print_chr(j);
         }
     }
-    if quote_char != 0 {
-        print_char(quote_char);
+    if let Some(qc) = quote_char {
+        print_chr(qc);
     };
 }
 pub(crate) unsafe fn print_size(s: i32) {

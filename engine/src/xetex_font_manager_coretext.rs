@@ -331,7 +331,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_terminate(_self_0: *mut XeTeXFo
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
     self_0: *const XeTeXFontMgr,
     descriptor: PlatformFontRef,
-) -> *mut libc::c_char {
+) -> String {
     let mut path: *mut libc::c_char = ptr::null_mut();
     let ctFont = CTFontCreateWithFontDescriptor(descriptor, 0.0f64, ptr::null());
     if !ctFont.is_null() {
@@ -356,9 +356,10 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
         path = ptr::null_mut()
     }
     if path.is_null() {
-        path = strdup(b"[unknown]\x00" as *const u8 as *const libc::c_char)
+        "[unknown]".to_string()
+    } else {
+        crate::c_pointer_to_str(path).to_string()
     }
-    return strdup(path);
 }
 pub(crate) unsafe fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFontMgr_Mac) {
     XeTeXFontMgr_base_ctor(&mut (*self_0).super_);

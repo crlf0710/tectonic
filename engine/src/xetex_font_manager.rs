@@ -22,7 +22,7 @@ use crate::xetex_ext::Fix2D;
 use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::collection_types::*;
 use crate::xetex_layout_interface::createFont;
-use crate::xetex_output::{print_char, print_nl};
+use crate::xetex_output::{print_chr, print_nl};
 use crate::xetex_xetex0::{diagnostic, get_tracing_fonts_state};
 
 #[cfg(not(target_os = "macos"))]
@@ -130,7 +130,7 @@ pub(crate) struct XeTeXFontMgr {
     pub(crate) m_memfnInitialize: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
     pub(crate) m_memfnTerminate: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
     pub(crate) m_memfnGetPlatformFontDesc: Option<
-        unsafe extern "C" fn(_: *const XeTeXFontMgr, _: PlatformFontRef) -> *mut libc::c_char,
+        unsafe extern "C" fn(_: *const XeTeXFontMgr, _: PlatformFontRef) -> String,
     >,
     pub(crate) m_memfnGetOpSizeRecAndStyleFlags:
         Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *mut XeTeXFontMgrFont) -> ()>,
@@ -239,10 +239,10 @@ unsafe fn XeTeXFontMgr_terminate(self_0: *mut XeTeXFontMgr) {
 unsafe fn XeTeXFontMgr_getPlatformFontDesc(
     self_0: *const XeTeXFontMgr,
     font: PlatformFontRef,
-) -> *mut libc::c_char {
-    return (*self_0)
+) -> String {
+    (*self_0)
         .m_memfnGetPlatformFontDesc
-        .expect("non-null function pointer")(self_0, font);
+        .expect("non-null function pointer")(self_0, font)
 }
 #[inline]
 unsafe fn XeTeXFontMgr_searchForHostPlatformFonts(
@@ -734,20 +734,12 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     if get_tracing_fonts_state() > 0i32 {
         diagnostic(false, || {
             print_nl(' ' as i32);
-            let mut ch_ptr: *const libc::c_char = b"-> \x00" as *const u8 as *const libc::c_char;
-            while *ch_ptr != 0 {
-                let fresh0 = ch_ptr;
-                ch_ptr = ch_ptr.offset(1);
-                print_char(*fresh0 as libc::c_int);
+            for c in "-> ".chars() {
+                print_chr(c);
             }
-            let font_desc = XeTeXFontMgr_getPlatformFontDesc(self_0, (*font).fontRef);
-            let mut ch_ptr_0: *const libc::c_char = font_desc;
-            while *ch_ptr_0 != 0 {
-                let fresh1 = ch_ptr_0;
-                ch_ptr_0 = ch_ptr_0.offset(1);
-                print_char(*fresh1 as libc::c_int);
+            for c in XeTeXFontMgr_getPlatformFontDesc(self_0, (*font).fontRef).chars() {
+                print_chr(c);
             }
-            free(font_desc as *mut libc::c_void);
         });
     }
     return (*font).fontRef;

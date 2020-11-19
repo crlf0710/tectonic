@@ -2417,16 +2417,16 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
             print_cstr("select font ");
             let font_name_str = FONT_NAME[chr_code as usize];
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[chr_code as usize] {
-                let mut quote_char = '\"' as i32 as UTF16_code;
+                let mut quote_char = '\"';
                 if PoolString::from(font_name_str)
                     .as_slice()
                     .contains(&('\"' as u16))
                 {
-                    quote_char = '\'' as i32 as UTF16_code;
+                    quote_char = '\'';
                 }
-                print_char(quote_char as i32);
+                print_chr(quote_char);
                 print(font_name_str);
-                print_char(quote_char as i32);
+                print_chr(quote_char);
             } else {
                 print(font_name_str);
             }
@@ -8274,16 +8274,16 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             let font_name_str = FONT_NAME[val as usize];
             match &FONT_LAYOUT_ENGINE[val as usize] {
                 Font::Native(_) => {
-                    let mut quote_char = '\"' as i32 as UTF16_code;
+                    let mut quote_char = '\"';
                     if PoolString::from(font_name_str)
                         .as_slice()
                         .contains(&('\"' as u16))
                     {
-                        quote_char = '\'' as i32 as UTF16_code;
+                        quote_char = '\'';
                     }
-                    print_char(quote_char as i32);
+                    print_chr(quote_char);
                     print(font_name_str);
-                    print_char(quote_char as i32);
+                    print_chr(quote_char);
                 }
                 _ => print(font_name_str),
             }
@@ -9178,17 +9178,17 @@ pub(crate) unsafe fn more_name(
     area_delimiter: &mut usize,
     ext_delimiter: &mut usize,
     quoted_filename: &mut bool,
-    file_name_quote_char: &mut Option<u16>,
+    file_name_quote_char: &mut Option<char>,
 ) -> bool {
     if stop_at_space_ && file_name_quote_char.is_none() && c as i32 == ' ' as i32 {
         return false;
     }
-    if stop_at_space_ && *file_name_quote_char == Some(c) {
+    if stop_at_space_ && file_name_quote_char.map(|qc| qc as i32) == Some(c as i32) {
         *file_name_quote_char = None;
         return true;
     }
     if stop_at_space_ && file_name_quote_char.is_none() && (c == '\"' as u16 || c == '\'' as u16) {
-        *file_name_quote_char = Some(c);
+        *file_name_quote_char = Some(char::from(c as u8));
         *quoted_filename = true;
         return true;
     }
@@ -9206,9 +9206,9 @@ pub(crate) unsafe fn more_name(
     }
     true
 }
-pub(crate) unsafe fn make_name<F>(mut f: F) -> (bool, Option<u16>)
+pub(crate) unsafe fn make_name<F>(mut f: F) -> (bool, Option<char>)
 where
-    F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<u16>),
+    F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<char>),
 {
     let mut area_delimiter = 0;
     let mut ext_delimiter = 0;
@@ -9298,7 +9298,7 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     name_in_progress = save_name_in_progress;
     result
 }
-pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (bool, Option<u16>) {
+pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (bool, Option<char>) {
     name_in_progress = true;
     let res = make_name(|a, e, q, qc| {
         let (mut tok, mut cmd, mut chr, _) = loop {

@@ -50,7 +50,7 @@ use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
 use freetype::freetype_sys::{FT_Byte, FT_Face, FT_Long};
 use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
 
-use libc::{free, malloc, strchr, strdup};
+use libc::{free, malloc, strchr};
 
 pub(crate) use fontconfig_sys::fontconfig::{
     enum__FcResult as FcResult, struct__FcPattern as FcPattern,
@@ -584,7 +584,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(self_0: *mut XeTeXFont
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     mut _self_0: *const XeTeXFontMgr,
     font: PlatformFontRef,
-) -> *mut libc::c_char {
+) -> String {
     let mut s: *mut u8 = 0 as *mut u8;
     if FcPatternGetString(
         font,
@@ -594,9 +594,9 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
     ) as libc::c_uint
         == FcResultMatch as libc::c_int as libc::c_uint
     {
-        strdup(s as *const libc::c_char)
+        crate::c_pointer_to_str(s as *const libc::c_char).to_string()
     } else {
-        strdup(b"[unknown]\x00" as *const u8 as *const libc::c_char)
+        "[unknown]".to_string()
     }
 }
 #[no_mangle]

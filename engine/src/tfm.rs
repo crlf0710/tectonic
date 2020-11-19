@@ -73,7 +73,7 @@ use crate::xetex_output::print_file_line;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::sprint_cs;
 use crate::xetex_output::{
-    print_char, print_chr, print_cstr, print_int, print_nl_cstr, print_scaled,
+    print_chr, print_cstr, print_int, print_nl_cstr, print_scaled,
 };
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
@@ -105,7 +105,7 @@ pub(crate) unsafe fn read_font_info(
     aire: str_number,
     s: Scaled,
     quoted_filename: bool,
-    file_name_quote_char: Option<u16>,
+    file_name_quote_char: Option<char>,
 ) -> Result<(bool, usize), TfmError> {
     pack_file_name(nom, aire, cur_ext);
 
@@ -563,7 +563,7 @@ pub(crate) unsafe fn bad_tfm(
     nom: i32,
     aire: i32,
     s: Scaled,
-    file_name_quote_char: Option<u16>,
+    file_name_quote_char: Option<char>,
 ) {
     if get_int_par(IntPar::suppress_fontnotfound_error) == 0 {
         /* NOTE: must preserve this path to keep passing the TRIP tests */
@@ -576,11 +576,11 @@ pub(crate) unsafe fn bad_tfm(
         sprint_cs(u);
         print_chr('=');
         if let Some(qc) = file_name_quote_char {
-            print_char(qc as i32);
+            print_chr(qc);
         }
         print_file_name(nom, aire, cur_ext);
         if let Some(qc) = file_name_quote_char {
-            print_char(qc as i32);
+            print_chr(qc);
         }
         if s >= Scaled::ZERO {
             print_cstr(" at ");
@@ -740,7 +740,7 @@ unsafe fn nf_error(
     nom: str_number,
     aire: str_number,
     s: Scaled,
-    file_name_quote_char: Option<u16>,
+    file_name_quote_char: Option<char>,
 ) {
     match e {
         NativeFontError::NotFound => {}
@@ -754,11 +754,11 @@ unsafe fn nf_error(
             sprint_cs(u);
             print_chr('=');
             if let Some(qc) = file_name_quote_char {
-                print_char(qc as i32);
+                print_chr(qc);
             }
             print_file_name(nom, aire, cur_ext);
             if let Some(qc) = file_name_quote_char {
-                print_char(qc as i32);
+                print_chr(qc);
             }
             if s >= Scaled::ZERO {
                 print_cstr(" at ");
