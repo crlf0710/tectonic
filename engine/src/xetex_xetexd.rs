@@ -136,8 +136,8 @@ pub(crate) unsafe fn is_char_node(p: Option<usize>) -> bool {
 
 #[inline]
 pub(crate) unsafe fn print_c_str(string: &str) {
-    for s in string.bytes() {
-        xetex_output::print_char(s as i32);
+    for s in string.chars() {
+        xetex_output::print_chr(s);
     }
 }
 

@@ -581,7 +581,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(self_0: *mut XeTeXFont
     };
 }
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getPlatformFontDesc(
+pub(crate) unsafe fn XeTeXFontMgr_FC_getPlatformFontDesc(
     mut _self_0: *const XeTeXFontMgr,
     font: PlatformFontRef,
 ) -> String {

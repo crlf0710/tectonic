@@ -328,7 +328,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_terminate(_self_0: *mut XeTeXFo
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_getPlatformFontDesc(
+pub(crate) unsafe fn XeTeXFontMgr_Mac_getPlatformFontDesc(
     self_0: *const XeTeXFontMgr,
     descriptor: PlatformFontRef,
 ) -> String {

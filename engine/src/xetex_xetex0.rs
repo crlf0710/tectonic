@@ -142,8 +142,8 @@ pub(crate) unsafe fn badness(t: Scaled, s: Scaled) -> i32 {
 /*:112*/
 /*118:*/
 pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
-    let mut match_chr = '#' as i32; // character used in a `match`
-    let mut n = '0' as UTF16_code; // the highest parameter number, as an ASCII digit
+    let mut match_chr = '#'; // character used in a `match`
+    let mut n = b'0'; // the highest parameter number, as an ASCII digit
     tally = 0;
     while let Some(p) = popt {
         if !(tally < l) {
@@ -184,26 +184,27 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                     | Cmd::SubMark
                     | Cmd::Spacer
                     | Cmd::Letter
-                    | Cmd::OtherChar => print_char(c),
+                    | Cmd::OtherChar => print_chr(std::char::from_u32(c as u32).unwrap()),
                     Cmd::MacParam => {
-                        print_char(c);
-                        print_char(c);
+                        let c = std::char::from_u32(c as u32).unwrap();
+                        print_chr(c);
+                        print_chr(c);
                     }
                     OUT_PARAM => {
-                        print_char(match_chr);
+                        print_chr(match_chr);
                         if c <= 0x9 {
-                            print_char(c + '0' as i32);
+                            print_chr(char::from((c as u8) + b'0'));
                         } else {
                             print_chr('!');
                             return;
                         }
                     }
                     MATCH => {
-                        match_chr = c;
-                        print_char(c);
+                        match_chr = std::char::from_u32(c as u32).unwrap();
+                        print_chr(match_chr);
                         n += 1;
-                        print_char(n as i32);
-                        if n as i32 > '9' as i32 {
+                        print_chr(char::from(n));
+                        if n > b'9' {
                             return;
                         }
                     }

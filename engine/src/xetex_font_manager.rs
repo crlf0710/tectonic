@@ -129,9 +129,8 @@ pub(crate) struct XeTeXFontMgr {
     pub(crate) m_subdtor: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
     pub(crate) m_memfnInitialize: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
     pub(crate) m_memfnTerminate: Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr) -> ()>,
-    pub(crate) m_memfnGetPlatformFontDesc: Option<
-        unsafe extern "C" fn(_: *const XeTeXFontMgr, _: PlatformFontRef) -> String,
-    >,
+    pub(crate) m_memfnGetPlatformFontDesc:
+        Option<unsafe fn(_: *const XeTeXFontMgr, _: PlatformFontRef) -> String>,
     pub(crate) m_memfnGetOpSizeRecAndStyleFlags:
         Option<unsafe extern "C" fn(_: *mut XeTeXFontMgr, _: *mut XeTeXFontMgrFont) -> ()>,
     pub(crate) m_memfnSearchForHostPlatformFonts:

@@ -72,9 +72,7 @@ use crate::xetex_output::print;
 use crate::xetex_output::print_file_line;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::sprint_cs;
-use crate::xetex_output::{
-    print_chr, print_cstr, print_int, print_nl_cstr, print_scaled,
-};
+use crate::xetex_output::{print_chr, print_cstr, print_int, print_nl_cstr, print_scaled};
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::EMPTY_STRING;

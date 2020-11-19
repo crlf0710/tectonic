@@ -242,7 +242,7 @@ pub(crate) unsafe fn print(s: i32) {
         print_char(s);
     } else {
         for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
-            print_char(c.unwrap() as i32)
+            print_chr(c.unwrap())
         }
     }
 }
@@ -576,8 +576,8 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
     }
 }
 pub(crate) unsafe fn print_current_string() {
-    for &c in PoolString::current().as_slice() {
-        print_char(c as i32);
+    for c in std::char::decode_utf16(PoolString::current().as_slice().iter().cloned()) {
+        print_chr(c.unwrap());
     }
 }
 pub(crate) unsafe fn print_scaled(s: Scaled) {
@@ -594,7 +594,7 @@ pub(crate) unsafe fn print_scaled(s: Scaled) {
         if delta > 0x10000 {
             s = s + 0x8000 - 50000
         }
-        print_char('0' as i32 + s / 0x10000);
+        print_chr(char::from(b'0' + (s / 0x10000) as u8));
         s = 10 * (s % 0x10000);
         delta *= 10;
         if !(s > delta) {
