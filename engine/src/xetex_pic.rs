@@ -14,7 +14,7 @@ use crate::xetex_ini::{
     cur_area, cur_ext, cur_list, cur_name, file_line_error_style_p, input_state_t, name_of_file,
 };
 use crate::xetex_output::{
-    print, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
+    print_chr, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
 };
 use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetex0::{
@@ -361,7 +361,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
         }
         print_cstr("Unable to load picture or PDF file \'");
         print_file_name(cur_name, cur_area, cur_ext);
-        print('\'' as i32);
+        print_chr('\'');
         if result == -43i32 {
             help!(
                 "The requested image couldn\'t be read because",

@@ -68,7 +68,6 @@ use crate::xetex_consts::LIST_TAG;
 use crate::xetex_consts::NON_ADDRESS;
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
-use crate::xetex_output::print;
 use crate::xetex_output::print_file_line;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::sprint_cs;
@@ -111,7 +110,7 @@ pub(crate) unsafe fn read_font_info(
         diagnostic(false, || {
             print_nl_cstr("Requested font \"");
             print_c_str(&name_of_file);
-            print('\"' as i32);
+            print_chr('\"');
             if s < Scaled::ZERO {
                 print_cstr(" scaled ");
                 print_int(-s.0);

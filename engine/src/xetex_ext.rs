@@ -33,7 +33,7 @@ use crate::xetex_ini::{
     name_of_file, DEPTH_BASE, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
     HEIGHT_BASE, PARAM_BASE,
 };
-use crate::xetex_output::{print_char, print_int, print_nl};
+use crate::xetex_output::{print_chr, print_int, print_nl};
 use crate::xetex_scaledmath::xn_over_d;
 use crate::xetex_texmfmp::{gettexstring, maketexstring, to_rust_string};
 use crate::xetex_xetex0::{
@@ -285,15 +285,6 @@ pub(crate) unsafe fn get_encoding_mode_and_info(info: *mut i32) -> UnicodeMode {
         UnicodeMode::ICUMapping
     };
     result
-}
-
-#[cfg(target_os = "macos")]
-pub(crate) unsafe fn print_chars(mut string: *const u16, mut len: i32) {
-    while len > 0 {
-        print_char(*string as i32);
-        string = string.offset(1);
-        len = len - 1;
-    }
 }
 
 unsafe fn load_mapping_file(s: &str, byteMapping: i8) -> *mut libc::c_void {
@@ -1788,25 +1779,16 @@ pub(crate) unsafe fn Fix2D(f: Scaled) -> f64 {
 }
 
 pub(crate) unsafe fn print_glyph_name(font: usize, gid: i32) {
-    let mut len: i32 = 0i32;
-    let mut s = match &FONT_LAYOUT_ENGINE[font as usize] {
+    let s = match &FONT_LAYOUT_ENGINE[font as usize] {
         #[cfg(target_os = "macos")]
-        Font::Native(Aat(attributes)) => aat::GetGlyphNameFromCTFont(
-            aat::font_from_attributes(*attributes),
-            gid as u16,
-            &mut len,
-        ),
-        Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(gid as u16, &mut len),
+        Font::Native(Aat(attributes)) => {
+            aat::GetGlyphNameFromCTFont(aat::font_from_attributes(*attributes), gid as u16)
+        }
+        Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(gid as u16),
         _ => panic!("bad native font flag in `print_glyph_name`"),
     };
-    loop {
-        let fresh33 = len;
-        len = len - 1;
-        if !(fresh33 > 0i32) {
-            break;
-        }
-        print_char(*s as i32);
-        s = s.offset(1);
+    for c in s.chars() {
+        print_chr(c);
     }
 }
 pub(crate) unsafe fn real_get_native_word_cp(node: &NativeWord, side: Side) -> i32 {

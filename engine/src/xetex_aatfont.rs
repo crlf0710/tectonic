@@ -20,7 +20,7 @@ use std::ptr;
 use crate::cmd::ExtCmd;
 use crate::core_memory::{xcalloc, xmalloc};
 use crate::node::NativeWord;
-use crate::xetex_ext::{print_chars, readCommonFeatures, read_double, D2Fix, Fix2D};
+use crate::xetex_ext::{readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::{
     loaded_font_flags, loaded_font_letter_space, name_of_file, FONT_LAYOUT_ENGINE,
     FONT_LETTER_SPACE,
@@ -28,6 +28,7 @@ use crate::xetex_ini::{
 use crate::xetex_xetex0::font_feature_warning;
 use libc::{free, strlen};
 pub(crate) type Boolean = libc::c_uchar;
+use crate::xetex_output::print_chr;
 
 use crate::xetex_scaledmath::Scaled;
 type Fract = i32;
@@ -429,32 +430,24 @@ pub(crate) unsafe fn MapGlyphToIndex_AAT(
     GetGlyphIDFromCTFont(font, glyphName)
 }
 
-pub(crate) unsafe fn GetGlyphNameFromCTFont(
-    ctFontRef: CTFontRef,
-    gid: u16,
-    len: *mut libc::c_int,
-) -> *mut libc::c_char {
+pub(crate) unsafe fn GetGlyphNameFromCTFont(ctFontRef: CTFontRef, gid: u16) -> String {
     static mut buffer: [libc::c_char; 256] = [0; 256];
     buffer[0] = 0i32 as libc::c_char;
-    *len = 0i32;
     let cgfont = CTFontCopyGraphicsFont(ctFontRef, ptr::null_mut());
     if !cgfont.is_null() && (gid as usize) < CGFontGetNumberOfGlyphs(cgfont) {
         let glyphname = CGFontCopyGlyphNameForGlyph(cgfont, gid);
         if !glyphname.is_null() {
-            if CFStringGetCString(
+            CFStringGetCString(
                 glyphname,
                 buffer.as_mut_ptr(),
                 256i32 as CFIndex,
                 kCFStringEncodingUTF8 as libc::c_int as CFStringEncoding,
-            ) != 0
-            {
-                *len = strlen(buffer.as_mut_ptr()) as libc::c_int
-            }
+            );
             CFRelease(glyphname as CFTypeRef);
         }
         CGFontRelease(cgfont);
     }
-    return &mut *buffer.as_mut_ptr().offset(0) as *mut libc::c_char;
+    crate::c_pointer_to_str(buffer.as_mut_ptr() as *mut libc::c_char).to_string()
 }
 
 pub(crate) unsafe fn GetFontCharRange_AAT(
@@ -1260,7 +1253,9 @@ pub(crate) unsafe fn aat_print_font_name(
         let len = CFStringGetLength(name);
         let buf = xcalloc(len as _, ::std::mem::size_of::<UniChar>() as _) as *mut UniChar;
         CFStringGetCharacters(name, CFRangeMake(0i32 as CFIndex, len), buf);
-        print_chars(buf, len as libc::c_int);
+        for &c in std::slice::from_raw_parts(buf, len as _) {
+            print_chr(std::char::from_u32(c as u32).unwrap());
+        }
         free(buf as *mut libc::c_void);
     };
 }

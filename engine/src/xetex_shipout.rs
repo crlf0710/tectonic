@@ -23,7 +23,7 @@ use crate::xetex_ini::{
 };
 use crate::xetex_output::{
     print, print_chr, print_cstr, print_file_line, print_file_name, print_int, print_ln,
-    print_nl_cstr, print_raw_char, print_scaled,
+    print_nl_cstr, print_scaled,
 };
 use crate::xetex_scaledmath::{tex_round, Scaled};
 use crate::xetex_stringpool::PoolString;
@@ -252,12 +252,12 @@ pub(crate) unsafe fn ship_out(mut p: List) {
             print_cstr("default");
         } else {
             print_cstr("width");
-            print(' ' as i32);
+            print_chr(' ');
             print_scaled(get_dimen_par(DimenPar::pdf_page_width));
             print_cstr("pt");
-            print(' ' as i32);
+            print_chr(' ');
             print_cstr("height");
-            print(' ' as i32);
+            print_chr(' ');
             print_scaled(get_dimen_par(DimenPar::pdf_page_height));
             print_cstr("pt");
         }
@@ -2173,20 +2173,20 @@ unsafe fn pic_out(p: &Picture) {
     print_cstr("matrix ");
     let matrix = p.transform_matrix();
     print_scaled(matrix[0]);
-    print(' ' as i32);
+    print_chr(' ');
     print_scaled(matrix[1]);
-    print(' ' as i32);
+    print_chr(' ');
     print_scaled(matrix[2]);
-    print(' ' as i32);
+    print_chr(' ');
     print_scaled(matrix[3]);
-    print(' ' as i32);
+    print_chr(' ');
     print_scaled(matrix[4]);
-    print(' ' as i32);
+    print_chr(' ');
     print_scaled(matrix[5]);
-    print(' ' as i32);
+    print_chr(' ');
     print_cstr("page ");
     print_int(p.page() as i32);
-    print(' ' as i32);
+    print_chr(' ');
 
     match p.pagebox() {
         1 => print_cstr("pagebox cropbox "),
@@ -2197,11 +2197,12 @@ unsafe fn pic_out(p: &Picture) {
         _ => {}
     }
 
-    print('(' as i32);
+    print_chr('(');
     for i in p.path() {
-        print_raw_char(*i as UTF16_code);
+        // TODO: fix
+        print_chr(char::from(*i));
     }
-    print(')' as i32);
+    print_chr(')');
 
     selector = old_setting;
     let cur_str = PoolString::current();

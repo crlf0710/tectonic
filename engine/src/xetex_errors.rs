@@ -19,7 +19,7 @@ use crate::xetex_ini::{
     interaction, job_name, log_opened, rust_stdout, selector, use_err_help,
 };
 use crate::xetex_output::{
-    print, print_chr, print_cstr, print_file_line, print_int, print_ln, print_nl_cstr,
+    print_chr, print_cstr, print_file_line, print_int, print_ln, print_nl_cstr,
 };
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
@@ -174,7 +174,7 @@ pub(crate) unsafe fn pdf_error(t: &str, p: &str) -> ! {
     if !t.is_empty() {
         print_cstr(" (");
         print_cstr(t);
-        print(')' as i32);
+        print_chr(')');
     }
     print_cstr(": ");
     print_cstr(p);

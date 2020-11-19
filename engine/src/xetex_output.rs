@@ -28,7 +28,6 @@ use super::xetex_ini::{
 /* Array allocations. Add 1 to size to account for Pascal indexing convention. */
 /*11:*/
 /*18: */
-pub(crate) type UTF16_code = u16;
 pub(crate) type str_number = i32;
 /* xetex-output */
 /* tectonic/output.c -- functions related to outputting messages
@@ -39,18 +38,18 @@ pub(crate) unsafe fn print_ln() {
     use std::io::Write;
     match selector {
         Selector::TERM_AND_LOG => {
-            write!(rust_stdout.as_mut().unwrap(), "\n").unwrap();
-            write!(log_file.as_mut().unwrap(), "\n").unwrap();
-            term_offset = 0;
-            file_offset = 0;
+            let stdout = rust_stdout.as_mut().unwrap();
+            write_term_ln(stdout).unwrap();
+            let lg = log_file.as_mut().unwrap();
+            write_log_ln(lg).unwrap();
         }
         Selector::LOG_ONLY => {
-            write!(log_file.as_mut().unwrap(), "\n").unwrap();
-            file_offset = 0;
+            let lg = log_file.as_mut().unwrap();
+            write_log_ln(lg).unwrap();
         }
         Selector::TERM_ONLY => {
-            write!(rust_stdout.as_mut().unwrap(), "\n").unwrap();
-            term_offset = 0;
+            let stdout = rust_stdout.as_mut().unwrap();
+            write_term_ln(stdout).unwrap();
         }
         Selector::NO_PRINT | Selector::PSEUDO | Selector::NEW_STRING => {}
         Selector::File(u) => {
@@ -58,66 +57,148 @@ pub(crate) unsafe fn print_ln() {
         }
     };
 }
-pub(crate) unsafe fn print_raw_char(s: UTF16_code) {
-    match selector {
-        Selector::NEW_STRING => {
-            if pool_ptr < pool_size {
-                str_pool[pool_ptr as usize] = s;
-                pool_ptr += 1
-            }
-        }
-        _ => unreachable!(),
-    }
+
+unsafe fn write_term_ln<W: std::io::Write>(out: &mut W) -> std::io::Result<()> {
+    term_offset = 0;
+    write!(out, "\n")
 }
+unsafe fn write_log_ln<W: std::io::Write>(lg: &mut W) -> std::io::Result<()> {
+    file_offset = 0;
+    write!(lg, "\n")
+}
+unsafe fn write_term_char<W: std::io::Write>(out: &mut W, c: char) -> std::io::Result<()> {
+    write!(out, "{}", c)?;
+    term_offset += 1;
+    if term_offset == max_print_line {
+        write_term_ln(out)?;
+    }
+    Ok(())
+}
+
+unsafe fn write_log_char<W: std::io::Write>(lg: &mut W, c: char) -> std::io::Result<()> {
+    write!(lg, "{}", c)?;
+    file_offset += 1;
+    if file_offset == max_print_line {
+        write_log_ln(lg)?;
+    }
+    Ok(())
+}
+
 pub(crate) unsafe fn print_rust_char(s: char) {
     use std::io::Write;
+    let mut count = 1;
     match selector {
         Selector::TERM_AND_LOG => {
             let stdout = rust_stdout.as_mut().unwrap();
             let lg = log_file.as_mut().unwrap();
-            write!(stdout, "{}", s).unwrap();
-            write!(lg, "{}", s).unwrap();
-            term_offset += 1;
-            file_offset += 1;
-            if term_offset == max_print_line {
-                write!(stdout, "\n").unwrap();
-                term_offset = 0;
+            if (s as i32) == get_int_par(IntPar::new_line_char) {
+                write_term_ln(stdout).unwrap();
+                write_log_ln(lg).unwrap();
+                return;
             }
-            if file_offset == max_print_line {
-                write!(lg, "\n").unwrap();
-                file_offset = 0;
+            if s.is_control() {
+                let (buf, len) = replace_control(s);
+                for &c in &buf[..len] {
+                    write_term_char(stdout, c).unwrap();
+                    write_log_char(lg, c).unwrap();
+                }
+            } else {
+                write_term_char(stdout, s).unwrap();
+                write_log_char(lg, s).unwrap();
             }
         }
         Selector::LOG_ONLY => {
-            write!(log_file.as_mut().unwrap(), "{}", s).unwrap();
-            file_offset += 1;
-            if file_offset == max_print_line {
-                print_ln();
+            let lg = log_file.as_mut().unwrap();
+            if (s as i32) == get_int_par(IntPar::new_line_char) {
+                write_log_ln(lg).unwrap();
+                return;
+            }
+            if s.is_control() {
+                let (buf, len) = replace_control(s);
+                for &c in &buf[..len] {
+                    write_log_char(lg, c).unwrap();
+                }
+            } else {
+                write_log_char(lg, s).unwrap();
             }
         }
         Selector::TERM_ONLY => {
-            write!(rust_stdout.as_mut().unwrap(), "{}", s).unwrap();
-            term_offset += 1;
-            if term_offset == max_print_line {
-                print_ln();
+            let stdout = rust_stdout.as_mut().unwrap();
+            if (s as i32) == get_int_par(IntPar::new_line_char) {
+                write_term_ln(stdout).unwrap();
+                return;
+            }
+            if s.is_control() {
+                let (buf, len) = replace_control(s);
+                for &c in &buf[..len] {
+                    write_term_char(stdout, c).unwrap();
+                }
+            } else {
+                write_term_char(stdout, s).unwrap();
             }
         }
         Selector::NO_PRINT => {}
         Selector::PSEUDO => {
-            if tally < trick_count {
-                trick_buf[(tally % error_line) as usize] = s;
+            if s.is_control() {
+                let (buf, len) = replace_control(s);
+                count = 0;
+                for &c in &buf[..len] {
+                    if tally < trick_count {
+                        trick_buf[((tally + count) % error_line) as usize] = c;
+                    }
+                    count += 1;
+                }
+            } else {
+                if tally < trick_count {
+                    trick_buf[(tally % error_line) as usize] = s;
+                }
             }
         }
-        Selector::NEW_STRING => unreachable!(),
+        Selector::NEW_STRING => {
+            if !doing_special {
+                let mut b = [0; 2];
+                for i in s.encode_utf16(&mut b) {
+                    if pool_ptr < pool_size {
+                        str_pool[pool_ptr as usize] = *i;
+                        pool_ptr += 1
+                    }
+                }
+                return;
+            } else {
+                let mut b = [0; 4];
+                for c in s.encode_utf8(&mut b).bytes() {
+                    if pool_ptr < pool_size {
+                        str_pool[pool_ptr as usize] = c as u16;
+                        pool_ptr += 1
+                    }
+                }
+                return;
+            }
+        }
         Selector::File(u) => {
-            write!(write_file[u as usize].as_mut().unwrap(), "{}", s).unwrap();
+            let file = write_file[u as usize].as_mut().unwrap();
+            if (s as i32) == get_int_par(IntPar::new_line_char) {
+                write!(file, "\n").unwrap();
+                return;
+            }
+            if s.is_control() {
+                let (buf, len) = replace_control(s);
+                for &c in &buf[..len] {
+                    write!(file, "{}", c).unwrap();
+                }
+            } else {
+                write!(file, "{}", s).unwrap();
+            }
         }
     }
-    tally += 1;
+    tally += count;
 }
 // TODO: optimize
 pub(crate) unsafe fn print_rust_string(s: &str) {
-    use std::io::Write;
+    for c in s.chars() {
+        print_rust_char(c);
+    }
+    /*use std::io::Write;
     let mut count = s.chars().count() as i32;
     match selector {
         Selector::TERM_AND_LOG => {
@@ -188,51 +269,43 @@ pub(crate) unsafe fn print_rust_string(s: &str) {
             write!(write_file[u as usize].as_mut().unwrap(), "{}", s).unwrap();
         }
     }
-    tally += count;
+    tally += count;*/
 }
 pub(crate) unsafe fn print_char(s: i32) {
     print_chr(std::char::from_u32(s as u32).unwrap())
 }
 pub(crate) unsafe fn print_chr(s: char) {
-    if selector == Selector::NEW_STRING {
-        if !doing_special {
-            let mut b = [0; 2];
-            for i in s.encode_utf16(&mut b) {
-                print_raw_char(*i);
-            }
-            return;
-        } else {
-            let mut b = [0; 4];
-            for c in s.encode_utf8(&mut b).bytes() {
-                print_raw_char(c as u16);
-            }
-            return;
-        }
-    }
-    if (s as i32) == get_int_par(IntPar::new_line_char) {
-        if selector != Selector::PSEUDO {
-            print_ln();
-            return;
-        }
-    }
+    print_rust_char(s);
+}
+
+unsafe fn replace_control(s: char) -> ([char; 4], usize) {
     match s {
-        '\u{0}'..='\u{1f}' => {
-            print_rust_string("^^");
-            print_rust_char(char::from((s as u8) + 0x40));
-        }
-        '\u{7f}' => print_rust_string("^^?"),
-        '\u{80}'..='\u{9f}' => {
-            print_rust_string("^^");
-            let s = s as u8;
-            for &l in &[(s / 16), (s % 16)] {
-                if l < 10 {
-                    print_rust_char(char::from(b'0' + l));
-                } else {
-                    print_rust_char(char::from(b'a' + l - 10));
-                }
-            }
-        }
-        _ => print_rust_char(s),
+        '\u{0}'..='\u{1f}' => (['^', '^', char::from((s as u8) + 0x40), '\u{0}'], 3),
+        '\u{7f}' => (['^', '^', '?', '\u{0}'], 3),
+        '\u{80}'..='\u{9f}' => (
+            [
+                '^',
+                '^',
+                {
+                    let l = (s as u8) / 16;
+                    if l < 10 {
+                        char::from(b'0' + l)
+                    } else {
+                        char::from(b'a' + l - 10)
+                    }
+                },
+                {
+                    let l = (s as u8) % 16;
+                    if l < 10 {
+                        char::from(b'0' + l)
+                    } else {
+                        char::from(b'a' + l - 10)
+                    }
+                },
+            ],
+            4,
+        ),
+        _ => unreachable!(),
     }
 }
 pub(crate) unsafe fn print(s: i32) {
@@ -247,8 +320,8 @@ pub(crate) unsafe fn print(s: i32) {
     }
 }
 pub(crate) unsafe fn print_cstr(slice: &str) {
-    for &s in slice.as_bytes() {
-        print_char(s as i32);
+    for s in slice.chars() {
+        print_chr(s);
     }
 }
 
@@ -498,7 +571,7 @@ pub(crate) unsafe fn print_native_word(p: &NativeWord) {
         if let Ok(c) = c {
             print_char(c as i32);
         } else {
-            print('.' as i32);
+            print_chr('.');
         }
     }
 }
@@ -525,7 +598,7 @@ pub(crate) unsafe fn print_file_line() {
     } else {
         print_nl_cstr("");
         print(FULL_SOURCE_FILENAME_STACK[level]);
-        print(':' as i32);
+        print_chr(':');
         if level == IN_OPEN {
             print_int(line);
         } else {

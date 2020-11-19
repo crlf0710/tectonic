@@ -83,7 +83,7 @@ pub(crate) mod imp {}
 pub(crate) mod imp;
 
 use crate::xetex_ext::Fix2D;
-use libc::{free, strlen};
+use libc::free;
 extern "C" {
     // TODO: NOTE: this api doesn't included in harfbuzz_sys
     #[no_mangle]
@@ -798,11 +798,7 @@ impl XeTeXFontInst {
         FT_Get_Name_Index(self.m_ftFace, glyphName as *mut libc::c_char) as GlyphID
     }
 
-    pub(crate) unsafe fn get_glyph_name(
-        &self,
-        gid: GlyphID,
-        nameLen: *mut libc::c_int,
-    ) -> *const libc::c_char {
+    pub(crate) unsafe fn get_glyph_name(&self, gid: GlyphID) -> String {
         if (*self.m_ftFace).face_flags & 1 << 9i32 != 0 {
             static mut buffer: [libc::c_char; 256] = [0; 256];
             FT_Get_Glyph_Name(
@@ -811,12 +807,10 @@ impl XeTeXFontInst {
                 buffer.as_mut_ptr() as FT_Pointer,
                 256i32 as FT_UInt,
             );
-            *nameLen = strlen(buffer.as_mut_ptr()) as libc::c_int;
-            return &mut *buffer.as_mut_ptr().offset(0) as *mut libc::c_char;
+            crate::c_pointer_to_str(*buffer.as_mut_ptr() as *mut libc::c_char).to_string()
         } else {
-            *nameLen = 0i32;
-            return ptr::null();
-        };
+            String::new()
+        }
     }
 
     pub(crate) unsafe fn get_first_char_code(&mut self) -> UChar32 {

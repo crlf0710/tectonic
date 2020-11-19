@@ -642,11 +642,7 @@ pub(crate) unsafe fn print_fam_and_char(p: usize) {
     print_int(MEM[p].b16.s1 as i32 % 256 % 256);
     print_chr(' ');
     let c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
-    if (c as i64) < 65536 {
-        print(c);
-    } else {
-        print_char(c);
-    };
+    print_char(c);
 }
 pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
     let a = ((d.s3 as i32 % 256 * 256) as i64 + (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536))
@@ -885,7 +881,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         print_cstr("( ");
                         print_rust_string(std::str::from_utf8(p.path()).unwrap());
-                        print('\"' as i32);
+                        print_chr('\"');
                     }
                     WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
                     //_ => print_cstr("whatsit?"),
@@ -1798,76 +1794,40 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
     match cmd {
         Cmd::LeftBrace => {
             print_cstr("begin-group character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            print_char(chr_code);
         }
         Cmd::RightBrace => {
             print_cstr("end-group character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            print_char(chr_code);
         }
         Cmd::MathShift => {
             print_cstr("math shift character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            print_char(chr_code);
         }
         Cmd::MacParam => {
             print_cstr("macro parameter character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            print_char(chr_code);
         }
         Cmd::SupMark => {
             print_cstr("superscript character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            print_char(chr_code);
         }
         Cmd::SubMark => {
             print_cstr("subscript character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            print_char(chr_code);
         }
         Cmd::EndV => print_cstr("end of alignment template"),
         Cmd::Spacer => {
             print_cstr("blank space ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            print_char(chr_code);
         }
         Cmd::Letter => {
             print_cstr("the letter ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            print_char(chr_code);
         }
         Cmd::OtherChar => {
             print_cstr("the character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            print_char(chr_code);
         }
         Cmd::AssignGlue | Cmd::AssignMuGlue => {
             if chr_code < SKIP_BASE as i32 {
@@ -2208,11 +2168,7 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr("span");
             } else {
                 print_cstr("alignment tab character ");
-                if (chr_code as i64) < 65536 {
-                    print(chr_code);
-                } else {
-                    print_char(chr_code);
-                }
+                print_char(chr_code);
             }
         }
         Cmd::CarRet => print_esc_cstr(if chr_code == CR_CODE { "cr" } else { "crcr" }),
@@ -3486,12 +3442,14 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     p = l + first_count - half_error_line + 3;
                     n = half_error_line
                 }
+                let nl = get_int_par(IntPar::new_line_char);
+                set_int_par(IntPar::new_line_char, -1);
                 for q in p..first_count {
-                    print_rust_char(trick_buf[(q % error_line) as usize]);
+                    print_chr(trick_buf[(q % error_line) as usize]);
                 }
                 print_ln();
                 for _ in 0..n {
-                    print_rust_char(' ');
+                    print_chr(' ');
                 }
                 let p = if m + n <= error_line {
                     first_count + m
@@ -3499,8 +3457,9 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     first_count + (error_line - n - 3)
                 };
                 for q in first_count..p {
-                    print_rust_char(trick_buf[(q % error_line) as usize]);
+                    print_chr(trick_buf[(q % error_line) as usize]);
                 }
+                set_int_par(IntPar::new_line_char, nl);
                 if m + n > error_line {
                     print_cstr("...");
                 }
@@ -8303,7 +8262,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 0 => {
                     print_scaled(Scaled(MEM[m.ptr() + 1].b32.s1));
                 }
-                _ => print('0' as i32),
+                _ => print_chr('0'),
             }
             print_cstr("pt");
         }
@@ -8336,7 +8295,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 1 => {
                     print_scaled(Scaled(MEM[m.ptr() + 1].b32.s1));
                 }
-                _ => print('0' as i32),
+                _ => print_chr('0'),
             }
             print_cstr("pt");
         }
@@ -9477,11 +9436,7 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
         }
         diagnostic(false, || {
             print_nl_cstr("Missing character: There is no ");
-            if (c as i64) < 65536 {
-                print(c);
-            } else {
-                print_char(c);
-            }
+            print_char(c);
             print_cstr(" in font ");
             print(FONT_NAME[f]);
             print_chr('!');
@@ -9491,11 +9446,7 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
     let fn_0 = gettexstring(FONT_NAME[f]);
     let prev_selector = selector;
     selector = Selector::NEW_STRING;
-    if c < 0x10000 {
-        print(c);
-    } else {
-        print_char(c);
-    }
+    print_char(c);
     selector = prev_selector;
     let s = make_string();
     let chr = gettexstring(s);
