@@ -80,37 +80,6 @@ pub(crate) enum Selector {
     File(u8),
 }
 
-impl From<Selector> for u8 {
-    fn from(u: Selector) -> Self {
-        use Selector::*;
-        match u {
-            NO_PRINT => 16,
-            TERM_ONLY => 17,
-            LOG_ONLY => 18,
-            TERM_AND_LOG => 19,
-            PSEUDO => 20,
-            NEW_STRING => 21,
-            File(u) if (0..16).contains(&u) => u,
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl From<u8> for Selector {
-    fn from(u: u8) -> Self {
-        use Selector::*;
-        match u {
-            16 => NO_PRINT,
-            17 => TERM_ONLY,
-            18 => LOG_ONLY,
-            19 => TERM_AND_LOG,
-            20 => PSEUDO,
-            21 => NEW_STRING,
-            n => File(n),
-        }
-    }
-}
-
 /*18: */
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;

@@ -1751,7 +1751,7 @@ where
 {
     let oldsetting = selector;
     if get_int_par(IntPar::tracing_online) <= 0 && selector == Selector::TERM_AND_LOG {
-        selector = (u8::from(selector) - 1).into();
+        selector = Selector::LOG_ONLY;
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
         }
@@ -4378,7 +4378,8 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                     continue;
                                 }
                                 _ => {
-                                    if u8::from(selector) < u8::from(Selector::LOG_ONLY) {
+                                    if matches!(selector, Selector::NO_PRINT | Selector::TERM_ONLY)
+                                    {
                                         open_log_file();
                                     }
                                     fatal_error("*** (job aborted, no legal \\end found)");
@@ -9358,7 +9359,11 @@ pub(crate) unsafe fn open_log_file() {
         k += 1;
     }
     print_ln();
-    selector = (u8::from(old_setting) + 2).into();
+    selector = match old_setting {
+        Selector::NO_PRINT => Selector::LOG_ONLY,
+        Selector::TERM_ONLY => Selector::TERM_AND_LOG,
+        _ => unreachable!(),
+    };
 }
 
 /// `\TeX` will `\input` something
@@ -13838,13 +13843,11 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
 pub(crate) unsafe fn new_interaction(chr: i32) {
     print_ln();
     interaction = InteractionMode::n(chr as u8).unwrap();
-    selector = if interaction == InteractionMode::Batch {
-        Selector::NO_PRINT
-    } else {
-        Selector::TERM_ONLY
-    };
-    if log_opened {
-        selector = (u8::from(selector)).wrapping_add(2).into()
+    selector = match (interaction, log_opened) {
+        (InteractionMode::Batch, false) => Selector::NO_PRINT,
+        (InteractionMode::Batch, true) => Selector::LOG_ONLY,
+        (_, false) => Selector::TERM_ONLY,
+        (_, true) => Selector::TERM_AND_LOG,
     };
 }
 pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32) {
@@ -16155,11 +16158,15 @@ pub(crate) unsafe fn close_files_and_terminate() {
         write!(log_file.as_mut().unwrap(), "\n").unwrap();
         ttstub_output_close(log_file.take().unwrap());
         log_file = None;
-        selector = u8::from(selector).wrapping_sub(2).into();
-        if selector == Selector::TERM_ONLY {
-            print_nl_cstr("Transcript written on ");
-            print(texmf_log_name);
-            print_chr('.');
+        match selector {
+            Selector::LOG_ONLY => selector = Selector::NO_PRINT,
+            Selector::TERM_AND_LOG => {
+                selector = Selector::TERM_ONLY;
+                print_nl_cstr("Transcript written on ");
+                print(texmf_log_name);
+                print_chr('.');
+            }
+            _ => unreachable!(),
         }
     }
     print_ln();

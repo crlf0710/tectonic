@@ -50,11 +50,15 @@ unsafe fn pre_error_message() {
     } else {
         selector = Selector::TERM_ONLY
     }
-    if job_name == 0i32 {
+    if job_name == 0 {
         open_log_file();
     }
     if interaction == InteractionMode::Batch {
-        selector = (u8::from(selector) - 1).into()
+        selector = match selector {
+            Selector::TERM_ONLY => Selector::NO_PRINT,
+            Selector::TERM_AND_LOG => Selector::LOG_ONLY,
+            _ => unreachable!(),
+        };
     }
     if file_line_error_style_p != 0 {
         print_file_line();
@@ -98,7 +102,11 @@ pub(crate) unsafe fn error() {
         panic!("halted after 100 potentially-recoverable errors");
     }
     if interaction != InteractionMode::Batch {
-        selector = (u8::from(selector) - 1).into()
+        selector = match selector {
+            Selector::TERM_ONLY => Selector::NO_PRINT,
+            Selector::TERM_AND_LOG => Selector::LOG_ONLY,
+            _ => unreachable!(),
+        }
     }
     if use_err_help {
         print_ln();
@@ -111,7 +119,11 @@ pub(crate) unsafe fn error() {
     }
     print_ln();
     if interaction != InteractionMode::Batch {
-        selector = (u8::from(selector) + 1).into()
+        selector = match selector {
+            Selector::NO_PRINT => Selector::TERM_ONLY,
+            Selector::LOG_ONLY => Selector::TERM_AND_LOG,
+            _ => unreachable!(),
+        }
     }
     print_ln();
 }
