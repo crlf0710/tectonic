@@ -3807,11 +3807,10 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
 /// appear on that line. (There might not be any tokens at all, if the
 /// `end_line_char` has `ignore` as its catcode.)
 pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
-    let mut ochr = None;
-    let mut ocmd = None;
     // go here to get the next input token
     'restart: loop {
-        let mut current_block: u64;
+        let mut ochr: i32;
+        let mut ocmd: Cmd;
         let mut cs = 0;
         if input.state != InputState::TokenList {
             // Input from external file, goto `'restart` if no input found
@@ -3825,9 +3824,9 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                     input.loc += 1;
                     // go here to digest it again
                     'reswitch: loop {
-                        ochr = Some(chr);
+                        ochr = chr;
                         let cmd = Cmd::from(*CAT_CODE(chr as usize) as u16);
-                        ocmd = Some(cmd);
+                        ocmd = cmd;
                         // Change state if necessary, and goto `'switch` if the
                         // current character should be ignored,
                         // or goto `'reswitch` if the current character
@@ -3847,12 +3846,244 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 // Scan a control sequence
                                 // and set `state:=skip_blanks` or `mid_line`
                                 if input.loc > input.limit {
-                                    current_block = 17833034027772472439;
-                                    break 'switch;
+                                    // `state` is irrelevant in this case
+                                    cs = NULL_CS as i32;
                                 } else {
-                                    current_block = 7720778817628725688;
-                                    break 'switch;
+                                    let mut k;
+                                    let mut cat;
+                                    let mut chr;
+                                    // go here to start looking for a control sequence
+                                    'start_cs: loop {
+                                        k = input.loc;
+                                        chr = BUFFER[k as usize];
+                                        cat = Cmd::from(*CAT_CODE(chr as usize) as u16);
+                                        k += 1;
+                                        if cat == Cmd::Letter {
+                                            input.state = InputState::SkipBlanks;
+                                        } else if cat == Cmd::Spacer {
+                                            input.state = InputState::SkipBlanks;
+                                        } else {
+                                            input.state = InputState::MidLine;
+                                        }
+                                        if cat == Cmd::Letter && k <= input.limit {
+                                            // Scan ahead in the buffer until finding a nonletter;
+                                            // if an expanded code is encountered, reduce it
+                                            // and goto `start_cs`; otherwise if a multiletter control
+                                            // sequence is found, adjust `cs` and `loc`, and
+                                            // goto `'found`
+                                            loop
+                                            /*368:*/
+                                            {
+                                                chr = BUFFER[k as usize];
+                                                cat = Cmd::from(*CAT_CODE(chr as usize) as u16);
+                                                k += 1;
+                                                if !(cat == Cmd::Letter && k <= input.limit) {
+                                                    break;
+                                                }
+                                            }
+                                            // If an expanded...
+                                            if cat == Cmd::SupMark
+                                                && BUFFER[k as usize] == chr
+                                                && k < input.limit
+                                            {
+                                                let mut sup_count = 2;
+                                                // we have `^^` and another char; check how many `^`s we have altogether, up to a max of 6
+                                                while sup_count < 6
+                                                    && k + 2 * sup_count as i32 - 2 <= input.limit
+                                                    && BUFFER[(k + sup_count as i32 - 1) as usize]
+                                                        == chr
+                                                {
+                                                    sup_count += 1;
+                                                }
+                                                let sup_count_save = sup_count as i32;
+                                                // check whether we have enough hex chars for the number of `^`s
+                                                for d in 1..=sup_count_save {
+                                                    if !IS_LC_HEX(
+                                                        BUFFER[(k + sup_count as i32 - 2 + d as i32)
+                                                            as usize],
+                                                    ) {
+                                                        // found a non-hex char, so do single `^^X` style
+                                                        let c = BUFFER[(k + 1) as usize];
+                                                        if c < 128 {
+                                                            if c < 64 {
+                                                                BUFFER[(k - 1) as usize] = c + 64
+                                                            } else {
+                                                                BUFFER[(k - 1) as usize] = c - 64
+                                                            }
+                                                            let d = 2;
+                                                            input.limit = input.limit - d as i32;
+                                                            while k <= input.limit {
+                                                                BUFFER[k as usize] =
+                                                                    BUFFER[(k + d as i32) as usize];
+                                                                k += 1
+                                                            }
+                                                            continue 'start_cs;
+                                                        } else {
+                                                            sup_count = 0;
+                                                        }
+                                                    }
+                                                }
+                                                if sup_count as i32 > 0 {
+                                                    // there were the right number of hex chars, so convert them
+                                                    chr = 0;
+
+                                                    for d in 1..=sup_count as i32 {
+                                                        let c = BUFFER[(k + sup_count as i32 - 2
+                                                            + d as i32)
+                                                            as usize];
+                                                        chr = if c <= '9' as i32 {
+                                                            16 * chr + c - '0' as i32
+                                                        } else {
+                                                            16 * chr + c - 'a' as i32 + 10
+                                                        };
+                                                    }
+
+                                                    // check the resulting value is within the valid range
+                                                    if chr > BIGGEST_USV as i32 {
+                                                        //ochr = Some(BUFFER[k as usize]);
+                                                    } else {
+                                                        BUFFER[(k - 1) as usize] = chr;
+                                                        let d = (2 * sup_count as i32 - 1) as i16;
+                                                        // shift the rest of the buffer left by `d` chars
+                                                        input.limit = input.limit - d as i32;
+                                                        while k <= input.limit {
+                                                            BUFFER[k as usize] =
+                                                                BUFFER[(k + d as i32) as usize];
+                                                            k += 1
+                                                        }
+                                                        continue 'start_cs;
+                                                    }
+                                                }
+                                            }
+                                            // If an expanded...
+                                            if cat != Cmd::Letter {
+                                                k -= 1;
+                                                // now `k` points to first nonletter
+                                            }
+                                            if k > input.loc + 1 {
+                                                // multiletter control sequence has been scanned
+                                                cs = id_lookup(
+                                                    input.loc as usize,
+                                                    (k - input.loc) as usize,
+                                                );
+                                                input.loc = k;
+                                            } else {
+                                                // If an expanded code is present, reduce it and goto `start_cs`>;
+                                                // At this point, we have a single-character cs name in the buffer.
+                                                // But if the character code is > 0xFFFF, we treat it like a multiletter name
+                                                // for string purposes, because we use UTF-16 in the string pool.
+                                                if BUFFER[input.loc as usize] as i64 > 0xffff {
+                                                    cs = id_lookup(input.loc as usize, 1);
+                                                    input.loc += 1;
+                                                } else {
+                                                    cs = SINGLE_BASE as i32
+                                                        + BUFFER[input.loc as usize];
+                                                    input.loc += 1;
+                                                }
+                                            }
+                                        } else {
+                                            if cat == Cmd::SupMark
+                                                && BUFFER[k as usize] == chr
+                                                && k < input.limit
+                                            {
+                                                let mut sup_count = 2;
+                                                while sup_count < 6
+                                                    && k + 2 * sup_count as i32 - 2 <= input.limit
+                                                    && BUFFER[(k + sup_count as i32 - 1) as usize]
+                                                        == chr
+                                                {
+                                                    sup_count += 1
+                                                }
+                                                let sup_count_save_0 = sup_count as i32;
+                                                for d in 1..=sup_count_save_0 {
+                                                    if !IS_LC_HEX(
+                                                        BUFFER[(k + sup_count as i32 - 2 + d as i32)
+                                                            as usize],
+                                                    ) {
+                                                        let c = BUFFER[(k + 1) as usize];
+                                                        if c < 128 {
+                                                            if c < 64 {
+                                                                BUFFER[(k - 1) as usize] = c + 64
+                                                            } else {
+                                                                BUFFER[(k - 1) as usize] = c - 64
+                                                            }
+                                                            let d = 2;
+                                                            input.limit = input.limit - d as i32;
+                                                            while k <= input.limit {
+                                                                BUFFER[k as usize] =
+                                                                    BUFFER[(k + d as i32) as usize];
+                                                                k += 1
+                                                            }
+                                                            continue 'start_cs;
+                                                        } else {
+                                                            sup_count = 0;
+                                                        }
+                                                    }
+                                                }
+                                                if sup_count > 0 {
+                                                    chr = 0;
+                                                    for d in 1..=sup_count as i32 {
+                                                        let c = BUFFER[(k + sup_count as i32 - 2
+                                                            + d as i32)
+                                                            as usize];
+                                                        if c <= '9' as i32 {
+                                                            chr = 16 * chr + c - '0' as i32
+                                                        } else {
+                                                            chr = 16 * chr + c - 'a' as i32 + 10
+                                                        }
+                                                    }
+
+                                                    if chr > BIGGEST_USV as i32 {
+                                                        //ochr = Some(BUFFER[k as usize]);
+                                                    } else {
+                                                        BUFFER[(k - 1) as usize] = chr;
+                                                        let d = (2 * sup_count as i32 - 1) as i16;
+                                                        input.limit = input.limit - d as i32;
+                                                        while k <= input.limit {
+                                                            BUFFER[k as usize] =
+                                                                BUFFER[(k + d as i32) as usize];
+                                                            k += 1
+                                                        }
+                                                        continue 'start_cs;
+                                                    }
+                                                }
+                                            }
+                                            // If an expanded code is present, reduce it and goto `start_cs`>;
+                                            // At this point, we have a single-character cs name in the buffer.
+                                            // But if the character code is > 0xFFFF, we treat it like a multiletter name
+                                            // for string purposes, because we use UTF-16 in the string pool.
+                                            if BUFFER[input.loc as usize] as i64 > 0xffff {
+                                                cs = id_lookup(input.loc as usize, 1);
+                                                input.loc += 1;
+                                            } else {
+                                                cs =
+                                                    SINGLE_BASE as i32 + BUFFER[input.loc as usize];
+                                                input.loc += 1;
+                                            }
+                                        }
+                                        break;
+                                    }
                                 }
+                                // found: go here when a control sequence has been found
+                                let mut cmd = eq_type(cs as usize);
+                                let mut chr = EQTB[cs as usize].val;
+                                if cmd >= Cmd::OuterCall {
+                                    if check_outer_validity(input, &mut cs) {
+                                        // replace it by a space
+                                        cmd = Cmd::Spacer;
+                                        chr = ' ' as i32;
+                                    }
+                                }
+                                ocmd = cmd;
+                                ochr = chr;
+
+                                // Whenever we reach the following piece of code, we will have
+                                // `cur_chr=buffer[k-1]` and `k<=limit+1` and `cat=cat_code(cur_chr)`. If an
+                                // expanded code like `^^A` or `^^df` appears in `buffer[(k-1)..(k+1)]`
+                                // or `buffer[(k-1)..(k+2)]`, we
+                                // will store the corresponding code in `buffer[k-1]` and shift the rest of
+                                // the buffer left two or three places.
+                                break 'switch;
                             }
                             (InputState::MidLine, Cmd::ActiveChar)
                             | (InputState::SkipBlanks, Cmd::ActiveChar)
@@ -3869,9 +4100,8 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         chr = ' ' as i32;
                                     }
                                 }
-                                ocmd = Some(cmd);
-                                ochr = Some(chr);
-                                current_block = 14956172121224201915;
+                                ocmd = cmd;
+                                ochr = chr;
                                 break 'switch;
                             }
                             (InputState::MidLine, Cmd::SupMark)
@@ -3880,59 +4110,60 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 // If this `sup_mark` starts an expanded character
                                 // like `^^A` or `^^df`, then goto `'reswitch`,
                                 // otherwise set `state:=mid_line`
-                                if !(chr == BUFFER[input.loc as usize]) {
-                                    current_block = 8567661057257693057;
-                                    break 'switch;
-                                }
-                                if !(input.loc < input.limit) {
-                                    current_block = 8567661057257693057;
-                                    break 'switch;
-                                }
-                                let mut sup_count = 2;
-                                // we have `^^` and another char; check how many `^`s we have altogether, up to a max of 6
-                                while sup_count < 6
-                                    && input.loc + 2 * sup_count as i32 - 2 <= input.limit
-                                    && chr == BUFFER[(input.loc + sup_count as i32 - 1) as usize]
-                                {
-                                    sup_count += 1
-                                }
-                                // check whether we have enough hex chars for the number of `^`s
-                                for d in 1..=sup_count as i32 {
-                                    if !IS_LC_HEX(
-                                        BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
-                                            as usize],
-                                    ) {
-                                        // found a non-hex char, so do single `^^X` style
-                                        let c = BUFFER[(input.loc + 1) as usize];
-                                        if !(c < 128) {
-                                            ochr = Some(chr);
-                                            current_block = 8567661057257693057;
-                                            break 'switch;
+                                if chr == BUFFER[input.loc as usize] && input.loc < input.limit {
+                                    let mut sup_count = 2;
+                                    // we have `^^` and another char; check how many `^`s we have altogether, up to a max of 6
+                                    while sup_count < 6
+                                        && input.loc + 2 * sup_count as i32 - 2 <= input.limit
+                                        && chr
+                                            == BUFFER[(input.loc + sup_count as i32 - 1) as usize]
+                                    {
+                                        sup_count += 1
+                                    }
+                                    // check whether we have enough hex chars for the number of `^`s
+                                    for d in 1..=sup_count as i32 {
+                                        if !IS_LC_HEX(
+                                            BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
+                                                as usize],
+                                        ) {
+                                            // found a non-hex char, so do single `^^X` style
+                                            let c = BUFFER[(input.loc + 1) as usize];
+                                            if !(c < 128) {
+                                                ochr = chr;
+                                                // not_exp: go here when `^^` turned out not to start an expanded code
+                                                input.state = InputState::MidLine;
+                                                break 'switch;
+                                            }
+                                            input.loc = input.loc + 2;
+                                            chr = if c < 64 { c + 64 } else { c - 64 };
+                                            continue 'reswitch;
                                         }
-                                        input.loc = input.loc + 2;
-                                        chr = if c < 64 { c + 64 } else { c - 64 };
+                                    }
+                                    // there were the right number of hex chars, so convert them
+                                    chr = 0;
+                                    for d in 1..=sup_count as i32 {
+                                        let c = BUFFER[(input.loc + sup_count as i32 - 2 + d as i32)
+                                            as usize];
+                                        if c <= '9' as i32 {
+                                            chr = 16 * chr + c - '0' as i32
+                                        } else {
+                                            chr = 16 * chr + c - 'a' as i32 + 10
+                                        }
+                                    }
+                                    // check the resulting value is within the valid range
+                                    if chr > BIGGEST_USV as i32 {
+                                        ochr = BUFFER[input.loc as usize];
+                                        // not_exp: go here when `^^` turned out not to start an expanded code
+                                        input.state = InputState::MidLine;
+                                        break 'switch;
+                                    } else {
+                                        input.loc += 2 * sup_count as i32 - 1;
                                         continue 'reswitch;
                                     }
                                 }
-                                // there were the right number of hex chars, so convert them
-                                chr = 0;
-                                for d in 1..=sup_count as i32 {
-                                    let c = BUFFER
-                                        [(input.loc + sup_count as i32 - 2 + d as i32) as usize];
-                                    if c <= '9' as i32 {
-                                        chr = 16 * chr + c - '0' as i32
-                                    } else {
-                                        chr = 16 * chr + c - 'a' as i32 + 10
-                                    }
-                                }
-                                // check the resulting value is within the valid range
-                                if chr > BIGGEST_USV as i32 {
-                                    ochr = Some(BUFFER[input.loc as usize]);
-                                    current_block = 8567661057257693057;
-                                    break 'switch;
-                                } else {
-                                    input.loc += 2 * sup_count as i32 - 1;
-                                }
+                                // not_exp: go here when `^^` turned out not to start an expanded code
+                                input.state = InputState::MidLine;
+                                break 'switch;
                             }
                             (InputState::MidLine, INVALID_CHAR)
                             | (InputState::SkipBlanks, INVALID_CHAR)
@@ -3954,15 +4185,13 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             }
                             (InputState::MidLine, Cmd::Spacer) => {
                                 input.state = InputState::SkipBlanks;
-                                ochr = Some(' ' as i32);
-                                current_block = 14956172121224201915;
+                                ochr = ' ' as i32;
                                 break 'switch;
                             }
                             (InputState::MidLine, Cmd::CarRet) => {
                                 input.loc = input.limit + 1;
-                                ocmd = Some(Cmd::Spacer);
-                                ochr = Some(' ' as i32);
-                                current_block = 14956172121224201915;
+                                ocmd = Cmd::Spacer;
+                                ochr = ' ' as i32;
                                 break 'switch;
                             }
                             (InputState::MidLine, Cmd::Comment)
@@ -3984,33 +4213,28 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         chr = ' ' as i32;
                                     }
                                 }
-                                ocmd = Some(cmd);
-                                ochr = Some(chr);
-                                current_block = 14956172121224201915;
+                                ocmd = cmd;
+                                ochr = chr;
                                 break 'switch;
                             }
                             (InputState::MidLine, Cmd::LeftBrace) => {
                                 align_state += 1;
-                                current_block = 14956172121224201915;
                                 break 'switch;
                             }
                             (InputState::SkipBlanks, Cmd::LeftBrace)
                             | (InputState::NewLine, Cmd::LeftBrace) => {
                                 input.state = InputState::MidLine;
                                 align_state += 1;
-                                current_block = 14956172121224201915;
                                 break 'switch;
                             }
                             (InputState::MidLine, Cmd::RightBrace) => {
                                 align_state -= 1;
-                                current_block = 14956172121224201915;
                                 break 'switch;
                             }
                             (InputState::SkipBlanks, Cmd::RightBrace)
                             | (InputState::NewLine, Cmd::RightBrace) => {
                                 input.state = InputState::MidLine;
                                 align_state -= 1;
-                                current_block = 14956172121224201915;
                                 break 'switch;
                             }
                             (InputState::SkipBlanks, Cmd::MathShift)
@@ -4026,11 +4250,9 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             | (InputState::NewLine, Cmd::Letter)
                             | (InputState::NewLine, Cmd::OtherChar) => {
                                 input.state = InputState::MidLine;
-                                current_block = 14956172121224201915;
                                 break 'switch;
                             }
                             _ => {
-                                current_block = 14956172121224201915;
                                 break 'switch;
                             }
                         }
@@ -4096,8 +4318,8 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             end_file_reading(input); // resume previous level
                             if check_outer_validity(input, &mut cs) {
                                 // replace it by a space
-                                ocmd = Some(Cmd::Spacer);
-                                ochr = Some(' ' as i32);
+                                //ocmd = Some(Cmd::Spacer);
+                                //ochr = Some(' ' as i32);
                             }
                             continue 'restart;
                         } else {
@@ -4117,299 +4339,31 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             return (Cmd::Relax, 0, cs);
                         }
                         if INPUT_PTR > 0 {
-                            current_block = 4001239642700071046;
-                            break;
-                        } else {
-                            current_block = 15055213890147597004;
-                            break;
-                        }
-                    }
-                }
-            }
-            match current_block {
-                14956172121224201915 => {}
-                _ => {
-                    match current_block {
-                        8567661057257693057 => {
-                            // not_exp: go here when `^^` turned out not to start an expanded code
-                            input.state = InputState::MidLine;
-                            current_block = 14956172121224201915;
-                        }
-                        7720778817628725688 => {
-                            let mut k;
-                            let mut cat;
-                            let mut chr;
-                            // go here to start looking for a control sequence
-                            'start_cs: loop {
-                                k = input.loc;
-                                chr = BUFFER[k as usize];
-                                cat = Cmd::from(*CAT_CODE(chr as usize) as u16);
-                                k += 1;
-                                if cat == Cmd::Letter {
-                                    input.state = InputState::SkipBlanks;
-                                } else if cat == Cmd::Spacer {
-                                    input.state = InputState::SkipBlanks;
-                                } else {
-                                    input.state = InputState::MidLine;
-                                }
-                                if cat == Cmd::Letter && k <= input.limit {
-                                    // Scan ahead in the buffer until finding a nonletter;
-                                    // if an expanded code is encountered, reduce it
-                                    // and goto `start_cs`; otherwise if a multiletter control
-                                    // sequence is found, adjust `cs` and `loc`, and
-                                    // goto `'found`
-                                    loop
-                                    /*368:*/
-                                    {
-                                        chr = BUFFER[k as usize];
-                                        cat = Cmd::from(*CAT_CODE(chr as usize) as u16);
-                                        k += 1;
-                                        if !(cat == Cmd::Letter && k <= input.limit) {
-                                            break;
-                                        }
-                                    }
-                                    // If an expanded...
-                                    if !(cat == Cmd::SupMark
-                                        && BUFFER[k as usize] == chr
-                                        && k < input.limit)
-                                    {
-                                        current_block = 5873035170358615968;
-                                        break;
-                                    }
-                                    let mut sup_count = 2;
-                                    // we have `^^` and another char; check how many `^`s we have altogether, up to a max of 6
-                                    while sup_count < 6
-                                        && k + 2 * sup_count as i32 - 2 <= input.limit
-                                        && BUFFER[(k + sup_count as i32 - 1) as usize] == chr
-                                    {
-                                        sup_count += 1;
-                                    }
-                                    let sup_count_save = sup_count as i32;
-                                    // check whether we have enough hex chars for the number of `^`s
-                                    for d in 1..=sup_count_save {
-                                        if !IS_LC_HEX(
-                                            BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize],
-                                        ) {
-                                            // found a non-hex char, so do single `^^X` style
-                                            let c = BUFFER[(k + 1) as usize];
-                                            if c < 128 {
-                                                if c < 64 {
-                                                    BUFFER[(k - 1) as usize] = c + 64
-                                                } else {
-                                                    BUFFER[(k - 1) as usize] = c - 64
-                                                }
-                                                let d = 2;
-                                                input.limit = input.limit - d as i32;
-                                                while k <= input.limit {
-                                                    BUFFER[k as usize] =
-                                                        BUFFER[(k + d as i32) as usize];
-                                                    k += 1
-                                                }
-                                                continue 'start_cs;
-                                            } else {
-                                                sup_count = 0;
-                                            }
-                                        }
-                                    }
-                                    if !(sup_count as i32 > 0) {
-                                        current_block = 5873035170358615968;
-                                        break;
-                                    }
-
-                                    // there were the right number of hex chars, so convert them
-                                    chr = 0;
-
-                                    for d in 1..=sup_count as i32 {
-                                        let c =
-                                            BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
-                                        chr = if c <= '9' as i32 {
-                                            16 * chr + c - '0' as i32
-                                        } else {
-                                            16 * chr + c - 'a' as i32 + 10
-                                        };
-                                    }
-
-                                    // check the resulting value is within the valid range
-                                    if chr > BIGGEST_USV as i32 {
-                                        chr = BUFFER[k as usize];
-                                        current_block = 5873035170358615968;
-                                        break;
-                                    } else {
-                                        BUFFER[(k - 1) as usize] = chr;
-                                        let d = (2 * sup_count as i32 - 1) as i16;
-                                        // shift the rest of the buffer left by `d` chars
-                                        input.limit = input.limit - d as i32;
-                                        while k <= input.limit {
-                                            BUFFER[k as usize] = BUFFER[(k + d as i32) as usize];
-                                            k += 1
-                                        }
-                                    }
-                                } else {
-                                    if !(cat == Cmd::SupMark
-                                        && BUFFER[k as usize] == chr
-                                        && k < input.limit)
-                                    {
-                                        current_block = 1604201581803946138;
-                                        break;
-                                    }
-                                    let mut sup_count = 2;
-                                    while sup_count < 6
-                                        && k + 2 * sup_count as i32 - 2 <= input.limit
-                                        && BUFFER[(k + sup_count as i32 - 1) as usize] == chr
-                                    {
-                                        sup_count += 1
-                                    }
-                                    let sup_count_save_0 = sup_count as i32;
-                                    for d in 1..=sup_count_save_0 {
-                                        if !IS_LC_HEX(
-                                            BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize],
-                                        ) {
-                                            let c = BUFFER[(k + 1) as usize];
-                                            if c < 128 {
-                                                if c < 64 {
-                                                    BUFFER[(k - 1) as usize] = c + 64
-                                                } else {
-                                                    BUFFER[(k - 1) as usize] = c - 64
-                                                }
-                                                let d = 2;
-                                                input.limit = input.limit - d as i32;
-                                                while k <= input.limit {
-                                                    BUFFER[k as usize] =
-                                                        BUFFER[(k + d as i32) as usize];
-                                                    k += 1
-                                                }
-                                                continue 'start_cs;
-                                            } else {
-                                                sup_count = 0;
-                                            }
-                                        }
-                                    }
-                                    if !(sup_count > 0) {
-                                        current_block = 1604201581803946138;
-                                        break;
-                                    }
-                                    chr = 0;
-                                    for d in 1..=sup_count as i32 {
-                                        let c =
-                                            BUFFER[(k + sup_count as i32 - 2 + d as i32) as usize];
-                                        if c <= '9' as i32 {
-                                            chr = 16 * chr + c - '0' as i32
-                                        } else {
-                                            chr = 16 * chr + c - 'a' as i32 + 10
-                                        }
-                                    }
-
-                                    if chr > BIGGEST_USV as i32 {
-                                        chr = BUFFER[k as usize];
-                                        current_block = 1604201581803946138;
-                                        break;
-                                    } else {
-                                        BUFFER[(k - 1) as usize] = chr;
-                                        let d = (2 * sup_count as i32 - 1) as i16;
-                                        input.limit = input.limit - d as i32;
-                                        while k <= input.limit {
-                                            BUFFER[k as usize] = BUFFER[(k + d as i32) as usize];
-                                            k += 1
-                                        }
-                                    }
-                                }
-                            }
-                            ochr = Some(chr);
-                            match current_block {
-                                5873035170358615968 => {
-                                    // If an expanded...
-                                    if cat != Cmd::Letter {
-                                        k -= 1;
-                                        // now `k` points to first nonletter
-                                    }
-                                    if k > input.loc + 1 {
-                                        // multiletter control sequence has been scanned
-                                        cs =
-                                            id_lookup(input.loc as usize, (k - input.loc) as usize);
-                                        input.loc = k;
-                                        current_block = 10802200937357087535;
-                                    } else {
-                                        current_block = 1604201581803946138;
-                                    }
-                                }
-                                _ => {}
-                            }
-                            match current_block {
-                                10802200937357087535 => {}
-                                _ => {
-                                    // If an expanded code is present, reduce it and goto `start_cs`>;
-                                    // {At this point, we have a single-character cs name in the buffer.
-                                    // But if the character code is > 0xFFFF, we treat it like a multiletter name
-                                    // for string purposes, because we use UTF-16 in the string pool.
-                                    if BUFFER[input.loc as usize] as i64 > 0xffff {
-                                        cs = id_lookup(input.loc as usize, 1);
-                                        input.loc += 1;
-                                    } else {
-                                        cs = SINGLE_BASE as i32 + BUFFER[input.loc as usize];
-                                        input.loc += 1;
-                                    }
-                                    current_block = 10802200937357087535;
-                                }
-                            }
-                        }
-                        17833034027772472439 => {
-                            // `state` is irrelevant in this case
-                            cs = NULL_CS as i32;
-                            current_block = 10802200937357087535;
-                        }
-                        4001239642700071046 => {
                             // text was inserted during error recovery
                             end_file_reading(input);
                             // resume previous level
-                            continue;
+                            continue 'restart;
                         }
-                        _ =>
+
                         /* Tectonic extension: we add a \TectonicCodaTokens toklist
                          * that gets inserted at the very very end of processing if no
                          * \end or \dump has been seen. We just use a global state
                          * variable to make sure it only gets inserted once. */
-                        {
-                            match (
-                                used_tectonic_coda_tokens,
-                                LOCAL(Local::TectonicCodaTokens).opt(),
-                            ) {
-                                (false, Some(l)) => {
-                                    used_tectonic_coda_tokens = true; /* token list but no tokens left */
-                                    begin_token_list(input, l, Btl::TectonicCodaText);
-                                    continue;
-                                }
-                                _ => {
-                                    if matches!(selector, Selector::NO_PRINT | Selector::TERM_ONLY)
-                                    {
-                                        open_log_file();
-                                    }
-                                    fatal_error("*** (job aborted, no legal \\end found)");
-                                }
+                        match (
+                            used_tectonic_coda_tokens,
+                            LOCAL(Local::TectonicCodaTokens).opt(),
+                        ) {
+                            (false, Some(l)) => {
+                                used_tectonic_coda_tokens = true; /* token list but no tokens left */
+                                begin_token_list(input, l, Btl::TectonicCodaText);
+                                continue 'restart;
                             }
-                        }
-                    }
-                    match current_block {
-                        14956172121224201915 => {}
-                        _ => {
-                            // found: go here when a control sequence has been found
-                            let mut cmd = eq_type(cs as usize);
-                            let mut chr = EQTB[cs as usize].val;
-                            if cmd >= Cmd::OuterCall {
-                                if check_outer_validity(input, &mut cs) {
-                                    // replace it by a space
-                                    cmd = Cmd::Spacer;
-                                    chr = ' ' as i32;
+                            _ => {
+                                if matches!(selector, Selector::NO_PRINT | Selector::TERM_ONLY) {
+                                    open_log_file();
                                 }
+                                fatal_error("*** (job aborted, no legal \\end found)");
                             }
-                            ocmd = Some(cmd);
-                            ochr = Some(chr);
-
-                            // Whenever we reach the following piece of code, we will have
-                            // `cur_chr=buffer[k-1]` and `k<=limit+1` and `cat=cat_code(cur_chr)`. If an
-                            // expanded code like `^^A` or `^^df` appears in `buffer[(k-1)..(k+1)]`
-                            // or `buffer[(k-1)..(k+2)]`, we
-                            // will store the corresponding code in `buffer[k-1]` and shift the rest of
-                            // the buffer left two or three places.
                         }
                     }
                 }
@@ -4426,36 +4380,32 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                 if t >= CS_TOKEN_FLAG {
                     // a control sequence token
                     cs = t - CS_TOKEN_FLAG;
-                    let mut cmd = eq_type(cs as usize);
-                    let mut chr = EQTB[cs as usize].val;
-                    if cmd >= Cmd::OuterCall {
-                        if cmd == Cmd::DontExpand {
+                    ocmd = eq_type(cs as usize);
+                    ochr = EQTB[cs as usize].val;
+                    if ocmd >= Cmd::OuterCall {
+                        if ocmd == Cmd::DontExpand {
                             // 370:
                             // Get the next token, suppressing expansion
                             cs = MEM[input.loc.opt().unwrap()].b32.s0 - CS_TOKEN_FLAG;
                             input.loc = None.tex_int();
-                            cmd = eq_type(cs as usize);
-                            chr = EQTB[cs as usize].val;
-                            if cmd > MAX_COMMAND {
-                                cmd = Cmd::Relax;
-                                chr = NO_EXPAND_FLAG;
+                            ocmd = eq_type(cs as usize);
+                            ochr = EQTB[cs as usize].val;
+                            if ocmd > MAX_COMMAND {
+                                ocmd = Cmd::Relax;
+                                ochr = NO_EXPAND_FLAG;
                             }
                         } else {
                             if check_outer_validity(input, &mut cs) {
                                 // replace it by a space
-                                cmd = Cmd::Spacer;
-                                chr = ' ' as i32;
+                                ocmd = Cmd::Spacer;
+                                ochr = ' ' as i32;
                             }
                         }
                     }
-                    ocmd = Some(cmd);
-                    ochr = Some(chr);
                 } else {
-                    let cmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
-                    let chr = t % MAX_CHAR_VAL;
-                    ochr = Some(chr);
-                    ocmd = Some(cmd);
-                    match cmd {
+                    ocmd = Cmd::from((t / MAX_CHAR_VAL) as u16);
+                    ochr = t % MAX_CHAR_VAL;
+                    match ocmd {
                         Cmd::LeftBrace => {
                             align_state += 1;
                         }
@@ -4466,7 +4416,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             // Insert macro parameter and goto `'restart`
                             begin_token_list(
                                 input,
-                                PARAM_STACK[(input.limit + chr - 1) as usize] as usize,
+                                PARAM_STACK[(input.limit + ochr - 1) as usize] as usize,
                                 Btl::Parameter,
                             );
                             continue;
@@ -4482,7 +4432,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
             }
         }
         // If an alignment entry has just ended, take appropriate action
-        let mut cmd = ocmd.unwrap();
+        let mut cmd = ocmd;
         if (cmd == Cmd::CarRet || cmd == Cmd::TabMark) && align_state == 0 {
             /*818:*/
             // Insert the `(v)<v_j>` template and goto `'restart`
@@ -4493,7 +4443,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                 // interwoven alignment preambles...
                 let mut ca = Alignment(ca);
                 cmd = Cmd::from(ca.extra_info() as u16);
-                ca.set_extra_info(ochr.unwrap());
+                ca.set_extra_info(ochr);
                 if cmd == Cmd::Omit {
                     begin_token_list(input, OMIT_TEMPLATE, Btl::VTemplate);
                 } else {
@@ -4504,7 +4454,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                 fatal_error("(interwoven alignment preambles are not allowed)");
             }
         } else {
-            return (cmd, ochr.unwrap(), cs);
+            return (cmd, ochr, cs);
         }
     }
 }
