@@ -70,10 +70,10 @@ use crate::xetex_math::{
     start_eq_no, sub_sup,
 };
 use crate::xetex_output::{
-    print, print_char, print_chr, print_cs, print_cstr, print_current_string, print_esc,
-    print_esc_cstr, print_file_line, print_file_name, print_hex, print_int, print_ln,
-    print_native_word, print_nl, print_nl_cstr, print_roman_int, print_rust_char,
-    print_rust_string, print_sa_num, print_scaled, print_size, print_write_whatsit, sprint_cs,
+    print, print_chr, print_cs, print_cstr, print_current_string, print_esc, print_esc_cstr,
+    print_file_line, print_file_name, print_hex, print_int, print_ln, print_native_word, print_nl,
+    print_nl_cstr, print_roman_int, print_sa_num, print_scaled, print_size, print_write_whatsit,
+    sprint_cs,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
@@ -642,7 +642,7 @@ pub(crate) unsafe fn print_fam_and_char(p: usize) {
     print_int(MEM[p].b16.s1 as i32 % 256 % 256);
     print_chr(' ');
     let c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
-    print_char(c);
+    print_chr(std::char::from_u32(c as u32).unwrap());
 }
 pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
     let a = ((d.s3 as i32 % 256 * 256) as i64 + (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536))
@@ -880,7 +880,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_esc_cstr("XeTeXpicfile");
                         }
                         print_cstr("( ");
-                        print_rust_string(std::str::from_utf8(p.path()).unwrap());
+                        print_cstr(std::str::from_utf8(p.path()).unwrap());
                         print_chr('\"');
                     }
                     WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
@@ -1794,40 +1794,40 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
     match cmd {
         Cmd::LeftBrace => {
             print_cstr("begin-group character ");
-            print_char(chr_code);
+            print_chr(std::char::from_u32(chr_code as u32).unwrap());
         }
         Cmd::RightBrace => {
             print_cstr("end-group character ");
-            print_char(chr_code);
+            print_chr(std::char::from_u32(chr_code as u32).unwrap());
         }
         Cmd::MathShift => {
             print_cstr("math shift character ");
-            print_char(chr_code);
+            print_chr(std::char::from_u32(chr_code as u32).unwrap());
         }
         Cmd::MacParam => {
             print_cstr("macro parameter character ");
-            print_char(chr_code);
+            print_chr(std::char::from_u32(chr_code as u32).unwrap());
         }
         Cmd::SupMark => {
             print_cstr("superscript character ");
-            print_char(chr_code);
+            print_chr(std::char::from_u32(chr_code as u32).unwrap());
         }
         Cmd::SubMark => {
             print_cstr("subscript character ");
-            print_char(chr_code);
+            print_chr(std::char::from_u32(chr_code as u32).unwrap());
         }
         Cmd::EndV => print_cstr("end of alignment template"),
         Cmd::Spacer => {
             print_cstr("blank space ");
-            print_char(chr_code);
+            print_chr(std::char::from_u32(chr_code as u32).unwrap());
         }
         Cmd::Letter => {
             print_cstr("the letter ");
-            print_char(chr_code);
+            print_chr(std::char::from_u32(chr_code as u32).unwrap());
         }
         Cmd::OtherChar => {
             print_cstr("the character ");
-            print_char(chr_code);
+            print_chr(std::char::from_u32(chr_code as u32).unwrap());
         }
         Cmd::AssignGlue | Cmd::AssignMuGlue => {
             if chr_code < SKIP_BASE as i32 {
@@ -2168,7 +2168,7 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
                 print_esc_cstr("span");
             } else {
                 print_cstr("alignment tab character ");
-                print_char(chr_code);
+                print_chr(std::char::from_u32(chr_code as u32).unwrap());
             }
         }
         Cmd::CarRet => print_esc_cstr(if chr_code == CR_CODE { "cr" } else { "crcr" }),
@@ -3362,7 +3362,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                                     trick_count = error_line
                                 }
                             }
-                            print_char(BUFFER[i as usize]);
+                            print_chr(std::char::from_u32(BUFFER[i as usize] as u32).unwrap());
                         }
                     }
                 } else {
@@ -8172,7 +8172,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             if cs != 0 {
                 sprint_cs(cs);
             } else {
-                print_char(chr);
+                print_chr(std::char::from_u32(chr as u32).unwrap());
             }
         }
         ConvertCode::Meaning => {
@@ -8203,7 +8203,9 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 print_cstr("pt");
             }
         }
-        ConvertCode::XetexUchar | ConvertCode::XetexUcharcat => print_char(oval.unwrap()),
+        ConvertCode::XetexUchar | ConvertCode::XetexUcharcat => {
+            print_chr(std::char::from_u32(oval.unwrap() as u32).unwrap())
+        }
         ConvertCode::EtexRevision => print_cstr(".6"),
         ConvertCode::PdfStrcmp => print_int(oval.unwrap()),
         ConvertCode::XetexRevision => print_cstr(".99998"),
@@ -9436,7 +9438,7 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
         }
         diagnostic(false, || {
             print_nl_cstr("Missing character: There is no ");
-            print_char(c);
+            print_chr(std::char::from_u32(c as u32).unwrap());
             print_cstr(" in font ");
             print(FONT_NAME[f]);
             print_chr('!');
@@ -9446,7 +9448,7 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
     let fn_0 = gettexstring(FONT_NAME[f]);
     let prev_selector = selector;
     selector = Selector::NEW_STRING;
-    print_char(c);
+    print_chr(std::char::from_u32(c as u32).unwrap());
     selector = prev_selector;
     let s = make_string();
     let chr = gettexstring(s);
@@ -9555,13 +9557,13 @@ pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u
         print_nl_cstr("Unknown ");
         if !setting_name.is_empty() {
             print_cstr("selector `");
-            print_rust_string(std::str::from_utf8(setting_name).unwrap());
+            print_cstr(std::str::from_utf8(setting_name).unwrap());
             print_cstr("\' for ");
         }
         print_cstr("feature `");
-        print_rust_string(std::str::from_utf8(feature_name).unwrap());
+        print_cstr(std::str::from_utf8(feature_name).unwrap());
         print_cstr("\' in font `");
-        print_rust_string(&name_of_file);
+        print_cstr(&name_of_file);
         print_cstr("\'.");
     });
 }
@@ -9572,9 +9574,9 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
         } else {
             print_nl_cstr("Font mapping `");
         }
-        print_rust_string(mapping_name);
+        print_cstr(mapping_name);
         print_cstr("\' for font `");
-        print_rust_string(&name_of_file);
+        print_cstr(&name_of_file);
         match warningType {
             1 => print_cstr("\' not found."),
             2 => {
@@ -9588,7 +9590,7 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
 /*pub(crate) unsafe fn graphite_warning() {
     diagnostic(false, || {
         print_nl_cstr("Font `");
-        print_rust_string(&name_of_file);
+        print_cstr(&name_of_file);
         print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
     });
 }*/

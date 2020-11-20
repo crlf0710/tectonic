@@ -84,61 +84,98 @@ unsafe fn write_log_char<W: std::io::Write>(lg: &mut W, c: char) -> std::io::Res
     Ok(())
 }
 
+unsafe fn print_term_log_char<W: std::io::Write>(
+    stdout: &mut W,
+    lg: &mut W,
+    s: char,
+) -> std::io::Result<()> {
+    if (s as i32) == get_int_par(IntPar::new_line_char) {
+        write_term_ln(stdout)?;
+        write_log_ln(lg)?;
+    } else {
+        if s.is_control() {
+            let (buf, len) = replace_control(s);
+            for &c in &buf[..len] {
+                write_term_char(stdout, c)?;
+                write_log_char(lg, c)?;
+            }
+        } else {
+            write_term_char(stdout, s)?;
+            write_log_char(lg, s)?;
+        }
+        tally += 1;
+    }
+    Ok(())
+}
+
+unsafe fn print_log_char<W: std::io::Write>(lg: &mut W, s: char) -> std::io::Result<()> {
+    if (s as i32) == get_int_par(IntPar::new_line_char) {
+        write_log_ln(lg)?;
+    } else {
+        if s.is_control() {
+            let (buf, len) = replace_control(s);
+            for &c in &buf[..len] {
+                write_log_char(lg, c)?;
+            }
+        } else {
+            write_log_char(lg, s)?;
+        }
+        tally += 1;
+    }
+    Ok(())
+}
+unsafe fn print_term_char<W: std::io::Write>(stdout: &mut W, s: char) -> std::io::Result<()> {
+    if (s as i32) == get_int_par(IntPar::new_line_char) {
+        write_term_ln(stdout)?;
+    } else {
+        if s.is_control() {
+            let (buf, len) = replace_control(s);
+            for &c in &buf[..len] {
+                write_term_char(stdout, c)?;
+            }
+        } else {
+            write_term_char(stdout, s)?;
+        }
+        tally += 1;
+    }
+    Ok(())
+}
+
+unsafe fn print_file_char<W: std::io::Write>(file: &mut W, s: char) -> std::io::Result<()> {
+    if (s as i32) == get_int_par(IntPar::new_line_char) {
+        write!(file, "\n")?;
+    } else {
+        if s.is_control() {
+            let (buf, len) = replace_control(s);
+            for &c in &buf[..len] {
+                write!(file, "{}", c)?;
+            }
+        } else {
+            write!(file, "{}", s)?;
+        }
+        tally += 1;
+    }
+    Ok(())
+}
+
 pub(crate) unsafe fn print_rust_char(s: char) {
-    use std::io::Write;
-    let mut count = 1;
     match selector {
         Selector::TERM_AND_LOG => {
             let stdout = rust_stdout.as_mut().unwrap();
             let lg = log_file.as_mut().unwrap();
-            if (s as i32) == get_int_par(IntPar::new_line_char) {
-                write_term_ln(stdout).unwrap();
-                write_log_ln(lg).unwrap();
-                return;
-            }
-            if s.is_control() {
-                let (buf, len) = replace_control(s);
-                for &c in &buf[..len] {
-                    write_term_char(stdout, c).unwrap();
-                    write_log_char(lg, c).unwrap();
-                }
-            } else {
-                write_term_char(stdout, s).unwrap();
-                write_log_char(lg, s).unwrap();
-            }
+            print_term_log_char(stdout, lg, s).unwrap();
         }
         Selector::LOG_ONLY => {
             let lg = log_file.as_mut().unwrap();
-            if (s as i32) == get_int_par(IntPar::new_line_char) {
-                write_log_ln(lg).unwrap();
-                return;
-            }
-            if s.is_control() {
-                let (buf, len) = replace_control(s);
-                for &c in &buf[..len] {
-                    write_log_char(lg, c).unwrap();
-                }
-            } else {
-                write_log_char(lg, s).unwrap();
-            }
+            print_log_char(lg, s).unwrap();
         }
         Selector::TERM_ONLY => {
             let stdout = rust_stdout.as_mut().unwrap();
-            if (s as i32) == get_int_par(IntPar::new_line_char) {
-                write_term_ln(stdout).unwrap();
-                return;
-            }
-            if s.is_control() {
-                let (buf, len) = replace_control(s);
-                for &c in &buf[..len] {
-                    write_term_char(stdout, c).unwrap();
-                }
-            } else {
-                write_term_char(stdout, s).unwrap();
-            }
+            print_term_char(stdout, s).unwrap();
         }
         Selector::NO_PRINT => {}
         Selector::PSEUDO => {
+            let mut count;
             if s.is_control() {
                 let (buf, len) = replace_control(s);
                 count = 0;
@@ -149,10 +186,12 @@ pub(crate) unsafe fn print_rust_char(s: char) {
                     count += 1;
                 }
             } else {
+                count = 1;
                 if tally < trick_count {
                     trick_buf[(tally % error_line) as usize] = s;
                 }
             }
+            tally += count;
         }
         Selector::NEW_STRING => {
             if !doing_special {
@@ -177,28 +216,16 @@ pub(crate) unsafe fn print_rust_char(s: char) {
         }
         Selector::File(u) => {
             let file = write_file[u as usize].as_mut().unwrap();
-            if (s as i32) == get_int_par(IntPar::new_line_char) {
-                write!(file, "\n").unwrap();
-                return;
-            }
-            if s.is_control() {
-                let (buf, len) = replace_control(s);
-                for &c in &buf[..len] {
-                    write!(file, "{}", c).unwrap();
-                }
-            } else {
-                write!(file, "{}", s).unwrap();
-            }
+            print_file_char(file, s).unwrap();
         }
     }
-    tally += count;
 }
-// TODO: optimize
+/* TODO: optimize
 pub(crate) unsafe fn print_rust_string(s: &str) {
     for c in s.chars() {
         print_rust_char(c);
     }
-    /*use std::io::Write;
+    use std::io::Write;
     let mut count = s.chars().count() as i32;
     match selector {
         Selector::TERM_AND_LOG => {
@@ -269,11 +296,9 @@ pub(crate) unsafe fn print_rust_string(s: &str) {
             write!(write_file[u as usize].as_mut().unwrap(), "{}", s).unwrap();
         }
     }
-    tally += count;*/
-}
-pub(crate) unsafe fn print_char(s: i32) {
-    print_chr(std::char::from_u32(s as u32).unwrap())
-}
+    tally += count;
+}*/
+
 pub(crate) unsafe fn print_chr(s: char) {
     print_rust_char(s);
 }
@@ -312,7 +337,7 @@ pub(crate) unsafe fn print(s: i32) {
     if s < 0 || s >= str_ptr {
         print_cstr("???");
     } else if s < TOO_BIG_CHAR {
-        print_char(s);
+        print_chr(std::char::from_u32(s as u32).unwrap());
     } else {
         for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
             print_chr(c.unwrap())
@@ -344,14 +369,14 @@ pub(crate) unsafe fn print_nl_cstr(slice: &str) {
 pub(crate) unsafe fn print_esc(s: str_number) {
     let c = get_int_par(IntPar::escape_char);
     if c >= 0 && c <= BIGGEST_USV as i32 {
-        print_char(c);
+        print_chr(std::char::from_u32(c as u32).unwrap());
     }
     print(s);
 }
 pub(crate) unsafe fn print_esc_cstr(s: &str) {
     let c = get_int_par(IntPar::escape_char);
     if c >= 0 && c <= BIGGEST_USV as i32 {
-        print_char(c);
+        print_chr(std::char::from_u32(c as u32).unwrap());
     }
     print_cstr(s);
 }
@@ -359,9 +384,9 @@ unsafe fn print_the_digs(mut k: u8) {
     while k as i32 > 0 {
         k -= 1;
         if (dig[k as usize] as i32) < 10 {
-            print_char('0' as i32 + dig[k as usize] as i32);
+            print_chr(char::from(b'0' + dig[k as usize]));
         } else {
-            print_char(55 + dig[k as usize] as i32);
+            print_chr(char::from(55 + dig[k as usize]));
         }
     }
 }
@@ -410,7 +435,7 @@ pub(crate) unsafe fn print_cs(p: i32) {
         } else if p < ACTIVE_BASE as i32 {
             print_esc_cstr("IMPOSSIBLE.");
         } else {
-            print_char(p - 1);
+            print_chr(std::char::from_u32((p - 1) as u32).unwrap());
         }
     } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE as i32 || p > EQTB_TOP as i32
     {
@@ -425,7 +450,7 @@ pub(crate) unsafe fn print_cs(p: i32) {
 pub(crate) unsafe fn sprint_cs(p: i32) {
     if p < HASH_BASE as i32 {
         if p < SINGLE_BASE as i32 {
-            print_char(p - 1);
+            print_chr(std::char::from_u32((p - 1) as u32).unwrap());
         } else if p < NULL_CS as i32 {
             print_esc(p - SINGLE_BASE as i32);
         } else {
@@ -569,7 +594,7 @@ pub(crate) unsafe fn print_write_whatsit(s: &str, p: usize) {
 pub(crate) unsafe fn print_native_word(p: &NativeWord) {
     for c in std::char::decode_utf16(p.text().iter().cloned()) {
         if let Ok(c) = c {
-            print_char(c as i32);
+            print_chr(c);
         } else {
             print_chr('.');
         }
@@ -627,7 +652,7 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
     let mut v = 1000i32;
     loop {
         while n >= v {
-            print_char(roman_data[j as usize] as i32);
+            print_chr(char::from(roman_data[j as usize]));
             n = n - v
         }
         if n <= 0 {
@@ -640,7 +665,7 @@ pub(crate) unsafe fn print_roman_int(mut n: i32) {
             u = u / (roman_data[k as usize - 1] as i32 - '0' as i32)
         }
         if n + u >= v {
-            print_char(roman_data[k as usize] as i32);
+            print_chr(char::from(roman_data[k as usize]));
             n = n + u
         } else {
             j += 2;
