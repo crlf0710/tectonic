@@ -12,7 +12,7 @@ use super::xetex_consts::{
 };
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
-use crate::xetex_stringpool::{PoolString, TOO_BIG_CHAR};
+use crate::xetex_stringpool::PoolString;
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
@@ -25,7 +25,6 @@ use super::xetex_ini::{
 /* Array allocations. Add 1 to size to account for Pascal indexing convention. */
 /*11:*/
 /*18: */
-pub(crate) type str_number = i32;
 /* xetex-output */
 /* tectonic/output.c -- functions related to outputting messages
  * Copyright 2016 the Tectonic Project
@@ -350,22 +349,6 @@ unsafe fn replace_control(s: char) -> ([char; 4], usize) {
         _ => unreachable!(),
     }
 }
-pub(crate) unsafe fn print(s: i32) {
-    if s < 0 || s >= str_ptr {
-        print_cstr("???");
-    } else if s < TOO_BIG_CHAR {
-        print_chr(std::char::from_u32(s as u32).unwrap());
-    } else {
-        for c in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned()) {
-            print_chr(c.unwrap())
-        }
-    }
-}
-pub(crate) unsafe fn print_cstr(slice: &str) {
-    for s in slice.chars() {
-        print_chr(s);
-    }
-}
 
 pub(crate) unsafe fn printnl() {
     match selector {
@@ -373,14 +356,6 @@ pub(crate) unsafe fn printnl() {
         Selector::LOG_ONLY | Selector::TERM_AND_LOG if file_offset > 0 => print_ln(),
         _ => {}
     }
-}
-pub(crate) unsafe fn print_nl(s: str_number) {
-    printnl();
-    print(s);
-}
-pub(crate) unsafe fn print_nl_cstr(slice: &str) {
-    printnl();
-    print_cstr(slice);
 }
 pub(crate) struct Esc<'a>(pub &'a str);
 impl<'a> fmt::Display for Esc<'a> {
@@ -392,19 +367,8 @@ impl<'a> fmt::Display for Esc<'a> {
         self.0.fmt(f)
     }
 }
-pub(crate) unsafe fn print_esc(s: str_number) {
-    let c = get_int_par(IntPar::escape_char);
-    if c >= 0 && c <= BIGGEST_USV as i32 {
-        print_chr(std::char::from_u32(c as u32).unwrap());
-    }
-    print(s);
-}
 pub(crate) unsafe fn print_esc_cstr(s: &str) {
-    let c = get_int_par(IntPar::escape_char);
-    if c >= 0 && c <= BIGGEST_USV as i32 {
-        print_chr(std::char::from_u32(c as u32).unwrap());
-    }
-    print_cstr(s);
+    t_print!("{}", Esc(s));
 }
 pub(crate) unsafe fn print_cs(p: i32) {
     if p < HASH_BASE as i32 {
@@ -414,7 +378,10 @@ pub(crate) unsafe fn print_cs(p: i32) {
                 print_esc_cstr("endcsname");
                 print_chr(' ');
             } else {
-                print_esc(p - SINGLE_BASE as i32);
+                t_print!(
+                    "{}",
+                    Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string())
+                );
                 if *CAT_CODE(p as usize - SINGLE_BASE) == Cmd::Letter as _ {
                     print_chr(' ');
                 }
@@ -430,8 +397,10 @@ pub(crate) unsafe fn print_cs(p: i32) {
     } else if (*hash.offset(p as isize)).s1 >= str_ptr {
         print_esc_cstr("NONEXISTENT.");
     } else {
-        print_esc((*hash.offset(p as isize)).s1);
-        print_chr(' ');
+        t_print!(
+            "{} ",
+            Esc(&PoolString::from((*hash.offset(p as isize)).s1).to_string())
+        );
     };
 }
 pub(crate) unsafe fn sprint_cs(p: i32) {
@@ -439,13 +408,19 @@ pub(crate) unsafe fn sprint_cs(p: i32) {
         if p < SINGLE_BASE as i32 {
             print_chr(std::char::from_u32((p - 1) as u32).unwrap());
         } else if p < NULL_CS as i32 {
-            print_esc(p - SINGLE_BASE as i32);
+            t_print!(
+                "{}",
+                Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string())
+            );
         } else {
             print_esc_cstr("csname");
             print_esc_cstr("endcsname");
         }
     } else {
-        print_esc((*hash.offset(p as isize)).s1);
+        t_print!(
+            "{}",
+            Esc(&PoolString::from((*hash.offset(p as isize)).s1).to_string())
+        );
     };
 }
 pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
@@ -581,9 +556,9 @@ pub(crate) unsafe fn print_write_whatsit(s: &str, p: usize) {
 pub(crate) unsafe fn print_native_word(p: &NativeWord) {
     for c in std::char::decode_utf16(p.text().iter().cloned()) {
         if let Ok(c) = c {
-            print_chr(c);
+            t_print!("{}", c);
         } else {
-            print_chr('.');
+            t_print!(".");
         }
     }
 }
@@ -606,7 +581,7 @@ pub(crate) unsafe fn print_file_line() {
         level -= 1
     }
     if level == 0 {
-        print_nl_cstr("! ");
+        t_print_nl!("! ");
     } else {
         t_print_nl!(
             "{}:{}: ",
@@ -649,10 +624,5 @@ impl fmt::Display for Roman {
                 v = v / (roman_data[j as usize - 1] as i32 - '0' as i32)
             }
         }
-    }
-}
-pub(crate) unsafe fn print_current_string() {
-    for c in std::char::decode_utf16(PoolString::current().as_slice().iter().cloned()) {
-        print_chr(c.unwrap());
     }
 }

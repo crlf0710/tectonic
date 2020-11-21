@@ -1,6 +1,6 @@
 use crate::node::{MathNode, TextNode, SYNCTEX_FIELD_SIZE};
+use crate::xetex_ini;
 use crate::xetex_ini::MEM;
-use crate::{xetex_ini, xetex_output};
 
 use crate::xetex_scaledmath::Scaled;
 
@@ -131,13 +131,6 @@ pub(crate) unsafe fn is_char_node(p: Option<usize>) -> bool {
     match p {
         Some(p) => p >= xetex_ini::hi_mem_min as usize,
         None => false,
-    }
-}
-
-#[inline]
-pub(crate) unsafe fn print_c_str(string: &str) {
-    for s in string.chars() {
-        xetex_output::print_chr(s);
     }
 }
 

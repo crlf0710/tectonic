@@ -4,6 +4,7 @@ use crate::xetex_consts::IntPar;
 use crate::xetex_ini::{
     b16x4, b32x2, memory_word, name_of_file, EqtbWord, Selector, UTF16_code, FONT_PTR,
 };
+use crate::xetex_output::Esc;
 use bridge::{ttstub_output_close, ttstub_output_open, InFile, TTHistory, TTInputFormat};
 use std::ffi::CString;
 
@@ -52,7 +53,7 @@ use crate::xetex_stringpool::{make_string, PoolString, EMPTY_STRING, TOO_BIG_CHA
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
 use crate::xetex_output::print_file_name;
-use crate::xetex_output::{print, print_chr, print_esc, print_ln, print_nl_cstr};
+use crate::xetex_output::print_ln;
 use crate::xetex_xetexd::llist_link;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
 
@@ -161,13 +162,14 @@ pub(crate) unsafe fn store_fmt_file() {
 
     let mut fmt_out_owner = fmt_out.unwrap();
     let fmt_out = &mut fmt_out_owner;
-    print_nl_cstr("Beginning to dump on file ");
-    print(make_name_string());
+    t_print_nl!(
+        "Beginning to dump on file {}",
+        PoolString::from(make_name_string())
+    );
 
     PoolString::flush();
 
-    print_nl_cstr("");
-    print(format_ident);
+    t_print_nl!("{}", PoolString::from(format_ident));
 
     /* Header */
     /* TODO: can we move this farther up in this function? */
@@ -392,9 +394,13 @@ pub(crate) unsafe fn store_fmt_file() {
     fmt_out.dump(&FONT_FALSE_BCHAR[..FONT_PTR + 1]);
 
     for k in FONT_BASE..=FONT_PTR {
-        print_nl_cstr("\\font");
-        print_esc((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1);
-        print_chr('=');
+        t_print_nl!(
+            "\\font{}=",
+            Esc(
+                &PoolString::from((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1)
+                    .to_string()
+            )
+        );
 
         if matches!(&FONT_LAYOUT_ENGINE[k], crate::xetex_ext::Font::Native(_))
             || !(FONT_MAPPING[k]).is_null()

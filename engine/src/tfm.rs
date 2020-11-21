@@ -12,7 +12,6 @@ use crate::xetex_ini::str_number;
 use crate::xetex_ini::UTF16_code;
 use crate::xetex_scaledmath::Scaled;
 
-use crate::xetex_xetexd::print_c_str;
 use crate::xetex_xetexd::TeXInt;
 use crate::xetex_xetexd::FONT_CHARACTER_INFO;
 
@@ -68,9 +67,9 @@ use crate::xetex_consts::LIST_TAG;
 use crate::xetex_consts::NON_ADDRESS;
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
+use crate::xetex_output::print_chr;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::sprint_cs;
-use crate::xetex_output::{print_chr, print_cstr, print_nl_cstr};
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::EMPTY_STRING;
@@ -600,8 +599,7 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
         if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
             if ok.0 {
                 diagnostic(false, || {
-                    print_nl_cstr(" -> ");
-                    print_c_str(&name_of_file);
+                    t_print_nl!(" -> {}", name_of_file);
                 });
             }
         }
@@ -742,7 +740,7 @@ unsafe fn nf_error(
             } else if s != Scaled(-1000) {
                 t_print!(" scaled {}", -s.0);
             }
-            print_cstr(" not loaded: Not enough room left");
+            t_print!(" not loaded: Not enough room left");
             help!(
                 "I\'m afraid I won\'t be able to make use of this font,",
                 "because my memory for character-size data is too small.",

@@ -1,5 +1,7 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::t_print_nl;
+
 #[cfg(not(target_os = "macos"))]
 #[path = "xetex_font_manager_fontconfig.rs"]
 pub(crate) mod imp;
@@ -18,7 +20,6 @@ use crate::xetex_ext::Fix2D;
 use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::collection_types::*;
 use crate::xetex_layout_interface::createFont;
-use crate::xetex_output::{print_chr, print_nl};
 use crate::xetex_xetex0::{diagnostic, get_tracing_fonts_state};
 
 #[cfg(not(target_os = "macos"))]
@@ -728,13 +729,10 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     }
     if get_tracing_fonts_state() > 0i32 {
         diagnostic(false, || {
-            print_nl(' ' as i32);
-            for c in "-> ".chars() {
-                print_chr(c);
-            }
-            for c in XeTeXFontMgr_getPlatformFontDesc(self_0, (*font).fontRef).chars() {
-                print_chr(c);
-            }
+            t_print_nl!(
+                " -> {}",
+                XeTeXFontMgr_getPlatformFontDesc(self_0, (*font).fontRef)
+            );
         });
     }
     return (*font).fontRef;

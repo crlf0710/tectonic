@@ -15,7 +15,7 @@ use crate::xetex_ini::{
     error_count, halt_on_error_p, help_line, help_ptr, history, interaction, job_name, log_opened,
     rust_stdout, selector, use_err_help,
 };
-use crate::xetex_output::{print_ln, print_nl_cstr};
+use crate::xetex_output::print_ln;
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
 use bridge::TTHistory;
@@ -104,7 +104,7 @@ pub(crate) unsafe fn error() {
     } else {
         while help_ptr > 0 {
             help_ptr -= 1;
-            print_nl_cstr(help_line[help_ptr as usize]);
+            t_print_nl!("{}", help_line[help_ptr as usize]);
         }
     }
     print_ln();

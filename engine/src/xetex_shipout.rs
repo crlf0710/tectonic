@@ -21,7 +21,7 @@ use crate::xetex_ini::{
     FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
     FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
-use crate::xetex_output::{print, print_chr, print_cstr, print_file_name, print_ln, print_nl_cstr};
+use crate::xetex_output::{print_chr, print_file_name, print_ln};
 use crate::xetex_scaledmath::{tex_round, Scaled};
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::TOO_BIG_CHAR;
@@ -151,7 +151,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         if get_int_par(IntPar::tracing_output) <= 0 {
             diagnostic(true, || {
-                print_nl_cstr("The following box has been deleted:");
+                t_print_nl!("The following box has been deleted:");
                 show_box(Some(p.ptr()));
             });
         }
@@ -2093,11 +2093,11 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     } else if j == 17 && (selector == Selector::TERM_AND_LOG) {
         // Try to fix potential array out of bounds
         selector = Selector::LOG_ONLY;
-        print_nl_cstr("");
+        t_print_nl!("");
     } else if write_open[j as usize] {
         selector = Selector::File(j as u8);
     } else {
-        print_nl_cstr("");
+        t_print_nl!("");
     }
 
     token_show(Some(def_ref));
@@ -2114,23 +2114,19 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
             selector = Selector::TERM_ONLY
         }
 
-        print_nl_cstr("runsystem(");
-        for &d in PoolString::current().as_slice() {
-            print(d as i32);
-        }
-        print_cstr(")...");
         if !shell_escape_enabled {
-            print_cstr("disabled");
-            print_chr('.');
+            t_print_nl!("runsystem({})...disabled.", PoolString::current());
         } else {
             // Currently, -Z shell-escape is implemented but hidden (see
             // src/unstable_opts.rs). When this gets actually implemented,
             // uncomment the relevant parts in that file.
-
-            print_cstr("enabled but not implemented yet!");
+            t_print_nl!(
+                "runsystem({})...enabled but not implemented yet!",
+                PoolString::current()
+            );
         }
 
-        print_nl_cstr("");
+        t_print_nl!("");
         print_ln();
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
     }
@@ -2206,7 +2202,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
     }
 
     if TOTAL_PAGES == 0 {
-        print_nl_cstr("No pages of output.");
+        t_print_nl!("No pages of output.");
         return;
     }
 

@@ -13,7 +13,7 @@ use crate::trie::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
-use crate::xetex_output::{print, print_chr, print_cstr, print_esc_cstr, print_nl_cstr, Esc};
+use crate::xetex_output::Esc;
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
 use crate::xetex_stringpool::{
@@ -1477,11 +1477,9 @@ pub(crate) unsafe fn prefixed_command(
     if ocmd != Cmd::Def && (a % 4 != 0 || j != 0) {
         t_eprint!("You can\'t use `{}\' or `{}", Esc("long"), Esc("outer"));
         help!("I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.");
-        print_cstr("\' or `");
-        print_esc_cstr("protected");
-        print_cstr("\' with `");
+        t_print!("\' or `{}\' with `", Esc("protected"));
         print_cmd_chr(ocmd, ochr);
-        print_chr('\'');
+        t_print!("\'");
         error();
     }
 
@@ -1578,12 +1576,10 @@ pub(crate) unsafe fn prefixed_command(
                 let val = scan_char_num(input);
                 if get_int_par(IntPar::tracing_char_sub_def) > 0 {
                     diagnostic(false, || {
-                        print_nl_cstr("New character substitution: ");
-                        print(p - CHAR_SUB_CODE_BASE as i32);
-                        print_cstr(" = ");
-                        print(n);
-                        print_chr(' ');
-                        print(val);
+                        t_print_nl!("New character substitution: {} = {} {}",
+                        std::char::from_u32((p - CHAR_SUB_CODE_BASE as i32) as u32).unwrap(),
+                        std::char::from_u32(n as u32).unwrap(),
+                        std::char::from_u32(val as u32).unwrap());
                     });
                 }
                 n = n * 256 + val;
@@ -2139,7 +2135,7 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
         }
     }
     while open_parens > 0 {
-        print_cstr(" )");
+        t_print!(" )");
         open_parens -= 1;
     }
     if cur_level > LEVEL_ONE {
@@ -2156,7 +2152,7 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
         if if_line != 0 {
             t_print!(" on line {}", if_line);
         }
-        print_cstr(" was incomplete)");
+        t_print!(" was incomplete)");
         if_line = MEM[cp + 1].b32.s1;
         cur_if = MEM[cp].b16.s0 as i16;
         let tmp_ptr = cp;
@@ -2167,7 +2163,7 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
         if history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop {
             if selector == Selector::TERM_AND_LOG {
                 selector = Selector::TERM_ONLY;
-                print_nl_cstr("(see the transcript file for additional information)");
+                t_print_nl!("(see the transcript file for additional information)");
                 selector = Selector::TERM_AND_LOG
             }
         }
@@ -2193,7 +2189,7 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
             store_fmt_file();
             return;
         }
-        print_nl_cstr("(\\dump is performed only by INITEX)");
+        t_print_nl!("(\\dump is performed only by INITEX)");
         return;
     };
 }
