@@ -32,11 +32,7 @@ authorization from the copyright holders.
 \****************************************************************************/
 
 #![cfg(not(target_os = "macos"))]
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use super::{
     XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList, XeTeXFontMgr_base_ctor,

@@ -2,6 +2,7 @@ use bridge::TTInputFormat;
 
 use crate::help;
 
+use crate::{t_print, t_print_nl};
 use std::io::Read;
 
 use crate::xetex_ini::b16x4;
@@ -71,7 +72,7 @@ use crate::xetex_errors::overflow;
 use crate::xetex_output::print_file_line;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::sprint_cs;
-use crate::xetex_output::{print_chr, print_cstr, print_int, print_nl_cstr, print_scaled};
+use crate::xetex_output::{print_chr, print_cstr, print_nl_cstr};
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::EMPTY_STRING;
@@ -108,16 +109,10 @@ pub(crate) unsafe fn read_font_info(
 
     if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
-            print_nl_cstr("Requested font \"");
-            print_c_str(&name_of_file);
-            print_chr('\"');
             if s < Scaled::ZERO {
-                print_cstr(" scaled ");
-                print_int(-s.0);
+                t_print_nl!("Requested font \"{}\" scaled {}", name_of_file, -s.0);
             } else {
-                print_cstr(" at ");
-                print_scaled(s);
-                print_cstr("pt");
+                t_print_nl!("Requested font \"{}\" at {}pt", name_of_file, s);
             }
         });
     }
@@ -580,18 +575,15 @@ pub(crate) unsafe fn bad_tfm(
             print_chr(qc);
         }
         if s >= Scaled::ZERO {
-            print_cstr(" at ");
-            print_scaled(s);
-            print_cstr("pt");
+            t_print!(" at {}pt", s);
         } else if s != Scaled(-1000) {
-            print_cstr(" scaled ");
-            print_int(-s.0);
+            t_print!(" scaled {}", -s.0);
         }
         match err {
-            TfmError::BadMetric => print_cstr(" not loadable: Bad metric (TFM) file"),
-            TfmError::LongName => print_cstr(" not loadable: Metric (TFM) file name too long"),
+            TfmError::BadMetric => t_print!(" not loadable: Bad metric (TFM) file"),
+            TfmError::LongName => t_print!(" not loadable: Metric (TFM) file name too long"),
             TfmError::NotFound => {
-                print_cstr(" not loadable: Metric (TFM) file or installed font not found")
+                t_print!(" not loadable: Metric (TFM) file or installed font not found")
             }
         }
         help!(
@@ -605,7 +597,7 @@ pub(crate) unsafe fn bad_tfm(
     }
     if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
-            print_nl_cstr(" -> font not found, using \"nullfont\"")
+            t_print_nl!(" -> font not found, using \"nullfont\"")
         });
     }
 }
@@ -758,12 +750,9 @@ unsafe fn nf_error(
                 print_chr(qc);
             }
             if s >= Scaled::ZERO {
-                print_cstr(" at ");
-                print_scaled(s);
-                print_cstr("pt");
+                t_print!(" at {}pt", s);
             } else if s != Scaled(-1000) {
-                print_cstr(" scaled ");
-                print_int(-s.0);
+                t_print!(" scaled {}", -s.0);
             }
             print_cstr(" not loaded: Not enough room left");
             help!(

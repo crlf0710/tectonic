@@ -2,15 +2,12 @@
  * Copyright 2016 the Tectonic Project
  * Licensed under the MIT License.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use std::io::Write;
 
 use crate::help;
+use crate::t_print;
 
 use crate::cmd::InteractionMode;
 use crate::xetex_ini::tt_cleanup;
@@ -18,9 +15,7 @@ use crate::xetex_ini::{
     error_count, file_line_error_style_p, halt_on_error_p, help_line, help_ptr, history,
     interaction, job_name, log_opened, rust_stdout, selector, use_err_help,
 };
-use crate::xetex_output::{
-    print_chr, print_cstr, print_file_line, print_int, print_ln, print_nl_cstr,
-};
+use crate::xetex_output::{print_chr, print_cstr, print_file_line, print_ln, print_nl_cstr};
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
 use bridge::TTHistory;
@@ -138,11 +133,7 @@ pub(crate) unsafe fn fatal_error(s: &str) -> ! {
 }
 pub(crate) unsafe fn overflow(s: &str, n: usize) -> ! {
     pre_error_message();
-    print_cstr("TeX capacity exceeded, sorry [");
-    print_cstr(s);
-    print_chr('=');
-    print_int(n as i32);
-    print_chr(']');
+    t_print!("TeX capacity exceeded, sorry [{}={}]", s, n as i32);
     help!(
         "If you really absolutely need more capacity,",
         "you can ask a wizard to enlarge me."

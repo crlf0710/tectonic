@@ -1,9 +1,6 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::t_print;
 use core::ptr;
 
 use crate::cmd::*;
@@ -23,8 +20,7 @@ use crate::xetex_ini::{b16x4, b16x4_le_t};
 use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
 use crate::xetex_output::{
-    print, print_chr, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr,
-    print_size,
+    print, print_cstr, print_esc_cstr, print_file_line, print_nl_cstr, print_size,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_scaledmath::{tex_round, x_over_n, xn_over_d, Scaled};
@@ -1555,13 +1551,10 @@ pub(crate) unsafe fn fetch(a: &mut MCell) {
         } else {
             print_nl_cstr("! ");
         }
-        print_cstr("");
         print_size(cur_size as i32);
-        print_chr(' ');
-        print_int(a.val.chr.font as i32 % 256);
-        print_cstr(" is undefined (character ");
+        t_print!(" {} is undefined (character ", a.val.chr.font as i32 % 256);
         print(cur_c);
-        print_chr(')');
+        t_print!(")");
 
         help!(
             "Somewhere in the math formula just ended, you used the",

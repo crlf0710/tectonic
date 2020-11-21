@@ -1,8 +1,4 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::xetex_errors::overflow;
 use crate::xetex_ini::{
@@ -92,6 +88,10 @@ impl PoolString {
     pub unsafe fn flush() {
         str_ptr -= 1;
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+    }
+
+    pub fn to_string(&self) -> String {
+        String::from_utf16(self.as_slice()).unwrap()
     }
 }
 

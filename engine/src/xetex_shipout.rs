@@ -22,8 +22,7 @@ use crate::xetex_ini::{
     TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{
-    print, print_chr, print_cstr, print_file_line, print_file_name, print_int, print_ln,
-    print_nl_cstr, print_scaled,
+    print, print_chr, print_cstr, print_file_line, print_file_name, print_ln, print_nl_cstr,
 };
 use crate::xetex_scaledmath::{tex_round, Scaled};
 use crate::xetex_stringpool::PoolString;
@@ -42,9 +41,10 @@ use crate::xetex_xetex0::{
     UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
+    is_char_node, llist_link, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
     FONT_CHARACTER_WIDTH,
 };
+use crate::{t_print, t_print_nl};
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
 
@@ -104,25 +104,25 @@ pub(crate) unsafe fn ship_out(mut p: List) {
     }
 
     if get_int_par(IntPar::tracing_output) > 0 {
-        print_nl_cstr("");
+        t_print_nl!("");
         print_ln();
-        print_cstr("Completed box being shipped out");
+        t_print!("Completed box being shipped out");
     }
 
     if term_offset > max_print_line - 9 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
-        print_chr(' ');
+        t_print!(" ");
     }
 
-    print_chr('[');
+    t_print!("[");
     let mut j = 9;
     while j > 0 && get_count_reg(j as _) == 0 {
         j -= 1;
     }
 
     for k in 0..=j {
-        print_int(get_count_reg(k as _));
+        t_print!("{}", get_count_reg(k as _));
         if k < j {
             print_chr('.');
         }
@@ -245,21 +245,17 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         let old_setting = selector;
         selector = Selector::NEW_STRING;
-        print_cstr("pdf:pagesize ");
+        t_print!("pdf:pagesize ");
         if get_dimen_par(DimenPar::pdf_page_width) <= Scaled::ZERO
             || get_dimen_par(DimenPar::pdf_page_height) <= Scaled::ZERO
         {
-            print_cstr("default");
+            t_print!("default");
         } else {
-            print_cstr("width");
-            print_chr(' ');
-            print_scaled(get_dimen_par(DimenPar::pdf_page_width));
-            print_cstr("pt");
-            print_chr(' ');
-            print_cstr("height");
-            print_chr(' ');
-            print_scaled(get_dimen_par(DimenPar::pdf_page_height));
-            print_cstr("pt");
+            t_print!(
+                "width {}pt height {}pt",
+                get_dimen_par(DimenPar::pdf_page_width),
+                get_dimen_par(DimenPar::pdf_page_height)
+            );
         }
         selector = old_setting;
 
@@ -290,13 +286,12 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
     if LR_problems > 0 {
         print_ln();
-        print_nl_cstr("\\endL or \\endR problem (");
-        print_int(LR_problems / 10000);
-        print_cstr(" missing, ");
-        print_int(LR_problems % 10000);
-        print_cstr(" extra");
+        t_print_nl!(
+            "\\endL or \\endR problem ({} missing, {} extra)",
+            LR_problems / 10000,
+            LR_problems % 10000
+        );
         LR_problems = 0;
-        print_chr(')');
         print_ln();
     }
 
@@ -1783,12 +1778,10 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 } else {
                     selector = Selector::TERM_AND_LOG
                 }
-                print_nl_cstr("\\openout");
-                print_int(j as i32);
-                print_cstr(" = `");
+                t_print_nl!("\\openout{} = `", j as i32);
                 print_file_name(cur_name, cur_area, cur_ext);
-                print_cstr("\'.");
-                print_nl_cstr("");
+                t_print!("\'.");
+                t_print_nl!("");
                 print_ln();
                 selector = old_setting
             }
@@ -2169,33 +2162,25 @@ unsafe fn pic_out(p: &Picture) {
 
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    print_cstr("pdf:image ");
-    print_cstr("matrix ");
     let matrix = p.transform_matrix();
-    print_scaled(matrix[0]);
-    print_chr(' ');
-    print_scaled(matrix[1]);
-    print_chr(' ');
-    print_scaled(matrix[2]);
-    print_chr(' ');
-    print_scaled(matrix[3]);
-    print_chr(' ');
-    print_scaled(matrix[4]);
-    print_chr(' ');
-    print_scaled(matrix[5]);
-    print_chr(' ');
-    print_cstr("page ");
-    print_int(p.page() as i32);
-    print_chr(' ');
-
-    match p.pagebox() {
-        1 => print_cstr("pagebox cropbox "),
-        2 => print_cstr("pagebox mediabox "),
-        3 => print_cstr("pagebox bleedbox "),
-        5 => print_cstr("pagebox artbox "),
-        4 => print_cstr("pagebox trimbox "),
-        _ => {}
-    }
+    t_print!(
+        "pdf:image matrix {} {} {} {} {} {} page {} {}",
+        matrix[0],
+        matrix[1],
+        matrix[2],
+        matrix[3],
+        matrix[4],
+        matrix[5],
+        p.page() as i32,
+        match p.pagebox() {
+            1 => "pagebox cropbox ",
+            2 => "pagebox mediabox ",
+            3 => "pagebox bleedbox ",
+            5 => "pagebox artbox ",
+            4 => "pagebox trimbox ",
+            _ => "",
+        }
+    );
 
     print_chr('(');
     for i in p.path() {
@@ -2295,31 +2280,25 @@ pub(crate) unsafe fn finalize_dvi_file() {
     let k = ttstub_output_close(dvi_file.take().unwrap()) as u8;
 
     if k == 0 {
-        print_nl_cstr("Output written on ");
-        print(output_file_name);
-        print_cstr(" (");
-        print_int(TOTAL_PAGES as i32);
+        t_print_nl!("Output written on {}", PoolString::from(output_file_name));
         if TOTAL_PAGES != 1 {
-            print_cstr(" pages");
+            t_print!(" ({} pages", TOTAL_PAGES);
         } else {
-            print_cstr(" page");
+            t_print!(" (1 page");
         }
-        print_cstr(", ");
-        print_int((dvi_offset + dvi_ptr) as i32);
-        print_cstr(" bytes).");
+        t_print!(", {} bytes).", (dvi_offset + dvi_ptr) as i32);
     } else {
-        print_nl_cstr("Error ");
-        print_int(k as i32);
-        print_cstr(" (");
-        print_c_str(
+        t_print!(
+            "Error {} ({}) generating output;",
+            k as i32,
             std::ffi::CStr::from_ptr(strerror(k as i32))
                 .to_str()
                 .unwrap(),
         );
-        print_cstr(") generating output;");
-        print_nl_cstr("file ");
-        print(output_file_name);
-        print_cstr(" may not be valid.");
+        t_print_nl!(
+            "file {} may not be valid.",
+            PoolString::from(output_file_name)
+        );
         /* XeTeX adds history = OUTPUT_FAILURE = 4 here; I'm not implementing that. */
     };
 }

@@ -2,11 +2,7 @@
    Copyright 2017 The Tectonic Project
    Licensed under the MIT License.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::xetex_ini::arith_error;
 

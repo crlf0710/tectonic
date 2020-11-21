@@ -1,9 +1,6 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::{t_print, t_print_nl};
 use std::ptr;
 
 use super::xetex_texmfmp::{get_date_and_time, to_rust_string};
@@ -17,8 +14,7 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
 use crate::xetex_output::{
-    print, print_chr, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl,
-    print_nl_cstr,
+    print, print_chr, print_cstr, print_esc_cstr, print_file_line, print_nl_cstr, Esc,
 };
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
@@ -461,8 +457,6 @@ pub(crate) static mut rust_stdout: Option<OutputHandleWrapper> = None;
 pub(crate) static mut log_file: Option<OutputHandleWrapper> = None;
 #[no_mangle]
 pub(crate) static mut selector: Selector = Selector::File(0);
-#[no_mangle]
-pub(crate) static mut dig: [u8; 23] = [0; 23];
 #[no_mangle]
 pub(crate) static mut tally: i32 = 0;
 #[no_mangle]
@@ -2014,14 +2008,12 @@ pub(crate) unsafe fn prefixed_command(
                 } else {
                     print_nl_cstr("! ");
                 }
-                print_cstr("Invalid code (");
-                print_int(val);
+                
                 if p < MATH_CODE_BASE as i32 {
-                    print_cstr("), should be in the range 0..");
+                t_print!("Invalid code ({}), should be in the range 0..{}", val, n);
                 } else {
-                    print_cstr("), should be at most ");
+                t_print!("Invalid code ({}), should be at most {}", val, n);
                 }
-                print_int(n);
                 help!("I\'m going to use 0 instead of that illegal code value.");
                 error();
                 0
@@ -2222,21 +2214,18 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
         open_parens -= 1;
     }
     if cur_level > LEVEL_ONE {
-        print_nl('(' as i32);
-        print_esc_cstr("end occurred ");
-        print_cstr("inside a group at level ");
-        print_int(cur_level as i32 - 1);
-        print_chr(')');
+        t_print_nl!(
+            "({} occurred inside a group at level {})",
+            Esc("end"),
+            cur_level as i32 - 1
+        );
         show_save_groups(cur_group, cur_level);
     }
     while let Some(cp) = cond_ptr {
-        print_nl('(' as i32);
-        print_esc_cstr("end occurred ");
-        print_cstr("when ");
+        t_print_nl!("({} occurred when ", Esc("end"));
         print_cmd_chr(Cmd::IfTest, cur_if as i32);
         if if_line != 0 {
-            print_cstr(" on line ");
-            print_int(if_line);
+            t_print!(" on line {}", if_line);
         }
         print_cstr(" was incomplete)");
         if_line = MEM[cp + 1].b32.s1;
@@ -2437,19 +2426,19 @@ unsafe fn initialize_more_initex_variables() {
         MEM[k].b16.s0 = NORMAL;
     }
 
-    FIL_GLUE
-        .set_stretch(Scaled::ONE)
+    let mut glue = FIL_GLUE;
+    glue.set_stretch(Scaled::ONE)
         .set_stretch_order(GlueOrder::Fil);
-    FILL_GLUE
-        .set_stretch(Scaled::ONE)
+    let mut glue = FILL_GLUE;
+    glue.set_stretch(Scaled::ONE)
         .set_stretch_order(GlueOrder::Fill);
-    SS_GLUE
-        .set_stretch(Scaled::ONE)
+    let mut glue = SS_GLUE;
+    glue.set_stretch(Scaled::ONE)
         .set_stretch_order(GlueOrder::Fil)
         .set_shrink(Scaled::ONE)
         .set_shrink_order(GlueOrder::Fil);
-    FIL_NEG_GLUE
-        .set_stretch(-Scaled::ONE)
+    let mut glue = FIL_NEG_GLUE;
+    glue.set_stretch(-Scaled::ONE)
         .set_stretch_order(GlueOrder::Fil);
     rover = LO_MEM_STAT_MAX + 1;
     *LLIST_link(rover as usize) = MAX_HALFWORD; // now initialize the dynamic memory
@@ -3784,7 +3773,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: *const i8, input_file_name: *const
         bad = 41
     }
     if bad > 0 {
-        panic!("failed internal consistency check #{}", bad,);
+        panic!("failed internal consistency check #{}", bad);
     }
 
     /* OK, ready to keep on initializing. */

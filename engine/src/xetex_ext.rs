@@ -1,10 +1,7 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::c_pointer_to_str;
+use crate::t_print_nl;
 use std::ffi::CString;
 
 use crate::node::{Glyph, NativeWord};
@@ -33,7 +30,7 @@ use crate::xetex_ini::{
     name_of_file, DEPTH_BASE, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
     HEIGHT_BASE, PARAM_BASE,
 };
-use crate::xetex_output::{print_chr, print_int, print_nl};
+use crate::xetex_output::{print_chr, print_nl};
 use crate::xetex_scaledmath::xn_over_d;
 use crate::xetex_texmfmp::{gettexstring, maketexstring, to_rust_string};
 use crate::xetex_xetex0::{
@@ -206,12 +203,7 @@ pub(crate) unsafe fn linebreak_start(f: usize, localeStrNum: i32, text: &[u16]) 
         );
         if status as i32 > icu::U_ZERO_ERROR as i32 {
             diagnostic(true, || {
-                print_nl('E' as i32);
-                print_c_str("rror ");
-                print_int(status as i32);
-                print_c_str(" creating linebreak iterator for locale `");
-                print_c_str(&locale);
-                print_c_str("\'; trying default locale `en_us\'.");
+                t_print_nl!("Error {} creating linebreak iterator for locale `{}\'; trying default locale `en_us\'.", status as i32, locale);
             });
             if !brkIter.is_null() {
                 icu::ubrk_close(brkIter);

@@ -18,7 +18,7 @@ pub struct Opaque_TECkit_Converter {
 }
 
 extern "C" {
-    #[no_mangle]
+    //#[no_mangle]
     pub(crate) fn TECkit_CreateConverter(
         mapping: *mut u8,
         mappingSize: u32,
@@ -27,7 +27,7 @@ extern "C" {
         targetForm: u16,
         converter: *mut TECkit_Converter,
     ) -> TECkit_Status;
-    #[no_mangle]
+    //#[no_mangle]
     pub(crate) fn TECkit_ConvertBuffer(
         converter: TECkit_Converter,
         inBuffer: *const u8,

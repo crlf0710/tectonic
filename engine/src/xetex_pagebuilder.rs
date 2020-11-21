@@ -1,8 +1,6 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
+
+use crate::t_print;
 
 use crate::help;
 use crate::node::*;
@@ -14,7 +12,7 @@ use crate::xetex_ini::{
     last_penalty, line, output_active, page_contents, page_so_far, page_tail, sa_root,
     semantic_pagination_enabled, NEST, NEST_PTR,
 };
-use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr};
+use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_nl_cstr, Esc};
 use crate::xetex_scaledmath::{x_over_n, Scaled};
 use crate::xetex_shipout::ship_out;
 use crate::xetex_xetex0::{
@@ -410,9 +408,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
                 } else {
                     print_nl_cstr("! ");
                 }
-                print_cstr("Output loop---");
-                print_int(dead_cycles);
-                print_cstr(" consecutive dead cycles");
+                t_print!("Output loop---{} consecutive dead cycles", dead_cycles);
                 help!(
                     "I\'ve concluded that your \\output is awry; it never does a",
                     "\\shipout, so I\'m shipping \\box255 out myself. Next time",
@@ -853,9 +849,11 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                         } else {
                             print_nl_cstr("! ");
                         }
-                        print_cstr("Infinite glue shrinkage inserted from ");
-                        print_esc_cstr("skip");
-                        print_int(n as i32);
+                        t_print!(
+                            "Infinite glue shrinkage inserted from {}{}",
+                            Esc("skip"),
+                            n as i32
+                        );
                         help!(
                             "The correction glue for page breaking with insertions",
                             "must have finite shrinkability. But you may proceed,",

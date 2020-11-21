@@ -1,9 +1,6 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::t_print;
 use std::ffi::CString;
 
 use crate::help;
@@ -13,9 +10,7 @@ use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::{
     cur_area, cur_ext, cur_list, cur_name, file_line_error_style_p, input_state_t, name_of_file,
 };
-use crate::xetex_output::{
-    print_chr, print_cstr, print_file_line, print_file_name, print_nl_cstr, print_scaled,
-};
+use crate::xetex_output::{print_chr, print_cstr, print_file_line, print_file_name, print_nl_cstr};
 use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetex0::{
     pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
@@ -236,10 +231,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
                 } else {
                     print_nl_cstr("! ");
                 }
-                print_cstr("Improper image ");
-                print_cstr("size (");
-                print_scaled(val);
-                print_cstr("pt) will be ignored");
+                t_print!("Improper image size ({}pt) will be ignored", val);
                 help!(
                     "I can\'t scale images to zero or negative sizes,",
                     "so I\'m ignoring this."
@@ -256,10 +248,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
                 } else {
                     print_nl_cstr("! ");
                 }
-                print_cstr("Improper image ");
-                print_cstr("size (");
-                print_scaled(val);
-                print_cstr("pt) will be ignored");
+                t_print!("Improper image size ({}pt) will be ignored", val);
                 help!(
                     "I can\'t scale images to zero or negative sizes,",
                     "so I\'m ignoring this."

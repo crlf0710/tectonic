@@ -38,11 +38,7 @@ authorization from the copyright holders.
  *  originally based on PortableFontInstance.h from ICU
  */
 
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::core_memory::xmalloc;
 use harfbuzz_sys::{
@@ -86,21 +82,21 @@ use crate::xetex_ext::Fix2D;
 use libc::free;
 extern "C" {
     // TODO: NOTE: this api doesn't included in harfbuzz_sys
-    #[no_mangle]
+    //#[no_mangle]
     fn hb_font_funcs_set_glyph_h_kerning_func(
         ffuncs: *mut hb_font_funcs_t,
         func: hb_font_get_glyph_h_kerning_func_t,
         user_data: *mut libc::c_void,
         destroy: hb_destroy_func_t,
     );
-    #[no_mangle]
+    //#[no_mangle]
     fn hb_font_funcs_set_glyph_func(
         ffuncs: *mut hb_font_funcs_t,
         func: hb_font_get_glyph_func_t,
         user_data: *mut libc::c_void,
         destroy: hb_destroy_func_t,
     );
-    #[no_mangle]
+    //#[no_mangle]
     fn hb_font_funcs_set_glyph_v_kerning_func(
         ffuncs: *mut hb_font_funcs_t,
         func: hb_font_get_glyph_v_kerning_func_t,

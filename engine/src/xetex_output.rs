@@ -2,11 +2,9 @@
    Copyright 2016-2018 The Tectonic Project
    Licensed under the MIT License.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
+
+use crate::{t_print, t_print_nl};
 
 use super::xetex_consts::{
     get_int_par, IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE,
@@ -14,12 +12,11 @@ use super::xetex_consts::{
 };
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
-use crate::xetex_scaledmath::Scaled;
 use crate::xetex_stringpool::{PoolString, TOO_BIG_CHAR};
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
-    dig, doing_special, error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr,
+    doing_special, error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr,
     pool_size, rust_stdout, selector, str_pool, str_ptr, tally, term_offset, trick_buf,
     trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
@@ -35,7 +32,7 @@ pub(crate) type str_number = i32;
  * Licensed under the MIT License.
 */
 pub(crate) unsafe fn print_ln() {
-    use std::io::Write;
+    use io::Write;
     match selector {
         Selector::TERM_AND_LOG => {
             let stdout = rust_stdout.as_mut().unwrap();
@@ -58,15 +55,16 @@ pub(crate) unsafe fn print_ln() {
     };
 }
 
-unsafe fn write_term_ln<W: std::io::Write>(out: &mut W) -> std::io::Result<()> {
+use std::io;
+unsafe fn write_term_ln<W: io::Write>(out: &mut W) -> io::Result<()> {
     term_offset = 0;
     write!(out, "\n")
 }
-unsafe fn write_log_ln<W: std::io::Write>(lg: &mut W) -> std::io::Result<()> {
+unsafe fn write_log_ln<W: io::Write>(lg: &mut W) -> io::Result<()> {
     file_offset = 0;
     write!(lg, "\n")
 }
-unsafe fn write_term_char<W: std::io::Write>(out: &mut W, c: char) -> std::io::Result<()> {
+unsafe fn write_term_char<W: io::Write>(out: &mut W, c: char) -> io::Result<()> {
     write!(out, "{}", c)?;
     term_offset += 1;
     if term_offset == max_print_line {
@@ -75,7 +73,7 @@ unsafe fn write_term_char<W: std::io::Write>(out: &mut W, c: char) -> std::io::R
     Ok(())
 }
 
-unsafe fn write_log_char<W: std::io::Write>(lg: &mut W, c: char) -> std::io::Result<()> {
+unsafe fn write_log_char<W: io::Write>(lg: &mut W, c: char) -> io::Result<()> {
     write!(lg, "{}", c)?;
     file_offset += 1;
     if file_offset == max_print_line {
@@ -84,11 +82,7 @@ unsafe fn write_log_char<W: std::io::Write>(lg: &mut W, c: char) -> std::io::Res
     Ok(())
 }
 
-unsafe fn print_term_log_char<W: std::io::Write>(
-    stdout: &mut W,
-    lg: &mut W,
-    s: char,
-) -> std::io::Result<()> {
+unsafe fn print_term_log_char<W: io::Write>(stdout: &mut W, lg: &mut W, s: char) -> io::Result<()> {
     if (s as i32) == get_int_par(IntPar::new_line_char) {
         write_term_ln(stdout)?;
         write_log_ln(lg)?;
@@ -108,7 +102,7 @@ unsafe fn print_term_log_char<W: std::io::Write>(
     Ok(())
 }
 
-unsafe fn print_log_char<W: std::io::Write>(lg: &mut W, s: char) -> std::io::Result<()> {
+unsafe fn print_log_char<W: io::Write>(lg: &mut W, s: char) -> io::Result<()> {
     if (s as i32) == get_int_par(IntPar::new_line_char) {
         write_log_ln(lg)?;
     } else {
@@ -124,7 +118,7 @@ unsafe fn print_log_char<W: std::io::Write>(lg: &mut W, s: char) -> std::io::Res
     }
     Ok(())
 }
-unsafe fn print_term_char<W: std::io::Write>(stdout: &mut W, s: char) -> std::io::Result<()> {
+unsafe fn print_term_char<W: io::Write>(stdout: &mut W, s: char) -> io::Result<()> {
     if (s as i32) == get_int_par(IntPar::new_line_char) {
         write_term_ln(stdout)?;
     } else {
@@ -141,7 +135,7 @@ unsafe fn print_term_char<W: std::io::Write>(stdout: &mut W, s: char) -> std::io
     Ok(())
 }
 
-unsafe fn print_file_char<W: std::io::Write>(file: &mut W, s: char) -> std::io::Result<()> {
+unsafe fn print_file_char<W: io::Write>(file: &mut W, s: char) -> io::Result<()> {
     if (s as i32) == get_int_par(IntPar::new_line_char) {
         write!(file, "\n")?;
     } else {
@@ -225,7 +219,7 @@ pub(crate) unsafe fn print_rust_string(s: &str) {
     for c in s.chars() {
         print_rust_char(c);
     }
-    use std::io::Write;
+    use io::Write;
     let mut count = s.chars().count() as i32;
     match selector {
         Selector::TERM_AND_LOG => {
@@ -303,6 +297,29 @@ pub(crate) unsafe fn print_chr(s: char) {
     print_rust_char(s);
 }
 
+use std::fmt;
+pub(crate) struct Output;
+impl fmt::Write for Output {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        // TODO: optimize
+        for c in s.chars() {
+            unsafe {
+                print_rust_char(c);
+            }
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn write_char(&mut self, c: char) -> fmt::Result {
+        unsafe {
+            print_rust_char(c);
+        }
+        Ok(())
+    }
+}
+
 unsafe fn replace_control(s: char) -> ([char; 4], usize) {
     match s {
         '\u{0}'..='\u{1f}' => (['^', '^', char::from((s as u8) + 0x40), '\u{0}'], 3),
@@ -350,21 +367,30 @@ pub(crate) unsafe fn print_cstr(slice: &str) {
     }
 }
 
-pub(crate) unsafe fn print_nl(s: str_number) {
+pub(crate) unsafe fn printnl() {
     match selector {
         Selector::TERM_ONLY | Selector::TERM_AND_LOG if term_offset > 0 => print_ln(),
         Selector::LOG_ONLY | Selector::TERM_AND_LOG if file_offset > 0 => print_ln(),
         _ => {}
     }
+}
+pub(crate) unsafe fn print_nl(s: str_number) {
+    printnl();
     print(s);
 }
 pub(crate) unsafe fn print_nl_cstr(slice: &str) {
-    match selector {
-        Selector::TERM_ONLY | Selector::TERM_AND_LOG if term_offset > 0 => print_ln(),
-        Selector::LOG_ONLY | Selector::TERM_AND_LOG if file_offset > 0 => print_ln(),
-        _ => {}
-    }
+    printnl();
     print_cstr(slice);
+}
+pub(crate) struct Esc<'a>(pub &'a str);
+impl<'a> fmt::Display for Esc<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let c = unsafe { get_int_par(IntPar::escape_char) };
+        if c >= 0 && c <= BIGGEST_USV as i32 {
+            std::char::from_u32(c as u32).unwrap().fmt(f)?;
+        }
+        self.0.fmt(f)
+    }
 }
 pub(crate) unsafe fn print_esc(s: str_number) {
     let c = get_int_par(IntPar::escape_char);
@@ -379,45 +405,6 @@ pub(crate) unsafe fn print_esc_cstr(s: &str) {
         print_chr(std::char::from_u32(c as u32).unwrap());
     }
     print_cstr(s);
-}
-unsafe fn print_the_digs(mut k: u8) {
-    while k as i32 > 0 {
-        k -= 1;
-        if (dig[k as usize] as i32) < 10 {
-            print_chr(char::from(b'0' + dig[k as usize]));
-        } else {
-            print_chr(char::from(55 + dig[k as usize]));
-        }
-    }
-}
-pub(crate) unsafe fn print_int(mut n: i32) {
-    let mut k = 0_u8;
-    if n < 0 {
-        print_chr('-');
-        if n as i64 > -100000000 {
-            n = -n
-        } else {
-            let mut m = -1 - n;
-            n = m / 10;
-            m = m % 10 + 1;
-            k = 1_u8;
-            if m < 10 {
-                dig[0] = m as u8
-            } else {
-                dig[0] = 0;
-                n += 1;
-            }
-        }
-    }
-    loop {
-        dig[k as usize] = (n % 10) as u8;
-        n = n / 10;
-        k += 1;
-        if n == 0 {
-            break;
-        }
-    }
-    print_the_digs(k);
 }
 pub(crate) unsafe fn print_cs(p: i32) {
     if p < HASH_BASE as i32 {
@@ -584,11 +571,11 @@ pub(crate) unsafe fn print_size(s: i32) {
 pub(crate) unsafe fn print_write_whatsit(s: &str, p: usize) {
     print_esc_cstr(s);
     if MEM[p + 1].b32.s0 < 16 {
-        print_int(MEM[p + 1].b32.s0);
+        t_print!("{}", MEM[p + 1].b32.s0);
     } else if MEM[p + 1].b32.s0 == 16 {
-        print_chr('*');
+        t_print!("*");
     } else {
-        print_chr('-');
+        t_print!("-");
     };
 }
 pub(crate) unsafe fn print_native_word(p: &NativeWord) {
@@ -611,7 +598,7 @@ pub(crate) unsafe fn print_sa_num(mut q: usize) {
         q = MEM[q].b32.s1 as usize;
         n = n + 64 * 64 * (MEM[q].b16.s1 as i32 + 64 * MEM[MEM[q].b32.s1 as usize].b16.s1 as i32)
     }
-    print_int(n);
+    t_print!("{}", n);
 }
 pub(crate) unsafe fn print_file_line() {
     let mut level = IN_OPEN;
@@ -621,82 +608,51 @@ pub(crate) unsafe fn print_file_line() {
     if level == 0 {
         print_nl_cstr("! ");
     } else {
-        print_nl_cstr("");
-        print(FULL_SOURCE_FILENAME_STACK[level]);
-        print_chr(':');
-        if level == IN_OPEN {
-            print_int(line);
-        } else {
-            print_int(LINE_STACK[level + 1]);
-        }
-        print_cstr(": ");
+        t_print_nl!(
+            "{}:{}: ",
+            FULL_SOURCE_FILENAME_STACK[level],
+            if level == IN_OPEN {
+                line
+            } else {
+                LINE_STACK[level + 1]
+            }
+        );
     };
 }
 
-pub(crate) unsafe fn print_hex(mut n: i32) {
-    let mut k: u8 = 0_u8;
-    print_chr('\"');
-    loop {
-        dig[k as usize] = (n % 16) as u8;
-        n = n / 16;
-        k = k.wrapping_add(1);
-        if n == 0 {
-            break;
-        }
-    }
-    print_the_digs(k);
-}
-pub(crate) unsafe fn print_roman_int(mut n: i32) {
-    const roman_data: &[u8] = b"m2d5c2l5x2v5i";
-    let mut j: u8 = 0_u8;
-    let mut v = 1000i32;
-    loop {
-        while n >= v {
-            print_chr(char::from(roman_data[j as usize]));
-            n = n - v
-        }
-        if n <= 0 {
-            return;
-        }
-        let mut k = j + 2;
-        let mut u = v / (roman_data[k as usize - 1] as i32 - '0' as i32);
-        if roman_data[k as usize - 1] as i32 == '2' as i32 {
-            k += 2;
-            u = u / (roman_data[k as usize - 1] as i32 - '0' as i32)
-        }
-        if n + u >= v {
-            print_chr(char::from(roman_data[k as usize]));
-            n = n + u
-        } else {
-            j += 2;
-            v = v / (roman_data[j as usize - 1] as i32 - '0' as i32)
+pub(crate) struct Roman(pub i32);
+impl fmt::Display for Roman {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        const roman_data: &[u8] = b"m2d5c2l5x2v5i";
+        let mut n = self.0;
+        let mut j: u8 = 0_u8;
+        let mut v = 1000;
+        loop {
+            while n >= v {
+                char::from(roman_data[j as usize]).fmt(f)?;
+                n = n - v
+            }
+            if n <= 0 {
+                return Ok(());
+            }
+            let mut k = j + 2;
+            let mut u = v / (roman_data[k as usize - 1] as i32 - '0' as i32);
+            if roman_data[k as usize - 1] as i32 == '2' as i32 {
+                k += 2;
+                u = u / (roman_data[k as usize - 1] as i32 - '0' as i32)
+            }
+            if n + u >= v {
+                char::from(roman_data[k as usize]).fmt(f)?;
+                n = n + u
+            } else {
+                j += 2;
+                v = v / (roman_data[j as usize - 1] as i32 - '0' as i32)
+            }
         }
     }
 }
 pub(crate) unsafe fn print_current_string() {
     for c in std::char::decode_utf16(PoolString::current().as_slice().iter().cloned()) {
         print_chr(c.unwrap());
-    }
-}
-pub(crate) unsafe fn print_scaled(s: Scaled) {
-    let mut s = s.0;
-    if s < 0 {
-        print_chr('-');
-        s = s.wrapping_neg(); // TODO: check
-    }
-    print_int(s / 0x10000);
-    print_chr('.');
-    s = 10 * (s % 0x10000) + 5;
-    let mut delta = 10;
-    loop {
-        if delta > 0x10000 {
-            s = s + 0x8000 - 50000
-        }
-        print_chr(char::from(b'0' + (s / 0x10000) as u8));
-        s = 10 * (s % 0x10000);
-        delta *= 10;
-        if !(s > delta) {
-            break;
-        }
     }
 }

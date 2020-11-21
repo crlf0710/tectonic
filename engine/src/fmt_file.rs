@@ -7,6 +7,7 @@ use crate::xetex_ini::{
 use bridge::{ttstub_output_close, ttstub_output_open, InFile, TTHistory, TTInputFormat};
 use std::ffi::CString;
 
+use crate::{t_print, t_print_nl};
 use std::io::{Read, Write};
 
 use crate::trie::{
@@ -52,8 +53,7 @@ use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::{
-    print, print_chr, print_cstr, print_esc, print_file_line, print_int, print_ln, print_nl_cstr,
-    print_scaled,
+    print, print_chr, print_cstr, print_esc, print_file_line, print_ln, print_nl_cstr,
 };
 use crate::xetex_xetexd::llist_link;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
@@ -139,15 +139,13 @@ pub(crate) unsafe fn store_fmt_file() {
     }
 
     selector = Selector::NEW_STRING;
-    print_cstr(" (preloaded format=");
-    print(job_name);
-    print_chr(' ');
-    print_int(get_int_par(IntPar::year));
-    print_chr('.');
-    print_int(get_int_par(IntPar::month));
-    print_chr('.');
-    print_int(get_int_par(IntPar::day));
-    print_chr(')');
+    t_print!(
+        " (preloaded format={} {}.{}.{})",
+        PoolString::from(job_name),
+        get_int_par(IntPar::year),
+        get_int_par(IntPar::month),
+        get_int_par(IntPar::day),
+    );
 
     selector = if interaction == InteractionMode::Batch {
         Selector::LOG_ONLY
@@ -206,9 +204,7 @@ pub(crate) unsafe fn store_fmt_file() {
     fmt_out.dump(&str_pool[..pool_ptr]);
 
     print_ln();
-    print_int(str_ptr);
-    print_cstr(" strings of total length ");
-    print_int(pool_ptr as i32);
+    t_print!("{} strings of total length {}", str_ptr, pool_ptr as i32);
 
     /* "memory locations" */
 
@@ -255,11 +251,12 @@ pub(crate) unsafe fn store_fmt_file() {
     fmt_out.dump_one(dyn_used as i32);
 
     print_ln();
-    print_int(x);
-    print_cstr(" memory locations dumped; current usage is ");
-    print_int(var_used);
-    print_chr('&');
-    print_int(dyn_used);
+    t_print!(
+        "{} memory locations dumped; current usage is {}&{}",
+        x,
+        var_used,
+        dyn_used
+    );
 
     /* equivalents table / primitive */
 
@@ -370,8 +367,7 @@ pub(crate) unsafe fn store_fmt_file() {
     fmt_out.dump_one(cs_count);
 
     print_ln();
-    print_int(cs_count);
-    print_cstr(" multiletter control sequences");
+    t_print!("{} multiletter control sequences", cs_count);
 
     /* fonts */
 
@@ -430,20 +426,16 @@ pub(crate) unsafe fn store_fmt_file() {
         }
 
         if FONT_SIZE[k] != FONT_DSIZE[k] {
-            print_cstr(" at ");
-            print_scaled(FONT_SIZE[k]);
-            print_cstr("pt");
+            t_print!(" at {}pt", FONT_SIZE[k]);
         }
     }
 
     print_ln();
-    print_int(fmem_ptr - 7);
-    print_cstr(" words of font info for ");
-    print_int(FONT_PTR as i32 - 0);
+    t_print!("{} words of font info for ", fmem_ptr - 7);
     if FONT_PTR != FONT_BASE + 1 {
-        print_cstr(" preloaded fonts");
+        t_print!("{} preloaded fonts", FONT_PTR - FONT_BASE);
     } else {
-        print_cstr(" preloaded font");
+        t_print!("1 preloaded font");
     }
 
     /* hyphenation info */
@@ -463,11 +455,10 @@ pub(crate) unsafe fn store_fmt_file() {
     }
 
     print_ln();
-    print_int(HYPH_COUNT as i32);
     if HYPH_COUNT != 1 {
-        print_cstr(" hyphenation exceptions");
+        t_print!("{} hyphenation exceptions", HYPH_COUNT as i32);
     } else {
-        print_cstr(" hyphenation exception");
+        t_print!("1 hyphenation exception");
     }
     if trie_not_ready {
         init_trie();
@@ -484,24 +475,21 @@ pub(crate) unsafe fn store_fmt_file() {
     fmt_out.dump(&hyf_num[1..trie_op_ptr as usize + 1]);
     fmt_out.dump(&hyf_next[1..trie_op_ptr as usize + 1]);
 
-    print_nl_cstr("Hyphenation trie of length ");
-    print_int(trie_max);
-    print_cstr(" has ");
-    print_int(trie_op_ptr);
-    if trie_op_ptr != 1i32 {
-        print_cstr(" ops");
+    t_print_nl!(
+        "Hyphenation trie of length {} has {}",
+        trie_max,
+        trie_op_ptr
+    );
+    if trie_op_ptr != 1 {
+        t_print!(" ops");
     } else {
-        print_cstr(" op");
+        t_print!(" op");
     }
-    print_cstr(" out of ");
-    print_int(TRIE_OP_SIZE as i32);
+    t_print!(" out of {}", TRIE_OP_SIZE as i32);
 
     for k in (0..=BIGGEST_LANG).rev() {
-        if trie_used[k as usize] as i32 > 0i32 {
-            print_nl_cstr("  ");
-            print_int(trie_used[k as usize] as i32);
-            print_cstr(" for language ");
-            print_int(k);
+        if trie_used[k as usize] as i32 > 0 {
+            t_print_nl!("  {} for language {}", trie_used[k as usize] as i32, k);
             fmt_out.dump_one(k as i32);
             fmt_out.dump_one(trie_used[k as usize] as i32);
         }
