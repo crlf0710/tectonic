@@ -7,7 +7,7 @@ use crate::xetex_ini::{
 use bridge::{ttstub_output_close, ttstub_output_open, InFile, TTHistory, TTInputFormat};
 use std::ffi::CString;
 
-use crate::{t_print, t_print_nl};
+use crate::{t_eprint, t_print, t_print_nl};
 use std::io::{Read, Write};
 
 use crate::trie::{
@@ -52,9 +52,7 @@ use crate::xetex_stringpool::{make_string, PoolString, EMPTY_STRING, TOO_BIG_CHA
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
 use crate::xetex_output::print_file_name;
-use crate::xetex_output::{
-    print, print_chr, print_cstr, print_esc, print_file_line, print_ln, print_nl_cstr,
-};
+use crate::xetex_output::{print, print_chr, print_esc, print_ln, print_nl_cstr};
 use crate::xetex_xetexd::llist_link;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
 
@@ -117,12 +115,7 @@ unsafe fn sort_avail() {
 /*1337:*/
 pub(crate) unsafe fn store_fmt_file() {
     if SAVE_PTR != 0 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("You can\'t dump inside a group");
+        t_eprint!("You can\'t dump inside a group");
         help!("`{...\\dump}\' is a no-no.");
 
         if interaction == InteractionMode::ErrorStop {
@@ -408,12 +401,7 @@ pub(crate) unsafe fn store_fmt_file() {
         {
             print_file_name(FONT_NAME[k], EMPTY_STRING, EMPTY_STRING);
 
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Can\'t \\dump a format with native fonts or font-mappings");
+            t_eprint!("Can\'t \\dump a format with native fonts or font-mappings");
 
             help!(
                 "You really, really don\'t want to do this.",

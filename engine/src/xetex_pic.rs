@@ -1,16 +1,14 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use crate::t_print;
+use crate::{t_eprint, t_print};
 use std::ffi::CString;
 
 use crate::help;
 use crate::node::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
-use crate::xetex_ini::{
-    cur_area, cur_ext, cur_list, cur_name, file_line_error_style_p, input_state_t, name_of_file,
-};
-use crate::xetex_output::{print_chr, print_cstr, print_file_line, print_file_name, print_nl_cstr};
+use crate::xetex_ini::{cur_area, cur_ext, cur_list, cur_name, input_state_t, name_of_file};
+use crate::xetex_output::print_file_name;
 use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetex0::{
     pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
@@ -226,12 +224,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
         } else if scan_keyword(input, "width") {
             let val = scan_dimen(input, false, false, None);
             if val <= Scaled::ZERO {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                t_print!("Improper image size ({}pt) will be ignored", val);
+                t_eprint!("Improper image size ({}pt) will be ignored", val);
                 help!(
                     "I can\'t scale images to zero or negative sizes,",
                     "so I\'m ignoring this."
@@ -243,12 +236,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
         } else if scan_keyword(input, "height") {
             let val = scan_dimen(input, false, false, None);
             if val <= Scaled::ZERO {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                t_print!("Improper image size ({}pt) will be ignored", val);
+                t_eprint!("Improper image size ({}pt) will be ignored", val);
                 help!(
                     "I can\'t scale images to zero or negative sizes,",
                     "so I\'m ignoring this."
@@ -343,14 +331,9 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
 
         tail_pic.path_mut().copy_from_slice(pic_path.as_bytes());
     } else {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Unable to load picture or PDF file \'");
+        t_eprint!("Unable to load picture or PDF file \'");
         print_file_name(cur_name, cur_area, cur_ext);
-        print_chr('\'');
+        t_print!("\'");
         if result == -43i32 {
             help!(
                 "The requested image couldn\'t be read because",

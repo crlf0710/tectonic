@@ -4,6 +4,7 @@ use std::io::Write;
 
 use crate::help;
 use crate::node::*;
+use crate::t_eprint;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
@@ -12,18 +13,15 @@ use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_area, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders,
-    doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr, input_state_t,
-    job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
-    output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
-    rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
-    term_offset, write_file, write_loc, write_open, xtx_ligature_present, LR_problems, LR_ptr,
-    CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
-    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM,
-    TOTAL_PAGES, WIDTH_BASE,
+    doing_special, file_offset, font_used, init_pool_ptr, input_state_t, job_name, last_bop,
+    log_opened, max_h, max_print_line, max_push, max_v, name_of_file, output_file_extension,
+    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht, rule_wd, rust_stdout,
+    selector, semantic_pagination_enabled, str_pool, str_ptr, str_start, term_offset, write_file,
+    write_loc, write_open, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA,
+    FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
+    FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
-use crate::xetex_output::{
-    print, print_chr, print_cstr, print_file_line, print_file_name, print_ln, print_nl_cstr,
-};
+use crate::xetex_output::{print, print_chr, print_cstr, print_file_name, print_ln, print_nl_cstr};
 use crate::xetex_scaledmath::{tex_round, Scaled};
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::TOO_BIG_CHAR;
@@ -144,12 +142,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         || p.height() + p.depth() + get_dimen_par(DimenPar::v_offset) > Scaled::MAX_HALFWORD
         || p.width() + get_dimen_par(DimenPar::h_offset) > Scaled::MAX_HALFWORD
     {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Huge page cannot be shipped out");
+        t_eprint!("Huge page cannot be shipped out");
         help!(
             "The page just created is more than 18 feet tall or",
             "more than 18 feet wide, so I suspect something went wrong."
@@ -2075,12 +2068,7 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
     if tok != CS_TOKEN_FLAG + END_WRITE as i32 {
         /*1412:*/
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Unbalanced write command");
+        t_eprint!("Unbalanced write command");
         help!(
             "On this page there\'s a \\write with fewer real {\'s than }\'s.",
             "I can\'t handle that very well; good luck."

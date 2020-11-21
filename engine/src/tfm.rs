@@ -2,7 +2,7 @@ use bridge::TTInputFormat;
 
 use crate::help;
 
-use crate::{t_print, t_print_nl};
+use crate::{t_eprint, t_print, t_print_nl};
 use std::io::Read;
 
 use crate::xetex_ini::b16x4;
@@ -17,7 +17,6 @@ use crate::xetex_xetexd::TeXInt;
 use crate::xetex_xetexd::FONT_CHARACTER_INFO;
 
 use crate::xetex_ini::cur_ext;
-use crate::xetex_ini::file_line_error_style_p;
 use crate::xetex_ini::fmem_ptr;
 use crate::xetex_ini::font_used;
 use crate::xetex_ini::loaded_font_design_size;
@@ -69,7 +68,6 @@ use crate::xetex_consts::LIST_TAG;
 use crate::xetex_consts::NON_ADDRESS;
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
-use crate::xetex_output::print_file_line;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::sprint_cs;
 use crate::xetex_output::{print_chr, print_cstr, print_nl_cstr};
@@ -559,12 +557,7 @@ pub(crate) unsafe fn bad_tfm(
 ) {
     if get_int_par(IntPar::suppress_fontnotfound_error) == 0 {
         /* NOTE: must preserve this path to keep passing the TRIP tests */
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Font ");
+        t_eprint!("Font ");
         sprint_cs(u);
         print_chr('=');
         if let Some(qc) = file_name_quote_char {
@@ -734,12 +727,7 @@ unsafe fn nf_error(
     match e {
         NativeFontError::NotFound => {}
         NativeFontError::NotEnoughMemory => {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Font ");
+            t_eprint!("Font ");
             sprint_cs(u);
             print_chr('=');
             if let Some(qc) = file_name_quote_char {

@@ -1,18 +1,17 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use crate::t_print;
+use crate::t_eprint;
 
 use crate::help;
 use crate::node::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
 use crate::xetex_ini::{
-    best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr,
-    file_line_error_style_p, input_state_t, insert_penalties, last_glue, last_kern, last_node_type,
-    last_penalty, line, output_active, page_contents, page_so_far, page_tail, sa_root,
-    semantic_pagination_enabled, NEST, NEST_PTR,
+    best_height_plus_depth, cur_list, cur_mark, cur_ptr, dead_cycles, disc_ptr, input_state_t,
+    insert_penalties, last_glue, last_kern, last_node_type, last_penalty, line, output_active,
+    page_contents, page_so_far, page_tail, sa_root, semantic_pagination_enabled, NEST, NEST_PTR,
 };
-use crate::xetex_output::{print_cstr, print_esc_cstr, print_file_line, print_nl_cstr, Esc};
+use crate::xetex_output::Esc;
 use crate::xetex_scaledmath::{x_over_n, Scaled};
 use crate::xetex_shipout::ship_out;
 use crate::xetex_xetex0::{
@@ -62,12 +61,7 @@ unsafe fn freeze_page_specs(s: PageContents) {
 unsafe fn ensure_vbox(n: u8) {
     if let Some(p) = get_box_reg(n as _) {
         if List::from(p).is_horizontal() {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Insertions can only be added to a vbox");
+            t_eprint!("Insertions can only be added to a vbox");
             help!(
                 "Tut tut: You\'re trying to \\insert into a",
                 "\\box register that now contains an \\hbox.",
@@ -131,14 +125,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
     }
     if get_box_reg(255).is_some() {
         /*1050:*/
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("");
-        print_esc_cstr("box");
-        print_cstr("255 is not void");
+        t_eprint!("{}255 is not void", Esc("box"));
         help!(
             "You shouldn\'t use \\box255 except in \\output routines.",
             "Proceed, and I\'ll discard its present contents."
@@ -403,12 +390,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
         if !semantic_pagination_enabled {
             if dead_cycles >= get_int_par(IntPar::max_dead_cycles) {
                 /*1059: "Explain that too many dead cycles have happened in a row." */
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                t_print!("Output loop---{} consecutive dead cycles", dead_cycles);
+                t_eprint!("Output loop---{} consecutive dead cycles", dead_cycles);
                 help!(
                     "I\'ve concluded that your \\output is awry; it never does a",
                     "\\shipout, so I\'m shipping \\box255 out myself. Next time",
@@ -729,12 +711,7 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                     page_so_far[6] += q.shrink();
                     let width =
                         if q.shrink_order() != GlueOrder::Normal && q.shrink() != Scaled::ZERO {
-                            if file_line_error_style_p != 0 {
-                                print_file_line();
-                            } else {
-                                print_nl_cstr("! ");
-                            }
-                            print_cstr("Infinite glue shrinkage found on current page");
+                            t_eprint!("Infinite glue shrinkage found on current page");
                             help!(
                                 "The page about to be output contains some infinitely",
                                 "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
@@ -844,12 +821,7 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
 
                     if q_spec.shrink_order() != GlueOrder::Normal && q_spec.shrink() != Scaled::ZERO
                     {
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr("! ");
-                        }
-                        t_print!(
+                        t_eprint!(
                             "Infinite glue shrinkage inserted from {}{}",
                             Esc("skip"),
                             n as i32

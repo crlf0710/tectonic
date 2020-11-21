@@ -705,3 +705,24 @@ macro_rules! t_print_nl(
         $crate::t_print!($fmt, $($arg)*);
     };
 );
+
+// TODO: optimize
+#[macro_export]
+macro_rules! t_eprint(
+    ($fmt:literal) => {{
+        if $crate::xetex_ini::file_line_error_style_p != 0 {
+            $crate::xetex_output::print_file_line();
+        } else {
+            $crate::t_print_nl!("! ");
+        };
+        $crate::t_print!($fmt);
+    }};
+    ($fmt:literal, $($arg:tt)*) => {
+        if $crate::xetex_ini::file_line_error_style_p != 0 {
+            $crate::xetex_output::print_file_line();
+        } else {
+            $crate::t_print_nl!("! ");
+        };
+        $crate::t_print!($fmt, $($arg)*);
+    };
+);
