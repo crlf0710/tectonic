@@ -26,13 +26,13 @@ use core::str::Chars;
 
 #[derive(Clone, Default, Debug)]
 pub(crate) struct OtlOpt {
-    rule: BtNode
+    rule: BtNode,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Operation {
     Or,
-    And
+    And,
 }
 
 impl Default for Operation {
@@ -47,7 +47,7 @@ struct BtNode {
     inverted: bool,
     left: Option<Box<BtNode>>,
     right: Option<Box<BtNode>>,
-    data: ArrayString<[u8; 4]>
+    data: ArrayString<[u8; 4]>,
 }
 
 impl OtlOpt {
@@ -56,7 +56,9 @@ impl OtlOpt {
     }
 
     pub(crate) fn parse_optstring(optstr: &str) -> Self {
-        OtlOpt{ rule: BtNode::parse_expr(&mut optstr.chars().peekable()).unwrap() }
+        OtlOpt {
+            rule: BtNode::parse_expr(&mut optstr.chars().peekable()).unwrap(),
+        }
     }
 }
 
@@ -73,7 +75,7 @@ impl BtNode {
                     } else {
                         curr.inverted = true;
                     }
-                },
+                }
                 '(' => {
                     chars.next();
                     let expr = if let Some(expr) = BtNode::parse_expr(chars) {
@@ -89,7 +91,7 @@ impl BtNode {
                     curr.left = expr.left;
                     curr.right = expr.right;
                     curr.data = expr.data;
-                },
+                }
                 ')' => return Some(root),
                 '|' | '&' => {
                     chars.next();
@@ -103,22 +105,24 @@ impl BtNode {
                     };
                     root = new_root;
                     curr = root.right.as_mut().unwrap();
-                },
+                }
                 '*' => {
                     chars.next();
                     curr.data = ArrayString::from("????").unwrap();
-                },
+                }
                 _ => {
                     for _ in 0..4 {
                         if let Some(c) = chars.next() {
                             match c {
                                 ' ' | '?' => {
                                     curr.data.push(c);
-                                },
+                                }
                                 a if a.is_ascii_alphanumeric() => {
                                     curr.data.push(a);
-                                },
-                                '_' => { curr.data.push(' '); },
+                                }
+                                '_' => {
+                                    curr.data.push(' ');
+                                }
                                 other => {
                                     warn!("Invalid char in tag: {}\n", other);
                                 }
@@ -141,9 +145,7 @@ impl BtNode {
     fn match_expr_char_iter(&self, key: &mut impl Iterator<Item = char>) -> bool {
         let mut retval = true;
         if self.left.is_none() && self.right.is_none() {
-            retval = self.data.chars()
-                .zip(key)
-                .all(|(a, b)| a == '?' || a == b);
+            retval = self.data.chars().zip(key).all(|(a, b)| a == '?' || a == b);
         } else {
             if let Some(left) = self.left.as_ref() {
                 retval = left.match_expr_char_iter(key);

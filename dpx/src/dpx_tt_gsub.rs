@@ -688,9 +688,13 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
     for script_idx in 0..script_list.count as i32 {
         if script.match_expr(
             CStr::from_ptr(
-                (*script_list.record.offset(script_idx as isize)).tag.as_ptr()).to_str().unwrap(),
-        )
-        {
+                (*script_list.record.offset(script_idx as isize))
+                    .tag
+                    .as_ptr(),
+            )
+            .to_str()
+            .unwrap(),
+        ) {
             let mut script_tab: clt_script_table = clt_script_table {
                 DefaultLangSys: 0,
                 LangSysRecord: clt_record_list {
@@ -703,9 +707,7 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                 .wrapping_add((*script_list.record.offset(script_idx as isize)).offset as u32);
             handle.seek(SeekFrom::Start(offset as u64)).unwrap();
             clt_read_script_table(&mut script_tab, handle);
-            if language.match_expr("dflt")
-                && script_tab.DefaultLangSys as i32 != 0i32
-            {
+            if language.match_expr("dflt") && script_tab.DefaultLangSys as i32 != 0i32 {
                 let mut langsys_tab: clt_langsys_table = clt_langsys_table {
                     LookupOrder: 0,
                     ReqFeatureIndex: 0,
@@ -729,9 +731,7 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                     ))
                     .unwrap();
                 clt_read_langsys_table(&mut langsys_tab, handle);
-                if feature.match_expr("____")
-                    && langsys_tab.ReqFeatureIndex as i32 != 0xffffi32
-                {
+                if feature.match_expr("____") && langsys_tab.ReqFeatureIndex as i32 != 0xffffi32 {
                     feat_bits[(langsys_tab.ReqFeatureIndex as i32 / 8i32) as usize] =
                         (feat_bits[(langsys_tab.ReqFeatureIndex as i32 / 8i32) as usize] as i32
                             | 1i32 << 7i32 - langsys_tab.ReqFeatureIndex as i32 % 8i32)
@@ -754,7 +754,11 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
             for langsys_idx in 0..script_tab.LangSysRecord.count as i32 {
                 let langsys_rec = &mut *script_tab.LangSysRecord.record.offset(langsys_idx as isize)
                     as *mut clt_record;
-                if language.match_expr(CStr::from_ptr((*langsys_rec).tag.as_mut_ptr()).to_str().unwrap()) {
+                if language.match_expr(
+                    CStr::from_ptr((*langsys_rec).tag.as_mut_ptr())
+                        .to_str()
+                        .unwrap(),
+                ) {
                     let mut langsys_tab_0: clt_langsys_table = clt_langsys_table {
                         LookupOrder: 0,
                         ReqFeatureIndex: 0,
@@ -832,9 +836,14 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
     }
     for feat_idx in 0..feature_list.count as i32 {
         if feat_bits[(feat_idx / 8i32) as usize] as i32 & 1i32 << 7i32 - feat_idx % 8i32 != 0
-            && feature.match_expr(CStr::from_ptr(
-                (*feature_list.record.offset(feat_idx as isize))
-                    .tag.as_ptr()).to_str().unwrap()
+            && feature.match_expr(
+                CStr::from_ptr(
+                    (*feature_list.record.offset(feat_idx as isize))
+                        .tag
+                        .as_ptr(),
+                )
+                .to_str()
+                .unwrap(),
             )
         {
             let mut feature_table: clt_feature_table = clt_feature_table {
