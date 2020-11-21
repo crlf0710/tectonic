@@ -37,7 +37,7 @@ use crate::mfree;
 use crate::{info, warn};
 
 use super::dpx_mem::{new, renew};
-use super::dpx_otl_opt::{otl_match_optrule, otl_new_opt, otl_parse_optstring, otl_release_opt};
+use super::dpx_otl_opt::OtlOpt;
 use libc::{free, memset};
 
 use std::io::{Seek, SeekFrom};
@@ -676,12 +676,9 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
     if gsub_offset == 0_u32 {
         return -1i32;
     }
-    let script = otl_new_opt();
-    otl_parse_optstring(script, gsub.script);
-    let language = otl_new_opt();
-    otl_parse_optstring(language, gsub.language);
-    let feature = otl_new_opt();
-    otl_parse_optstring(feature, gsub.feature);
+    let script = OtlOpt::parse_optstring(CStr::from_ptr(gsub.script).to_str().unwrap());
+    let language = OtlOpt::parse_optstring(CStr::from_ptr(gsub.language).to_str().unwrap());
+    let feature = OtlOpt::parse_optstring(CStr::from_ptr(gsub.feature).to_str().unwrap());
     memset(feat_bits.as_mut_ptr() as *mut libc::c_void, 0i32, 8192);
     handle.seek(SeekFrom::Start(gsub_offset as u64)).unwrap();
     otl_gsub_read_header(&mut head, handle);
@@ -689,13 +686,15 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
     clt_read_record_list(&mut script_list, handle);
     for script_idx in 0..script_list.count as i32 {
-        if otl_match_optrule(
-            script,
-            (*script_list.record.offset(script_idx as isize))
-                .tag
-                .as_mut_ptr(),
-        ) != 0
-        {
+        if script.match_expr(
+            CStr::from_ptr(
+                (*script_list.record.offset(script_idx as isize))
+                    .tag
+                    .as_ptr(),
+            )
+            .to_str()
+            .unwrap(),
+        ) {
             let mut script_tab: clt_script_table = clt_script_table {
                 DefaultLangSys: 0,
                 LangSysRecord: clt_record_list {
@@ -708,9 +707,7 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                 .wrapping_add((*script_list.record.offset(script_idx as isize)).offset as u32);
             handle.seek(SeekFrom::Start(offset as u64)).unwrap();
             clt_read_script_table(&mut script_tab, handle);
-            if otl_match_optrule(language, b"dflt\x00" as *const u8 as *const i8) != 0
-                && script_tab.DefaultLangSys as i32 != 0i32
-            {
+            if language.match_expr("dflt") && script_tab.DefaultLangSys as i32 != 0i32 {
                 let mut langsys_tab: clt_langsys_table = clt_langsys_table {
                     LookupOrder: 0,
                     ReqFeatureIndex: 0,
@@ -734,9 +731,7 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                     ))
                     .unwrap();
                 clt_read_langsys_table(&mut langsys_tab, handle);
-                if otl_match_optrule(feature, b"____\x00" as *const u8 as *const i8) != 0
-                    && langsys_tab.ReqFeatureIndex as i32 != 0xffffi32
-                {
+                if feature.match_expr("____") && langsys_tab.ReqFeatureIndex as i32 != 0xffffi32 {
                     feat_bits[(langsys_tab.ReqFeatureIndex as i32 / 8i32) as usize] =
                         (feat_bits[(langsys_tab.ReqFeatureIndex as i32 / 8i32) as usize] as i32
                             | 1i32 << 7i32 - langsys_tab.ReqFeatureIndex as i32 % 8i32)
@@ -759,7 +754,11 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
             for langsys_idx in 0..script_tab.LangSysRecord.count as i32 {
                 let langsys_rec = &mut *script_tab.LangSysRecord.record.offset(langsys_idx as isize)
                     as *mut clt_record;
-                if otl_match_optrule(language, (*langsys_rec).tag.as_mut_ptr()) != 0 {
+                if language.match_expr(
+                    CStr::from_ptr((*langsys_rec).tag.as_mut_ptr())
+                        .to_str()
+                        .unwrap(),
+                ) {
                     let mut langsys_tab_0: clt_langsys_table = clt_langsys_table {
                         LookupOrder: 0,
                         ReqFeatureIndex: 0,
@@ -795,7 +794,7 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                         ))
                         .unwrap();
                     clt_read_langsys_table(&mut langsys_tab_0, handle);
-                    if otl_match_optrule(feature, b"____\x00" as *const u8 as *const i8) != 0
+                    if feature.match_expr("____")
                         || langsys_tab_0.ReqFeatureIndex as i32 != 0xffffi32
                     {
                         feat_bits[(langsys_tab_0.ReqFeatureIndex as i32 / 8i32) as usize] =
@@ -837,12 +836,15 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
     }
     for feat_idx in 0..feature_list.count as i32 {
         if feat_bits[(feat_idx / 8i32) as usize] as i32 & 1i32 << 7i32 - feat_idx % 8i32 != 0
-            && otl_match_optrule(
-                feature,
-                (*feature_list.record.offset(feat_idx as isize))
-                    .tag
-                    .as_mut_ptr(),
-            ) != 0
+            && feature.match_expr(
+                CStr::from_ptr(
+                    (*feature_list.record.offset(feat_idx as isize))
+                        .tag
+                        .as_ptr(),
+                )
+                .to_str()
+                .unwrap(),
+            )
         {
             let mut feature_table: clt_feature_table = clt_feature_table {
                 FeatureParams: 0,
@@ -1036,9 +1038,6 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
     clt_release_number_list(&mut lookup_list);
     clt_release_record_list(&mut feature_list);
     clt_release_record_list(&mut script_list);
-    otl_release_opt(script);
-    otl_release_opt(language);
-    otl_release_opt(feature);
     if !subtab.is_null() {
         gsub.num_subtables = num_subtabs as i32;
         gsub.subtables = subtab
