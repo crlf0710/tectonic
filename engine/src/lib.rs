@@ -686,12 +686,10 @@ pub(crate) fn c_pointer_to_str<'a>(p: *const i8) -> &'a str {
     }
 }
 
-pub(crate) static mut cur_output: crate::xetex_output::Output = crate::xetex_output::Output;
-
 #[macro_export]
 macro_rules! t_print(
     ($($arg:tt)*) => {{
-        std::fmt::Write::write_fmt(&mut $crate::cur_output, std::format_args!($($arg)*)).unwrap();
+        std::fmt::Write::write_fmt(&mut $crate::xetex_ini::selector, std::format_args!($($arg)*)).unwrap();
     }};
 );
 #[macro_export]

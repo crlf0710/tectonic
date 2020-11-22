@@ -65,10 +65,7 @@ use crate::xetex_math::{
     math_fraction, math_left_right, math_limit_switch, math_radical, resume_after_display,
     start_eq_no, sub_sup,
 };
-use crate::xetex_output::{
-    print_chr, print_esc_cstr, print_ln, print_native_word, print_sa_num, print_size,
-    print_write_whatsit,
-};
+use crate::xetex_output::{print_chr, print_esc_cstr, print_ln, print_sa_num, print_size};
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
 use crate::xetex_scaledmath::{
@@ -530,17 +527,19 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                     WhatsIt::NativeWord(nw) => {
                         if nw.font() as usize != font_in_short_display {
                             t_print!(
-                                "{} ",
+                                "{} {}",
                                 Esc(&PoolString::from(
                                     (*hash
                                         .offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
                                     .s1
                                 )
-                                .to_string())
+                                .to_string()),
+                                nw
                             );
-                            font_in_short_display = nw.font() as usize
+                            font_in_short_display = nw.font() as usize;
+                        } else {
+                            t_print!("{}", nw);
                         }
-                        print_native_word(&nw);
                     }
                     _ => t_print!("[]"),
                 },
@@ -839,9 +838,9 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 }
                 TxtNode::WhatsIt(p) => match p {
                     WhatsIt::Open(p) => {
-                        print_write_whatsit("openout", p.ptr());
                         t_print!(
-                            "={}",
+                            "{}={}",
+                            p,
                             FileName {
                                 name: p.name(),
                                 area: p.area(),
@@ -850,10 +849,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         );
                     }
                     WhatsIt::Write(p) => {
-                        print_write_whatsit("write", p.ptr());
+                        t_print!("{}", p);
                         print_mark(p.tokens());
                     }
-                    WhatsIt::Close(p) => print_write_whatsit("closeout", p.ptr()),
+                    WhatsIt::Close(p) => t_print!("{}", p),
                     WhatsIt::Special(s) => {
                         print_esc_cstr("special");
                         print_mark(s.tokens());
@@ -869,14 +868,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     WhatsIt::NativeWord(nw) => {
                         t_print!(
-                            "{} ",
+                            "{} {}",
                             Esc(&PoolString::from(
                                 (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
                                     .s1,
                             )
-                            .to_string())
+                            .to_string()),
+                            nw
                         );
-                        print_native_word(&nw);
                     }
                     WhatsIt::Glyph(g) => {
                         t_print!(

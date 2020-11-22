@@ -2085,13 +2085,12 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
     if j == 18 {
         selector = Selector::NEW_STRING
-    } else if j == 17 && (selector == Selector::TERM_AND_LOG) {
-        // Try to fix potential array out of bounds
-        selector = Selector::LOG_ONLY;
-        t_print_nl!("");
     } else if write_open[j as usize] {
         selector = Selector::File(j as u8);
     } else {
+        if j == 17 && (selector == Selector::TERM_AND_LOG) {
+            selector = Selector::LOG_ONLY
+        }
         t_print_nl!("");
     }
 
