@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use crate::{t_eprint, t_print};
+use crate::t_eprint;
 use std::ffi::CString;
 
 use crate::help;
@@ -8,11 +8,8 @@ use crate::node::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::{cur_list, input_state_t};
-use crate::xetex_output::print_file_name;
 use crate::xetex_scaledmath::Scaled;
-use crate::xetex_xetex0::{
-    pack_file_name, scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword,
-};
+use crate::xetex_xetex0::{scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword};
 use crate::xetex_xetexd::{LLIST_link, TeXInt};
 
 use bridge::{InFile, TTInputFormat};
@@ -163,8 +160,8 @@ fn to_points(r: &Rect) -> [Point; 4] {
 
 pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
     let mut result: i32 = 0;
-    let (name, area, ext, ..) = scan_file_name(input);
-    let filename = pack_file_name(name, area, ext);
+    let file = scan_file_name(input).0;
+    let filename = file.to_string();
     let mut pdf_box_type = 0;
     let mut page = 0;
     if is_pdf {
@@ -331,9 +328,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
 
         tail_pic.path_mut().copy_from_slice(pic_path.as_bytes());
     } else {
-        t_eprint!("Unable to load picture or PDF file \'");
-        print_file_name(name, area, ext);
-        t_print!("\'");
+        t_eprint!("Unable to load picture or PDF file \'{}\'", file);
         if result == -43i32 {
             help!(
                 "The requested image couldn\'t be read because",

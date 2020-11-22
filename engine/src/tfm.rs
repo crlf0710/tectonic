@@ -66,7 +66,6 @@ use crate::xetex_consts::NON_ADDRESS;
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
 use crate::xetex_output::print_chr;
-use crate::xetex_output::print_file_name;
 use crate::xetex_output::Cs;
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
@@ -74,7 +73,7 @@ use crate::xetex_stringpool::EMPTY_STRING;
 use crate::xetex_stringpool::TOO_BIG_CHAR;
 use crate::xetex_xetex0::diagnostic;
 use crate::xetex_xetex0::new_native_character;
-use crate::xetex_xetex0::pack_file_name;
+use crate::xetex_xetex0::FileName;
 
 use crate::xetex_layout_interface::get_ot_math_constant;
 use crate::xetex_scaledmath::xn_over_d;
@@ -94,14 +93,12 @@ pub(crate) enum NativeFontError {
 
 pub(crate) unsafe fn read_font_info(
     u: i32,
-    nom: str_number,
-    aire: str_number,
-    ext: str_number,
+    file: &FileName,
     s: Scaled,
     quoted_filename: bool,
     file_name_quote_char: Option<char>,
 ) -> Result<(bool, usize, String), TfmError> {
-    let name = pack_file_name(nom, aire, ext);
+    let name = file.to_string();
 
     if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
@@ -114,25 +111,31 @@ pub(crate) unsafe fn read_font_info(
     }
 
     if quoted_filename {
-        if let Ok(g) = load_native_font(&name, s)
-            .map_err(|e| nf_error(e, u, nom, aire, ext, s, file_name_quote_char))
+        if let Ok(g) =
+            load_native_font(&name, s).map_err(|e| nf_error(e, u, file, s, file_name_quote_char))
         {
             return Ok((false, g, name));
         }
     }
 
-    let name_too_long = PoolString::from(nom).len() > 255 || PoolString::from(aire).len() > 255;
+    let name_too_long =
+        PoolString::from(file.name).len() > 255 || PoolString::from(file.area).len() > 255;
     if name_too_long {
         return Err(TfmError::LongName);
     }
-    let name = pack_file_name(nom, aire, EMPTY_STRING as str_number);
+    let name = FileName {
+        name: file.name,
+        area: file.area,
+        ext: EMPTY_STRING as str_number,
+    }
+    .to_string();
     check_for_tfm_font_mapping();
 
     let mut tfm_file_owner = tt_xetex_open_input(&name, TTInputFormat::TFM);
     if tfm_file_owner.is_none() {
         if !quoted_filename {
             if let Ok(g) = load_native_font(&name, s)
-                .map_err(|e| nf_error(e, u, nom, aire, ext, s, file_name_quote_char))
+                .map_err(|e| nf_error(e, u, file, s, file_name_quote_char))
             {
                 return Ok((false, g, name));
             }
@@ -531,8 +534,8 @@ pub(crate) unsafe fn read_font_info(
         }
     }
 
-    FONT_NAME[f] = nom;
-    FONT_AREA[f] = aire;
+    FONT_NAME[f] = file.name;
+    FONT_AREA[f] = file.area;
     FONT_BC[f] = bc as UTF16_code;
     FONT_EC[f] = ec as UTF16_code;
     FONT_GLUE[f] = None.tex_int();
@@ -548,9 +551,7 @@ pub(crate) unsafe fn read_font_info(
 pub(crate) unsafe fn bad_tfm(
     err: TfmError,
     u: i32,
-    nom: str_number,
-    aire: str_number,
-    ext: str_number,
+    file: &FileName,
     s: Scaled,
     file_name_quote_char: Option<char>,
 ) {
@@ -560,7 +561,7 @@ pub(crate) unsafe fn bad_tfm(
         if let Some(qc) = file_name_quote_char {
             print_chr(qc);
         }
-        print_file_name(nom, aire, ext);
+        t_print!("{}", file);
         if let Some(qc) = file_name_quote_char {
             print_chr(qc);
         }
@@ -715,9 +716,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
 unsafe fn nf_error(
     e: NativeFontError,
     u: i32,
-    nom: str_number,
-    aire: str_number,
-    ext: str_number,
+    file: &FileName,
     s: Scaled,
     file_name_quote_char: Option<char>,
 ) {
@@ -728,7 +727,7 @@ unsafe fn nf_error(
             if let Some(qc) = file_name_quote_char {
                 print_chr(qc);
             }
-            print_file_name(nom, aire, ext);
+            t_print!("{}", file);
             if let Some(qc) = file_name_quote_char {
                 print_chr(qc);
             }

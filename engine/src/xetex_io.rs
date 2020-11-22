@@ -13,7 +13,7 @@ use crate::xetex_ini::{
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetex0::{
     bad_utf8_warning, diagnostic, get_input_normalization_state, make_name, more_name,
-    pack_file_name, scan_file_name, scan_four_bit_int, scan_optional_equals,
+    scan_file_name, scan_four_bit_int, scan_optional_equals,
 };
 use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
@@ -514,8 +514,7 @@ pub(crate) unsafe fn open_or_close_in(input: &mut input_state_t, chr: i32) {
     }
     if c != 0 {
         scan_optional_equals(input);
-        let (name, area, ext, ..) = scan_file_name(input);
-        let filename = pack_file_name(name, area, ext);
+        let filename = scan_file_name(input).0.to_string();
         let ufile = u_open_in(
             &filename,
             TTInputFormat::TEX,

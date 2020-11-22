@@ -446,116 +446,123 @@ impl<'a> fmt::Display for Cs {
     }
 }
 
-pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
-    let mut must_quote: bool = false;
-    let mut quote_char = None;
-    if a != 0 {
-        for &j in PoolString::from(a).as_slice() {
-            if must_quote && quote_char.is_some() {
-                break;
-            }
-            if j as i32 == ' ' as i32 {
-                must_quote = true;
-            } else if j as i32 == '\"' as i32 {
-                must_quote = true;
-                quote_char = Some('\'');
-            } else if j as i32 == '\'' as i32 {
-                must_quote = true;
-                quote_char = Some('\"');
-            }
-        }
-    }
-    if n != 0 {
-        for &j in PoolString::from(n).as_slice() {
-            if must_quote && quote_char.is_some() {
-                break;
-            }
-            if j as i32 == ' ' as i32 {
-                must_quote = true;
-            } else if j as i32 == '\"' as i32 {
-                must_quote = true;
-                quote_char = Some('\'');
-            } else if j as i32 == '\'' as i32 {
-                must_quote = true;
-                quote_char = Some('\"');
+use crate::xetex_xetex0::FileName;
+impl<'a> fmt::Display for FileName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let n = self.name;
+        let a = self.area;
+        let e = self.ext;
+        let mut must_quote: bool = false;
+        let mut quote_char = None;
+        if a != 0 {
+            for &j in PoolString::from(a).as_slice() {
+                if must_quote && quote_char.is_some() {
+                    break;
+                }
+                if j as i32 == ' ' as i32 {
+                    must_quote = true;
+                } else if j as i32 == '\"' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\'');
+                } else if j as i32 == '\'' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\"');
+                }
             }
         }
-    }
-    if e != 0 {
-        for &j in PoolString::from(e).as_slice() {
-            if must_quote && quote_char.is_some() {
-                break;
-            }
-            if j as i32 == ' ' as i32 {
-                must_quote = true;
-            } else if j as i32 == '\"' as i32 {
-                must_quote = true;
-                quote_char = Some('\'');
-            } else if j as i32 == '\'' as i32 {
-                must_quote = true;
-                quote_char = Some('\"');
+        if n != 0 {
+            for &j in PoolString::from(n).as_slice() {
+                if must_quote && quote_char.is_some() {
+                    break;
+                }
+                if j as i32 == ' ' as i32 {
+                    must_quote = true;
+                } else if j as i32 == '\"' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\'');
+                } else if j as i32 == '\'' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\"');
+                }
             }
         }
-    }
-    if must_quote {
+        if e != 0 {
+            for &j in PoolString::from(e).as_slice() {
+                if must_quote && quote_char.is_some() {
+                    break;
+                }
+                if j as i32 == ' ' as i32 {
+                    must_quote = true;
+                } else if j as i32 == '\"' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\'');
+                } else if j as i32 == '\'' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\"');
+                }
+            }
+        }
+        if must_quote {
+            if let Some(qc) = quote_char {
+                qc.fmt(f)?;
+            } else {
+                quote_char = Some('\"');
+                '\"'.fmt(f)?;
+            }
+        }
+        if a != 0 {
+            for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
+                let j = j.unwrap();
+                if Some(j) == quote_char {
+                    j.fmt(f)?;
+                    let c = match j {
+                        '\"' => '\'',
+                        '\'' => '\"',
+                        _ => unreachable!(),
+                    };
+                    quote_char = Some(c);
+                    c.fmt(f)?;
+                }
+                j.fmt(f)?;
+            }
+        }
+        if n != 0 {
+            for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
+                let j = j.unwrap();
+                if Some(j) == quote_char {
+                    j.fmt(f)?;
+                    let c = match j {
+                        '\"' => '\'',
+                        '\'' => '\"',
+                        _ => unreachable!(),
+                    };
+                    quote_char = Some(c);
+                    c.fmt(f)?;
+                }
+                j.fmt(f)?;
+            }
+        }
+        if e != 0 {
+            for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
+                let j = j.unwrap();
+                if Some(j) == quote_char {
+                    j.fmt(f)?;
+                    let c = match j {
+                        '\"' => '\'',
+                        '\'' => '\"',
+                        _ => unreachable!(),
+                    };
+                    quote_char = Some(c);
+                    c.fmt(f)?;
+                }
+                j.fmt(f)?;
+            }
+        }
         if let Some(qc) = quote_char {
-            print_chr(qc);
-        } else {
-            quote_char = Some('\"');
-            print_chr('\"');
-        }
+            qc.fmt(f)?;
+        };
+        Ok(())
     }
-    if a != 0 {
-        for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
-            let j = j.unwrap();
-            if Some(j) == quote_char {
-                print_chr(j);
-                let c = match j {
-                    '\"' => '\'',
-                    '\'' => '\"',
-                    _ => unreachable!(),
-                };
-                quote_char = Some(c);
-                print_chr(c);
-            }
-            print_chr(j);
-        }
-    }
-    if n != 0 {
-        for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
-            let j = j.unwrap();
-            if Some(j) == quote_char {
-                print_chr(j);
-                let c = match j {
-                    '\"' => '\'',
-                    '\'' => '\"',
-                    _ => unreachable!(),
-                };
-                quote_char = Some(c);
-                print_chr(c);
-            }
-            print_chr(j);
-        }
-    }
-    if e != 0 {
-        for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
-            let j = j.unwrap();
-            if Some(j) == quote_char {
-                print_chr(j);
-                let c = match j {
-                    '\"' => '\'',
-                    '\'' => '\"',
-                    _ => unreachable!(),
-                };
-                quote_char = Some(c);
-                print_chr(c);
-            }
-            print_chr(j);
-        }
-    }
-    if let Some(qc) = quote_char {
-        print_chr(qc);
-    };
 }
 pub(crate) unsafe fn print_size(s: i32) {
     if s == TEXT_SIZE as i32 {

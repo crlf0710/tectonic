@@ -66,8 +66,8 @@ use crate::xetex_math::{
     start_eq_no, sub_sup,
 };
 use crate::xetex_output::{
-    print_chr, print_esc_cstr, print_file_name, print_ln, print_native_word, print_sa_num,
-    print_size, print_write_whatsit,
+    print_chr, print_esc_cstr, print_ln, print_native_word, print_sa_num, print_size,
+    print_write_whatsit,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
@@ -840,8 +840,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 TxtNode::WhatsIt(p) => match p {
                     WhatsIt::Open(p) => {
                         print_write_whatsit("openout", p.ptr());
-                        print_chr('=');
-                        print_file_name(p.name(), p.area(), p.ext());
+                        t_print!(
+                            "={}",
+                            FileName {
+                                name: p.name(),
+                                area: p.area(),
+                                ext: p.ext()
+                            }
+                        );
                     }
                     WhatsIt::Write(p) => {
                         print_write_whatsit("write", p.ptr());
@@ -5265,8 +5271,8 @@ pub(crate) unsafe fn mu_error() {
 }
 pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont) -> i32 {
     if scan_keyword(input, "/") {
-        let (name, area, ext, ..) = scan_file_name(input);
-        let fullname = pack_file_name(name, area, ext);
+        let (file, ..) = scan_file_name(input);
+        let fullname = file.to_string();
         let val = map_glyph_to_index(f, &fullname);
         val
     } else if scan_keyword(input, "u") {
@@ -6225,9 +6231,8 @@ pub(crate) unsafe fn scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    let (name, area, ext, ..) = scan_file_name(input);
-                                    let fullname = pack_file_name(name, area, ext);
-                                    aat::aat_font_get_named(&fullname, m.into(), *e)
+                                    let name = scan_file_name(input).0.to_string();
+                                    aat::aat_font_get_named(&name, m.into(), *e)
                                 }
                                 _ => {
                                     not_aat_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6240,14 +6245,12 @@ pub(crate) unsafe fn scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    let (name, area, ext, ..) = scan_file_name(input);
-                                    let fullname = pack_file_name(name, area, ext);
-                                    aat::aat_font_get_named(&fullname, m.into(), *e)
+                                    let name = scan_file_name(input).0.to_string();
+                                    aat::aat_font_get_named(&name, m.into(), *e)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                                    let (name, area, ext, ..) = scan_file_name(input);
-                                    let fullname = pack_file_name(name, area, ext);
-                                    gr_font_get_named(&fullname, (m as i32) - 14, e)
+                                    let name = scan_file_name(input).0.to_string();
+                                    gr_font_get_named(&name, (m as i32) - 14, e)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6261,15 +6264,13 @@ pub(crate) unsafe fn scan_something_internal(
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     let k = scan_int(input);
-                                    let (name, area, ext, ..) = scan_file_name(input);
-                                    let fullname = pack_file_name(name, area, ext);
-                                    aat::aat_font_get_named_1(&fullname, m.into(), *e, k)
+                                    let name = scan_file_name(input).0.to_string();
+                                    aat::aat_font_get_named_1(&name, m.into(), *e, k)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
-                                    let (name, area, ext, ..) = scan_file_name(input);
-                                    let fullname = pack_file_name(name, area, ext);
-                                    gr_font_get_named_1(&fullname, (m as i32) - 14, e, k)
+                                    let name = scan_file_name(input).0.to_string();
+                                    gr_font_get_named_1(&name, (m as i32) - 14, e, k)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6347,9 +6348,8 @@ pub(crate) unsafe fn scan_something_internal(
                             if let Font::Native(nf) =
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
-                                let (name, area, ext, ..) = scan_file_name(input);
-                                let fullname = pack_file_name(name, area, ext);
-                                map_glyph_to_index(nf, &fullname)
+                                let name = scan_file_name(input).0.to_string();
+                                map_glyph_to_index(nf, &name)
                             } else {
                                 not_native_font_error(
                                     Cmd::LastItem,
@@ -6385,9 +6385,8 @@ pub(crate) unsafe fn scan_something_internal(
                         LastItemCode::PdfLastXPos => pdf_last_x_pos.0,
                         LastItemCode::PdfLastYPos => pdf_last_y_pos.0,
                         LastItemCode::XetexPdfPageCount => {
-                            let (name, area, ext, ..) = scan_file_name(input);
-                            let filename = pack_file_name(name, area, ext);
-                            count_pdf_file_pages(&filename)
+                            let name = scan_file_name(input).0.to_string();
+                            count_pdf_file_pages(&name)
                         }
                         LastItemCode::CurrentGroupLevel => cur_level as i32 - 1,
                         LastItemCode::CurrentGroupType => cur_group as i32,
@@ -8033,7 +8032,14 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 _ => t_print!("0pt"),
             }
         }
-        ConvertCode::JobName => print_file_name(job_name, 0, 0),
+        ConvertCode::JobName => t_print!(
+            "{}",
+            FileName {
+                name: job_name,
+                area: 0,
+                ext: 0
+            }
+        ),
         _ => {}
     }
     selector = old_setting;
@@ -8812,7 +8818,15 @@ pub(crate) unsafe fn more_name(
     }
     true
 }
-pub(crate) unsafe fn make_name<F>(mut f: F) -> (i32, i32, i32, bool, Option<char>)
+
+#[derive(Clone, Debug)]
+pub(crate) struct FileName {
+    pub name: str_number,
+    pub area: str_number,
+    pub ext: str_number,
+}
+
+pub(crate) unsafe fn make_name<F>(mut f: F) -> (FileName, bool, Option<char>)
 where
     F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<char>),
 {
@@ -8877,11 +8891,19 @@ where
         }
         ext = slow_make_string()
     };
-    (name, area, ext, quoted_filename, file_name_quote_char)
+    (
+        FileName { name, area, ext },
+        quoted_filename,
+        file_name_quote_char,
+    )
 }
-pub(crate) unsafe fn pack_file_name(name: str_number, path: str_number, ext: str_number) -> String {
-    gettexstring(path) + &gettexstring(name) + &gettexstring(ext)
+
+impl FileName {
+    pub(crate) unsafe fn to_string(&self) -> String {
+        gettexstring(self.area) + &gettexstring(self.name) + &gettexstring(self.ext)
+    }
 }
+
 pub(crate) unsafe fn make_name_string(name: &str) -> str_number {
     if pool_ptr as usize + name.len() > pool_size as usize
         || str_ptr == max_strings as i32
@@ -8904,13 +8926,12 @@ pub(crate) unsafe fn make_name_string(name: &str) -> str_number {
             }
         }
     });
-    cur_name = res.0;
+    cur_name = res.0.name;
     name_in_progress = save_name_in_progress;
     result
 }
-pub(crate) unsafe fn scan_file_name(
-    input: &mut input_state_t,
-) -> (i32, i32, i32, bool, Option<char>) {
+
+pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, bool, Option<char>) {
     name_in_progress = true;
     let res = make_name(|a, e, q, qc| {
         let (mut tok, mut cmd, mut chr, _) = loop {
@@ -8984,10 +9005,7 @@ pub(crate) unsafe fn open_log_file() {
 /// when an `\input` command is being processed.
 pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: *const i8) {
     let mut format = TTInputFormat::TEX;
-    let name;
-    let area;
-    let ext;
-    if !primary_input_name.is_null() {
+    let file = if !primary_input_name.is_null() {
         /* If this is the case, we're opening the primary input file, and the
          * name that we should use to refer to it has been handed directly to
          * us. We emulate the hacks used below to fill in cur_name, etc., from
@@ -9043,20 +9061,15 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
             }
             stop_at_space = true;
         });
-        name = res.0;
-        area = res.1;
-        ext = res.2;
-        name_in_progress = false
+        name_in_progress = false;
+        res.0
     } else {
         /* Scan in the file name from the current token stream. The file name to
          * input is saved as the stringpool strings `cur_{name,area,ext}` and the
          * UTF-8 string `filename`. */
-        let res = scan_file_name(input);
-        name = res.0;
-        area = res.1;
-        ext = res.2;
-    }
-    let filename = pack_file_name(name, area, ext);
+        scan_file_name(input).0
+    };
+    let filename = file.to_string();
     begin_file_reading(input);
     let ufile = u_open_in(
         &filename,
@@ -13155,8 +13168,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         eq_define(u, Cmd::SetFont, Some(FONT_BASE));
     }
     scan_optional_equals(input);
-    let (filename, filearea, fileext, quoted_filename, file_name_quote_char) =
-        scan_file_name(input);
+    let (file, quoted_filename, file_name_quote_char) = scan_file_name(input);
     name_in_progress = true;
     let mut s;
     if scan_keyword(input, "at") {
@@ -13190,8 +13202,8 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         // TODO: check
         let font_name = PoolString::from(FONT_NAME[f]);
         let font_area = PoolString::from(FONT_AREA[f]);
-        let area = PoolString::from(filearea);
-        let name = PoolString::from(filename);
+        let area = PoolString::from(file.area);
+        let name = PoolString::from(file.name);
         if font_name == name
             && ((area.len() == 0 && matches!(&FONT_LAYOUT_ENGINE[f], Font::Native(_)))
                 || font_area == area)
@@ -13204,9 +13216,9 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
                 return common_ending(a, u, f, t);
             }
         }
-        append_str(filearea);
-        append_str(filename);
-        append_str(fileext);
+        append_str(file.area);
+        append_str(file.name);
+        append_str(file.ext);
         if PoolString::from(FONT_NAME[f]) == PoolString::from(make_string()) {
             PoolString::flush();
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
@@ -13233,28 +13245,12 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
     }
 
-    let f = crate::tfm::read_font_info(
-        u as i32,
-        filename,
-        filearea,
-        fileext,
-        s,
-        quoted_filename,
-        file_name_quote_char,
-    )
-    .map(crate::tfm::good_tfm)
-    .unwrap_or_else(|e| {
-        crate::tfm::bad_tfm(
-            e,
-            u as i32,
-            filename,
-            filearea,
-            fileext,
-            s,
-            file_name_quote_char,
-        );
-        FONT_BASE
-    });
+    let f = crate::tfm::read_font_info(u as i32, &file, s, quoted_filename, file_name_quote_char)
+        .map(crate::tfm::good_tfm)
+        .unwrap_or_else(|e| {
+            crate::tfm::bad_tfm(e, u as i32, &file, s, file_name_quote_char);
+            FONT_BASE
+        });
     common_ending(a, u, f, t)
 }
 pub(crate) unsafe fn new_interaction(chr: i32) {
@@ -13465,8 +13461,8 @@ pub(crate) unsafe fn do_extension(
             let val = scan_four_bit_int(input);
             o.set_id(val);
             scan_optional_equals(input);
-            let (name, area, ext, ..) = scan_file_name(input);
-            o.set_name(name).set_area(area).set_ext(ext);
+            let (file, ..) = scan_file_name(input);
+            o.set_name(file.name).set_area(file.area).set_ext(file.ext);
         }
         1 => {
             // WriteFile
@@ -13591,8 +13587,7 @@ pub(crate) unsafe fn do_extension(
             }
         }
         XETEX_INPUT_ENCODING_EXTENSION_CODE => {
-            let (name, area, ext, ..) = scan_file_name(input);
-            let name = pack_file_name(name, area, ext);
+            let name = scan_file_name(input).0.to_string();
             let i = get_encoding_mode_and_info(&name, &mut j);
             if i == UnicodeMode::Auto {
                 t_eprint!("Encoding mode `auto\' is not valid for \\XeTeXinputencoding");
@@ -13606,18 +13601,17 @@ pub(crate) unsafe fn do_extension(
             }
         }
         XETEX_DEFAULT_ENCODING_EXTENSION_CODE => {
-            let (name, area, ext, ..) = scan_file_name(input);
-            let name = pack_file_name(name, area, ext);
+            let name = scan_file_name(input).0.to_string();
             let i = get_encoding_mode_and_info(&name, &mut j);
             set_int_par(IntPar::xetex_default_input_mode, i as i32);
             set_int_par(IntPar::xetex_default_input_encoding, j);
         }
         XETEX_LINEBREAK_LOCALE_EXTENSION_CODE => {
-            let (name, ..) = scan_file_name(input);
-            if PoolString::from(name).len() == 0 {
+            let (file, ..) = scan_file_name(input);
+            if PoolString::from(file.name).len() == 0 {
                 set_int_par(IntPar::xetex_linebreak_locale, 0);
             } else {
-                set_int_par(IntPar::xetex_linebreak_locale, name);
+                set_int_par(IntPar::xetex_linebreak_locale, file.name);
             }
         }
         6 => {

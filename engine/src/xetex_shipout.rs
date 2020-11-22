@@ -20,7 +20,7 @@ use crate::xetex_ini::{
     FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE,
     MEM, TOTAL_PAGES, WIDTH_BASE,
 };
-use crate::xetex_output::{print_chr, print_file_name, print_ln};
+use crate::xetex_output::{print_chr, print_ln};
 use crate::xetex_scaledmath::{tex_round, Scaled};
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::TOO_BIG_CHAR;
@@ -33,9 +33,8 @@ use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
     begin_token_list, diagnostic, effective_char, end_token_list, flush_list, flush_node_list,
     free_node, get_avail, get_node, get_token, internal_font_number, make_name_string, new_kern,
-    new_math, new_native_word_node, open_log_file, pack_file_name, pack_job_name,
-    packed_UTF16_code, prepare_mag, scan_toks, show_box, show_token_list, str_number, token_show,
-    UTF16_code,
+    new_math, new_native_word_node, open_log_file, pack_job_name, packed_UTF16_code, prepare_mag,
+    scan_toks, show_box, show_token_list, str_number, token_show, FileName, UTF16_code,
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
@@ -1752,7 +1751,8 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 ext = maketexstring(".tex")
             }
 
-            let fullname = pack_file_name(name, area, ext);
+            let file = FileName { name, area, ext };
+            let fullname = file.to_string();
 
             write_file[j as usize] = OutputHandleWrapper::open(&fullname, 0);
             if write_file[j as usize].is_none() {
@@ -1768,9 +1768,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 } else {
                     selector = Selector::TERM_AND_LOG
                 }
-                t_print_nl!("\\openout{} = `", j as i32);
-                print_file_name(name, area, ext);
-                t_print!("\'.");
+                t_print_nl!("\\openout{} = `{}\'.", j as i32, file);
                 t_print_nl!("");
                 print_ln();
                 selector = old_setting

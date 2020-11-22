@@ -49,7 +49,6 @@ use crate::xetex_stringpool::{make_string, PoolString, EMPTY_STRING, TOO_BIG_CHA
 
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
-use crate::xetex_output::print_file_name;
 use crate::xetex_output::print_ln;
 use crate::xetex_xetexd::llist_link;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
@@ -57,6 +56,7 @@ use crate::xetex_xetexd::{TeXInt, TeXOpt};
 use crate::core_memory::xmalloc_array;
 
 use crate::xetex_xetex0::get_node;
+use crate::xetex_xetex0::FileName;
 use crate::xetex_xetex0::{
     close_files_and_terminate, make_name_string, pack_job_name, pseudo_close,
 };
@@ -401,7 +401,14 @@ pub(crate) unsafe fn store_fmt_file() {
         if matches!(&FONT_LAYOUT_ENGINE[k], crate::xetex_ext::Font::Native(_))
             || !(FONT_MAPPING[k]).is_null()
         {
-            print_file_name(FONT_NAME[k], EMPTY_STRING, EMPTY_STRING);
+            t_print!(
+                "{}",
+                FileName {
+                    name: FONT_NAME[k],
+                    area: EMPTY_STRING,
+                    ext: EMPTY_STRING
+                }
+            );
 
             t_eprint!("Can\'t \\dump a format with native fonts or font-mappings");
 
@@ -412,7 +419,14 @@ pub(crate) unsafe fn store_fmt_file() {
             );
             error();
         } else {
-            print_file_name(FONT_NAME[k], FONT_AREA[k], EMPTY_STRING);
+            t_print!(
+                "{}",
+                FileName {
+                    name: FONT_NAME[k],
+                    area: FONT_AREA[k],
+                    ext: EMPTY_STRING
+                }
+            );
         }
 
         if FONT_SIZE[k] != FONT_DSIZE[k] {
