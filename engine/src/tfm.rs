@@ -69,7 +69,7 @@ use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
 use crate::xetex_output::print_chr;
 use crate::xetex_output::print_file_name;
-use crate::xetex_output::sprint_cs;
+use crate::xetex_output::Cs;
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::EMPTY_STRING;
@@ -556,9 +556,7 @@ pub(crate) unsafe fn bad_tfm(
 ) {
     if get_int_par(IntPar::suppress_fontnotfound_error) == 0 {
         /* NOTE: must preserve this path to keep passing the TRIP tests */
-        t_eprint!("Font ");
-        sprint_cs(u);
-        print_chr('=');
+        t_eprint!("Font {:#}=", Cs(u));
         if let Some(qc) = file_name_quote_char {
             print_chr(qc);
         }
@@ -725,9 +723,7 @@ unsafe fn nf_error(
     match e {
         NativeFontError::NotFound => {}
         NativeFontError::NotEnoughMemory => {
-            t_eprint!("Font ");
-            sprint_cs(u);
-            print_chr('=');
+            t_eprint!("Font {:#}=", Cs(u));
             if let Some(qc) = file_name_quote_char {
                 print_chr(qc);
             }

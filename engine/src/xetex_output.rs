@@ -390,59 +390,62 @@ impl<'a> fmt::Display for Esc<'a> {
 pub(crate) unsafe fn print_esc_cstr(s: &str) {
     t_print!("{}", Esc(s));
 }
-pub(crate) unsafe fn print_cs(p: i32) {
-    if p < HASH_BASE as i32 {
-        if p >= SINGLE_BASE as i32 {
-            if p == NULL_CS as i32 {
-                print_esc_cstr("csname");
-                print_esc_cstr("endcsname");
-                print_chr(' ');
+
+pub(crate) struct Cs(pub(crate) i32);
+impl<'a> fmt::Display for Cs {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            let p = self.0;
+            if f.alternate() {
+                if p < HASH_BASE as i32 {
+                    if p < SINGLE_BASE as i32 {
+                        std::char::from_u32((p - 1) as u32).unwrap().fmt(f)?;
+                    } else if p < NULL_CS as i32 {
+                        Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string()).fmt(f)?;
+                    } else {
+                        Esc("csname").fmt(f)?;
+                        Esc("endcsname").fmt(f)?;
+                    }
+                } else {
+                    Esc(&PoolString::from((*hash.offset(p as isize)).s1).to_string()).fmt(f)?;
+                };
             } else {
-                t_print!(
-                    "{}",
-                    Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string())
-                );
-                if *CAT_CODE(p as usize - SINGLE_BASE) == Cmd::Letter as _ {
-                    print_chr(' ');
-                }
+                if p < HASH_BASE as i32 {
+                    if p >= SINGLE_BASE as i32 {
+                        if p == NULL_CS as i32 {
+                            Esc("csname").fmt(f)?;
+                            Esc("endcsname").fmt(f)?;
+                            ' '.fmt(f)?;
+                        } else {
+                            Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string()).fmt(f)?;
+                            if *CAT_CODE(p as usize - SINGLE_BASE) == Cmd::Letter as _ {
+                                ' '.fmt(f)?;
+                            }
+                        }
+                    } else if p < ACTIVE_BASE as i32 {
+                        Esc("IMPOSSIBLE").fmt(f)?;
+                        '.'.fmt(f)?;
+                    } else {
+                        std::char::from_u32((p - 1) as u32).unwrap().fmt(f)?;
+                    }
+                } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE as i32
+                    || p > EQTB_TOP as i32
+                {
+                    Esc("IMPOSSIBLE").fmt(f)?;
+                    '.'.fmt(f)?;
+                } else if (*hash.offset(p as isize)).s1 >= str_ptr {
+                    Esc("NONEXISTENT").fmt(f)?;
+                    '.'.fmt(f)?;
+                } else {
+                    Esc(&PoolString::from((*hash.offset(p as isize)).s1).to_string()).fmt(f)?;
+                    ' '.fmt(f)?;
+                };
             }
-        } else if p < ACTIVE_BASE as i32 {
-            print_esc_cstr("IMPOSSIBLE.");
-        } else {
-            print_chr(std::char::from_u32((p - 1) as u32).unwrap());
         }
-    } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE as i32 || p > EQTB_TOP as i32
-    {
-        print_esc_cstr("IMPOSSIBLE.");
-    } else if (*hash.offset(p as isize)).s1 >= str_ptr {
-        print_esc_cstr("NONEXISTENT.");
-    } else {
-        t_print!(
-            "{} ",
-            Esc(&PoolString::from((*hash.offset(p as isize)).s1).to_string())
-        );
-    };
+        Ok(())
+    }
 }
-pub(crate) unsafe fn sprint_cs(p: i32) {
-    if p < HASH_BASE as i32 {
-        if p < SINGLE_BASE as i32 {
-            print_chr(std::char::from_u32((p - 1) as u32).unwrap());
-        } else if p < NULL_CS as i32 {
-            t_print!(
-                "{}",
-                Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string())
-            );
-        } else {
-            print_esc_cstr("csname");
-            print_esc_cstr("endcsname");
-        }
-    } else {
-        t_print!(
-            "{}",
-            Esc(&PoolString::from((*hash.offset(p as isize)).s1).to_string())
-        );
-    };
-}
+
 pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
     let mut must_quote: bool = false;
     let mut quote_char = None;

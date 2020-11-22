@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use crate::xetex_output::{Esc, Roman};
+use crate::xetex_output::{Cs, Esc, Roman};
 use crate::{t_eprint, t_print, t_print_nl};
 use std::ffi::CString;
 use std::io::Write;
@@ -67,8 +67,8 @@ use crate::xetex_math::{
     start_eq_no, sub_sup,
 };
 use crate::xetex_output::{
-    print_chr, print_cs, print_esc_cstr, print_file_name, print_ln, print_native_word,
-    print_sa_num, print_size, print_write_whatsit, sprint_cs,
+    print_chr, print_esc_cstr, print_file_name, print_ln, print_native_word, print_sa_num,
+    print_size, print_write_whatsit,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
@@ -159,7 +159,7 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
         }
         let info = *LLIST_info(p as usize);
         if info >= CS_TOKEN_FLAG {
-            print_cs(info - CS_TOKEN_FLAG);
+            t_print!("{}", Cs(info - CS_TOKEN_FLAG));
         } else {
             let m = Cmd::from((info / MAX_CHAR_VAL) as u16);
             let c = info % MAX_CHAR_VAL;
@@ -3362,7 +3362,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                         Btl::Inserted => t_print_nl!("<inserted text> "),
                         Btl::Macro => {
                             print_ln();
-                            print_cs(input.name);
+                            t_print!("{}", Cs(input.name));
                         }
                         Btl::OutputText => t_print_nl!("<output> "),
                         Btl::EveryParText => t_print_nl!("<everypar> "),
@@ -3676,8 +3676,7 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
                 _ => unreachable!(), // there are no other cases
             }
             begin_token_list(input, p, Btl::Inserted);
-            t_print!(" of ");
-            sprint_cs(warning_index);
+            t_print!(" of {:#}", Cs(warning_index));
             help!(
                 "I suspect you have forgotten a `}\', causing me",
                 "to read past where you wanted me to stop.",
@@ -4404,7 +4403,7 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
         // Show the text of the macro being expanded
         diagnostic(false, || {
             print_ln();
-            print_cs(warning_index);
+            t_print!("{}", Cs(warning_index));
             token_show(Some(ref_count));
         });
     }
@@ -4498,9 +4497,10 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                         r = s;
                     } else {
                         // Report an improper use of the macro and abort
-                        t_eprint!("Use of ");
-                        sprint_cs(warning_index);
-                        t_print!(" doesn\'t match its definition");
+                        t_eprint!(
+                            "Use of {:#} doesn\'t match its definition",
+                            Cs(warning_index)
+                        );
                         help!(
                             "If you say, e.g., `\\def\\a1{...}\', then you must always",
                             "put `1\' after `\\a\', since control sequence names are",
@@ -4518,9 +4518,10 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                         /*414:*/
                         if long_state == Cmd::Call {
                             runaway(); /*411:*/
-                            t_eprint!("Paragraph ended before ");
-                            sprint_cs(warning_index);
-                            t_print!(" was complete");
+                            t_eprint!(
+                                "Paragraph ended before {:#} was complete",
+                                Cs(warning_index)
+                            );
                             help!(
                                 "I suspect you\'ve forgotten a `}\', causing me to apply this",
                                 "control sequence to too much text. How can we recover?",
@@ -4556,9 +4557,10 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                                     /*414:*/
                                     if long_state == Cmd::Call {
                                         runaway();
-                                        t_eprint!("Paragraph ended before ");
-                                        sprint_cs(warning_index);
-                                        t_print!(" was complete");
+                                        t_eprint!(
+                                            "Paragraph ended before {:#} was complete",
+                                            Cs(warning_index)
+                                        );
                                         help!("I suspect you\'ve forgotten a `}\', causing me to apply this",
                                         "control sequence to too much text. How can we recover?",
                                         "My plan is to forget the whole thing and hope for the best.");
@@ -4596,9 +4598,7 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                         /* 413 */
                         back_input(input, tok);
 
-                        t_eprint!("Argument of ");
-                        sprint_cs(warning_index);
-                        t_print!(" has an extra }}");
+                        t_eprint!("Argument of {:#} has an extra }}", Cs(warning_index));
                         help!(
                             "I\'ve run across a `}\' that doesn\'t seem to match anything.",
                             "For example, `\\def\\a#1{...}\' and `\\a}\' would produce",
@@ -5266,7 +5266,8 @@ pub(crate) unsafe fn mu_error() {
 }
 pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont) -> i32 {
     if scan_keyword(input, "/") {
-        scan_and_pack_name(input);
+        scan_file_name(input);
+        pack_file_name(cur_name, cur_area, cur_ext);
         let val = map_glyph_to_index(f);
         val
     } else if scan_keyword(input, "u") {
@@ -6225,7 +6226,8 @@ pub(crate) unsafe fn scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    scan_and_pack_name(input);
+                                    scan_file_name(input);
+                                    pack_file_name(cur_name, cur_area, cur_ext);
                                     aat::aat_font_get_named(m.into(), *e)
                                 }
                                 _ => {
@@ -6239,11 +6241,13 @@ pub(crate) unsafe fn scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    scan_and_pack_name(input);
+                                    scan_file_name(input);
+                                    pack_file_name(cur_name, cur_area, cur_ext);
                                     aat::aat_font_get_named(m.into(), *e)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                                    scan_and_pack_name(input);
+                                    scan_file_name(input);
+                                    pack_file_name(cur_name, cur_area, cur_ext);
                                     gr_font_get_named((m as i32) - 14, e)
                                 }
                                 _ => {
@@ -6258,12 +6262,14 @@ pub(crate) unsafe fn scan_something_internal(
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     let k = scan_int(input);
-                                    scan_and_pack_name(input);
+                                    scan_file_name(input);
+                                    pack_file_name(cur_name, cur_area, cur_ext);
                                     aat::aat_font_get_named_1(m.into(), *e, k)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
-                                    scan_and_pack_name(input);
+                                    scan_file_name(input);
+                                    pack_file_name(cur_name, cur_area, cur_ext);
                                     gr_font_get_named_1((m as i32) - 14, e, k)
                                 }
                                 _ => {
@@ -6342,7 +6348,8 @@ pub(crate) unsafe fn scan_something_internal(
                             if let Font::Native(nf) =
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
-                                scan_and_pack_name(input);
+                                scan_file_name(input);
+                                pack_file_name(cur_name, cur_area, cur_ext);
                                 map_glyph_to_index(nf)
                             } else {
                                 not_native_font_error(
@@ -6379,7 +6386,8 @@ pub(crate) unsafe fn scan_something_internal(
                         LastItemCode::PdfLastXPos => pdf_last_x_pos.0,
                         LastItemCode::PdfLastYPos => pdf_last_y_pos.0,
                         LastItemCode::XetexPdfPageCount => {
-                            scan_and_pack_name(input);
+                            scan_file_name(input);
+                            pack_file_name(cur_name, cur_area, cur_ext);
                             count_pdf_file_pages()
                         }
                         LastItemCode::CurrentGroupLevel => cur_level as i32 - 1,
@@ -7904,7 +7912,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
         ConvertCode::String => {
             let (_, chr, cs) = o.unwrap();
             if cs != 0 {
-                sprint_cs(cs);
+                t_print!("{:#}", Cs(cs));
             } else {
                 print_chr(std::char::from_u32(chr as u32).unwrap());
             }
@@ -8203,8 +8211,10 @@ pub(crate) unsafe fn scan_toks(
                 let chr = next.2;
                 if cmd != Cmd::MacParam {
                     if tok <= ZERO_TOKEN || tok > t {
-                        t_eprint!("Illegal parameter number in definition of ");
-                        sprint_cs(warning_index);
+                        t_eprint!(
+                            "Illegal parameter number in definition of {:#}",
+                            Cs(warning_index)
+                        );
                         help!(
                             "You meant to type ## instead of #, right?",
                             "Or maybe a } was forgotten somewhere earlier, and things",
@@ -13325,8 +13335,7 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
             let (_, cmd, chr, cs) = get_token(input);
             t_print_nl!("> ");
             if cs != 0 {
-                sprint_cs(cs);
-                t_print!("=");
+                t_print!("{:#}=", Cs(cs));
             }
             print_meaning(cmd, chr);
             return common_ending();
@@ -13418,10 +13427,6 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
         error();
     }
     common_ending()
-}
-pub(crate) unsafe fn scan_and_pack_name(input: &mut input_state_t) {
-    scan_file_name(input);
-    pack_file_name(cur_name, cur_area, cur_ext);
 }
 pub(crate) unsafe fn do_extension(
     input: &mut input_state_t,
@@ -13566,7 +13571,8 @@ pub(crate) unsafe fn do_extension(
             }
         }
         XETEX_INPUT_ENCODING_EXTENSION_CODE => {
-            scan_and_pack_name(input);
+            scan_file_name(input);
+            pack_file_name(cur_name, cur_area, cur_ext);
             let i = get_encoding_mode_and_info(&mut j);
             if i == UnicodeMode::Auto {
                 t_eprint!("Encoding mode `auto\' is not valid for \\XeTeXinputencoding");
@@ -13580,7 +13586,8 @@ pub(crate) unsafe fn do_extension(
             }
         }
         XETEX_DEFAULT_ENCODING_EXTENSION_CODE => {
-            scan_and_pack_name(input);
+            scan_file_name(input);
+            pack_file_name(cur_name, cur_area, cur_ext);
             let i = get_encoding_mode_and_info(&mut j);
             set_int_par(IntPar::xetex_default_input_mode, i as i32);
             set_int_par(IntPar::xetex_default_input_encoding, j);
