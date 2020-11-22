@@ -52,7 +52,6 @@ use crate::xetex_ini::{
 };
 
 use crate::xetex_ini::init_pool_ptr;
-use crate::xetex_ini::name_of_file;
 use crate::xetex_ini::pool_size;
 use crate::xetex_ini::str_pool;
 
@@ -101,24 +100,24 @@ pub(crate) unsafe fn read_font_info(
     s: Scaled,
     quoted_filename: bool,
     file_name_quote_char: Option<char>,
-) -> Result<(bool, usize), TfmError> {
-    pack_file_name(nom, aire, cur_ext);
+) -> Result<(bool, usize, String), TfmError> {
+    let name = pack_file_name(nom, aire, cur_ext);
 
     if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
             if s < Scaled::ZERO {
-                t_print_nl!("Requested font \"{}\" scaled {}", name_of_file, -s.0);
+                t_print_nl!("Requested font \"{}\" scaled {}", name, -s.0);
             } else {
-                t_print_nl!("Requested font \"{}\" at {}pt", name_of_file, s);
+                t_print_nl!("Requested font \"{}\" at {}pt", name, s);
             }
         });
     }
 
     if quoted_filename {
-        if let Ok(g) =
-            load_native_font(s).map_err(|e| nf_error(e, u, nom, aire, s, file_name_quote_char))
+        if let Ok(g) = load_native_font(&name, s)
+            .map_err(|e| nf_error(e, u, nom, aire, s, file_name_quote_char))
         {
-            return Ok((false, g));
+            return Ok((false, g, name));
         }
     }
 
@@ -126,16 +125,16 @@ pub(crate) unsafe fn read_font_info(
     if name_too_long {
         return Err(TfmError::LongName);
     }
-    pack_file_name(nom, aire, EMPTY_STRING as str_number);
+    let name = pack_file_name(nom, aire, EMPTY_STRING as str_number);
     check_for_tfm_font_mapping();
 
-    let mut tfm_file_owner = tt_xetex_open_input(TTInputFormat::TFM);
+    let mut tfm_file_owner = tt_xetex_open_input(&name, TTInputFormat::TFM);
     if tfm_file_owner.is_none() {
         if !quoted_filename {
-            if let Ok(g) =
-                load_native_font(s).map_err(|e| nf_error(e, u, nom, aire, s, file_name_quote_char))
+            if let Ok(g) = load_native_font(&name, s)
+                .map_err(|e| nf_error(e, u, nom, aire, s, file_name_quote_char))
             {
-                return Ok((false, g));
+                return Ok((false, g, name));
             }
         }
         return Err(TfmError::NotFound);
@@ -542,7 +541,7 @@ pub(crate) unsafe fn read_font_info(
     FONT_PTR = f;
     FONT_MAPPING[f] = load_tfm_font_mapping();
 
-    return Ok((true, f));
+    return Ok((true, f, name)); // TODO: check name
 }
 
 /// Called on error
@@ -592,12 +591,12 @@ pub(crate) unsafe fn bad_tfm(
     }
 }
 
-pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
+pub(crate) fn good_tfm(ok: (bool, usize, String)) -> usize {
     unsafe {
         if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
             if ok.0 {
                 diagnostic(false, || {
-                    t_print_nl!(" -> {}", name_of_file);
+                    t_print_nl!(" -> {}", ok.2);
                 });
             }
         }
@@ -605,8 +604,8 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
     ok.1
 }
 
-pub(crate) unsafe fn load_native_font(s: Scaled) -> Result<usize, NativeFontError> {
-    let font_engine = find_native_font(&name_of_file, s);
+pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, NativeFontError> {
+    let font_engine = find_native_font(name, s);
     if font_engine.is_none() {
         return Err(NativeFontError::NotFound);
     }
@@ -618,10 +617,10 @@ pub(crate) unsafe fn load_native_font(s: Scaled) -> Result<usize, NativeFontErro
     } else {
         loaded_font_design_size
     };
-    if pool_ptr + name_of_file.as_bytes().len() > pool_size {
+    if pool_ptr + name.len() > pool_size {
         overflow("pool size", pool_size - init_pool_ptr);
     }
-    for b in name_of_file.bytes() {
+    for b in name.bytes() {
         str_pool[pool_ptr] = b as packed_UTF16_code;
         pool_ptr = pool_ptr + 1;
     }

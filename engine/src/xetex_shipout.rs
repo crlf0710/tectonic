@@ -14,12 +14,12 @@ use crate::xetex_ini::{
     avail, cur_area, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders,
     doing_special, file_offset, font_used, init_pool_ptr, input_state_t, job_name, last_bop,
-    log_opened, max_h, max_print_line, max_push, max_v, name_of_file, output_file_extension,
-    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht, rule_wd, rust_stdout,
-    selector, semantic_pagination_enabled, str_pool, str_ptr, str_start, term_offset, write_file,
-    write_loc, write_open, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA,
-    FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
-    FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
+    log_opened, max_h, max_print_line, max_push, max_v, output_file_extension, pdf_last_x_pos,
+    pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht, rule_wd, rust_stdout, selector,
+    semantic_pagination_enabled, str_pool, str_ptr, str_start, term_offset, write_file, write_loc,
+    write_open, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC,
+    FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
+    FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{print_chr, print_file_name, print_ln};
 use crate::xetex_scaledmath::{tex_round, Scaled};
@@ -189,13 +189,13 @@ pub(crate) unsafe fn ship_out(mut p: List) {
             if job_name == 0 {
                 open_log_file();
             }
-            pack_job_name(&output_file_extension);
-            let name = CString::new(name_of_file.as_str()).unwrap();
-            dvi_file = ttstub_output_open(name.as_ptr(), 0);
+            let name = pack_job_name(&output_file_extension);
+            let cname = CString::new(name.as_str()).unwrap();
+            dvi_file = ttstub_output_open(cname.as_ptr(), 0);
             if dvi_file.is_none() {
-                abort!("cannot open output file \"{}\"", name_of_file);
+                abort!("cannot open output file \"{}\"", name);
             }
-            output_file_name = make_name_string()
+            output_file_name = make_name_string(&name)
         }
 
         /* First page? Emit preamble items. */
@@ -1754,12 +1754,12 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 cur_ext = maketexstring(".tex")
             }
 
-            pack_file_name(cur_name, cur_area, cur_ext);
+            let name = pack_file_name(cur_name, cur_area, cur_ext);
 
-            let name = CString::new(name_of_file.as_str()).unwrap();
-            write_file[j as usize] = ttstub_output_open(name.as_ptr(), 0);
+            let cname = CString::new(name.as_str()).unwrap();
+            write_file[j as usize] = ttstub_output_open(cname.as_ptr(), 0);
             if write_file[j as usize].is_none() {
-                abort!("cannot open output file \"{}\"", name_of_file);
+                abort!("cannot open output file \"{}\"", name);
             }
 
             write_open[j as usize] = true;

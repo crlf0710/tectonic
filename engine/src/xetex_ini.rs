@@ -371,7 +371,7 @@ pub(crate) static mut EQTB: Vec<EqtbWord> = Vec::new();
 #[no_mangle]
 pub(crate) static mut bad: i32 = 0;
 
-pub(crate) static mut name_of_file: String = String::new();
+pub(crate) static mut name_of_font: String = String::new();
 
 #[no_mangle]
 pub(crate) static mut BUFFER: Vec<UnicodeScalar> = Vec::new();

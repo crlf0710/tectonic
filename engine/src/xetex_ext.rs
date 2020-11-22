@@ -26,7 +26,7 @@ use crate::cf_prelude::{
 use crate::core_memory::{xcalloc, xrealloc};
 use crate::xetex_ini::{
     loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,
-    name_of_file, DEPTH_BASE, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
+    name_of_font, DEPTH_BASE, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
     HEIGHT_BASE, PARAM_BASE,
 };
 use crate::xetex_output::print_chr;
@@ -240,14 +240,14 @@ pub(crate) unsafe fn linebreak_next() -> i32 {
     }
 }
 
-pub(crate) unsafe fn get_encoding_mode_and_info(info: *mut i32) -> UnicodeMode {
+pub(crate) unsafe fn get_encoding_mode_and_info(name: &str, info: *mut i32) -> UnicodeMode {
     /* \XeTeXinputencoding "enc-name"
      *   -> name is packed in |nameoffile| as a C string, starting at [1]
      * Check if it's a built-in name; if not, try to open an ICU converter by that name
      */
     let mut err: icu::UErrorCode = icu::U_ZERO_ERROR;
     *info = 0i32;
-    match name_of_file.to_lowercase().as_str() {
+    match name.to_lowercase().as_str() {
         "auto" => return UnicodeMode::Auto,
         "utf8" => return UnicodeMode::Utf8,
         "utf16" => {
@@ -260,16 +260,16 @@ pub(crate) unsafe fn get_encoding_mode_and_info(info: *mut i32) -> UnicodeMode {
         _ => {}
     }
     /* try for an ICU converter */
-    let name = CString::new(name_of_file.as_str()).unwrap();
-    let cnv = icu::ucnv_open(name.as_ptr(), &mut err); /* ensure message starts on a new line */
+    let cname = CString::new(name).unwrap();
+    let cnv = icu::ucnv_open(cname.as_ptr(), &mut err); /* ensure message starts on a new line */
     let result = if cnv.is_null() {
         diagnostic(true, || {
-            t_print_nl!("Unknown encoding `{}\'; reading as raw bytes", name_of_file);
+            t_print_nl!("Unknown encoding `{}\'; reading as raw bytes", name);
         });
         UnicodeMode::Raw
     } else {
         icu::ucnv_close(cnv);
-        *info = maketexstring(&name_of_file);
+        *info = maketexstring(name);
         UnicodeMode::ICUMapping
     };
     result
@@ -318,12 +318,12 @@ unsafe fn load_mapping_file(s: &str, byteMapping: i8) -> *mut libc::c_void {
 }
 static mut saved_mapping_name: String = String::new();
 pub(crate) unsafe fn check_for_tfm_font_mapping() {
-    let cp = name_of_file.find(":mapping=");
+    let cp = name_of_font.find(":mapping=");
 
     saved_mapping_name = String::new();
 
     if let Some(cp) = cp {
-        let (a, b) = name_of_file.split_at(cp);
+        let (a, b) = name_of_font.split_at(cp);
         let mut cp = &b.as_bytes()[9..];
         while !cp.is_empty() && cp[0] <= ' ' as u8 {
             cp = &cp[1..];
@@ -331,7 +331,7 @@ pub(crate) unsafe fn check_for_tfm_font_mapping() {
         if !cp.is_empty() {
             saved_mapping_name = String::from_utf8_lossy(cp).to_string();
         }
-        name_of_file = String::from(a);
+        name_of_font = String::from(a);
     }
 }
 pub(crate) unsafe fn load_tfm_font_mapping() -> *mut libc::c_void {
@@ -936,9 +936,9 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
     } else {
         let fontRef = findFontByName(&nameString, &mut varString, Fix2D(scaled_size));
         if !fontRef.is_null() {
-            /* update name_of_file to the full name of the font, for error messages during font loading */
+            /* update name_of_font to the full name of the font, for error messages during font loading */
             let fullName: *const i8 = getFullName(fontRef);
-            name_of_file = to_rust_string(fullName);
+            name_of_font = to_rust_string(fullName);
             if scaled_size < Scaled::ZERO {
                 if let Some(font) = createFont(fontRef, scaled_size) {
                     let dsize_0 = D2Fix(getDesignSize(&font));
@@ -978,12 +978,12 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
             }
             /* append the style and feature strings, so that \show\fontID will give a full result */
             if !varString.is_empty() {
-                name_of_file.push('/');
-                name_of_file.push_str(&varString);
+                name_of_font.push('/');
+                name_of_font.push_str(&varString);
             }
             if !featString.is_empty() {
-                name_of_file.push(':');
-                name_of_file.push_str(&featString);
+                name_of_font.push(':');
+                name_of_font.push_str(&featString);
             }
         }
     }
@@ -1114,15 +1114,20 @@ pub(crate) unsafe fn gr_print_font_name(
         gr_label_destroy(name as *mut libc::c_void);
     };
 }
-pub(crate) unsafe fn gr_font_get_named(what: i32, engine: &XeTeXLayoutEngine) -> i32 {
+pub(crate) unsafe fn gr_font_get_named(name: &str, what: i32, engine: &XeTeXLayoutEngine) -> i32 {
     match what {
-        10 => findGraphiteFeatureNamed(engine, name_of_file.as_bytes()) as _,
+        10 => findGraphiteFeatureNamed(engine, name.as_bytes()) as _,
         _ => -1,
     }
 }
-pub(crate) unsafe fn gr_font_get_named_1(what: i32, engine: &XeTeXLayoutEngine, param: i32) -> i32 {
+pub(crate) unsafe fn gr_font_get_named_1(
+    name: &str,
+    what: i32,
+    engine: &XeTeXLayoutEngine,
+    param: i32,
+) -> i32 {
     match what {
-        14 => findGraphiteFeatureSettingNamed(engine, param as u32, name_of_file.as_bytes()) as _,
+        14 => findGraphiteFeatureSettingNamed(engine, param as u32, name.as_bytes()) as _,
         _ => -1,
     }
 }
@@ -1740,9 +1745,8 @@ pub(crate) unsafe fn map_char_to_glyph(font: &NativeFont, ch: i32) -> i32 {
         Otgr(engine) => engine.map_char_to_glyph(ch as u32) as i32,
     }
 }
-pub(crate) unsafe fn map_glyph_to_index(font: &NativeFont) -> i32 {
-    /* glyph name is at name_of_file */
-    let name = CString::new(name_of_file.as_str()).unwrap();
+pub(crate) unsafe fn map_glyph_to_index(font: &NativeFont, name: &str) -> i32 {
+    let name = CString::new(name).unwrap();
     match font {
         #[cfg(target_os = "macos")]
         Aat(engine) => aat::MapGlyphToIndex_AAT(*engine, name.as_ptr()),

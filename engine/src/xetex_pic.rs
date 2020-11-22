@@ -7,7 +7,7 @@ use crate::help;
 use crate::node::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
-use crate::xetex_ini::{cur_area, cur_ext, cur_list, cur_name, input_state_t, name_of_file};
+use crate::xetex_ini::{cur_area, cur_ext, cur_list, cur_name, input_state_t};
 use crate::xetex_output::print_file_name;
 use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetex0::{
@@ -29,12 +29,12 @@ type Transform = euclid::Transform2D<f64, (), ()>;
 type Point = euclid::Point2D<f32, ()>;
 type Rect = euclid::Rect<f32, ()>;
 
-pub(crate) unsafe fn count_pdf_file_pages() -> i32 {
-    let handle = InFile::open(&name_of_file, TTInputFormat::PICT, 0i32);
+pub(crate) unsafe fn count_pdf_file_pages(filename: &str) -> i32 {
+    let handle = InFile::open(filename, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return 0;
     }
-    if let Some(pf) = pdf_open(&name_of_file, handle.unwrap()) {
+    if let Some(pf) = pdf_open(filename, handle.unwrap()) {
         pdf_doc_get_page_count(&*pf)
     } else {
         /* TODO: issue warning */
@@ -130,15 +130,15 @@ unsafe fn get_image_size_in_inches(handle: &mut InFile) -> Result<(f32, f32), i3
   return full path in *path
   return bounds (tex points) in *bounds
 */
-unsafe fn find_pic_file(pdfBoxType: i32, page: i32) -> Result<(Rect, String), i32> {
-    let handle = InFile::open(&name_of_file, TTInputFormat::PICT, 0i32);
+unsafe fn find_pic_file(filename: &str, pdfBoxType: i32, page: i32) -> Result<(Rect, String), i32> {
+    let handle = InFile::open(filename, TTInputFormat::PICT, 0i32);
     if handle.is_none() {
         return Err(1);
     }
     let mut handle = handle.unwrap();
     let bounds = if pdfBoxType != 0i32 {
         /* if cmd was \XeTeXpdffile, use xpdflib to read it */
-        let name = CString::new(name_of_file.as_str()).unwrap();
+        let name = CString::new(filename).unwrap();
         pdf_get_rect(name.as_ptr(), handle, page, pdfBoxType).map_err(|_| -1)?
     } else {
         match get_image_size_in_inches(&mut handle) {
@@ -149,7 +149,7 @@ unsafe fn find_pic_file(pdfBoxType: i32, page: i32) -> Result<(Rect, String), i3
             Err(e) => return Err(e),
         }
     };
-    Ok((bounds, name_of_file.clone()))
+    Ok((bounds, filename.to_string()))
 }
 
 fn to_points(r: &Rect) -> [Point; 4] {
@@ -164,7 +164,7 @@ fn to_points(r: &Rect) -> [Point; 4] {
 pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
     let mut result: i32 = 0;
     scan_file_name(input);
-    pack_file_name(cur_name, cur_area, cur_ext);
+    let filename = pack_file_name(cur_name, cur_area, cur_ext);
     let mut pdf_box_type = 0;
     let mut page = 0;
     if is_pdf {
@@ -186,9 +186,9 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
         };
     }
     let (bounds, pic_path) = if pdf_box_type == 6 {
-        find_pic_file(1, page)
+        find_pic_file(&filename, 1, page)
     } else {
-        find_pic_file(pdf_box_type, page)
+        find_pic_file(&filename, pdf_box_type, page)
     }
     .unwrap_or_else(|e| {
         result = e;
