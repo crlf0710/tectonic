@@ -7,7 +7,7 @@ macro_rules! no_mangle_extern_fn {
     )*) => {
         extern "C" {
             $(
-                #[no_mangle]
+                //#[no_mangle]
                 $(#[$meta])*
                 fn $extern_symbol($($argname: $argtype),*) -> $rettype;
             )*

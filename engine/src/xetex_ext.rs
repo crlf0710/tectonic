@@ -1,10 +1,7 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::c_pointer_to_str;
+use crate::{t_print, t_print_nl};
 use std::ffi::CString;
 
 use crate::node::{Glyph, NativeWord};
@@ -12,7 +9,6 @@ use crate::strstartswith;
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::{Side, UnicodeMode};
-use crate::xetex_xetexd::print_c_str;
 use bridge::{ttstub_input_get_size, InFile, TTInputFormat};
 use libc::free;
 use std::io::Read;
@@ -33,7 +29,7 @@ use crate::xetex_ini::{
     name_of_file, DEPTH_BASE, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
     HEIGHT_BASE, PARAM_BASE,
 };
-use crate::xetex_output::{print_char, print_int, print_nl};
+use crate::xetex_output::print_chr;
 use crate::xetex_scaledmath::xn_over_d;
 use crate::xetex_texmfmp::{gettexstring, maketexstring, to_rust_string};
 use crate::xetex_xetex0::{
@@ -206,12 +202,7 @@ pub(crate) unsafe fn linebreak_start(f: usize, localeStrNum: i32, text: &[u16]) 
         );
         if status as i32 > icu::U_ZERO_ERROR as i32 {
             diagnostic(true, || {
-                print_nl('E' as i32);
-                print_c_str("rror ");
-                print_int(status as i32);
-                print_c_str(" creating linebreak iterator for locale `");
-                print_c_str(&locale);
-                print_c_str("\'; trying default locale `en_us\'.");
+                t_print_nl!("Error {} creating linebreak iterator for locale `{}\'; trying default locale `en_us\'.", status as i32, locale);
             });
             if !brkIter.is_null() {
                 icu::ubrk_close(brkIter);
@@ -273,10 +264,7 @@ pub(crate) unsafe fn get_encoding_mode_and_info(info: *mut i32) -> UnicodeMode {
     let cnv = icu::ucnv_open(name.as_ptr(), &mut err); /* ensure message starts on a new line */
     let result = if cnv.is_null() {
         diagnostic(true, || {
-            print_nl('U' as i32);
-            print_c_str("nknown encoding `");
-            print_c_str(&name_of_file);
-            print_c_str("\'; reading as raw bytes");
+            t_print_nl!("Unknown encoding `{}\'; reading as raw bytes", name_of_file);
         });
         UnicodeMode::Raw
     } else {
@@ -285,15 +273,6 @@ pub(crate) unsafe fn get_encoding_mode_and_info(info: *mut i32) -> UnicodeMode {
         UnicodeMode::ICUMapping
     };
     result
-}
-
-#[cfg(target_os = "macos")]
-pub(crate) unsafe fn print_chars(mut string: *const u16, mut len: i32) {
-    while len > 0 {
-        print_char(*string as i32);
-        string = string.offset(1);
-        len = len - 1;
-    }
 }
 
 unsafe fn load_mapping_file(s: &str, byteMapping: i8) -> *mut libc::c_void {
@@ -950,9 +929,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
             );
             if rval.is_some() && get_tracing_fonts_state() > 0 {
                 diagnostic(false, || {
-                    print_nl(' ' as i32);
-                    print_c_str("-> ");
-                    print_c_str(&nameString[1..]);
+                    t_print_nl!(" -> {}", &nameString[1..]);
                 });
             }
         }
@@ -1133,7 +1110,7 @@ pub(crate) unsafe fn gr_print_font_name(
         _ => {}
     }
     if !name.is_null() {
-        print_c_str(c_pointer_to_str(name));
+        t_print!("{}", c_pointer_to_str(name));
         gr_label_destroy(name as *mut libc::c_void);
     };
 }
@@ -1788,25 +1765,16 @@ pub(crate) unsafe fn Fix2D(f: Scaled) -> f64 {
 }
 
 pub(crate) unsafe fn print_glyph_name(font: usize, gid: i32) {
-    let mut len: i32 = 0i32;
-    let mut s = match &FONT_LAYOUT_ENGINE[font as usize] {
+    let s = match &FONT_LAYOUT_ENGINE[font as usize] {
         #[cfg(target_os = "macos")]
-        Font::Native(Aat(attributes)) => aat::GetGlyphNameFromCTFont(
-            aat::font_from_attributes(*attributes),
-            gid as u16,
-            &mut len,
-        ),
-        Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(gid as u16, &mut len),
+        Font::Native(Aat(attributes)) => {
+            aat::GetGlyphNameFromCTFont(aat::font_from_attributes(*attributes), gid as u16)
+        }
+        Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(gid as u16),
         _ => panic!("bad native font flag in `print_glyph_name`"),
     };
-    loop {
-        let fresh33 = len;
-        len = len - 1;
-        if !(fresh33 > 0i32) {
-            break;
-        }
-        print_char(*s as i32);
-        s = s.offset(1);
+    for c in s.chars() {
+        print_chr(c);
     }
 }
 pub(crate) unsafe fn real_get_native_word_cp(node: &NativeWord, side: Side) -> i32 {

@@ -1,9 +1,7 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::xetex_output::{Esc, Roman};
+use crate::{t_eprint, t_print, t_print_nl};
 use std::ffi::CString;
 use std::io::Write;
 use std::ptr;
@@ -33,32 +31,31 @@ use crate::xetex_ini::{
     cur_area, cur_boundary, cur_box, cur_chr, cur_cmd, cur_cs, cur_dir, cur_ext, cur_group,
     cur_head, cur_if, cur_input, cur_l, cur_lang, cur_level, cur_list, cur_loop, cur_mark,
     cur_name, cur_order, cur_pre_head, cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail,
-    cur_tok, dead_cycles, def_ref, deletions_allowed, depth_threshold, dig, disc_ptr, error_count,
-    error_line, expand_depth, expand_depth_count, false_bchar, file_line_error_style_p,
-    file_offset, first, first_count, fmem_ptr, font_in_short_display, force_eof,
-    gave_char_warning_help, half_error_line, hash, hash_extra, hash_high, hash_used, hi_mem_min,
-    history, if_limit, if_line, init_pool_ptr, init_str_ptr, ins_disc, insert_penalties,
-    insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
-    interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
-    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
-    ligature_present, line, lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set,
-    main_f, main_h, main_i, main_j, main_k, main_s, max_buf_stack, max_print_line,
-    max_reg_help_line, max_reg_num, max_strings, mem_end, name_in_progress, name_of_file,
-    no_new_control_sequence, open_parens, output_active, pack_begin_line, page_contents,
-    page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos, pool_ptr,
-    pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack,
-    read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status,
-    selector, set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, str_pool,
-    str_ptr, str_start, tally, term_offset, texmf_log_name, total_shrink, total_stretch, trick_buf,
-    trick_count, use_err_help, used_tectonic_coda_tokens, warning_index, write_file, write_open,
-    xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, EOF_SEEN, EQTB,
-    EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE,
-    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS,
-    FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE,
-    INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN,
-    MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE,
-    PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
-    SOURCE_FILENAME_STACK, STACK_SIZE,
+    cur_tok, dead_cycles, def_ref, deletions_allowed, depth_threshold, disc_ptr, error_count,
+    error_line, expand_depth, expand_depth_count, false_bchar, file_offset, first, first_count,
+    fmem_ptr, font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash,
+    hash_extra, hash_high, hash_used, hi_mem_min, history, if_limit, if_line, init_pool_ptr,
+    init_str_ptr, ins_disc, insert_penalties, insert_src_special_auto,
+    insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
+    is_in_csname, job_name, last, last_badness, last_glue, last_kern, last_leftmost_char,
+    last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack, ligature_present, line,
+    lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i,
+    main_j, main_k, main_s, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num,
+    max_strings, mem_end, name_in_progress, name_of_file, no_new_control_sequence, open_parens,
+    output_active, pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token,
+    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
+    prim_eqtb, prim_used, pseudo_files, pstack, read_file, read_open, rover, rt_hit, rust_stdout,
+    sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed, shown_mode, skip_line,
+    space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, texmf_log_name,
+    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
+    warning_index, write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL,
+    BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE,
+    FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
+    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
+    GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE,
+    LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK,
+    MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK,
+    SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, memory_word, prefixed_command};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding};
@@ -70,10 +67,8 @@ use crate::xetex_math::{
     start_eq_no, sub_sup,
 };
 use crate::xetex_output::{
-    print, print_char, print_chr, print_cs, print_cstr, print_current_string, print_esc,
-    print_esc_cstr, print_file_line, print_file_name, print_hex, print_int, print_ln,
-    print_native_word, print_nl, print_nl_cstr, print_roman_int, print_rust_char,
-    print_rust_string, print_sa_num, print_scaled, print_size, print_write_whatsit, sprint_cs,
+    print_chr, print_cs, print_esc_cstr, print_file_name, print_ln, print_native_word,
+    print_sa_num, print_size, print_write_whatsit, sprint_cs,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
@@ -108,9 +103,7 @@ fn IS_LC_HEX(c: i32) -> bool {
 }
 
 unsafe fn int_error(n: i32) {
-    print_cstr(" (");
-    print_int(n);
-    print_chr(')');
+    t_print!(" ({})", n);
     error();
 }
 pub(crate) unsafe fn badness(t: Scaled, s: Scaled) -> i32 {
@@ -210,7 +203,7 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                     }
                     END_MATCH => {
                         if c == 0 {
-                            print_cstr("->");
+                            t_print!("->");
                         }
                     }
                     _ => print_esc_cstr("BAD."),
@@ -229,19 +222,19 @@ pub(crate) unsafe fn runaway() {
     if scanner_status != ScannerStatus::Normal && scanner_status != ScannerStatus::Skipping {
         let p = match scanner_status {
             ScannerStatus::Defining => {
-                print_nl_cstr("Runaway definition");
+                t_print_nl!("Runaway definition");
                 def_ref
             }
             ScannerStatus::Matching => {
-                print_nl_cstr("Runaway argument");
+                t_print_nl!("Runaway argument");
                 TEMP_HEAD
             }
             ScannerStatus::Aligning => {
-                print_nl_cstr("Runaway preamble");
+                t_print_nl!("Runaway preamble");
                 HOLD_HEAD
             }
             ScannerStatus::Absorbing => {
-                print_nl_cstr("Runaway text");
+                t_print_nl!("Runaway text");
                 def_ref
             }
             _ => unreachable!(),
@@ -511,17 +504,20 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
             if p.ptr() <= mem_end as usize {
                 if p.font() as usize != font_in_short_display {
                     if p.font() as i32 > FONT_MAX as i32 {
-                        print_chr('*');
+                        t_print!("* ");
                     } else {
                         /*279:*/
-                        print_esc(
-                            (*hash.offset((FONT_ID_BASE as i32 + p.font() as i32) as isize)).s1,
+                        t_print!(
+                            "{} ",
+                            Esc(&PoolString::from(
+                                (*hash.offset((FONT_ID_BASE as i32 + p.font() as i32) as isize)).s1,
+                            )
+                            .to_string())
                         );
                     }
-                    print_chr(' ');
                     font_in_short_display = p.font() as usize
                 }
-                print(p.character() as i32);
+                t_print!("{}", std::char::from_u32(p.character() as u32).unwrap());
             }
         } else {
             /*183:*/
@@ -530,33 +526,37 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                 | TxtNode::Ins(_)
                 | TxtNode::Mark(_)
                 | TxtNode::Adjust(_)
-                | TxtNode::Unset(_) => print_cstr("[]"),
+                | TxtNode::Unset(_) => t_print!("[]"),
                 TxtNode::WhatsIt(p) => match p {
                     WhatsIt::NativeWord(nw) => {
                         if nw.font() as usize != font_in_short_display {
-                            print_esc(
-                                (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
-                                    .s1,
+                            t_print!(
+                                "{} ",
+                                Esc(&PoolString::from(
+                                    (*hash
+                                        .offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
+                                    .s1
+                                )
+                                .to_string())
                             );
-                            print_chr(' ');
                             font_in_short_display = nw.font() as usize
                         }
                         print_native_word(&nw);
                     }
-                    _ => print_cstr("[]"),
+                    _ => t_print!("[]"),
                 },
-                TxtNode::Rule(_) => print_chr('|'),
+                TxtNode::Rule(_) => t_print!("|"),
                 TxtNode::Glue(_) => {
                     if MEM[p + 1].b32.s0 != 0 {
                         // TODO: strange (special case?)
-                        print_chr(' ');
+                        t_print!(" ");
                     }
                 }
                 TxtNode::Math(m) => match m.subtype() {
                     MathType::Eq(_, MathMode::Left) | MathType::Eq(_, MathMode::Right) => {
-                        print_cstr("[]")
+                        t_print!("[]")
                     }
-                    _ => print_chr('$'),
+                    _ => t_print!("$"),
                 },
                 TxtNode::Ligature(l) => short_display(l.lig_ptr().opt()),
                 TxtNode::Disc(d) => {
@@ -578,16 +578,21 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
 }
 pub(crate) unsafe fn print_font_and_char(p: usize) {
     if p > mem_end as usize {
-        print_esc_cstr("CLOBBERED.");
+        t_print!("{}", Esc("CLOBBERED."));
     } else {
         if MEM[p].b16.s1 as i32 > FONT_MAX as i32 {
-            print_chr('*');
+            t_print!("* ");
         } else {
             /*279: */
-            print_esc((*hash.offset((FONT_ID_BASE as i32 + MEM[p].b16.s1 as i32) as isize)).s1);
+            t_print!(
+                "{} ",
+                Esc(&PoolString::from(
+                    (*hash.offset((FONT_ID_BASE as i32 + MEM[p].b16.s1 as i32) as isize)).s1
+                )
+                .to_string())
+            );
         }
-        print_chr(' ');
-        print(MEM[p].b16.s0 as i32);
+        t_print!("{}", std::char::from_u32(MEM[p].b16.s0 as u32).unwrap());
     };
 }
 pub(crate) unsafe fn print_mark(p: i32) {
@@ -602,51 +607,51 @@ pub(crate) unsafe fn print_mark(p: i32) {
 }
 pub(crate) unsafe fn print_rule_dimen(d: Scaled) {
     if d == NULL_FLAG {
-        print_chr('*');
+        t_print!("*");
     } else {
-        print_scaled(d);
+        t_print!("{}", d);
     };
 }
 pub(crate) unsafe fn print_glue(d: Scaled, order: GlueOrder, s: &str) {
-    print_scaled(d);
-    match order {
-        // TODO: optimize
-        GlueOrder::Incorrect => print_cstr("foul"),
-        GlueOrder::Fil => print_cstr("fil"),
-        GlueOrder::Fill => print_cstr("fill"),
-        GlueOrder::Filll => print_cstr("filll"),
-        GlueOrder::Normal => print_cstr(s),
-    }
+    t_print!(
+        "{}{}",
+        d,
+        match order {
+            GlueOrder::Incorrect => "foul",
+            GlueOrder::Fil => "fil",
+            GlueOrder::Fill => "fill",
+            GlueOrder::Filll => "filll",
+            GlueOrder::Normal => s,
+        }
+    );
 }
 pub(crate) unsafe fn print_spec(p: i32, unit: &str) {
     if p < 0 || p >= lo_mem_max {
         print_chr('*');
     } else {
         let p = GlueSpec(p as usize);
-        print_scaled(p.size());
+        t_print!("{}", p.size());
         if !unit.is_empty() {
-            print_cstr(unit);
+            t_print!("{}", unit);
         }
         if p.stretch() != Scaled::ZERO {
-            print_cstr(" plus ");
+            t_print!(" plus ");
             print_glue(p.stretch(), p.stretch_order(), unit);
         }
         if p.shrink() != Scaled::ZERO {
-            print_cstr(" minus ");
+            t_print!(" minus ");
             print_glue(p.shrink(), p.shrink_order(), unit);
         }
     };
 }
 pub(crate) unsafe fn print_fam_and_char(p: usize) {
-    print_esc_cstr("fam");
-    print_int(MEM[p].b16.s1 as i32 % 256 % 256);
-    print_chr(' ');
     let c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
-    if (c as i64) < 65536 {
-        print(c);
-    } else {
-        print_char(c);
-    };
+    t_print!(
+        "{}{} {}",
+        Esc("fam"),
+        MEM[p].b16.s1 as i32 % 256 % 256,
+        std::char::from_u32(c as u32).unwrap()
+    );
 }
 pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
     let a = ((d.s3 as i32 % 256 * 256) as i64 + (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536))
@@ -654,15 +659,15 @@ pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
     let a = ((a * 4096 + d.s1 as i32 % 256 * 256) as i64
         + (d.s0 as i64 + (d.s1 as i32 / 256) as i64 * 65536)) as i32;
     if a < 0 {
-        print_int(a);
+        t_print!("{}", a);
     } else {
-        print_hex(a);
+        t_print!("\"{:X}", a);
     };
 }
 pub(crate) unsafe fn print_subsidiary_data(p: usize, c: UTF16_code) {
     if PoolString::current().len() as i32 >= depth_threshold {
         if MEM[p].b32.s1 != 0 {
-            print_cstr(" []");
+            t_print!(" []");
         }
     } else {
         str_pool[pool_ptr] = c;
@@ -671,15 +676,14 @@ pub(crate) unsafe fn print_subsidiary_data(p: usize, c: UTF16_code) {
         match MathCell::n(MEM[p].b32.s1).unwrap() {
             MathCell::MathChar => {
                 print_ln();
-                print_current_string();
+                t_print!("{}", PoolString::current());
                 print_fam_and_char(p);
             }
             MathCell::SubBox => show_info(tmp_ptr),
             MathCell::SubMList => {
                 if MEM[p].b32.s0.opt().is_none() {
                     print_ln();
-                    print_current_string();
-                    print_cstr("{}");
+                    t_print!("{}{{}}", PoolString::current());
                 } else {
                     show_info(tmp_ptr);
                 }
@@ -695,7 +699,7 @@ pub(crate) unsafe fn print_style(c: i32) {
         Some(MathStyle::Text) => print_esc_cstr("textstyle"),
         Some(MathStyle::Script) => print_esc_cstr("scriptstyle"),
         Some(MathStyle::ScriptScript) => print_esc_cstr("scriptscriptstyle"),
-        None => print_cstr("Unknown style!"),
+        None => t_print!("Unknown style!"),
     };
 }
 pub(crate) unsafe fn print_skip_param(n: GluePar) {
@@ -725,21 +729,21 @@ pub(crate) unsafe fn print_skip_param(n: GluePar) {
 pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
     if PoolString::current().len() as i32 > depth_threshold {
         if popt.is_some() {
-            print_cstr(" []");
+            t_print!(" []");
         }
         return;
     }
     let mut n = 0;
     while let Some(p) = popt.filter(|&p| p != 0) {
         print_ln();
-        print_current_string();
+        t_print!("{}", PoolString::current());
         if p > mem_end as usize {
-            print_cstr("Bad link, display aborted.");
+            t_print!("Bad link, display aborted.");
             return;
         }
         n += 1;
         if n > breadth_max {
-            print_cstr("etc.");
+            t_print!("etc.");
             return;
         }
         let p = p as usize;
@@ -747,28 +751,28 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
             Node::Char(_) => print_font_and_char(p as _),
             Node::Text(n) => match n {
                 TxtNode::List(p) => {
-                    if p.is_horizontal() {
-                        print_esc('h' as i32);
-                    } else {
-                        print_esc('v' as i32);
-                    }
-                    print_cstr("box(");
-                    print_scaled(p.height());
-                    print_chr('+');
-                    print_scaled(p.depth());
-                    print_cstr(")x");
-                    print_scaled(p.width());
+                    t_print!(
+                        "{}({}+{})x{}",
+                        if p.is_horizontal() {
+                            Esc("hbox")
+                        } else {
+                            Esc("vbox")
+                        },
+                        p.height(),
+                        p.depth(),
+                        p.width()
+                    );
                     let g = p.glue_set();
                     if g != 0. && p.glue_sign() != GlueSign::Normal {
-                        print_cstr(", glue set ");
+                        t_print!(", glue set ");
                         if p.glue_sign() == GlueSign::Shrinking {
-                            print_cstr("- ");
+                            t_print!("- ");
                         }
                         if g.abs() > 20000. {
                             if g > 0. {
-                                print_chr('>');
+                                t_print!(">");
                             } else {
-                                print_cstr("< -");
+                                t_print!("< -");
                             }
                             print_glue(Scaled::from(20000), p.glue_order(), "");
                         } else {
@@ -776,12 +780,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                     }
                     if p.shift_amount() != Scaled::ZERO {
-                        print_cstr(", shifted ");
-                        print_scaled(p.shift_amount());
+                        t_print!(", shifted {}", p.shift_amount());
                     }
                     /*1491:*/
                     if p.is_horizontal() && p.lr_mode() == LRMode::DList {
-                        print_cstr(", display");
+                        t_print!(", display");
                     }
                     str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
@@ -789,25 +792,23 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     pool_ptr -= 1
                 }
                 TxtNode::Unset(p) => {
-                    print_esc_cstr("unset");
-                    print_cstr("box(");
-                    print_scaled(p.height());
-                    print_chr('+');
-                    print_scaled(p.depth());
-                    print_cstr(")x");
-                    print_scaled(p.width());
+                    t_print!(
+                        "{}box({}+{})x{}",
+                        Esc("unset"),
+                        p.height(),
+                        p.depth(),
+                        p.width()
+                    );
                     /*193:*/
                     if p.columns() != 0 {
-                        print_cstr(" (");
-                        print_int(p.columns() as i32 + 1);
-                        print_cstr(" columns)");
+                        t_print!(" ({} columns)", p.columns() as i32 + 1);
                     }
                     if p.stretch() != Scaled::ZERO {
-                        print_cstr(", stretch ");
+                        t_print!(", stretch ");
                         print_glue(p.stretch(), p.stretch_order(), "");
                     }
                     if p.shrink() != Scaled::ZERO {
-                        print_cstr(", shrink ");
+                        t_print!(", shrink ");
                         print_glue(p.shrink(), p.shrink_order(), "");
                     }
                     str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
@@ -816,24 +817,22 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     pool_ptr -= 1
                 }
                 TxtNode::Rule(p) => {
-                    print_esc_cstr("rule(");
+                    t_print!("{}(", Esc("rule"));
                     print_rule_dimen(p.height());
                     print_chr('+');
                     print_rule_dimen(p.depth());
-                    print_cstr(")x");
+                    t_print!(")x");
                     print_rule_dimen(p.width());
                 }
                 TxtNode::Ins(p_ins) => {
-                    print_esc_cstr("insert");
-                    print_int(p_ins.box_reg() as i32);
-                    print_cstr(", natural size ");
-                    print_scaled(p_ins.height());
-                    print_cstr("; split(");
+                    t_print!(
+                        "{}{}, natural size {}; split(",
+                        Esc("insert"),
+                        p_ins.box_reg() as i32,
+                        p_ins.height()
+                    );
                     print_spec(p_ins.split_top_ptr(), "");
-                    print_chr(',');
-                    print_scaled(p_ins.depth());
-                    print_cstr("); float cost ");
-                    print_int(p_ins.float_cost());
+                    t_print!(",{}); float cost {}", p_ins.depth(), p_ins.float_cost());
                     str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(p_ins.ins_ptr().opt());
@@ -855,27 +854,34 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_mark(s.tokens());
                     }
                     WhatsIt::Language(l) => {
-                        print_esc_cstr("setlanguage");
-                        print_int(l.lang());
-                        print_cstr(" (hyphenmin ");
-                        print_int(l.lhm() as i32);
-                        print_chr(',');
-                        print_int(l.rhm() as i32);
-                        print_chr(')');
+                        t_print!(
+                            "{}{} (hyphenmin {},{})",
+                            Esc("setlanguage"),
+                            l.lang(),
+                            l.lhm() as i32,
+                            l.rhm() as i32
+                        );
                     }
                     WhatsIt::NativeWord(nw) => {
-                        print_esc(
-                            (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize)).s1,
+                        t_print!(
+                            "{} ",
+                            Esc(&PoolString::from(
+                                (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
+                                    .s1,
+                            )
+                            .to_string())
                         );
-                        print_chr(' ');
                         print_native_word(&nw);
                     }
                     WhatsIt::Glyph(g) => {
-                        print_esc(
-                            (*hash.offset((FONT_ID_BASE as i32 + g.font() as i32) as isize)).s1,
+                        t_print!(
+                            "{} glyph#{}",
+                            Esc(&PoolString::from(
+                                (*hash.offset((FONT_ID_BASE as i32 + g.font() as i32) as isize)).s1,
+                            )
+                            .to_string()),
+                            g.glyph() as i32
                         );
-                        print_cstr(" glyph#");
-                        print_int(g.glyph() as i32);
                     }
                     WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                         if p.is_pdf() {
@@ -883,12 +889,9 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         } else {
                             print_esc_cstr("XeTeXpicfile");
                         }
-                        print_cstr("( ");
-                        print_rust_string(std::str::from_utf8(p.path()).unwrap());
-                        print('\"' as i32);
+                        t_print!("( {}\"", std::str::from_utf8(p.path()).unwrap());
                     }
                     WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
-                    //_ => print_cstr("whatsit?"),
                 },
                 TxtNode::Glue(g) => {
                     if g.param() >= A_LEADERS {
@@ -899,7 +902,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         } else if g.param() == X_LEADERS {
                             print_chr('x');
                         }
-                        print_cstr("leaders ");
+                        t_print!("leaders ");
                         print_spec(g.glue_ptr(), "");
                         str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
@@ -912,7 +915,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             if g.param() < COND_MATH_GLUE {
                                 match GluePar::n(g.param() - 1) {
                                     Some(dimen) => print_skip_param(dimen),
-                                    None => print_cstr("[unknown glue parameter!]"),
+                                    None => t_print!("[unknown glue parameter!]"),
                                 }
                             } else if g.param() == COND_MATH_GLUE {
                                 print_esc_cstr("nonscript");
@@ -935,27 +938,23 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if k.subtype() != KernType::Math {
                         print_esc_cstr("kern");
                         if k.subtype() != KernType::Normal {
-                            print_chr(' ');
+                            t_print!(" ");
                         }
-                        print_scaled(k.width());
+                        t_print!("{}", k.width());
                         if k.subtype() == KernType::AccKern {
-                            print_cstr(" (for accent)");
+                            t_print!(" (for accent)");
                         } else if k.subtype() == KernType::SpaceAdjustment {
-                            print_cstr(" (space adjustment)");
+                            t_print!(" (space adjustment)");
                         }
                     } else {
-                        print_esc_cstr("mkern");
-                        print_scaled(k.width());
-                        print_cstr("mu");
+                        t_print!("{}{}mu", Esc("mkern"), k.width());
                     }
                 }
                 TxtNode::MarginKern(m) => {
-                    print_esc_cstr("kern");
-                    print_scaled(m.width());
                     if MEM[m.ptr()].b16.s0 == 0 {
-                        print_cstr(" (left margin)");
+                        t_print!("{}{} (left margin)", Esc("kern"), m.width());
                     } else {
-                        print_cstr(" (right margin)");
+                        t_print!("{}{} (right margin)", Esc("kern"), m.width());
                     }
                 }
                 TxtNode::Math(p) => match p.subtype() {
@@ -973,19 +972,18 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     _ => {
                         print_esc_cstr("math");
                         match p.subtype() {
-                            MathType::Before => print_cstr("on"),
-                            MathType::After => print_cstr("off"),
+                            MathType::Before => t_print!("on"),
+                            MathType::After => t_print!("off"),
                             _ => unreachable!(),
                         }
                         if p.width() != Scaled::ZERO {
-                            print_cstr(", surrounded ");
-                            print_scaled(p.width());
+                            t_print!(", surrounded {}", p.width());
                         }
                     }
                 },
                 TxtNode::Ligature(l) => {
                     print_font_and_char(l.ptr() + 1);
-                    print_cstr(" (ligature ");
+                    t_print!(" (ligature ");
                     if l.left_hit() {
                         print_chr('|');
                     }
@@ -997,14 +995,12 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     print_chr(')');
                 }
                 TxtNode::Penalty(p) => {
-                    print_esc_cstr("penalty ");
-                    print_int(p.penalty());
+                    t_print!("{}{}", Esc("penalty "), p.penalty());
                 }
                 TxtNode::Disc(d) => {
-                    print_esc_cstr("discretionary");
+                    t_print!("{}", Esc("discretionary"));
                     if d.replace_count() > 0 {
-                        print_cstr(" replacing ");
-                        print_int(d.replace_count() as i32);
+                        t_print!(" replacing {}", d.replace_count() as i32);
                     }
                     str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
@@ -1016,17 +1012,17 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     pool_ptr -= 1
                 }
                 TxtNode::Mark(m) => {
-                    print_esc_cstr("mark");
                     if m.class() != 0 {
-                        print_chr('s');
-                        print_int(m.class());
+                        t_print!("{}{}", Esc("marks"), m.class());
+                    } else {
+                        t_print!("{}", Esc("mark"));
                     }
                     print_mark(m.mark_ptr());
                 }
                 TxtNode::Adjust(a) => {
                     print_esc_cstr("vadjust");
                     if a.subtype() != AdjustType::Post {
-                        print_cstr(" pre ");
+                        t_print!(" pre ");
                     }
                     str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
@@ -1120,11 +1116,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 }
                 MathNode::Fraction => {
                     let f = Fraction(p);
-                    print_esc_cstr("fraction, thickness ");
                     if f.thickness() == DEFAULT_CODE {
-                        print_cstr("= default");
+                        t_print!("{}, thickness = default", Esc("fraction"));
                     } else {
-                        print_scaled(f.thickness());
+                        t_print!("{}, thickness {}", Esc("fraction"), f.thickness());
                     }
                     let ld = f.left_delimeter();
                     if ld.s3 as i32 % 256 != 0
@@ -1132,7 +1127,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         || ld.s1 as i32 % 256 != 0
                         || ld.s0 as i64 + (ld.s1 as i32 / 256) as i64 * 65536 != 0
                     {
-                        print_cstr(", left-delimiter ");
+                        t_print!(", left-delimiter ");
                         print_delimiter(ld);
                     }
                     let rd = f.right_delimeter();
@@ -1141,14 +1136,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         || rd.s1 as i32 % 256 != 0
                         || rd.s0 as i64 + (rd.s1 as i32 / 256) as i64 * 65536 != 0
                     {
-                        print_cstr(", right-delimiter ");
+                        t_print!(", right-delimiter ");
                         print_delimiter(rd);
                     }
                     print_subsidiary_data(p + 2, '\\' as i32 as UTF16_code);
                     print_subsidiary_data(p + 3, '/' as i32 as UTF16_code);
                 }
             },
-            Node::Unknown(_) => print_cstr("Unknown node type!"),
+            Node::Unknown(_) => t_print!("Unknown node type!"),
         }
         popt = llist_link(p);
     }
@@ -1486,27 +1481,34 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
     avail = Some(h);
     q
 }
+
 pub(crate) unsafe fn print_mode(m: (bool, ListMode)) {
-    match m {
-        (_, ListMode::NoMode) => print_cstr("no mode"),
-        (false, ListMode::VMode) => print_cstr("vertical mode"),
-        (false, ListMode::HMode) => print_cstr("horizontal mode"),
-        (false, ListMode::MMode) => print_cstr("display math mode"),
-        (true, ListMode::VMode) => print_cstr("internal vertical mode"),
-        (true, ListMode::HMode) => print_cstr("restricted horizontal mode"),
-        (true, ListMode::MMode) => print_cstr("math mode"),
-    }
+    t_print!(
+        "{}",
+        match m {
+            (_, ListMode::NoMode) => "no mode",
+            (false, ListMode::VMode) => "vertical mode",
+            (false, ListMode::HMode) => "horizontal mode",
+            (false, ListMode::MMode) => "display math mode",
+            (true, ListMode::VMode) => "internal vertical mode",
+            (true, ListMode::HMode) => "restricted horizontal mode",
+            (true, ListMode::MMode) => "math mode",
+        }
+    );
 }
 pub(crate) unsafe fn print_in_mode(m: (bool, ListMode)) {
-    match m {
-        (_, ListMode::NoMode) => print_cstr("\' in no mode"),
-        (false, ListMode::VMode) => print_cstr("\' in vertical mode"),
-        (false, ListMode::HMode) => print_cstr("\' in horizontal mode"),
-        (false, ListMode::MMode) => print_cstr("\' in display math mode"),
-        (true, ListMode::VMode) => print_cstr("\' in internal vertical mode"),
-        (true, ListMode::HMode) => print_cstr("\' in restricted horizontal mode"),
-        (true, ListMode::MMode) => print_cstr("\' in math mode"),
-    }
+    t_print!(
+        "\' in {}",
+        match m {
+            (_, ListMode::NoMode) => "no mode",
+            (false, ListMode::VMode) => "vertical mode",
+            (false, ListMode::HMode) => "horizontal mode",
+            (false, ListMode::MMode) => "display math mode",
+            (true, ListMode::VMode) => "internal vertical mode",
+            (true, ListMode::HMode) => "restricted horizontal mode",
+            (true, ListMode::MMode) => "math mode",
+        }
+    );
 }
 pub(crate) unsafe fn push_nest() {
     if NEST_PTR > MAX_NEST_STACK {
@@ -1531,7 +1533,7 @@ pub(crate) unsafe fn pop_nest() {
 }
 pub(crate) unsafe fn show_activities() {
     NEST[NEST_PTR] = cur_list;
-    print_nl_cstr("");
+    t_print_nl!("");
     print_ln();
     let mut p = NEST_PTR as usize;
     let for_end = 0;
@@ -1539,51 +1541,49 @@ pub(crate) unsafe fn show_activities() {
         loop {
             let m = NEST[p].mode;
             let a = NEST[p].aux;
-            print_nl_cstr("### ");
+            t_print_nl!("### ");
             print_mode(m);
-            print_cstr(" entered at line ");
-            print_int(NEST[p].mode_line.abs());
+            t_print!(" entered at line {}", NEST[p].mode_line.abs());
             if m == (false, ListMode::HMode) {
                 if NEST[p].prev_graf != 0x830000 {
-                    print_cstr(" (language");
-                    print_int((NEST[p].prev_graf as i64 % 65536) as i32);
-                    print_cstr(":hyphenmin");
-                    print_int(NEST[p].prev_graf / 0x400000);
-                    print_chr(',');
-                    print_int((NEST[p].prev_graf as i64 / 65536 % 64) as i32);
-                    print_chr(')');
+                    t_print!(
+                        " (language{}:hyphenmin{},{})",
+                        (NEST[p].prev_graf as i64 % 65536) as i32,
+                        NEST[p].prev_graf / 0x400000,
+                        (NEST[p].prev_graf as i64 / 65536 % 64) as i32
+                    );
                 }
             }
             if NEST[p].mode_line < 0 {
-                print_cstr(" (\\output routine)");
+                t_print!(" (\\output routine)");
             }
             if p == 0 {
                 if PAGE_HEAD != page_tail {
-                    print_nl_cstr("### current page:");
+                    t_print_nl!("### current page:");
                     if output_active {
-                        print_cstr(" (held over for next output)");
+                        t_print!(" (held over for next output)");
                     }
                     show_box(llist_link(PAGE_HEAD));
                     if page_contents == PageContents::InsertsOnly
                         || page_contents == PageContents::BoxThere
                     {
-                        print_nl_cstr("total height ");
+                        t_print_nl!("total height ");
                         print_totals();
-                        print_nl_cstr(" goal height ");
-                        print_scaled(page_so_far[0]);
+                        t_print_nl!(" goal height {}", page_so_far[0]);
                         let mut r = PageInsertion(*LLIST_link(PAGE_INS_HEAD) as usize);
                         while r.ptr() != PAGE_INS_HEAD {
                             print_ln();
-                            print_esc_cstr("insert");
                             let t = r.box_reg() as i32;
-                            print_int(t);
-                            print_cstr(" adds ");
-                            let t = if get_count_reg(t as usize) == 1000 {
-                                r.height()
-                            } else {
-                                x_over_n(r.height(), 1000).0 * get_count_reg(t as usize)
-                            };
-                            print_scaled(t);
+                            t_print!(
+                                "{}{} adds {}",
+                                Esc("insert"),
+                                t,
+                                if get_count_reg(t as usize) == 1000 {
+                                    r.height()
+                                } else {
+                                    x_over_n(r.height(), 1000).0 * get_count_reg(t as usize)
+                                }
+                            );
                             if r.subtype() == PageInsType::SplitUp {
                                 let mut q = PAGE_HEAD;
                                 let mut t = 0;
@@ -1601,50 +1601,44 @@ pub(crate) unsafe fn show_activities() {
                                         break;
                                     }
                                 }
-                                print_cstr(", #");
-                                print_int(t);
-                                print_cstr(" might split");
+                                t_print!(", #{} might split", t);
                             }
                             r = PageInsertion(*LLIST_link(r.ptr()) as usize);
                         }
                     }
                 }
                 if llist_link(CONTRIB_HEAD).is_some() {
-                    print_nl_cstr("### recent contributions:");
+                    t_print_nl!("### recent contributions:");
                 }
             }
             show_box(MEM[NEST[p].head as usize].b32.s1.opt());
             match m.1 {
                 ListMode::VMode => {
-                    print_nl_cstr("prevdepth ");
                     if a.b32.s1 <= IGNORE_DEPTH {
-                        print_cstr("ignored");
+                        t_print!("prevdepth ignored");
                     } else {
-                        print_scaled(Scaled(a.b32.s1));
+                        t_print!("prevdepth {}", Scaled(a.b32.s1));
                     }
-                    if NEST[p].prev_graf != 0 {
-                        print_cstr(", prevgraf ");
-                        print_int(NEST[p].prev_graf);
-                        if NEST[p].prev_graf != 1 {
-                            print_cstr(" lines");
+                    let pg = NEST[p].prev_graf;
+                    if pg != 0 {
+                        if pg != 1 {
+                            t_print!(", prevgraf {} lines", pg);
                         } else {
-                            print_cstr(" line");
+                            t_print!(", prevgraf {} line", pg);
                         }
                     }
                 }
                 ListMode::HMode => {
-                    print_nl_cstr("spacefactor ");
-                    print_int(a.b32.s0);
+                    t_print_nl!("spacefactor {}", a.b32.s0);
                     if m.0 == false {
                         if a.b32.s1 > 0 {
-                            print_cstr(", current language ");
-                            print_int(a.b32.s1);
+                            t_print!(", current language {}", a.b32.s1);
                         }
                     }
                 }
                 ListMode::MMode => {
                     if let Some(o) = a.b32.s1.opt() {
-                        print_cstr("this will be denominator of:");
+                        t_print!("this will be denominator of:");
                         show_box(Some(o));
                     }
                 }
@@ -1742,7 +1736,7 @@ pub(crate) unsafe fn print_param(n: IntPar) {
         xetex_generate_actual_text => print_esc_cstr("XeTeXgenerateactualtext"),
         xetex_hyphenatable_length => print_esc_cstr("XeTeXhyphenatablelength"),
         pdfoutput => print_esc_cstr("pdfoutput"),
-        _ => print_cstr("[unknown i32 parameter!]"), // NOTE: several parameters not covered
+        _ => t_print!("[unknown i32 parameter!]"), // NOTE: several parameters not covered
     };
 }
 
@@ -1758,7 +1752,7 @@ where
         }
     };
     f();
-    print_nl_cstr("");
+    t_print_nl!("");
     if blank_line {
         print_ln();
     }
@@ -1797,174 +1791,165 @@ pub(crate) unsafe fn print_length_param(n: DimenPar) {
 pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
     match cmd {
         Cmd::LeftBrace => {
-            print_cstr("begin-group character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            t_print!(
+                "begin-group character {}",
+                std::char::from_u32(chr_code as u32).unwrap()
+            );
         }
         Cmd::RightBrace => {
-            print_cstr("end-group character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            t_print!(
+                "end-group character {}",
+                std::char::from_u32(chr_code as u32).unwrap()
+            );
         }
         Cmd::MathShift => {
-            print_cstr("math shift character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            t_print!(
+                "math shift character {}",
+                std::char::from_u32(chr_code as u32).unwrap()
+            );
         }
         Cmd::MacParam => {
-            print_cstr("macro parameter character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            t_print!(
+                "macro parameter character {}",
+                std::char::from_u32(chr_code as u32).unwrap()
+            );
         }
         Cmd::SupMark => {
-            print_cstr("superscript character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            t_print!(
+                "superscript character {}",
+                std::char::from_u32(chr_code as u32).unwrap()
+            );
         }
         Cmd::SubMark => {
-            print_cstr("subscript character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            t_print!(
+                "subscript character {}",
+                std::char::from_u32(chr_code as u32).unwrap()
+            );
         }
-        Cmd::EndV => print_cstr("end of alignment template"),
+        Cmd::EndV => t_print!("end of alignment template"),
         Cmd::Spacer => {
-            print_cstr("blank space ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            t_print!(
+                "blank space {}",
+                std::char::from_u32(chr_code as u32).unwrap()
+            );
         }
         Cmd::Letter => {
-            print_cstr("the letter ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            t_print!(
+                "the letter {}",
+                std::char::from_u32(chr_code as u32).unwrap()
+            );
         }
         Cmd::OtherChar => {
-            print_cstr("the character ");
-            if chr_code < 65536 {
-                print(chr_code);
-            } else {
-                print_char(chr_code);
-            }
+            t_print!(
+                "the character {}",
+                std::char::from_u32(chr_code as u32).unwrap()
+            );
         }
         Cmd::AssignGlue | Cmd::AssignMuGlue => {
             if chr_code < SKIP_BASE as i32 {
                 match GluePar::n((chr_code - GLUE_BASE as i32) as u16) {
                     Some(dimen) => print_skip_param(dimen),
-                    None => print_cstr("[unknown glue parameter!]"),
+                    None => t_print!("[unknown glue parameter!]"),
                 }
             } else if chr_code < MU_SKIP_BASE as i32 {
-                print_esc_cstr("skip");
-                print_int(chr_code - SKIP_BASE as i32);
+                t_print!("{}{}", Esc("skip"), chr_code - SKIP_BASE as i32);
             } else {
-                print_esc_cstr("muskip");
-                print_int(chr_code - MU_SKIP_BASE as i32);
+                t_print!("{}{}", Esc("muskip"), chr_code - MU_SKIP_BASE as i32);
             }
         }
         Cmd::AssignToks => {
             if chr_code >= TOKS_BASE as i32 {
-                print_esc_cstr("toks");
-                print_int(chr_code - TOKS_BASE as i32);
+                t_print!("{}{}", Esc("toks"), chr_code - TOKS_BASE as i32);
             } else {
-                print_esc_cstr(match Local::n(chr_code - LOCAL_BASE as i32) {
-                    Some(Local::output_routine) => "output",
-                    Some(Local::every_par) => "everypar",
-                    Some(Local::every_math) => "everymath",
-                    Some(Local::every_display) => "everydisplay",
-                    Some(Local::every_hbox) => "everyhbox",
-                    Some(Local::every_vbox) => "everyvbox",
-                    Some(Local::every_job) => "everyjob",
-                    Some(Local::every_cr) => "everycr",
-                    Some(Local::every_eof) => "everyeof",
-                    Some(Local::xetex_inter_char) => "XeTeXinterchartoks",
-                    Some(Local::TectonicCodaTokens) => "TectonicCodaTokens",
-                    _ => "errhelp",
-                });
+                t_print!(
+                    "{}",
+                    match Local::n(chr_code - LOCAL_BASE as i32) {
+                        Some(Local::output_routine) => Esc("output"),
+                        Some(Local::every_par) => Esc("everypar"),
+                        Some(Local::every_math) => Esc("everymath"),
+                        Some(Local::every_display) => Esc("everydisplay"),
+                        Some(Local::every_hbox) => Esc("everyhbox"),
+                        Some(Local::every_vbox) => Esc("everyvbox"),
+                        Some(Local::every_job) => Esc("everyjob"),
+                        Some(Local::every_cr) => Esc("everycr"),
+                        Some(Local::every_eof) => Esc("everyeof"),
+                        Some(Local::xetex_inter_char) => Esc("XeTeXinterchartoks"),
+                        Some(Local::TectonicCodaTokens) => Esc("TectonicCodaTokens"),
+                        _ => Esc("errhelp"),
+                    }
+                );
             }
         }
         Cmd::AssignInt => {
             if chr_code < COUNT_BASE as i32 {
                 match IntPar::n(chr_code - INT_BASE as i32) {
                     Some(dimen) => print_param(dimen),
-                    None => print_cstr("[unknown i32 parameter!]"),
+                    None => t_print!("[unknown i32 parameter!]"),
                 }
             } else {
-                print_esc_cstr("count");
-                print_int(chr_code - COUNT_BASE as i32);
+                t_print!("{}{}", Esc("count"), chr_code - COUNT_BASE as i32);
             }
         }
         Cmd::AssignDimen => {
             if chr_code < SCALED_BASE as i32 {
                 match DimenPar::n(chr_code - DIMEN_BASE as i32) {
                     Some(dimen) => print_length_param(dimen),
-                    None => print_cstr("[unknown dimen parameter!]"),
+                    None => t_print!("[unknown dimen parameter!]"),
                 }
             } else {
-                print_esc_cstr("dimen");
-                print_int(chr_code - SCALED_BASE as i32);
+                t_print!("{}{}", Esc("dimen"), chr_code - SCALED_BASE as i32);
             }
         }
-        Cmd::Accent => print_esc_cstr("accent"),
-        Cmd::Advance => print_esc_cstr("advance"),
-        Cmd::AfterAssignment => print_esc_cstr("afterassignment"),
-        Cmd::AfterGroup => print_esc_cstr("aftergroup"),
-        Cmd::AssignFontDimen => print_esc_cstr("fontdimen"),
-        Cmd::BeginGroup => print_esc_cstr("begingroup"),
-        Cmd::BreakPenalty => print_esc_cstr("penalty"),
-        Cmd::CharNum => print_esc_cstr("char"),
-        Cmd::CSName => print_esc_cstr("csname"),
-        Cmd::DefFont => print_esc_cstr("font"),
-        Cmd::DelimNum => print_esc_cstr(if chr_code == 1 {
-            "Udelimiter"
-        } else {
-            "delimiter"
-        }),
-        Cmd::Divide => print_esc_cstr("divide"),
-        Cmd::EndCSName => print_esc_cstr("endcsname"),
-        Cmd::EndGroup => print_esc_cstr("endgroup"),
-        Cmd::ExSpace => print_esc(' ' as i32),
-        Cmd::ExpandAfter => print_esc_cstr(if chr_code == 0 {
-            "expandafter"
-        } else {
-            "unless"
-        }),
-        Cmd::HAlign => print_esc_cstr("halign"),
-        Cmd::HRule => print_esc_cstr("hrule"),
-        Cmd::IgnoreSpaces => print_esc_cstr(if chr_code == 0 {
-            "ignorespaces"
-        } else {
-            "primitive"
-        }),
-        Cmd::Insert => print_esc_cstr("insert"),
-        Cmd::ItalCorr => print_esc('/' as i32),
-        Cmd::Mark => {
-            print_esc_cstr("mark");
+        Cmd::Accent => t_print!("{}", Esc("accent")),
+        Cmd::Advance => t_print!("{}", Esc("advance")),
+        Cmd::AfterAssignment => t_print!("{}", Esc("afterassignment")),
+        Cmd::AfterGroup => t_print!("{}", Esc("aftergroup")),
+        Cmd::AssignFontDimen => t_print!("{}", Esc("fontdimen")),
+        Cmd::BeginGroup => t_print!("{}", Esc("begingroup")),
+        Cmd::BreakPenalty => t_print!("{}", Esc("penalty")),
+        Cmd::CharNum => t_print!("{}", Esc("char")),
+        Cmd::CSName => t_print!("{}", Esc("csname")),
+        Cmd::DefFont => t_print!("{}", Esc("font")),
+        Cmd::DelimNum => t_print!(
+            "{}",
+            if chr_code == 1 {
+                Esc("Udelimiter")
+            } else {
+                Esc("delimiter")
+            }
+        ),
+        Cmd::Divide => t_print!("{}", Esc("divide")),
+        Cmd::EndCSName => t_print!("{}", Esc("endcsname")),
+        Cmd::EndGroup => t_print!("{}", Esc("endgroup")),
+        Cmd::ExSpace => t_print!("{}", Esc(" ")),
+        Cmd::ExpandAfter => t_print!(
+            "{}",
+            if chr_code == 0 {
+                Esc("expandafter")
+            } else {
+                Esc("unless")
+            }
+        ),
+        Cmd::HAlign => t_print!("{}", Esc("halign")),
+        Cmd::HRule => t_print!("{}", Esc("hrule")),
+        Cmd::IgnoreSpaces => t_print!(
+            "{}",
+            if chr_code == 0 {
+                Esc("ignorespaces")
+            } else {
+                Esc("primitive")
+            }
+        ),
+        Cmd::Insert => t_print!("{}", Esc("insert")),
+        Cmd::ItalCorr => t_print!("{}", Esc("/")),
+        Cmd::Mark => t_print!(
+            "{}",
             if chr_code > 0 {
-                print_chr('s');
+                Esc("marks")
+            } else {
+                Esc("mark")
             }
-        }
+        ),
         Cmd::MathAccent => print_esc_cstr(if chr_code == 1 {
             "Umathaccent"
         } else {
@@ -2207,12 +2192,10 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
             if chr_code == SPAN_CODE {
                 print_esc_cstr("span");
             } else {
-                print_cstr("alignment tab character ");
-                if (chr_code as i64) < 65536 {
-                    print(chr_code);
-                } else {
-                    print_char(chr_code);
-                }
+                t_print!(
+                    "alignment tab character {}",
+                    std::char::from_u32(chr_code as u32).unwrap()
+                );
             }
         }
         Cmd::CarRet => print_esc_cstr(if chr_code == CR_CODE { "cr" } else { "crcr" }),
@@ -2291,9 +2274,9 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
         }),
         Cmd::Discretionary => {
             if chr_code == 1 {
-                print_esc('-' as i32);
+                t_print!("{}", Esc("-"));
             } else {
-                print_esc_cstr("discretionary");
+                t_print!("{}", Esc("discretionary"));
             }
         }
         Cmd::EqNo => print_esc_cstr(if chr_code == 1 { "leqno" } else { "eqno" }),
@@ -2365,18 +2348,19 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
             ShorthandDefCode::Toks => "toksdef",
         }),
         Cmd::CharGiven => {
-            print_esc_cstr("char");
-            print_hex(chr_code);
+            t_print!("{}\"{:X}", Esc("char"), chr_code);
         }
         Cmd::MathGiven => {
-            print_esc_cstr("mathchar");
-            print_hex(chr_code);
+            t_print!("{}\"{:X}", Esc("mathchar"), chr_code);
         }
         Cmd::XetexMathGiven => {
-            print_esc_cstr("Umathchar");
-            print_hex(math_class(chr_code) as i32);
-            print_hex(math_fam(chr_code) as i32);
-            print_hex(math_char(chr_code) as i32);
+            t_print!(
+                "{}\"{:X}\"{:X}\"{:X}",
+                Esc("Umathchar"),
+                math_class(chr_code) as i32,
+                math_fam(chr_code) as i32,
+                math_char(chr_code) as i32
+            );
         }
         Cmd::DefCode => print_esc_cstr(if chr_code == CAT_CODE_BASE as i32 {
             "catcode"
@@ -2415,26 +2399,19 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
             AssignFontInt::RpCode => "rpcode",
         }),
         Cmd::SetFont => {
-            print_cstr("select font ");
-            let font_name_str = FONT_NAME[chr_code as usize];
+            t_print!("select font ");
+            let font_name_str = PoolString::from(FONT_NAME[chr_code as usize]);
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[chr_code as usize] {
                 let mut quote_char = '\"';
-                if PoolString::from(font_name_str)
-                    .as_slice()
-                    .contains(&('\"' as u16))
-                {
+                if font_name_str.as_slice().contains(&('\"' as u16)) {
                     quote_char = '\'';
                 }
-                print_chr(quote_char);
-                print(font_name_str);
-                print_chr(quote_char);
+                t_print!("{0}{1}{0}", quote_char, font_name_str);
             } else {
-                print(font_name_str);
+                t_print!("{}", font_name_str)
             }
             if FONT_SIZE[chr_code as usize] != FONT_DSIZE[chr_code as usize] {
-                print_cstr(" at ");
-                print_scaled(FONT_SIZE[chr_code as usize]);
-                print_cstr("pt");
+                t_print!(" at {}pt", FONT_SIZE[chr_code as usize]);
             }
         }
         Cmd::SetInteraction => print_esc_cstr(match InteractionMode::n(chr_code as u8).unwrap() {
@@ -2463,7 +2440,7 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
             SHOW_IFS => "showifs",
             _ => "show",
         }),
-        Cmd::UndefinedCS => print_cstr("undefined"),
+        Cmd::UndefinedCS => t_print!("undefined"),
         Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => {
             let mut n = match cmd {
                 Cmd::Call => 0,
@@ -2476,18 +2453,18 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
                 n = n + 4
             }
             if n / 4 & 1 != 0 {
-                print_esc_cstr("protected");
+                t_print!("{}", Esc("protected"));
             }
             if n & 1 != 0 {
-                print_esc_cstr("long");
+                t_print!("{}", Esc("long"));
             }
             if n / 2 & 1 != 0 {
-                print_esc_cstr("outer");
+                t_print!("{}", Esc("outer"));
             }
             if n > 0 {
-                print_chr(' ');
+                t_print!(" ");
             }
-            print_cstr("macro");
+            t_print!("macro");
         }
         Cmd::EndTemplate => print_esc_cstr("outer endtemplate"),
         Cmd::Extension => match chr_code as u16 {
@@ -2504,61 +2481,42 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
             44 => print_esc_cstr("XeTeXinputencoding"),   // XETEX_INPUT_ENCODING_EXTENSION_CODE
             45 => print_esc_cstr("XeTeXdefaultencoding"), // XETEX_DEFAULT_ENCODING_EXTENSION_CODE
             6 => print_esc_cstr("pdfsavepos"),            // WhatsIt::PdfSavePos
-            _ => print_cstr("[unknown extension!]"),
+            _ => t_print!("[unknown extension!]"),
         },
-        _ => print_cstr("[unknown command code!]"),
+        _ => t_print!("[unknown command code!]"),
     };
 }
 pub(crate) unsafe fn not_aat_font_error(cmd: Cmd, c: i32, f: usize) {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Cannot use ");
+    t_eprint!("Cannot use ");
     print_cmd_chr(cmd, c);
-    print_cstr(" with ");
-    print(FONT_NAME[f]);
-    print_cstr("; not an AAT font");
+    t_print!(" with {}; not an AAT font", PoolString::from(FONT_NAME[f]));
     error();
 }
 pub(crate) unsafe fn not_aat_gr_font_error(cmd: Cmd, c: i32, f: usize) {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Cannot use ");
+    t_eprint!("Cannot use ");
     print_cmd_chr(cmd, c);
-    print_cstr(" with ");
-    print(FONT_NAME[f]);
-    print_cstr("; not an AAT or Graphite font");
+    t_print!(
+        " with {}; not an AAT or Graphite font",
+        PoolString::from(FONT_NAME[f])
+    );
     error();
 }
 pub(crate) unsafe fn not_ot_font_error(cmd: Cmd, c: i32, f: usize) {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Cannot use ");
+    t_eprint!("Cannot use ");
     print_cmd_chr(cmd, c);
-    print_cstr(" with ");
-    print(FONT_NAME[f]);
-    print_cstr("; not an OpenType Layout font");
+    t_print!(
+        " with {}; not an OpenType Layout font",
+        PoolString::from(FONT_NAME[f])
+    );
     error();
 }
 pub(crate) unsafe fn not_native_font_error(cmd: Cmd, c: i32, f: usize) {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Cannot use ");
+    t_eprint!("Cannot use ");
     print_cmd_chr(cmd, c);
-    print_cstr(" with ");
-    print(FONT_NAME[f]);
-    print_cstr("; not a native platform font");
+    t_print!(
+        " with {}; not a native platform font",
+        PoolString::from(FONT_NAME[f])
+    );
     error();
 }
 /*:1434*/
@@ -2702,54 +2660,52 @@ pub(crate) unsafe fn prim_lookup(s: str_number) -> usize {
 pub(crate) unsafe fn print_group(group: GroupCode, level: u16, saveptr: usize, e: bool) {
     match group {
         GroupCode::BottomLevel => {
-            print_cstr("bottom level");
+            t_print!("bottom level");
             return;
         }
         GroupCode::Simple | GroupCode::SemiSimple => {
             if group == GroupCode::SemiSimple {
-                print_cstr("semi ");
+                t_print!("semi ");
             }
-            print_cstr("simple");
+            t_print!("simple");
         }
         GroupCode::HBox | GroupCode::AdjustedHBox => {
             if group == GroupCode::AdjustedHBox {
-                print_cstr("adjusted ");
+                t_print!("adjusted ");
             }
-            print_cstr("hbox");
+            t_print!("hbox");
         }
-        GroupCode::VBox => print_cstr("vbox"),
-        GroupCode::VTop => print_cstr("vtop"),
+        GroupCode::VBox => t_print!("vbox"),
+        GroupCode::VTop => t_print!("vtop"),
         GroupCode::Align | GroupCode::NoAlign => {
             if group == GroupCode::NoAlign {
-                print_cstr("no ");
+                t_print!("no ");
             }
-            print_cstr("align");
+            t_print!("align");
         }
-        GroupCode::Output => print_cstr("output"),
-        GroupCode::Disc => print_cstr("disc"),
-        GroupCode::Insert => print_cstr("insert"),
-        GroupCode::VCenter => print_cstr("vcenter"),
+        GroupCode::Output => t_print!("output"),
+        GroupCode::Disc => t_print!("disc"),
+        GroupCode::Insert => t_print!("insert"),
+        GroupCode::VCenter => t_print!("vcenter"),
         GroupCode::Math | GroupCode::MathChoice | GroupCode::MathShift | GroupCode::MathLeft => {
-            print_cstr("math");
+            t_print!("math");
             if group == GroupCode::MathChoice {
-                print_cstr(" choice");
+                t_print!(" choice");
             } else if group == GroupCode::MathShift {
-                print_cstr(" shift");
+                t_print!(" shift");
             } else if group == GroupCode::MathLeft {
-                print_cstr(" left");
+                t_print!(" left");
             }
         }
     }
-    print_cstr(" group (level ");
-    print_int(level as i32);
-    print_chr(')');
-    if SAVE_STACK[saveptr - 1].val != 0 {
+    t_print!(" group (level {})", level as i32);
+    let lin = SAVE_STACK[saveptr - 1].val;
+    if lin != 0 {
         if e {
-            print_cstr(" entered at line ");
+            t_print!(" entered at line {}", lin);
         } else {
-            print_cstr(" at line ");
+            t_print!(" at line {}", lin);
         }
-        print_int(SAVE_STACK[saveptr - 1].val);
     };
 }
 /*:1448*/
@@ -2816,9 +2772,9 @@ pub(crate) unsafe fn group_warning(input: &mut input_state_t, input_stack: &[inp
         i -= 1;
     }
     if w {
-        print_nl_cstr("Warning: end of ");
+        t_print_nl!("Warning: end of ");
         print_group(cur_group, cur_level, SAVE_PTR, true);
-        print_cstr(" of a different file");
+        t_print!(" of a different file");
         print_ln();
         if get_int_par(IntPar::tracing_nesting) > 1 {
             INPUT_STACK[INPUT_PTR] = *input;
@@ -2848,13 +2804,12 @@ pub(crate) unsafe fn if_warning(input: &mut input_state_t, input_stack: &[input_
         i -= 1;
     }
     if w {
-        print_nl_cstr("Warning: end of ");
+        t_print_nl!("Warning: end of ");
         print_cmd_chr(Cmd::IfTest, cur_if as i32);
         if if_line != 0 {
-            print_cstr(" entered on line ");
-            print_int(if_line);
+            t_print!(" entered on line {}", if_line);
         }
-        print_cstr(" of a different file");
+        t_print!(" of a different file");
         print_ln();
         if get_int_par(IntPar::tracing_nesting) > 1 {
             INPUT_STACK[INPUT_PTR] = *input;
@@ -2871,9 +2826,9 @@ pub(crate) unsafe fn file_warning(input: &mut input_state_t) {
     let mut saveptr = cur_boundary as usize;
     while GRP_STACK[IN_OPEN] != saveptr as i32 {
         level -= 1;
-        print_nl_cstr("Warning: end of file when ");
+        t_print_nl!("Warning: end of file when ");
         print_group(group, level, saveptr, true);
-        print_cstr(" is incomplete");
+        t_print!(" is incomplete");
         group = GroupCode::from(SAVE_STACK[saveptr].lvl);
         saveptr = SAVE_STACK[saveptr].val as usize
     }
@@ -2883,16 +2838,15 @@ pub(crate) unsafe fn file_warning(input: &mut input_state_t) {
     let mut curif = cur_if;
     let mut ifline = if_line;
     while IF_STACK[IN_OPEN] != condptr {
-        print_nl_cstr("Warning: end of file when ");
+        t_print_nl!("Warning: end of file when ");
         print_cmd_chr(Cmd::IfTest, curif as i32);
         if iflimit == FiOrElseCode::Fi {
             print_esc_cstr("else");
         }
         if ifline != 0 {
-            print_cstr(" entered on line ");
-            print_int(ifline);
+            t_print!(" entered on line {}", ifline);
         }
-        print_cstr(" is incomplete");
+        t_print!(" is incomplete");
         let cp = condptr.unwrap();
         ifline = MEM[cp + 1].b32.s1;
         curif = MEM[cp].b16.s0 as i16;
@@ -3247,15 +3201,8 @@ pub(crate) unsafe fn unsave(input: &mut input_state_t) {
 }
 pub(crate) unsafe fn prepare_mag() {
     if mag_set > 0 && get_int_par(IntPar::mag) != mag_set {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Incompatible magnification (");
-        print_int(get_int_par(IntPar::mag));
-        print_cstr(");");
-        print_nl_cstr(" the previous value will be retained");
+        t_eprint!("Incompatible magnification ({});", get_int_par(IntPar::mag));
+        t_print_nl!(" the previous value will be retained");
 
         help!(
             "I can handle only one magnification ratio per job. So I\'ve",
@@ -3265,12 +3212,7 @@ pub(crate) unsafe fn prepare_mag() {
         geq_word_define(INT_BASE as usize + IntPar::mag as usize, mag_set);
     }
     if get_int_par(IntPar::mag) <= 0 || get_int_par(IntPar::mag) as i64 > 32768 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Illegal magnification has been changed to 1000");
+        t_eprint!("Illegal magnification has been changed to 1000");
 
         help!("The magnification ratio must be between 1 and 32768.");
         int_error(get_int_par(IntPar::mag));
@@ -3300,17 +3242,17 @@ pub(crate) unsafe fn print_meaning(cmd: Cmd, chr: i32) {
 /// Here is a procedure that displays the current command
 pub(crate) unsafe fn show_cur_cmd_chr(cmd: Cmd, chr: i32) {
     diagnostic(false, || {
-        print_nl('{' as i32);
+        t_print_nl!("{{");
         if cur_list.mode != shown_mode {
             print_mode(cur_list.mode);
-            print_cstr(": ");
+            t_print!(": ");
             shown_mode = cur_list.mode
         }
         print_cmd_chr(cmd, chr);
         if get_int_par(IntPar::tracing_ifs) > 0 {
             if cmd >= Cmd::IfTest {
                 if cmd <= Cmd::FiOrElse {
-                    print_cstr(": ");
+                    t_print!(": ");
                     let mut n;
                     let l;
                     if cmd == Cmd::FiOrElse {
@@ -3327,12 +3269,9 @@ pub(crate) unsafe fn show_cur_cmd_chr(cmd: Cmd, chr: i32) {
                         n += 1;
                         popt = llist_link(p)
                     }
-                    print_cstr("(level ");
-                    print_int(n);
-                    print_chr(')');
+                    t_print!("(level {})", n);
                     if l != 0 {
-                        print_cstr(" entered on line ");
-                        print_int(l);
+                        t_print!(" entered on line {}", l);
                     }
                 }
             }
@@ -3366,26 +3305,26 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     if input.name <= 17 {
                         if input.name == 0 {
                             if base_ptr == 0 {
-                                print_nl_cstr("<*>");
+                                t_print_nl!("<*>");
                             } else {
-                                print_nl_cstr("<insert> ");
+                                t_print_nl!("<insert> ");
                             }
                         } else {
-                            print_nl_cstr("<read ");
                             if input.name == 17 {
-                                print_chr('*');
+                                t_print_nl!("<read *>");
                             } else {
-                                print_int(input.name - 1);
+                                t_print_nl!("<read {}>", input.name - 1);
                             }
-                            print_chr('>');
                         }
                     } else {
-                        print_nl_cstr("l.");
-                        if input.index as usize == IN_OPEN {
-                            print_int(line);
-                        } else {
-                            print_int(LINE_STACK[(input.index as i32 + 1) as usize]);
-                        }
+                        t_print_nl!(
+                            "l.{}",
+                            if input.index as usize == IN_OPEN {
+                                line
+                            } else {
+                                LINE_STACK[(input.index as i32 + 1) as usize]
+                            }
+                        );
                     }
                     print_chr(' ');
                     l = tally;
@@ -3406,39 +3345,38 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                                     trick_count = error_line
                                 }
                             }
-                            print_char(BUFFER[i as usize]);
+                            print_chr(std::char::from_u32(BUFFER[i as usize] as u32).unwrap());
                         }
                     }
                 } else {
                     match input.index {
-                        Btl::Parameter => print_nl_cstr("<argument> "),
-                        Btl::UTemplate | Btl::VTemplate => print_nl_cstr("<template> "),
+                        Btl::Parameter => t_print_nl!("<argument> "),
+                        Btl::UTemplate | Btl::VTemplate => t_print_nl!("<template> "),
                         Btl::BackedUp | Btl::BackedUpChar => {
                             if input.loc.opt().is_none() {
-                                print_nl_cstr("<recently read> ");
+                                t_print_nl!("<recently read> ");
                             } else {
-                                print_nl_cstr("<to be read again> ");
+                                t_print_nl!("<to be read again> ");
                             }
                         }
-                        Btl::Inserted => print_nl_cstr("<inserted text> "),
+                        Btl::Inserted => t_print_nl!("<inserted text> "),
                         Btl::Macro => {
                             print_ln();
                             print_cs(input.name);
                         }
-                        Btl::OutputText => print_nl_cstr("<output> "),
-                        Btl::EveryParText => print_nl_cstr("<everypar> "),
-                        Btl::EveryMathText => print_nl_cstr("<everymath> "),
-                        Btl::EveryDisplayText => print_nl_cstr("<everydisplay> "),
-                        Btl::EveryHBoxText => print_nl_cstr("<everyhbox> "),
-                        Btl::EveryVBoxText => print_nl_cstr("<everyvbox> "),
-                        Btl::EveryJobText => print_nl_cstr("<everyjob> "),
-                        Btl::EveryCRText => print_nl_cstr("<everycr> "),
-                        Btl::MarkText => print_nl_cstr("<mark> "),
-                        Btl::EveryEOFText => print_nl_cstr("<everyeof> "),
-                        Btl::InterCharText => print_nl_cstr("<XeTeXinterchartoks> "),
-                        Btl::WriteText => print_nl_cstr("<write> "),
-                        Btl::TectonicCodaText => print_nl_cstr("<TectonicCodaTokens> "),
-                        //_ => print_nl('?' as i32),
+                        Btl::OutputText => t_print_nl!("<output> "),
+                        Btl::EveryParText => t_print_nl!("<everypar> "),
+                        Btl::EveryMathText => t_print_nl!("<everymath> "),
+                        Btl::EveryDisplayText => t_print_nl!("<everydisplay> "),
+                        Btl::EveryHBoxText => t_print_nl!("<everyhbox> "),
+                        Btl::EveryVBoxText => t_print_nl!("<everyvbox> "),
+                        Btl::EveryJobText => t_print_nl!("<everyjob> "),
+                        Btl::EveryCRText => t_print_nl!("<everycr> "),
+                        Btl::MarkText => t_print_nl!("<mark> "),
+                        Btl::EveryEOFText => t_print_nl!("<everyeof> "),
+                        Btl::InterCharText => t_print_nl!("<XeTeXinterchartoks> "),
+                        Btl::WriteText => t_print_nl!("<write> "),
+                        Btl::TectonicCodaText => t_print_nl!("<TectonicCodaTokens> "),
                     }
                     l = tally;
                     tally = 0i32;
@@ -3482,16 +3420,18 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     p = 0;
                     n = l + first_count
                 } else {
-                    print_cstr("...");
+                    t_print!("...");
                     p = l + first_count - half_error_line + 3;
                     n = half_error_line
                 }
+                let nl = get_int_par(IntPar::new_line_char);
+                set_int_par(IntPar::new_line_char, -1);
                 for q in p..first_count {
-                    print_rust_char(trick_buf[(q % error_line) as usize]);
+                    print_chr(trick_buf[(q % error_line) as usize]);
                 }
                 print_ln();
                 for _ in 0..n {
-                    print_rust_char(' ');
+                    print_chr(' ');
                 }
                 let p = if m + n <= error_line {
                     first_count + m
@@ -3499,15 +3439,16 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     first_count + (error_line - n - 3)
                 };
                 for q in first_count..p {
-                    print_rust_char(trick_buf[(q % error_line) as usize]);
+                    print_chr(trick_buf[(q % error_line) as usize]);
                 }
+                set_int_par(IntPar::new_line_char, nl);
                 if m + n > error_line {
-                    print_cstr("...");
+                    t_print!("...");
                 }
                 nn += 1
             }
         } else if nn == get_int_par(IntPar::error_context_lines) {
-            print_nl_cstr("...");
+            t_print_nl!("...");
             nn += 1
         }
         if bottom_line {
@@ -3545,10 +3486,10 @@ pub(crate) unsafe fn begin_token_list(input: &mut input_state_t, p: usize, t: Bt
             input.loc = *LLIST_link(p);
             if get_int_par(IntPar::tracing_macros) > 1 {
                 diagnostic(false, || {
-                    print_nl_cstr("");
+                    t_print_nl!("");
                     match t {
-                        Btl::MarkText => print_esc_cstr("mark"),
-                        Btl::WriteText => print_esc_cstr("write"),
+                        Btl::MarkText => t_print!("{}", Esc("mark")),
+                        Btl::WriteText => t_print!("{}", Esc("write")),
                         _ => {
                             print_cmd_chr(
                                 Cmd::AssignToks,
@@ -3557,7 +3498,7 @@ pub(crate) unsafe fn begin_token_list(input: &mut input_state_t, p: usize, t: Bt
                             );
                         }
                     }
-                    print_cstr("->");
+                    t_print!("->");
                     token_show(Some(p));
                 });
             }
@@ -3692,21 +3633,11 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
             // print a definition, argument, or preamble
             runaway();
             if *cs == 0 {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("File ended");
+                t_eprint!("File ended");
             // File ended while scanning...
             } else {
                 *cs = 0;
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Forbidden control sequence found");
+                t_eprint!("Forbidden control sequence found");
                 // Forbidden control sequence...
             }
             // Print either "definition" or "use" or "preamble" or "text",
@@ -3721,16 +3652,16 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
             let mut p = get_avail();
             match scanner_status {
                 ScannerStatus::Defining => {
-                    print_cstr(" while scanning definition");
+                    t_print!(" while scanning definition");
                     MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
                 }
                 ScannerStatus::Matching => {
-                    print_cstr(" while scanning use");
+                    t_print!(" while scanning use");
                     MEM[p].b32.s0 = par_token;
                     long_state = Cmd::OuterCall;
                 }
                 ScannerStatus::Aligning => {
-                    print_cstr(" while scanning preamble");
+                    t_print!(" while scanning preamble");
                     MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32;
                     let q = p;
                     p = get_avail();
@@ -3739,13 +3670,13 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
                     align_state = -1_000_000;
                 }
                 ScannerStatus::Absorbing => {
-                    print_cstr(" while scanning text");
+                    t_print!(" while scanning text");
                     MEM[p].b32.s0 = RIGHT_BRACE_TOKEN + '}' as i32
                 }
                 _ => unreachable!(), // there are no other cases
             }
             begin_token_list(input, p, Btl::Inserted);
-            print_cstr(" of ");
+            t_print!(" of ");
             sprint_cs(warning_index);
             help!(
                 "I suspect you have forgotten a `}\', causing me",
@@ -3756,15 +3687,9 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
             error();
         } else {
             // Tell the user what has run away and try to recover
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Incomplete ");
+            t_eprint!("Incomplete ");
             print_cmd_chr(Cmd::IfTest, cur_if as i32);
-            print_cstr("; all text was ignored after line ");
-            print_int(skip_line);
+            t_print!("; all text was ignored after line {}", skip_line);
             let help2 = if *cs != 0 {
                 *cs = 0;
                 &"A forbidden control sequence occurred in skipped text."[..]
@@ -4168,12 +4093,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             (InputState::MidLine, INVALID_CHAR)
                             | (InputState::SkipBlanks, INVALID_CHAR)
                             | (InputState::NewLine, INVALID_CHAR) => {
-                                if file_line_error_style_p != 0 {
-                                    print_file_line();
-                                } else {
-                                    print_nl_cstr("! ");
-                                }
-                                print_cstr("Text line contains an invalid character");
+                                t_eprint!("Text line contains an invalid character");
                                 help!(
                                     "A funny symbol that I can\'t read has just been input.",
                                     "Continue, and I\'ll forget that it ever happened."
@@ -4578,14 +4498,9 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                         r = s;
                     } else {
                         // Report an improper use of the macro and abort
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Use of ");
+                        t_eprint!("Use of ");
                         sprint_cs(warning_index);
-                        print_cstr(" doesn\'t match its definition");
+                        t_print!(" doesn\'t match its definition");
                         help!(
                             "If you say, e.g., `\\def\\a1{...}\', then you must always",
                             "put `1\' after `\\a\', since control sequence names are",
@@ -4603,14 +4518,9 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                         /*414:*/
                         if long_state == Cmd::Call {
                             runaway(); /*411:*/
-                            if file_line_error_style_p != 0 {
-                                print_file_line(); /*413:*/
-                            } else {
-                                print_nl_cstr("! ");
-                            }
-                            print_cstr("Paragraph ended before ");
+                            t_eprint!("Paragraph ended before ");
                             sprint_cs(warning_index);
-                            print_cstr(" was complete");
+                            t_print!(" was complete");
                             help!(
                                 "I suspect you\'ve forgotten a `}\', causing me to apply this",
                                 "control sequence to too much text. How can we recover?",
@@ -4646,14 +4556,9 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                                     /*414:*/
                                     if long_state == Cmd::Call {
                                         runaway();
-                                        if file_line_error_style_p != 0 {
-                                            print_file_line();
-                                        } else {
-                                            print_nl_cstr("! ");
-                                        }
-                                        print_cstr("Paragraph ended before ");
+                                        t_eprint!("Paragraph ended before ");
                                         sprint_cs(warning_index);
-                                        print_cstr(" was complete");
+                                        t_print!(" was complete");
                                         help!("I suspect you\'ve forgotten a `}\', causing me to apply this",
                                         "control sequence to too much text. How can we recover?",
                                         "My plan is to forget the whole thing and hope for the best.");
@@ -4691,14 +4596,9 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                         /* 413 */
                         back_input(input, tok);
 
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Argument of ");
+                        t_eprint!("Argument of ");
                         sprint_cs(warning_index);
-                        print_cstr(" has an extra }");
+                        t_print!(" has an extra }}");
                         help!(
                             "I\'ve run across a `}\' that doesn\'t seem to match anything.",
                             "For example, `\\def\\a#1{...}\' and `\\a}\' would produce",
@@ -4761,9 +4661,8 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                 n += 1;
                 if get_int_par(IntPar::tracing_macros) > 0 {
                     diagnostic(false, || {
-                        print_nl(match_chr as str_number);
-                        print_int(n as i32);
-                        print_cstr("<-");
+                        t_print_nl!("{}", PoolString::from(match_chr as str_number));
+                        t_print!("{}<-", n as i32);
                         show_token_list(pstack[(n as i32 - 1) as usize].opt(), None, 1000);
                     });
                 }
@@ -5008,16 +4907,9 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         if ocmd == Cmd::IfTest && ochr != IfTestCode::IfCase as i32 {
                             ochr = ochr + UNLESS_CODE
                         } else {
-                            if file_line_error_style_p != 0 {
-                                print_file_line();
-                            } else {
-                                print_nl_cstr("! ");
-                            }
-                            print_cstr("You can\'t use `");
-                            print_esc_cstr("unless");
-                            print_cstr("\' before `");
+                            t_eprint!("You can\'t use `{}\' before `", Esc("unless"));
                             print_cmd_chr(ocmd, ochr);
-                            print_chr('\'');
+                            t_print!("\'");
                             help!("Continue, and I\'ll forget that it ever happened.");
                             back_error(input, tok);
                             break;
@@ -5086,14 +4978,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     };
                     if cmd != Cmd::EndCSName {
                         // Complain about missing `\endcsname`
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Missing ");
-                        print_esc_cstr("endcsname");
-                        print_cstr(" inserted");
+                        t_eprint!("Missing {} inserted", Esc("endcsname"));
                         help!(
                             "The control sequence marked <to be read again> should",
                             "not appear between \\csname and \\endcsname."
@@ -5159,12 +5044,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         if if_limit == FiOrElseCode::If {
                             insert_relax(input, ocs);
                         } else {
-                            if file_line_error_style_p != 0 {
-                                print_file_line();
-                            } else {
-                                print_nl_cstr("! ");
-                            }
-                            print_cstr("Extra ");
+                            t_eprint!("Extra ");
                             print_cmd_chr(Cmd::FiOrElse, ochr);
                             help!("I\'m ignoring this; it doesn\'t match any \\if.");
                             error();
@@ -5204,12 +5084,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     break;
                 }
                 _ => {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Undefined control sequence");
+                    t_eprint!("Undefined control sequence");
                     help!(
                         "The control sequence at the end of the top line",
                         "of your error message was never \\def\'ed. If you have",
@@ -5295,12 +5170,7 @@ pub(crate) unsafe fn scan_left_brace(input: &mut input_state_t) -> (i32, Cmd, i3
         }
     };
     if cmd != Cmd::LeftBrace {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Missing { inserted");
+        t_eprint!("Missing {{ inserted");
         help!(
             "A left brace was mandatory here, so I\'ve put one in.",
             "You might want to delete and/or insert some corrections",
@@ -5390,12 +5260,7 @@ pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &str) -> bool {
 /// Here is a procedure that sounds an alarm when mu and non-mu units
 /// are being switched
 pub(crate) unsafe fn mu_error() {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Incompatible glue units");
+    t_eprint!("Incompatible glue units");
     help!("I\'m going to assume that 1mu=1pt when they\'re mixed.");
     error();
 }
@@ -5415,12 +5280,7 @@ pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont
 pub(crate) unsafe fn scan_char_class(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > CHAR_CLASS_LIMIT {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad character class");
+        t_eprint!("Bad character class");
         help!(
             "A character class must be between 0 and 4096.",
             "I changed this one to zero."
@@ -5434,12 +5294,7 @@ pub(crate) unsafe fn scan_char_class(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_char_class_not_ignored(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > CHAR_CLASS_LIMIT {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad character class");
+        t_eprint!("Bad character class");
         help!(
             "A class for inter-character transitions must be between 0 and 4095.",
             "I changed this one to zero."
@@ -5453,12 +5308,7 @@ pub(crate) unsafe fn scan_char_class_not_ignored(input: &mut input_state_t) -> i
 pub(crate) unsafe fn scan_eight_bit_int(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > 255 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad register code");
+        t_eprint!("Bad register code");
         help!(
             "A register code or char class must be between 0 and 255.",
             "I changed this one to zero."
@@ -5472,12 +5322,7 @@ pub(crate) unsafe fn scan_eight_bit_int(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_usv_num(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > BIGGEST_USV as i32 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad character code");
+        t_eprint!("Bad character code");
         help!(
             "A Unicode scalar value must be between 0 and \"10FFFF.",
             "I changed this one to zero."
@@ -5491,12 +5336,7 @@ pub(crate) unsafe fn scan_usv_num(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_char_num(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val >= TOO_BIG_CHAR {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad character code");
+        t_eprint!("Bad character code");
         help!(
             "A character number must be between 0 and 65535.",
             "I changed this one to zero."
@@ -5511,12 +5351,7 @@ pub(crate) unsafe fn scan_xetex_math_char_int(input: &mut input_state_t) -> i32 
     let val = scan_int(input);
     if math_char(val) == ACTIVE_MATH_CHAR as u32 {
         if val != ACTIVE_MATH_CHAR {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Bad active XeTeX math code");
+            t_eprint!("Bad active XeTeX math code");
 
             help!(
                 "Since I ignore class and family for active math chars,",
@@ -5528,12 +5363,7 @@ pub(crate) unsafe fn scan_xetex_math_char_int(input: &mut input_state_t) -> i32 
             val
         }
     } else if math_char(val) as u32 > BIGGEST_USV as u32 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad XeTeX math character code");
+        t_eprint!("Bad XeTeX math character code");
 
         help!(
             "Since I expected a character number between 0 and \"10FFFF,",
@@ -5668,12 +5498,7 @@ pub(crate) unsafe fn set_math_char(input: &mut input_state_t, chr: i32, c: i32) 
 pub(crate) unsafe fn scan_math_class_int(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > 7 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad math class");
+        t_eprint!("Bad math class");
         help!(
             "Since I expected to read a number between 0 and 7,",
             "I changed this one to zero."
@@ -5687,12 +5512,7 @@ pub(crate) unsafe fn scan_math_class_int(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_math_fam_int(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > NUMBER_MATH_FAMILIES as i32 - 1 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad math family");
+        t_eprint!("Bad math family");
         help!(
             "Since I expected to read a number between 0 and 255,",
             "I changed this one to zero."
@@ -5706,12 +5526,7 @@ pub(crate) unsafe fn scan_math_fam_int(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_four_bit_int(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > 15 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad number");
+        t_eprint!("Bad number");
         help!(
             "Since I expected to read a number between 0 and 15,",
             "I changed this one to zero."
@@ -5725,12 +5540,7 @@ pub(crate) unsafe fn scan_four_bit_int(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_fifteen_bit_int(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > 32767 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad mathchar");
+        t_eprint!("Bad mathchar");
         help!(
             "A mathchar number must be between 0 and 32767.",
             "I changed this one to zero."
@@ -5744,12 +5554,7 @@ pub(crate) unsafe fn scan_fifteen_bit_int(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_delimiter_int(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > 0x7ffffff {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad delimiter code");
+        t_eprint!("Bad delimiter code");
         help!(
             "A numeric delimiter code must be between 0 and 2^{27}-1.",
             "I changed this one to zero."
@@ -5763,12 +5568,7 @@ pub(crate) unsafe fn scan_delimiter_int(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_register_num(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > max_reg_num {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad register code");
+        t_eprint!("Bad register code");
         help!(max_reg_help_line, "I changed this one to zero.");
         int_error(val);
         0
@@ -5779,12 +5579,7 @@ pub(crate) unsafe fn scan_register_num(input: &mut input_state_t) -> i32 {
 pub(crate) unsafe fn scan_four_bit_int_or_18(input: &mut input_state_t) -> i32 {
     let val = scan_int(input);
     if val < 0 || val > 15 && val != 18 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad number");
+        t_eprint!("Bad number");
         help!(
             "Since I expected to read a number between 0 and 15,",
             "I changed this one to zero."
@@ -5839,12 +5634,7 @@ pub(crate) unsafe fn scan_font_ident(input: &mut input_state_t) -> i32 {
             EQTB[(m + val) as usize].val as usize
         }
         _ => {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Missing font identifier");
+            t_eprint!("Missing font identifier");
             help!(
                 "I was looking for a control sequence whose",
                 "current meaning has been defined by \\font."
@@ -5892,16 +5682,11 @@ pub(crate) unsafe fn find_font_dimen(input: &mut input_state_t, writing: bool) -
         }
     };
     if val == fmem_ptr {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Font ");
-        print_esc((*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1);
-        print_cstr(" has only ");
-        print_int(FONT_PARAMS[f]);
-        print_cstr(" fontdimen parameters");
+        t_eprint!(
+            "Font {} has only {} fontdimen parameters",
+            Esc(&PoolString::from((*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1).to_string()),
+            FONT_PARAMS[f]
+        );
         help!(
             "To increase the number of font parameters, you must",
             "use \\fontdimen immediately after the \\font is loaded."
@@ -5927,12 +5712,7 @@ pub(crate) unsafe fn scan_something_internal(
                 if math_char(val1) == ACTIVE_MATH_CHAR as u32 {
                     val1 = 0x8000;
                 } else if math_class(val1) > 7 || math_fam(val1) > 15 || math_char(val1) > 255 {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Extended mathchar used as mathchar");
+                    t_eprint!("Extended mathchar used as mathchar");
                     help!(
                         "A mathchar number must be between 0 and \"7FFF.",
                         "I changed this one to zero."
@@ -5944,12 +5724,7 @@ pub(crate) unsafe fn scan_something_internal(
             } else if m == DEL_CODE_BASE as i32 {
                 let val1 = EQTB[DEL_CODE_BASE + val as usize].val;
                 if val1 >= 0x40000000 {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Extended delcode used as delcode");
+                    t_eprint!("Extended delcode used as delcode");
                     help!(
                         "I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,",
                         "I changed this one to zero."
@@ -5976,12 +5751,7 @@ pub(crate) unsafe fn scan_something_internal(
             } else if m == MATH_CODE_BASE as i32 {
                 *MATH_CODE(val as usize)
             } else if m == MATH_CODE_BASE as i32 + 1 {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Can\'t use \\Umathcode as a number (try \\Umathcodenum)");
+                t_eprint!("Can\'t use \\Umathcode as a number (try \\Umathcodenum)");
                 help!(
                     "\\Umathcode is for setting a mathcode from separate values;",
                     "use \\Umathcodenum to access them as single values."
@@ -5991,12 +5761,7 @@ pub(crate) unsafe fn scan_something_internal(
             } else if m == DEL_CODE_BASE as i32 {
                 EQTB[DEL_CODE_BASE + val as usize].val
             } else {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Can\'t use \\Udelcode as a number (try \\Udelcodenum)");
+                t_eprint!("Can\'t use \\Udelcode as a number (try \\Udelcodenum)");
                 help!(
                     "\\Udelcode is for setting a delcode from separate values;",
                     "use \\Udelcodenum to access them as single values."
@@ -6009,12 +5774,7 @@ pub(crate) unsafe fn scan_something_internal(
         Cmd::ToksRegister | Cmd::AssignToks | Cmd::DefFamily | Cmd::SetFont | Cmd::DefFont => {
             let m = chr;
             if level != ValLevel::Tok {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Missing number, treated as zero");
+                t_eprint!("Missing number, treated as zero");
                 help!(
                     "A number should have been here; I inserted `0\'.",
                     "(If you can\'t figure out why I needed to see a number,",
@@ -6077,12 +5837,7 @@ pub(crate) unsafe fn scan_something_internal(
         Cmd::SetAux => {
             let m = chr;
             if cur_list.mode.1 as i32 != m {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Improper ");
+                t_eprint!("Improper ");
                 print_cmd_chr(Cmd::SetAux, m);
                 help!(
                     "You can refer to \\spacefactor only in horizontal mode;",
@@ -6304,16 +6059,10 @@ pub(crate) unsafe fn scan_something_internal(
                             {
                                 let n = scan_int(input); /* shellenabledp */
                                 if n < 1 || n > 4 {
-                                    if file_line_error_style_p != 0 {
-                                        print_file_line();
-                                    } else {
-                                        print_nl_cstr("! ");
-                                    }
-                                    print_cstr(
-                                        "\\\\XeTeXglyphbounds requires an edge index from 1 to 4;",
+                                    t_eprint!(
+                                        "\\\\XeTeXglyphbounds requires an edge index from 1 to 4;"
                                     );
-                                    print_nl_cstr("I don\'t know anything about edge ");
-                                    print_int(n);
+                                    t_print_nl!("I don\'t know anything about edge {}", n);
                                     error();
                                     0
                                 } else {
@@ -6756,15 +6505,9 @@ pub(crate) unsafe fn scan_something_internal(
             }
         }
         _ => {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("You can\'t use `");
+            t_eprint!("You can\'t use `");
             print_cmd_chr(cmd, chr);
-            print_cstr("\' after ");
-            print_esc_cstr("the");
+            t_print!("\' after {}", Esc("the"));
             help!("I\'m forgetting what you said and using zero instead.");
             error();
             (
@@ -6860,12 +6603,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             tok - (CS_TOKEN_FLAG + SINGLE_BASE as i32)
         }; /*:463*/
         if ival > BIGGEST_USV as i32 {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Improper alphabetic constant");
+            t_eprint!("Improper alphabetic constant");
             help!(
                 "A one-character control sequence belongs after a ` mark.",
                 "So I\'m essentially inserting \\0 here."
@@ -6921,12 +6659,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             vacuous = false;
             if ival >= m && (ival > m || d as i32 > 7 || radix as i32 != 10) {
                 if OK_so_far {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Number too big");
+                    t_eprint!("Number too big");
                     help!(
                         "I can only go up to 2147483647=\'17777777777=\"7FFFFFFF,",
                         "so I\'m using that number instead of yours."
@@ -6944,12 +6677,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         }
         if vacuous {
             /*464:*/
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Missing number, treated as zero");
+            t_eprint!("Missing number, treated as zero");
             help!(
                 "A number should have been here; I inserted `0\'.",
                 "(If you can\'t figure out why I needed to see a number,",
@@ -6964,14 +6692,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         ival = -ival;
     };
     (ival, radix, tok)
-}
-unsafe fn round_decimals(mut k: i16) -> Scaled {
-    let mut a: i32 = 0;
-    while k as i32 > 0 {
-        k -= 1;
-        a = (a + dig[k as usize] as i32 * 0x20000) / 10
-    }
-    Scaled((a + 1) / 2)
 }
 pub(crate) unsafe fn xetex_scan_dimen(
     input: &mut input_state_t,
@@ -7076,6 +6796,17 @@ pub(crate) unsafe fn xetex_scan_dimen(
                     *LLIST_link(q) = avail.tex_int();
                     avail = Some(q);
                 }
+
+                static mut dig: [u8; 23] = [0; 23];
+                unsafe fn round_decimals(mut k: i16) -> Scaled {
+                    let mut a: i32 = 0;
+                    while k as i32 > 0 {
+                        k -= 1;
+                        a = (a + dig[k as usize] as i32 * 0x20000) / 10
+                    }
+                    Scaled((a + 1) / 2)
+                }
+
                 f = round_decimals(k);
                 if cmd != Cmd::Spacer {
                     back_input(input, tok);
@@ -7096,13 +6827,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 cur_order = GlueOrder::Fil;
                 while scan_keyword(input, "l") {
                     if cur_order == GlueOrder::Filll {
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Illegal unit of measure (");
-                        print_cstr("replaced by filll)");
+                        t_eprint!("Illegal unit of measure (replaced by filll)");
                         help!("I dddon\'t go any higher than filll.");
                         error();
                     } else {
@@ -7180,13 +6905,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
             if scan_keyword(input, "mu") {
                 return attach_fraction(input, f, negative, val);
             } else {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Illegal unit of measure (");
-                print_cstr("mu inserted)");
+                t_eprint!("Illegal unit of measure (mu inserted)");
                 help!(
                     "The unit of measurement in math glue must be mu.",
                     "To recover gracefully from this error, it\'s best to",
@@ -7243,13 +6962,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
             return done(input, negative, Scaled(val));
         /*478:*/
         } else {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Illegal unit of measure (");
-            print_cstr("pt inserted)");
+            t_eprint!("Illegal unit of measure (pt inserted)");
             help!(
                 "Dimensions can be in units of em, ex, in, pt, pc,",
                 "cm, mm, dd, cc, bp, or sp; but yours is a new one!",
@@ -7307,12 +7020,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
         if arith_error || val.0.wrapping_abs() >= 0x40000000 {
             // TODO: check
             /*479:*/
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Dimension too large");
+            t_eprint!("Dimension too large");
             help!(
                 "I can\'t work with sizes bigger than about 19 feet.",
                 "Continue and I\'ll use the largest value I can."
@@ -7601,12 +7309,7 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
                             back_input(input, tok);
                         }
                     } else if tok != OTHER_TOKEN + 41 {
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Missing ) inserted for expression");
+                        t_eprint!("Missing ) inserted for expression");
                         help!("I was expecting to see `+\', `-\', `*\', `/\', or `)\'. Didn\'t.");
                         back_error(input, tok);
                     }
@@ -7759,12 +7462,7 @@ pub(crate) unsafe fn scan_expr(input: &mut input_state_t, val_level: &mut ValLev
         l = o;
     }
     if b {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Arithmetic overflow");
+        t_eprint!("Arithmetic overflow");
         help!(
             "I can\'t evaluate this expression,",
             "since the result is out of range."
@@ -7906,7 +7604,7 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
             print_chr(' ');
         }
         input.name = 19;
-        print_cstr("( ");
+        t_print!("( ");
         open_parens += 1;
         rust_stdout.as_mut().unwrap().flush().unwrap();
     } else {
@@ -7998,10 +7696,9 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
             selector = Selector::NEW_STRING;
             let b = pool_ptr;
             match val_level {
-                ValLevel::Int => print_int(val),
+                ValLevel::Int => t_print!("{}", val),
                 ValLevel::Dimen => {
-                    print_scaled(Scaled(val));
-                    print_cstr("pt");
+                    t_print!("{}pt", Scaled(val));
                 }
                 ValLevel::Glue => {
                     print_spec(val, "pt");
@@ -8058,14 +7755,10 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 || val == OUT_PARAM as i32
                 || val == IGNORE as i32
             {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Invalid code (");
-                print_int(val);
-                print_cstr("), should be in the ranges 1..4, 6..8, 10..12");
+                t_eprint!(
+                    "Invalid code ({}), should be in the ranges 1..4, 6..8, 10..12",
+                    val
+                );
                 help!("I\'m going to use 12 instead of that illegal code value.");
                 error();
                 cat = 12;
@@ -8206,14 +7899,14 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
     selector = Selector::NEW_STRING;
     let b = pool_ptr;
     match c {
-        ConvertCode::Number => print_int(oval.unwrap()),
-        ConvertCode::RomanNumeral => print_roman_int(oval.unwrap()),
+        ConvertCode::Number => t_print!("{}", oval.unwrap()),
+        ConvertCode::RomanNumeral => t_print!("{}", Roman(oval.unwrap())),
         ConvertCode::String => {
             let (_, chr, cs) = o.unwrap();
             if cs != 0 {
                 sprint_cs(cs);
             } else {
-                print_char(chr);
+                print_chr(std::char::from_u32(chr as u32).unwrap());
             }
         }
         ConvertCode::Meaning => {
@@ -8222,32 +7915,27 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
         }
         ConvertCode::FontName => {
             let val = oval.unwrap();
-            let font_name_str = FONT_NAME[val as usize];
+            let font_name_str = PoolString::from(FONT_NAME[val as usize]);
             match &FONT_LAYOUT_ENGINE[val as usize] {
                 Font::Native(_) => {
                     let mut quote_char = '\"';
-                    if PoolString::from(font_name_str)
-                        .as_slice()
-                        .contains(&('\"' as u16))
-                    {
+                    if font_name_str.as_slice().contains(&('\"' as u16)) {
                         quote_char = '\'';
                     }
-                    print_chr(quote_char);
-                    print(font_name_str);
-                    print_chr(quote_char);
+                    t_print!("{0}{1}{0}", quote_char, font_name_str);
                 }
-                _ => print(font_name_str),
+                _ => t_print!("{}", font_name_str),
             }
             if FONT_SIZE[val as usize] != FONT_DSIZE[val as usize] {
-                print_cstr(" at ");
-                print_scaled(FONT_SIZE[val as usize]);
-                print_cstr("pt");
+                t_print!(" at {}pt", FONT_SIZE[val as usize]);
             }
         }
-        ConvertCode::XetexUchar | ConvertCode::XetexUcharcat => print_char(oval.unwrap()),
-        ConvertCode::EtexRevision => print_cstr(".6"),
-        ConvertCode::PdfStrcmp => print_int(oval.unwrap()),
-        ConvertCode::XetexRevision => print_cstr(".99998"),
+        ConvertCode::XetexUchar | ConvertCode::XetexUcharcat => {
+            t_print!("{}", std::char::from_u32(oval.unwrap() as u32).unwrap());
+        }
+        ConvertCode::EtexRevision => t_print!(".6"),
+        ConvertCode::PdfStrcmp => t_print!("{}", oval.unwrap()),
+        ConvertCode::XetexRevision => t_print!(".99998"),
         ConvertCode::XetexVariationName => {
             match &FONT_LAYOUT_ENGINE[fnt as usize] {
                 #[cfg(target_os = "macos")]
@@ -8301,11 +7989,10 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
             match popt.map(|p| CharOrText::from(p)) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 0 => {
-                    print_scaled(Scaled(MEM[m.ptr() + 1].b32.s1));
+                    t_print!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1));
                 }
-                _ => print('0' as i32),
+                _ => t_print!("0pt"),
             }
-            print_cstr("pt");
         }
         ConvertCode::RightMarginKern => {
             let q = List::from(p.unwrap()).list_ptr().opt();
@@ -8334,11 +8021,10 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
             match popt.map(|p| CharOrText::from(p)) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 1 => {
-                    print_scaled(Scaled(MEM[m.ptr() + 1].b32.s1));
+                    t_print!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1));
                 }
-                _ => print('0' as i32),
+                _ => t_print!("0pt"),
             }
-            print_cstr("pt");
         }
         ConvertCode::JobName => print_file_name(job_name, 0, 0),
         _ => {}
@@ -8414,23 +8100,13 @@ pub(crate) unsafe fn scan_toks(
                     done1 = false;
                     break cmd;
                 } else if t == ZERO_TOKEN + 9 {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("You already have nine parameters");
+                    t_eprint!("You already have nine parameters");
                     help!("I\'m going to ignore the # sign you just used.");
                     error();
                 } else {
                     t += 1;
                     if tok != t {
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Parameters must be numbered consecutively");
+                        t_eprint!("Parameters must be numbered consecutively");
                         help!(
                             "I\'ve inserted the digit you should have used after the #.",
                             "Type `1\' to delete what you did use."
@@ -8447,13 +8123,8 @@ pub(crate) unsafe fn scan_toks(
             // done1:
             store_new_token(&mut p, END_MATCH_TOKEN);
             if cmd == Cmd::RightBrace {
-                // Express shock at the missing left brace; |goto found|
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Missing { inserted");
+                // Express shock at the missing left brace; goto `'found`
+                t_eprint!("Missing {{ inserted");
                 align_state += 1;
                 help!(
                     "Where was the left brace? You said something like `\\def\\a}\',",
@@ -8532,12 +8203,7 @@ pub(crate) unsafe fn scan_toks(
                 let chr = next.2;
                 if cmd != Cmd::MacParam {
                     if tok <= ZERO_TOKEN || tok > t {
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Illegal parameter number in definition of ");
+                        t_eprint!("Illegal parameter number in definition of ");
                         sprint_cs(warning_index);
                         help!(
                             "You meant to type ## instead of #, right?",
@@ -8601,13 +8267,7 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
             read_open[m as usize] = OpenMode::Closed;
             if align_state as i64 != 1000000 {
                 runaway();
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("File ended within ");
-                print_esc_cstr("read");
+                t_eprint!("File ended within {}", Esc("read"));
                 help!("This \\read has unbalanced braces.");
                 align_state = 1000000;
                 error();
@@ -8793,12 +8453,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             let r = if tok >= OTHER_TOKEN + 60 && tok <= OTHER_TOKEN + 62 {
                 (tok - OTHER_TOKEN) as u8
             } else {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Missing = inserted for ");
+                t_eprint!("Missing = inserted for ");
                 print_cmd_chr(Cmd::IfTest, this_if as i32);
                 help!("I was expecting to see `<\', `=\', or `>\'. Didn\'t.");
                 back_error(input, tok);
@@ -8939,14 +8594,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
             if cmd != Cmd::EndCSName {
                 // Complain about missing `\endcsname`
-                if file_line_error_style_p != 0 {
-                    print_file_line(); /*:1556*/
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Missing ");
-                print_esc_cstr("endcsname");
-                print_cstr(" inserted");
+                t_eprint!("Missing {} inserted", Esc("endcsname"));
                 help!(
                     "The control sequence marked <to be read again> should",
                     "not appear between \\csname and \\endcsname."
@@ -9006,9 +8654,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
             if get_int_par(IntPar::tracing_commands) > 1 {
                 diagnostic(false, || {
-                    print_cstr("{case ");
-                    print_int(n);
-                    print_chr('}');
+                    t_print!("{{case {}}}", n);
                 });
             }
 
@@ -9065,7 +8711,13 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
     if get_int_par(IntPar::tracing_commands) > 1 {
         /*521:*/
-        diagnostic(false, || print_cstr(if b { "{true}" } else { "{false}" }));
+        diagnostic(false, || {
+            if b {
+                t_print!("{{true}}")
+            } else {
+                t_print!("{{false}}")
+            }
+        });
     }
 
     if b {
@@ -9081,13 +8733,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
                 return common_ending(input, chr);
             }
 
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Extra ");
-            print_esc_cstr("or");
+            t_eprint!("Extra {}", Esc("or"));
             help!("I\'m ignoring this; it doesn\'t match any \\if.");
             error();
         } else if chr == FiOrElseCode::Fi as i32 {
@@ -9299,14 +8945,17 @@ pub(crate) unsafe fn open_log_file() {
     INPUT_STACK[INPUT_PTR] = cur_input;
     /* Here we catch the log file up with anything that has already been
      * printed. The eqtb reference is end_line_char. */
-    print_nl_cstr("**");
+    t_print_nl!("**");
     let mut l = INPUT_STACK[0].limit;
     if BUFFER[l as usize] == get_int_par(IntPar::end_line_char) {
         l -= 1
     }
     let mut k = 1;
     while k <= l {
-        print(BUFFER[k as usize]);
+        t_print!(
+            "{}",
+            std::char::from_u32(BUFFER[k as usize] as u32).unwrap()
+        );
         k += 1;
     }
     print_ln();
@@ -9432,16 +9081,14 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
         job_name = cur_name; /* this is the "flush_string" macro which discards the most recent string */
         open_log_file(); /* "really a CFDictionaryRef or *mut XeTeXLayoutEngine" */
     } /* = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55) */
-    if term_offset + (PoolString::from(FULL_SOURCE_FILENAME_STACK[IN_OPEN]).len() as i32)
-        > max_print_line - 2
-    {
+    let fname = PoolString::from(FULL_SOURCE_FILENAME_STACK[IN_OPEN]);
+    if term_offset + (fname.len() as i32) > max_print_line - 2 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
-        print_chr(' ');
+        t_print!(" ");
     }
-    print_chr('(');
     open_parens += 1;
-    print(FULL_SOURCE_FILENAME_STACK[IN_OPEN]);
+    t_print!("({}", fname);
     rust_stdout.as_mut().unwrap().flush().unwrap();
     input.state = InputState::NewLine;
     synctex_start_input(input);
@@ -9476,26 +9123,18 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
             set_int_par(IntPar::tracing_online, 1);
         }
         diagnostic(false, || {
-            print_nl_cstr("Missing character: There is no ");
-            if (c as i64) < 65536 {
-                print(c);
-            } else {
-                print_char(c);
-            }
-            print_cstr(" in font ");
-            print(FONT_NAME[f]);
-            print_chr('!');
+            t_print_nl!(
+                "Missing character: There is no {} in font {}!",
+                std::char::from_u32(c as u32).unwrap(),
+                PoolString::from(FONT_NAME[f])
+            );
         });
         set_int_par(IntPar::tracing_online, old_setting);
     }
     let fn_0 = gettexstring(FONT_NAME[f]);
     let prev_selector = selector;
     selector = Selector::NEW_STRING;
-    if c < 0x10000 {
-        print(c);
-    } else {
-        print_char(c);
-    }
+    print_chr(std::char::from_u32(c as u32).unwrap());
     selector = prev_selector;
     let s = make_string();
     let chr = gettexstring(s);
@@ -9601,44 +9240,51 @@ pub(crate) unsafe fn new_native_character(
 }
 pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u8]) {
     diagnostic(false, || {
-        print_nl_cstr("Unknown ");
+        t_print_nl!("Unknown ");
         if !setting_name.is_empty() {
-            print_cstr("selector `");
-            print_rust_string(std::str::from_utf8(setting_name).unwrap());
-            print_cstr("\' for ");
+            t_print!(
+                "selector `{}\' for ",
+                std::str::from_utf8(setting_name).unwrap()
+            );
         }
-        print_cstr("feature `");
-        print_rust_string(std::str::from_utf8(feature_name).unwrap());
-        print_cstr("\' in font `");
-        print_rust_string(&name_of_file);
-        print_cstr("\'.");
+        t_print!(
+            "feature `{}\' in font `{}\'.",
+            std::str::from_utf8(feature_name).unwrap(),
+            name_of_file
+        );
     });
 }
 pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) {
     diagnostic(false, || {
-        if warningType == 0i32 {
-            print_nl_cstr("Loaded mapping `");
+        if warningType == 0 {
+            t_print_nl!(
+                "Loaded mapping `{}\' for font `{}",
+                mapping_name,
+                name_of_file
+            );
         } else {
-            print_nl_cstr("Font mapping `");
+            t_print_nl!(
+                "Font mapping `{}\' for font `{}",
+                mapping_name,
+                name_of_file
+            );
         }
-        print_rust_string(mapping_name);
-        print_cstr("\' for font `");
-        print_rust_string(&name_of_file);
         match warningType {
-            1 => print_cstr("\' not found."),
+            1 => t_print!("\' not found."),
             2 => {
-                print_cstr("\' not usable;");
-                print_nl_cstr("bad mapping file or incorrect mapping type.");
+                t_print!("\' not usable;");
+                t_print_nl!("bad mapping file or incorrect mapping type.");
             }
-            _ => print_cstr("\'."),
+            _ => t_print!("\'."),
         }
     });
 }
 /*pub(crate) unsafe fn graphite_warning() {
     diagnostic(false, || {
-        print_nl_cstr("Font `");
-        print_rust_string(&name_of_file);
-        print_cstr("\' does not support Graphite. Trying OpenType layout instead.");
+        t_print_nl!(
+            "Font `{}\' does not support Graphite. Trying OpenType layout instead.",
+            name_of_file
+        );
     });
 }*/
 pub(crate) unsafe fn do_locale_linebreaks(text: &[u16]) {
@@ -9687,14 +9333,14 @@ pub(crate) unsafe fn do_locale_linebreaks(text: &[u16]) {
 }
 pub(crate) unsafe fn bad_utf8_warning() {
     diagnostic(false, || {
-        print_nl_cstr("Invalid UTF-8 byte or sequence");
         if cur_input.name == 0 {
-            print_cstr(" in terminal input");
+            t_print_nl!("Invalid UTF-8 byte or sequence in terminal input replaced by U+FFFD.");
         } else {
-            print_cstr(" at line ");
-            print_int(line);
+            t_print_nl!(
+                "Invalid UTF-8 byte or sequence at line {} replaced by U+FFFD.",
+                line
+            );
         }
-        print_cstr(" replaced by U+FFFD.");
     });
 }
 pub(crate) unsafe fn get_input_normalization_state() -> i32 {
@@ -10094,12 +9740,10 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
                 if last_badness > get_int_par(IntPar::hbadness) {
                     print_ln();
                     if last_badness > 100 {
-                        print_nl_cstr("Underfull");
+                        t_print_nl!("Underfull \\hbox (badness {}", last_badness);
                     } else {
-                        print_nl_cstr("Loose");
+                        t_print_nl!("Loose \\hbox (badness {}", last_badness);
                     }
-                    print_cstr(" \\hbox (badness ");
-                    print_int(last_badness);
                     return common_ending(r, q);
                 }
             }
@@ -10138,9 +9782,10 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
                         (get_dimen_par(DimenPar::overfull_rule)).0
                 }
                 print_ln();
-                print_nl_cstr("Overfull \\hbox (");
-                print_scaled(-x - total_shrink[NORMAL as usize]);
-                print_cstr("pt too wide");
+                t_print_nl!(
+                    "Overfull \\hbox ({}pt too wide",
+                    -x - total_shrink[NORMAL as usize]
+                );
                 return common_ending(r, q);
             }
         } else if o == GlueOrder::Normal {
@@ -10149,8 +9794,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
                 last_badness = badness(-x, total_shrink[NORMAL as usize]);
                 if last_badness > get_int_par(IntPar::hbadness) {
                     print_ln();
-                    print_nl_cstr("Tight \\hbox (badness ");
-                    print_int(last_badness);
+                    t_print_nl!("Tight \\hbox (badness {}", last_badness);
                     return common_ending(r, q);
                 }
             }
@@ -10161,20 +9805,25 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
 
     unsafe fn common_ending(r: List, q: usize) -> List {
         if output_active {
-            print_cstr(") has occurred while \\output is active");
+            t_print!(") has occurred while \\output is active");
         } else {
             if pack_begin_line != 0 {
                 if pack_begin_line > 0 {
-                    print_cstr(") in paragraph at lines ");
+                    t_print!(
+                        ") in paragraph at lines {}--{}",
+                        pack_begin_line.abs(),
+                        line
+                    );
                 } else {
-                    print_cstr(") in alignment at lines ");
+                    t_print!(
+                        ") in alignment at lines {}--{}",
+                        pack_begin_line.abs(),
+                        line
+                    );
                 }
-                print_int(pack_begin_line.abs());
-                print_cstr("--");
             } else {
-                print_cstr(") detected at line ");
+                t_print!(") detected at line {}", line);
             }
-            print_int(line);
         }
         print_ln();
         font_in_short_display = 0;
@@ -10208,11 +9857,11 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
             }
             if LR_problems > 0 {
                 print_ln();
-                print_nl_cstr("\\endL or \\endR problem (");
-                print_int(LR_problems / 10000);
-                print_cstr(" missing, ");
-                print_int(LR_problems % 10000);
-                print_cstr(" extra");
+                t_print_nl!(
+                    "\\endL or \\endR problem ({} missing, {} extra",
+                    LR_problems / 10000,
+                    LR_problems % 10000
+                );
                 LR_problems = 0;
                 return common_ending(r, q);
             } else {
@@ -10343,12 +9992,10 @@ pub(crate) unsafe fn vpackage(
                 if last_badness > get_int_par(IntPar::vbadness) {
                     print_ln();
                     if last_badness > 100 {
-                        print_nl_cstr("Underfull");
+                        t_print_nl!("Underfull \\vbox (badness {}", last_badness);
                     } else {
-                        print_nl_cstr("Loose");
+                        t_print_nl!("Loose \\vbox (badness {}", last_badness);
                     }
-                    print_cstr(" \\vbox (badness ");
-                    print_int(last_badness);
                     return common_ending(r);
                 }
             }
@@ -10376,9 +10023,10 @@ pub(crate) unsafe fn vpackage(
                 || get_int_par(IntPar::vbadness) < 100
             {
                 print_ln();
-                print_nl_cstr("Overfull \\vbox (");
-                print_scaled(-x - total_shrink[NORMAL as usize]);
-                print_cstr("pt too high");
+                t_print_nl!(
+                    "Overfull \\vbox ({}pt too high",
+                    -x - total_shrink[NORMAL as usize]
+                );
                 return common_ending(r);
             }
         } else if o == GlueOrder::Normal {
@@ -10387,8 +10035,7 @@ pub(crate) unsafe fn vpackage(
                 last_badness = badness(-x, total_shrink[NORMAL as usize]);
                 if last_badness > get_int_par(IntPar::vbadness) {
                     print_ln();
-                    print_nl_cstr("Tight \\vbox (badness ");
-                    print_int(last_badness);
+                    t_print_nl!("Tight \\vbox (badness {}", last_badness);
                     return common_ending(r);
                 }
             }
@@ -10398,16 +10045,17 @@ pub(crate) unsafe fn vpackage(
 
     unsafe fn common_ending(r: List) -> List {
         if output_active {
-            print_cstr(") has occurred while \\output is active");
+            t_print!(") has occurred while \\output is active");
         } else {
             if pack_begin_line != 0 {
-                print_cstr(") in alignment at lines ");
-                print_int(pack_begin_line.abs());
-                print_cstr("--");
+                t_print!(
+                    ") in alignment at lines {}--{}",
+                    pack_begin_line.abs(),
+                    line
+                );
             } else {
-                print_cstr(") detected at line ");
+                t_print!(") detected at line {}", line);
             }
-            print_int(line);
             print_ln();
         }
         diagnostic(true, || show_box(Some(r.ptr())));
@@ -10552,14 +10200,7 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
     if cur_list.mode == (false, ListMode::MMode)
         && (cur_list.tail != cur_list.head || cur_list.aux.b32.s1.opt().is_some())
     {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Improper ");
-        print_esc_cstr("halign");
-        print_cstr(" inside $$\'s");
+        t_eprint!("Improper {} inside $$\'s", Esc("halign"));
         help!(
             "Displays can use special alignments (like \\eqalignno)",
             "only if nothing but the alignment itself is between $$\'s.",
@@ -10604,12 +10245,7 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
                 if p == HOLD_HEAD as i32 && cur_loop.is_none() && cmd == Cmd::TabMark {
                     cur_loop = Some(ca2.ptr());
                 } else {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Missing # inserted in alignment preamble");
+                    t_eprint!("Missing # inserted in alignment preamble");
                     help!(
                         "There should be exactly one # between &\'s, when an",
                         "\\halign or \\valign is being set up. In this case you had",
@@ -10639,12 +10275,7 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
                 break;
             }
             if cmd == Cmd::MacParam {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Only one # is allowed per tab");
+                t_eprint!("Only one # is allowed per tab");
                 help!(
                     "There should be exactly one # between &\'s, when an",
                     "\\halign or \\valign is being set up. In this case you had",
@@ -10756,13 +10387,7 @@ pub(crate) unsafe fn fin_col(input: &mut input_state_t) -> bool {
             let g = new_glue(&GlueSpec(MEM[cl + 1].b32.s0 as usize));
             *LLIST_link(nb) = Some(g.ptr()).tex_int();
         } else {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Extra alignment tab has been changed to ");
-            print_esc_cstr("cr");
+            t_eprint!("Extra alignment tab has been changed to {}", Esc("cr"));
             help!(
                 "You have given more \\span or & marks than there were",
                 "in the preamble to the \\halign or \\valign now in progress.",
@@ -11219,12 +10844,7 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
         let (tok, cmd, _) = do_assignments(input); /*1232: */
         if cmd != Cmd::MathShift {
             /*1242: */
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Missing $$ inserted");
+            t_eprint!("Missing $$ inserted");
             help!(
                 "Displays can use special alignments (like \\eqalignno)",
                 "only if nothing but the alignment itself is between $$\'s."
@@ -11233,12 +10853,7 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
         } else {
             let (tok, cmd, ..) = get_x_token(input);
             if cmd != Cmd::MathShift {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Display math should end with $$");
+                t_eprint!("Display math should end with $$");
                 help!(
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
                     "So I shall assume that you typed `$$\' both times."
@@ -11311,12 +10926,7 @@ pub(crate) unsafe fn max_hyphenatable_length() -> usize {
 }
 pub(crate) unsafe fn eTeX_enabled(b: bool, j: Cmd, k: i32) -> bool {
     if !b {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Improper ");
+        t_eprint!("Improper ");
         print_cmd_chr(j, k);
         help!("Sorry, this optional e-TeX feature has been disabled.");
         error();
@@ -11329,7 +10939,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
     pub(crate) static mut SAVE_PTR1: usize = 0;
 
     unsafe fn do_loop(mut p: usize, mut a: i8) -> (bool, usize, i8) {
-        print_nl_cstr("### ");
+        t_print_nl!("### ");
         print_group(cur_group1, cur_level1, SAVE_PTR1, true);
         if cur_group1 == GroupCode::BottomLevel {
             return (true, p, a);
@@ -11345,7 +10955,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
                 break m;
             }
         };
-        print_cstr(" (");
+        t_print!(" (");
         let s = match cur_group1 {
             GroupCode::BottomLevel => unreachable!(),
             GroupCode::Simple => {
@@ -11366,7 +10976,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
                     return found1(s, p, a);
                 } else {
                     if a == 1 {
-                        print_cstr("align entry");
+                        t_print!("align entry");
                     } else {
                         print_esc_cstr("cr");
                     }
@@ -11389,26 +10999,29 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
             }
             GroupCode::Math => return found2(p, a),
             GroupCode::Disc | GroupCode::MathChoice => {
-                if cur_group1 == GroupCode::Disc {
-                    print_esc_cstr("discretionary");
-                } else {
-                    print_esc_cstr("mathchoice");
-                }
+                t_print!(
+                    "{}",
+                    if cur_group1 == GroupCode::Disc {
+                        Esc("discretionary")
+                    } else {
+                        Esc("mathchoice")
+                    }
+                );
                 let mut i = 1;
                 while i <= 3 {
                     if i <= SAVE_STACK[SAVE_PTR1 - 2].val {
-                        print_cstr("{}");
+                        t_print!("{{}}");
                     }
                     i += 1;
                 }
                 return found2(p, a);
             }
             GroupCode::Insert => {
-                if SAVE_STACK[SAVE_PTR1 - 2].val == 255 {
-                    print_esc_cstr("vadjust");
+                let n = SAVE_STACK[SAVE_PTR1 - 2].val;
+                if n == 255 {
+                    t_print!("{}", Esc("vadjust"));
                 } else {
-                    print_esc_cstr("insert");
-                    print_int(SAVE_STACK[SAVE_PTR1 - 2].val);
+                    t_print!("{}{}", Esc("insert"), n);
                 }
                 return found2(p, a);
             }
@@ -11454,16 +11067,13 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
                 } else {
                     print_cmd_chr(j, 1);
                 }
-                print_scaled(Scaled(i.abs()));
-                print_cstr("pt");
+                t_print!("{}pt", Scaled(i.abs()));
             } else if i < SHIP_OUT_FLAG {
                 if i >= GLOBAL_BOX_FLAG {
                     print_esc_cstr("global");
                     i = i - (GLOBAL_BOX_FLAG - BOX_FLAG)
                 }
-                print_esc_cstr("setbox");
-                print_int(i - BOX_FLAG);
-                print_chr('=');
+                t_print!("{}{}=", Esc("setbox"), i - BOX_FLAG);
             } else {
                 print_cmd_chr(Cmd::LeaderShip, i - (LEADER_FLAG - (A_LEADERS as i32)));
             }
@@ -11472,16 +11082,13 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
     }
 
     unsafe fn found1(s: &str, p: usize, a: i8) -> (bool, usize, i8) {
-        print_esc_cstr(s);
+        t_print!("{}", Esc(s));
         if SAVE_STACK[SAVE_PTR1 - 2].val != 0 {
-            print_chr(' ');
             if SAVE_STACK[SAVE_PTR1 - 3].val == PackMode::Exactly as i32 {
-                print_cstr("to");
+                t_print!(" to{}pt", Scaled(SAVE_STACK[SAVE_PTR1 - 2].val));
             } else {
-                print_cstr("spread");
+                t_print!(" spread{}pt", Scaled(SAVE_STACK[SAVE_PTR1 - 2].val));
             }
-            print_scaled(Scaled(SAVE_STACK[SAVE_PTR1 - 2].val));
-            print_cstr("pt");
         }
         found2(p, a)
     }
@@ -11505,7 +11112,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
     cur_group1 = group;
     cur_level1 = level - 1;
     let mut a = 1_i8;
-    print_nl_cstr("");
+    t_print_nl!("");
     print_ln();
     loop {
         let (is_done, new_p, new_a) = do_loop(p, a);
@@ -11569,12 +11176,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, h: Scaled, d: Scaled) -> i32 {
                     active_width.shrink += q.shrink();
                     let width =
                         if q.shrink_order() != GlueOrder::Normal && q.shrink() != Scaled::ZERO {
-                            if file_line_error_style_p != 0 {
-                                print_file_line();
-                            } else {
-                                print_nl_cstr("! ");
-                            }
-                            print_cstr("Infinite glue shrinkage found in box being split");
+                            t_eprint!("Infinite glue shrinkage found in box being split");
                             help!(
                                 "The box you are \\vsplitting contains some infinitely",
                                 "shrinkable glue, e.g., `\\vss\' or `\\vskip 0pt minus 1fil\'.",
@@ -11724,15 +11326,7 @@ pub(crate) unsafe fn vsplit(n: i32, h: Scaled) -> Option<usize> {
     let v = v?;
     let mut v = List::from(v);
     if !v.is_vertical() {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("");
-        print_esc_cstr("vsplit");
-        print_cstr(" needs a ");
-        print_esc_cstr("vbox");
+        t_eprint!("{} needs a {}", Esc("vsplit"), Esc("vbox"));
         help!(
             "The box you are trying to split is an \\hbox.",
             "I can\'t split such a box, so I\'ll leave it alone."
@@ -11816,36 +11410,27 @@ pub(crate) unsafe fn vsplit(n: i32, h: Scaled) -> Option<usize> {
     )
 }
 pub(crate) unsafe fn print_totals() {
-    print_scaled(page_so_far[1]);
+    t_print!("{}", page_so_far[1]);
     if page_so_far[2] != Scaled::ZERO {
-        print_cstr(" plus ");
-        print_scaled(page_so_far[2]);
-        print_cstr("");
+        t_print!(" plus {}", page_so_far[2]);
     }
     if page_so_far[3] != Scaled::ZERO {
-        print_cstr(" plus ");
-        print_scaled(page_so_far[3]);
-        print_cstr("fil");
+        t_print!(" plus {}fil", page_so_far[3]);
     }
     if page_so_far[4] != Scaled::ZERO {
-        print_cstr(" plus ");
-        print_scaled(page_so_far[4]);
-        print_cstr("fill");
+        t_print!(" plus {}fill", page_so_far[4]);
     }
     if page_so_far[5] != Scaled::ZERO {
-        print_cstr(" plus ");
-        print_scaled(page_so_far[5]);
-        print_cstr("filll");
+        t_print!(" plus {}filll", page_so_far[5]);
     }
     if page_so_far[6] != Scaled::ZERO {
-        print_cstr(" minus ");
-        print_scaled(page_so_far[6]);
+        t_print!(" minus {}", page_so_far[6]);
     };
 }
 pub(crate) unsafe fn box_error(n: u8) {
     error();
     diagnostic(true, || {
-        print_nl_cstr("The following box has been deleted:");
+        t_print_nl!("The following box has been deleted:");
         show_box(get_box_reg(n as usize));
     });
     flush_node_list(get_box_reg(n as usize));
@@ -11898,12 +11483,7 @@ pub(crate) unsafe fn app_space() {
 pub(crate) unsafe fn insert_dollar_sign(input: &mut input_state_t, tok: i32) {
     back_input(input, tok);
     let tok = MATH_SHIFT_TOKEN + 36;
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Missing $ inserted");
+    t_eprint!("Missing $ inserted");
     help!(
         "I\'ve inserted a begin-math/end-math symbol since I think",
         "you left one out. Proceed, with fingers crossed."
@@ -11911,12 +11491,7 @@ pub(crate) unsafe fn insert_dollar_sign(input: &mut input_state_t, tok: i32) {
     ins_error(input, tok);
 }
 pub(crate) unsafe fn you_cant(cmd: Cmd, chr: i32) {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("You can\'t use `");
+    t_eprint!("You can\'t use `");
     print_cmd_chr(cmd, chr);
     print_in_mode(cur_list.mode);
 }
@@ -11995,12 +11570,7 @@ pub(crate) unsafe fn off_save(
 ) {
     if group == GroupCode::BottomLevel {
         /*1101:*/
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Extra ");
+        t_eprint!("Extra ");
         print_cmd_chr(cmd, chr);
         help!("Things are pretty mixed up, but I think the worst is over.");
         error();
@@ -12008,12 +11578,7 @@ pub(crate) unsafe fn off_save(
         back_input(input, tok);
         let mut p = get_avail();
         *LLIST_link(TEMP_HEAD) = Some(p).tex_int();
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Missing ");
+        t_eprint!("Missing ");
         match group {
             GroupCode::SemiSimple => {
                 MEM[p].b32.s0 = CS_TOKEN_FLAG + FROZEN_END_GROUP as i32;
@@ -12035,7 +11600,7 @@ pub(crate) unsafe fn off_save(
                 print_chr('}');
             }
         }
-        print_cstr(" inserted");
+        t_print!(" inserted");
         begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
         help!(
             "I\'ve inserted something that you may have forgotten.",
@@ -12048,16 +11613,11 @@ pub(crate) unsafe fn off_save(
     };
 }
 pub(crate) unsafe fn extra_right_brace(group: GroupCode) {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Extra }, or forgotten ");
+    t_eprint!("Extra }}, or forgotten ");
     match group {
-        GroupCode::SemiSimple => print_esc_cstr("endgroup"),
-        GroupCode::MathShift => print_chr('$'),
-        GroupCode::MathLeft => print_esc_cstr("right"),
+        GroupCode::SemiSimple => t_print!("{}", Esc("endgroup")),
+        GroupCode::MathShift => t_print!("$"),
+        GroupCode::MathLeft => t_print!("{}", Esc("right")),
         _ => {}
     }
     help!(
@@ -12174,12 +11734,7 @@ pub(crate) unsafe fn box_end(input: &mut input_state_t, box_context: i32) {
                     (box_context - (LEADER_FLAG - (A_LEADERS as i32))) as u16;
                 MEM[cur_list.tail + 1].b32.s1 = Some(cb).tex_int();
             } else {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Leaders not followed by proper glue");
+                t_eprint!("Leaders not followed by proper glue");
                 help!(
                     "You should say `\\leaders <box or rule><hskip or vskip>\'.",
                     "I found the <box or rule>, but there\'s no suitable",
@@ -12310,12 +11865,7 @@ pub(crate) unsafe fn begin_box(input: &mut input_state_t, cmd: Cmd, chr: i32, bo
         BoxCode::VSplit => {
             let n = scan_register_num(input);
             if !scan_keyword(input, "to") {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Missing `to\' inserted");
+                t_eprint!("Missing `to\' inserted");
                 help!(
                     "I\'m working on `\\vsplit<box number> to <dimen>\';",
                     "will look for the <dimen> next."
@@ -12375,12 +11925,7 @@ pub(crate) unsafe fn scan_box(input: &mut input_state_t, box_context: i32) {
         cur_box = Some(scan_rule_spec(input, cmd).ptr());
         box_end(input, box_context);
     } else {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("A <box> was supposed to be here");
+        t_eprint!("A <box> was supposed to be here");
         help!(
             "I was expecting to see \\hbox or \\vbox or \\copy or \\box or",
             "something like that. So you might find something missing in",
@@ -12506,14 +12051,10 @@ pub(crate) unsafe fn head_for_vmode(input: &mut input_state_t, tok: i32, cmd: Cm
         if cmd != Cmd::HRule {
             off_save(input, cur_group, tok, cmd, chr);
         } else {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("You can\'t use `");
-            print_esc_cstr("hrule");
-            print_cstr("\' here except with leaders");
+            t_eprint!(
+                "You can\'t use `{}\' here except with leaders",
+                Esc("hrule")
+            );
             help!(
                 "To put a horizontal rule in an hbox or an alignment,",
                 "you should use \\leaders or \\hrulefill (see The TeXbook)."
@@ -12548,14 +12089,7 @@ pub(crate) unsafe fn begin_insert_or_adjust(input: &mut input_state_t, cmd: Cmd)
     } else {
         let val = scan_eight_bit_int(input);
         if val == 255 {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("You can\'t ");
-            print_esc_cstr("insert");
-            print_int(255);
+            t_eprint!("You can\'t {}{}", Esc("insert"), 255);
             help!("I\'m changing to \\insert0; box 255 is special.");
             error();
             0
@@ -12706,12 +12240,7 @@ pub(crate) unsafe fn unpackage(input: &mut input_state_t, chr: i32) {
                     || cur_list.mode.1 == ListMode::VMode && dir != ListDir::Vertical
                     || cur_list.mode.1 == ListMode::HMode && dir != ListDir::Horizontal
                 {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Incompatible list can\'t be unboxed");
+                    t_eprint!("Incompatible list can\'t be unboxed");
                     help!(
                         "Sorry, Pandora. (You sneaky devil.)",
                         "I refuse to unbox an \\hbox in vertical mode or vice versa.",
@@ -12827,16 +12356,11 @@ pub(crate) unsafe fn build_discretionary(input: &mut input_state_t) {
                 | TxtNode::WhatsIt(WhatsIt::NativeWord(_))
                 | TxtNode::WhatsIt(WhatsIt::Glyph(_)) => {}
                 _ => {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Improper discretionary list");
+                    t_eprint!("Improper discretionary list");
                     help!("Discretionary lists must contain only boxes and kerns.");
                     error();
                     diagnostic(true, || {
-                        print_nl_cstr("The following discretionary sublist has been deleted:");
+                        t_print_nl!("The following discretionary sublist has been deleted:");
                         show_box(Some(p));
                     });
                     flush_node_list(Some(p));
@@ -12856,13 +12380,7 @@ pub(crate) unsafe fn build_discretionary(input: &mut input_state_t) {
         1 => MEM[cur_list.tail + 1].b32.s1 = p,
         2 => {
             if n > 0 && cur_list.mode.1 == ListMode::MMode {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Illegal math ");
-                print_esc_cstr("discretionary");
+                t_eprint!("Illegal math {}", Esc("discretionary"));
                 help!(
                     "Sorry: The third part of a discretionary break must be",
                     "empty, in math formulas. I had to delete your third part."
@@ -12876,12 +12394,7 @@ pub(crate) unsafe fn build_discretionary(input: &mut input_state_t) {
             if n <= u16::MAX as i32 {
                 MEM[cur_list.tail].b16.s0 = n as u16
             } else {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Discretionary list is too long");
+                t_eprint!("Discretionary list is too long");
                 help!(
                     "Wow---I never thought anybody would tweak me here.",
                     "You can\'t seriously need such a huge discretionary list?"
@@ -12979,12 +12492,7 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
 pub(crate) unsafe fn align_error(input: &mut input_state_t, tok: i32, cmd: Cmd, chr: i32) {
     if align_state.abs() > 2 {
         /*1163: */
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Misplaced ");
+        t_eprint!("Misplaced ");
         print_cmd_chr(cmd, chr);
         if tok == TAB_TOKEN + 38 {
             help!(
@@ -13008,21 +12516,11 @@ pub(crate) unsafe fn align_error(input: &mut input_state_t, tok: i32, cmd: Cmd, 
     } else {
         back_input(input, tok);
         let tok = if align_state < 0 {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Missing { inserted");
+            t_eprint!("Missing {{ inserted");
             align_state += 1;
             LEFT_BRACE_TOKEN + 123
         } else {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Missing } inserted");
+            t_eprint!("Missing }} inserted");
             align_state -= 1;
             RIGHT_BRACE_TOKEN + 125
         };
@@ -13035,13 +12533,7 @@ pub(crate) unsafe fn align_error(input: &mut input_state_t, tok: i32, cmd: Cmd, 
     };
 }
 pub(crate) unsafe fn no_align_error() {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Misplaced ");
-    print_esc_cstr("noalign");
+    t_eprint!("Misplaced {}", Esc("noalign"));
     help!(
         "I expect to see \\noalign only after the \\cr of",
         "an alignment. Proceed, and I\'ll ignore this case."
@@ -13049,13 +12541,7 @@ pub(crate) unsafe fn no_align_error() {
     error();
 }
 pub(crate) unsafe fn omit_error() {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Misplaced ");
-    print_esc_cstr("omit");
+    t_eprint!("Misplaced {}", Esc("omit"));
     help!(
         "I expect to see \\omit only after tab marks or the \\cr of",
         "an alignment. Proceed, and I\'ll ignore this case."
@@ -13093,13 +12579,7 @@ pub(crate) unsafe fn do_endv(
     };
 }
 pub(crate) unsafe fn cs_error() {
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Extra ");
-    print_esc_cstr("endcsname");
+    t_eprint!("Extra {}", Esc("endcsname"));
     help!("I\'m ignoring this, since I wasn\'t doing a \\csname.");
     error();
 }
@@ -13320,12 +12800,7 @@ pub(crate) unsafe fn get_r_token(input: &mut input_state_t) -> (i32, Cmd, i32, i
         {
             break;
         }
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Missing control sequence inserted");
+        t_eprint!("Missing control sequence inserted");
         help!(
             "Please don\'t say `\\def cs{...}\', say `\\def\\cs{...}\'.",
             "I\'ve inserted an inaccessible control sequence so that your",
@@ -13380,14 +12855,9 @@ pub(crate) unsafe fn do_register_command(
             }
             _ => {
                 if cmd != Cmd::Register {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("You can\'t use `");
+                    t_eprint!("You can\'t use `");
                     print_cmd_chr(cmd, chr);
-                    print_cstr("\' after ");
+                    t_print!("\' after ");
                     print_cmd_chr(q, 0);
                     help!("I\'m forgetting what you said and not changing anything.");
                     error();
@@ -13518,12 +12988,7 @@ pub(crate) unsafe fn do_register_command(
         }
     };
     if arith_error {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Arithmetic overflow");
+        t_eprint!("Arithmetic overflow");
         help!(
             "I can\'t carry out that multiplication or division,",
             "since the result is out of range."
@@ -13573,12 +13038,7 @@ pub(crate) unsafe fn alter_aux(input: &mut input_state_t, cmd: Cmd, chr: i32) {
         } else {
             let val = scan_int(input);
             if val <= 0 || val > 32767 {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Bad space factor");
+                t_eprint!("Bad space factor");
                 help!("I allow only values in the range 1..32767 here.");
                 int_error(val);
             } else {
@@ -13596,13 +13056,7 @@ pub(crate) unsafe fn alter_prev_graf(input: &mut input_state_t) {
     scan_optional_equals(input);
     let val = scan_int(input);
     if val < 0 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Bad ");
-        print_esc_cstr("prevgraf");
+        t_eprint!("Bad {}", Esc("prevgraf"));
         help!("I allow only nonnegative values here.");
         int_error(val);
     } else {
@@ -13624,12 +13078,7 @@ pub(crate) unsafe fn alter_integer(input: &mut input_state_t, chr: i32) {
         0 => dead_cycles = val,
         2 => {
             if InteractionMode::n(val as u8).is_none() {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Bad interaction mode");
+                t_eprint!("Bad interaction mode");
                 help!(
                     "Modes are 0=batch, 1=nonstop, 2=scroll, and",
                     "3=errorstop. Proceed, and I\'ll ignore this case."
@@ -13673,8 +13122,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
     } else {
         let old_setting = selector;
         selector = Selector::NEW_STRING;
-        print_cstr("FONT");
-        print((u - 1) as i32);
+        t_print!("FONT{}", PoolString::from((u - 1) as i32));
         selector = old_setting;
         if pool_ptr + 1 > pool_size {
             overflow("pool size", (pool_size - init_pool_ptr) as usize);
@@ -13695,14 +13143,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         s = scan_dimen(input, false, false, None); /*:1293 */
         /*:79 */
         if s <= Scaled::ZERO || s >= Scaled::from(2048) {
-            if file_line_error_style_p != 0 {
-                print_file_line(); /*1318: */
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Improper `at\' size (");
-            print_scaled(s);
-            print_cstr("pt), replaced by 10pt");
+            t_eprint!("Improper `at\' size ({}pt), replaced by 10pt", s);
             help!(
                 "I can only handle fonts at positive sizes that are",
                 "less than 2048pt, so I\'ve changed what you said to 10pt."
@@ -13714,12 +13155,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         let val = scan_int(input);
         s = Scaled(-val);
         if val <= 0 || val > 32768 {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Illegal magnification has been changed to 1000");
+            t_eprint!("Illegal magnification has been changed to 1000");
             help!("The magnification ratio must be between 1 and 32768.");
             int_error(val);
             s = Scaled(-1000);
@@ -13813,23 +13249,18 @@ pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32)
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
     let s = make_string();
+    let s = PoolString::from(s);
     if c == 0 {
         /*1315: */
-        if term_offset + (PoolString::from(s).len() as i32) > max_print_line - 2 {
+        if term_offset + (s.len() as i32) > max_print_line - 2 {
             print_ln();
         } else if term_offset > 0 || file_offset > 0 {
-            print_chr(' ');
+            t_print!(" ");
         }
-        print(s);
+        t_print!("{}", s);
         rust_stdout.as_mut().unwrap().flush().unwrap();
     } else {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("");
-        print(s);
+        t_eprint!("{}", s);
         if LOCAL(Local::err_help).opt().is_some() {
             use_err_help = true;
         } else if long_help_seen {
@@ -13882,11 +13313,9 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
                 cur_ptr.and_then(|c| MEM[c + 1].b32.s1.opt())
             };
             diagnostic(true, || {
-                print_nl_cstr("> \\box");
-                print_int(val);
-                print_chr('=');
+                t_print_nl!("> \\box{}=", val);
                 if p.is_none() {
-                    print_cstr("void");
+                    t_print!("void");
                 } else {
                     show_box(p);
                 }
@@ -13894,10 +13323,10 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
         }
         SHOW_CODE => {
             let (_, cmd, chr, cs) = get_token(input);
-            print_nl_cstr("> ");
+            t_print_nl!("> ");
             if cs != 0 {
                 sprint_cs(cs);
-                print_chr('=');
+                t_print!("=");
             }
             print_meaning(cmd, chr);
             return common_ending();
@@ -13907,7 +13336,7 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
         }
         SHOW_IFS => {
             diagnostic(true, || {
-                print_nl_cstr("");
+                t_print_nl!("");
                 print_ln();
                 if let Some(cp) = cond_ptr {
                     let mut p = cp;
@@ -13925,16 +13354,13 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
                     let mut l = if_line;
                     let mut m = if_limit;
                     loop {
-                        print_nl_cstr("### level ");
-                        print_int(n);
-                        print_cstr(": ");
+                        t_print_nl!("### level {}: ", n);
                         print_cmd_chr(Cmd::IfTest, t as i32);
                         if m == FiOrElseCode::Fi {
-                            print_esc_cstr("else");
+                            t_print!("{}", Esc("else"));
                         }
-                        if l != 0i32 {
-                            print_cstr(" entered on line ");
-                            print_int(l);
+                        if l != 0 {
+                            t_print!(" entered on line {}", l);
                         }
                         n -= 1;
                         t = MEM[p].b16.s0 as i16;
@@ -13947,14 +13373,13 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
                         }
                     }
                 } else {
-                    print_nl_cstr("### ");
-                    print_cstr("no active conditionals");
+                    t_print_nl!("### no active conditionals");
                 }
             });
         }
         SHOW_THE_CODE | SHOW_TOKENS => {
             let _p = the_toks(input, chr, cs) as i32;
-            print_nl_cstr("> ");
+            t_print_nl!("> ");
             token_show(Some(TEMP_HEAD));
             flush_list(llist_link(TEMP_HEAD));
             return common_ending();
@@ -13962,16 +13387,11 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
         _ => unreachable!(),
     }
 
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("OK");
+    t_eprint!("OK");
     if selector == Selector::TERM_AND_LOG {
         if get_int_par(IntPar::tracing_online) <= 0 {
             selector = Selector::TERM_ONLY;
-            print_cstr(" (see the transcript file)");
+            t_print!(" (see the transcript file)");
             selector = Selector::TERM_AND_LOG
         }
     }
@@ -14124,12 +13544,7 @@ pub(crate) unsafe fn do_extension(
                 cur_list.tail = g.ptr();
                 let val = scan_int(input);
                 let val = if val < 0 || val > 65535 {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Bad glyph number");
+                    t_eprint!("Bad glyph number");
                     help!(
                         "A glyph number must be between 0 and 65535.",
                         "I changed this one to zero."
@@ -14154,12 +13569,7 @@ pub(crate) unsafe fn do_extension(
             scan_and_pack_name(input);
             let i = get_encoding_mode_and_info(&mut j);
             if i == UnicodeMode::Auto {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Encoding mode `auto\' is not valid for \\XeTeXinputencoding");
+                t_eprint!("Encoding mode `auto\' is not valid for \\XeTeXinputencoding");
                 help!(
                     "You can\'t use `auto\' encoding here, only for \\XeTeXdefaultencoding.",
                     "I\'ll ignore this and leave the current encoding unchanged."
@@ -14245,12 +13655,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
     match group {
         GroupCode::Simple => unsave(input),
         GroupCode::BottomLevel => {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Too many }\'s");
+            t_eprint!("Too many }}\'s");
             help!(
                 "You\'ve closed more groups than you opened.",
                 "Such booboos are generally harmless, so keep going."
@@ -14317,12 +13722,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
             if input.loc.opt().is_some()
                 || input.index != Btl::OutputText && input.index != Btl::BackedUp
             {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Unbalanced output routine");
+                t_eprint!("Unbalanced output routine");
                 help!(
                     "Your sneaky output routine has problematic {\'s and/or }\'s.",
                     "I can\'t handle that very well; good luck."
@@ -14343,14 +13743,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
             insert_penalties = 0;
 
             if get_box_reg(255).is_some() {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Output routine didn\'t use all of ");
-                print_esc_cstr("box");
-                print_int(255);
+                t_eprint!("Output routine didn\'t use all of {}{}", Esc("box"), 255);
                 help!(
                     "Your \\output commands should empty \\box255,",
                     "e.g., by saying `\\shipout\\box255\'.",
@@ -14380,14 +13773,7 @@ pub(crate) unsafe fn handle_right_brace(input: &mut input_state_t, group: GroupC
         GroupCode::Align => {
             back_input(input, tok);
             let tok = CS_TOKEN_FLAG + FROZEN_CR as i32;
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Missing ");
-            print_esc_cstr("cr");
-            print_cstr(" inserted");
+            t_eprint!("Missing {} inserted", Esc("cr"));
             help!("I\'m guessing that you meant to end an alignment here.");
             ins_error(input, tok);
         }
@@ -16113,9 +15499,10 @@ pub(crate) unsafe fn close_files_and_terminate() {
             Selector::LOG_ONLY => selector = Selector::NO_PRINT,
             Selector::TERM_AND_LOG => {
                 selector = Selector::TERM_ONLY;
-                print_nl_cstr("Transcript written on ");
-                print(texmf_log_name);
-                print_chr('.');
+                t_print_nl!(
+                    "Transcript written on {}.",
+                    PoolString::from(texmf_log_name)
+                );
             }
             _ => unreachable!(),
         }

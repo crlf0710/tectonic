@@ -4,6 +4,7 @@ use std::io::Write;
 
 use crate::help;
 use crate::node::*;
+use crate::t_eprint;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
@@ -12,19 +13,15 @@ use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_area, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input, cur_list, cur_name,
     cur_page_height, cur_page_width, cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders,
-    doing_special, file_line_error_style_p, file_offset, font_used, init_pool_ptr, input_state_t,
-    job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v, name_of_file,
-    output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht,
-    rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr, str_start,
-    term_offset, write_file, write_loc, write_open, xtx_ligature_present, LR_problems, LR_ptr,
-    CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
-    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM,
-    TOTAL_PAGES, WIDTH_BASE,
+    doing_special, file_offset, font_used, init_pool_ptr, input_state_t, job_name, last_bop,
+    log_opened, max_h, max_print_line, max_push, max_v, name_of_file, output_file_extension,
+    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht, rule_wd, rust_stdout,
+    selector, semantic_pagination_enabled, str_pool, str_ptr, str_start, term_offset, write_file,
+    write_loc, write_open, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA,
+    FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE,
+    FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
-use crate::xetex_output::{
-    print, print_chr, print_cstr, print_file_line, print_file_name, print_int, print_ln,
-    print_nl_cstr, print_raw_char, print_scaled,
-};
+use crate::xetex_output::{print_chr, print_file_name, print_ln};
 use crate::xetex_scaledmath::{tex_round, Scaled};
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::TOO_BIG_CHAR;
@@ -42,9 +39,10 @@ use crate::xetex_xetex0::{
     UTF16_code,
 };
 use crate::xetex_xetexd::{
-    is_char_node, llist_link, print_c_str, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
+    is_char_node, llist_link, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
     FONT_CHARACTER_WIDTH,
 };
+use crate::{t_print, t_print_nl};
 use bridge::{ttstub_output_close, ttstub_output_open};
 use libc::strerror;
 
@@ -104,25 +102,25 @@ pub(crate) unsafe fn ship_out(mut p: List) {
     }
 
     if get_int_par(IntPar::tracing_output) > 0 {
-        print_nl_cstr("");
+        t_print_nl!("");
         print_ln();
-        print_cstr("Completed box being shipped out");
+        t_print!("Completed box being shipped out");
     }
 
     if term_offset > max_print_line - 9 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
-        print_chr(' ');
+        t_print!(" ");
     }
 
-    print_chr('[');
+    t_print!("[");
     let mut j = 9;
     while j > 0 && get_count_reg(j as _) == 0 {
         j -= 1;
     }
 
     for k in 0..=j {
-        print_int(get_count_reg(k as _));
+        t_print!("{}", get_count_reg(k as _));
         if k < j {
             print_chr('.');
         }
@@ -144,12 +142,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         || p.height() + p.depth() + get_dimen_par(DimenPar::v_offset) > Scaled::MAX_HALFWORD
         || p.width() + get_dimen_par(DimenPar::h_offset) > Scaled::MAX_HALFWORD
     {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Huge page cannot be shipped out");
+        t_eprint!("Huge page cannot be shipped out");
         help!(
             "The page just created is more than 18 feet tall or",
             "more than 18 feet wide, so I suspect something went wrong."
@@ -158,7 +151,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         if get_int_par(IntPar::tracing_output) <= 0 {
             diagnostic(true, || {
-                print_nl_cstr("The following box has been deleted:");
+                t_print_nl!("The following box has been deleted:");
                 show_box(Some(p.ptr()));
             });
         }
@@ -245,21 +238,17 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         let old_setting = selector;
         selector = Selector::NEW_STRING;
-        print_cstr("pdf:pagesize ");
+        t_print!("pdf:pagesize ");
         if get_dimen_par(DimenPar::pdf_page_width) <= Scaled::ZERO
             || get_dimen_par(DimenPar::pdf_page_height) <= Scaled::ZERO
         {
-            print_cstr("default");
+            t_print!("default");
         } else {
-            print_cstr("width");
-            print(' ' as i32);
-            print_scaled(get_dimen_par(DimenPar::pdf_page_width));
-            print_cstr("pt");
-            print(' ' as i32);
-            print_cstr("height");
-            print(' ' as i32);
-            print_scaled(get_dimen_par(DimenPar::pdf_page_height));
-            print_cstr("pt");
+            t_print!(
+                "width {}pt height {}pt",
+                get_dimen_par(DimenPar::pdf_page_width),
+                get_dimen_par(DimenPar::pdf_page_height)
+            );
         }
         selector = old_setting;
 
@@ -290,13 +279,12 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
     if LR_problems > 0 {
         print_ln();
-        print_nl_cstr("\\endL or \\endR problem (");
-        print_int(LR_problems / 10000);
-        print_cstr(" missing, ");
-        print_int(LR_problems % 10000);
-        print_cstr(" extra");
+        t_print_nl!(
+            "\\endL or \\endR problem ({} missing, {} extra)",
+            LR_problems / 10000,
+            LR_problems % 10000
+        );
         LR_problems = 0;
-        print_chr(')');
         print_ln();
     }
 
@@ -1783,12 +1771,10 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 } else {
                     selector = Selector::TERM_AND_LOG
                 }
-                print_nl_cstr("\\openout");
-                print_int(j as i32);
-                print_cstr(" = `");
+                t_print_nl!("\\openout{} = `", j as i32);
                 print_file_name(cur_name, cur_area, cur_ext);
-                print_cstr("\'.");
-                print_nl_cstr("");
+                t_print!("\'.");
+                t_print_nl!("");
                 print_ln();
                 selector = old_setting
             }
@@ -2082,12 +2068,7 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
     if tok != CS_TOKEN_FLAG + END_WRITE as i32 {
         /*1412:*/
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Unbalanced write command");
+        t_eprint!("Unbalanced write command");
         help!(
             "On this page there\'s a \\write with fewer real {\'s than }\'s.",
             "I can\'t handle that very well; good luck."
@@ -2112,11 +2093,11 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     } else if j == 17 && (selector == Selector::TERM_AND_LOG) {
         // Try to fix potential array out of bounds
         selector = Selector::LOG_ONLY;
-        print_nl_cstr("");
+        t_print_nl!("");
     } else if write_open[j as usize] {
         selector = Selector::File(j as u8);
     } else {
-        print_nl_cstr("");
+        t_print_nl!("");
     }
 
     token_show(Some(def_ref));
@@ -2133,23 +2114,19 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
             selector = Selector::TERM_ONLY
         }
 
-        print_nl_cstr("runsystem(");
-        for &d in PoolString::current().as_slice() {
-            print(d as i32);
-        }
-        print_cstr(")...");
         if !shell_escape_enabled {
-            print_cstr("disabled");
-            print_chr('.');
+            t_print_nl!("runsystem({})...disabled.", PoolString::current());
         } else {
             // Currently, -Z shell-escape is implemented but hidden (see
             // src/unstable_opts.rs). When this gets actually implemented,
             // uncomment the relevant parts in that file.
-
-            print_cstr("enabled but not implemented yet!");
+            t_print_nl!(
+                "runsystem({})...enabled but not implemented yet!",
+                PoolString::current()
+            );
         }
 
-        print_nl_cstr("");
+        t_print_nl!("");
         print_ln();
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
     }
@@ -2169,39 +2146,32 @@ unsafe fn pic_out(p: &Picture) {
 
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    print_cstr("pdf:image ");
-    print_cstr("matrix ");
     let matrix = p.transform_matrix();
-    print_scaled(matrix[0]);
-    print(' ' as i32);
-    print_scaled(matrix[1]);
-    print(' ' as i32);
-    print_scaled(matrix[2]);
-    print(' ' as i32);
-    print_scaled(matrix[3]);
-    print(' ' as i32);
-    print_scaled(matrix[4]);
-    print(' ' as i32);
-    print_scaled(matrix[5]);
-    print(' ' as i32);
-    print_cstr("page ");
-    print_int(p.page() as i32);
-    print(' ' as i32);
+    t_print!(
+        "pdf:image matrix {} {} {} {} {} {} page {} {}",
+        matrix[0],
+        matrix[1],
+        matrix[2],
+        matrix[3],
+        matrix[4],
+        matrix[5],
+        p.page() as i32,
+        match p.pagebox() {
+            1 => "pagebox cropbox ",
+            2 => "pagebox mediabox ",
+            3 => "pagebox bleedbox ",
+            5 => "pagebox artbox ",
+            4 => "pagebox trimbox ",
+            _ => "",
+        }
+    );
 
-    match p.pagebox() {
-        1 => print_cstr("pagebox cropbox "),
-        2 => print_cstr("pagebox mediabox "),
-        3 => print_cstr("pagebox bleedbox "),
-        5 => print_cstr("pagebox artbox "),
-        4 => print_cstr("pagebox trimbox "),
-        _ => {}
-    }
-
-    print('(' as i32);
+    print_chr('(');
     for i in p.path() {
-        print_raw_char(*i as UTF16_code);
+        // TODO: fix
+        print_chr(char::from(*i));
     }
-    print(')' as i32);
+    print_chr(')');
 
     selector = old_setting;
     let cur_str = PoolString::current();
@@ -2232,7 +2202,7 @@ pub(crate) unsafe fn finalize_dvi_file() {
     }
 
     if TOTAL_PAGES == 0 {
-        print_nl_cstr("No pages of output.");
+        t_print_nl!("No pages of output.");
         return;
     }
 
@@ -2294,31 +2264,25 @@ pub(crate) unsafe fn finalize_dvi_file() {
     let k = ttstub_output_close(dvi_file.take().unwrap()) as u8;
 
     if k == 0 {
-        print_nl_cstr("Output written on ");
-        print(output_file_name);
-        print_cstr(" (");
-        print_int(TOTAL_PAGES as i32);
+        t_print_nl!("Output written on {}", PoolString::from(output_file_name));
         if TOTAL_PAGES != 1 {
-            print_cstr(" pages");
+            t_print!(" ({} pages", TOTAL_PAGES);
         } else {
-            print_cstr(" page");
+            t_print!(" (1 page");
         }
-        print_cstr(", ");
-        print_int((dvi_offset + dvi_ptr) as i32);
-        print_cstr(" bytes).");
+        t_print!(", {} bytes).", (dvi_offset + dvi_ptr) as i32);
     } else {
-        print_nl_cstr("Error ");
-        print_int(k as i32);
-        print_cstr(" (");
-        print_c_str(
+        t_print!(
+            "Error {} ({}) generating output;",
+            k as i32,
             std::ffi::CStr::from_ptr(strerror(k as i32))
                 .to_str()
                 .unwrap(),
         );
-        print_cstr(") generating output;");
-        print_nl_cstr("file ");
-        print(output_file_name);
-        print_cstr(" may not be valid.");
+        t_print_nl!(
+            "file {} may not be valid.",
+            PoolString::from(output_file_name)
+        );
         /* XeTeX adds history = OUTPUT_FAILURE = 4 here; I'm not implementing that. */
     };
 }

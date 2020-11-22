@@ -2,25 +2,20 @@
  * Copyright 2016 the Tectonic Project
  * Licensed under the MIT License.
 */
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use std::io::Write;
 
 use crate::help;
+use crate::{t_eprint, t_print, t_print_nl};
 
 use crate::cmd::InteractionMode;
 use crate::xetex_ini::tt_cleanup;
 use crate::xetex_ini::{
-    error_count, file_line_error_style_p, halt_on_error_p, help_line, help_ptr, history,
-    interaction, job_name, log_opened, rust_stdout, selector, use_err_help,
+    error_count, halt_on_error_p, help_line, help_ptr, history, interaction, job_name, log_opened,
+    rust_stdout, selector, use_err_help,
 };
-use crate::xetex_output::{
-    print, print_chr, print_cstr, print_file_line, print_int, print_ln, print_nl_cstr,
-};
+use crate::xetex_output::print_ln;
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
 use bridge::TTHistory;
@@ -60,11 +55,6 @@ unsafe fn pre_error_message() {
             _ => unreachable!(),
         };
     }
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    };
 }
 /*82: */
 unsafe fn post_error_message(need_to_print_it: i32) {
@@ -83,7 +73,7 @@ pub(crate) unsafe fn error() {
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
         history = TTHistory::ERROR_ISSUED
     }
-    print_chr('.');
+    t_print!(".");
     INPUT_STACK[INPUT_PTR] = cur_input;
     show_context(&INPUT_STACK[..INPUT_PTR + 1]);
     if halt_on_error_p != 0 {
@@ -95,8 +85,8 @@ pub(crate) unsafe fn error() {
      * error_stop_mode" that would let the use interactively try to solve the
      * error. */
     error_count += 1;
-    if error_count as i32 == 100i32 {
-        print_nl_cstr("(That makes 100 errors; please try again.)");
+    if error_count as i32 == 100 {
+        t_print_nl!("(That makes 100 errors; please try again.)");
         history = TTHistory::FATAL_ERROR;
         post_error_message(0);
         panic!("halted after 100 potentially-recoverable errors");
@@ -114,7 +104,7 @@ pub(crate) unsafe fn error() {
     } else {
         while help_ptr > 0 {
             help_ptr -= 1;
-            print_nl_cstr(help_line[help_ptr as usize]);
+            t_print_nl!("{}", help_line[help_ptr as usize]);
         }
     }
     print_ln();
@@ -129,8 +119,8 @@ pub(crate) unsafe fn error() {
 }
 pub(crate) unsafe fn fatal_error(s: &str) -> ! {
     pre_error_message();
-    print_cstr("Emergency stop");
-    print_nl_cstr(s);
+    t_eprint!("Emergency stop");
+    t_print_nl!("{}", s);
     close_files_and_terminate();
     tt_cleanup();
     rust_stdout.as_mut().unwrap().flush().unwrap();
@@ -138,11 +128,7 @@ pub(crate) unsafe fn fatal_error(s: &str) -> ! {
 }
 pub(crate) unsafe fn overflow(s: &str, n: usize) -> ! {
     pre_error_message();
-    print_cstr("TeX capacity exceeded, sorry [");
-    print_cstr(s);
-    print_chr('=');
-    print_int(n as i32);
-    print_chr(']');
+    t_eprint!("TeX capacity exceeded, sorry [{}={}]", s, n as i32);
     help!(
         "If you really absolutely need more capacity,",
         "you can ask a wizard to enlarge me."
@@ -153,12 +139,10 @@ pub(crate) unsafe fn overflow(s: &str, n: usize) -> ! {
 pub(crate) unsafe fn confusion(s: &str) -> ! {
     pre_error_message();
     if (history as u32) < (TTHistory::ERROR_ISSUED as u32) {
-        print_cstr("This can\'t happen (");
-        print_cstr(s);
-        print_chr(')');
+        t_eprint!("This can\'t happen ({})", s);
         help!("I\'m broken. Please show this to someone who can fix can fix");
     } else {
-        print_cstr("I can\'t go on meeting you like this");
+        t_eprint!("I can\'t go on meeting you like this");
         help!(
             "One of your faux pas seems to have wounded me deeply...",
             "in fact, I\'m barely conscious. Please fix it and try again."
@@ -170,14 +154,11 @@ pub(crate) unsafe fn confusion(s: &str) -> ! {
 /* xetex-errors */
 pub(crate) unsafe fn pdf_error(t: &str, p: &str) -> ! {
     pre_error_message();
-    print_cstr("Error");
+    t_eprint!("Error");
     if !t.is_empty() {
-        print_cstr(" (");
-        print_cstr(t);
-        print(')' as i32);
+        t_print!(" ({})", t);
     }
-    print_cstr(": ");
-    print_cstr(p);
+    t_print!(": {}", p);
     post_error_message(1i32);
     panic!("halted on pdf_error()");
 }

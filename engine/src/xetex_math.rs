@@ -1,9 +1,6 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::{t_eprint, t_print};
 use core::ptr;
 
 use crate::cmd::*;
@@ -13,19 +10,16 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
-    adjust_tail, avail, cur_c, cur_dir, cur_f, cur_group, cur_i, cur_lang, cur_list,
-    file_line_error_style_p, input_state_t, insert_src_special_every_math, just_box, memory_word,
-    pre_adjust_tail, total_shrink, xtx_ligature_present, LR_problems, LR_ptr, EQTB, EXTEN_BASE,
-    FONT_BC, FONT_EC, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_PARAMS, KERN_BASE, LIG_KERN_BASE, MEM,
-    NEST_PTR, NULL_CHARACTER, PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR,
+    adjust_tail, avail, cur_c, cur_dir, cur_f, cur_group, cur_i, cur_lang, cur_list, input_state_t,
+    insert_src_special_every_math, just_box, memory_word, pre_adjust_tail, total_shrink,
+    xtx_ligature_present, LR_problems, LR_ptr, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_PARAMS, KERN_BASE, LIG_KERN_BASE, MEM, NEST_PTR, NULL_CHARACTER,
+    PARAM_BASE, SAVE_PTR, SAVE_STACK, SKEW_CHAR,
 };
 use crate::xetex_ini::{b16x4, b16x4_le_t};
 use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
-use crate::xetex_output::{
-    print, print_chr, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl_cstr,
-    print_size,
-};
+use crate::xetex_output::{print_size, Esc};
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_scaledmath::{tex_round, x_over_n, xn_over_d, Scaled};
 use crate::xetex_xetex0::{
@@ -424,12 +418,7 @@ pub(crate) unsafe fn math_limit_switch(chr: i32) {
             return;
         }
     }
-    if file_line_error_style_p != 0 {
-        print_file_line();
-    } else {
-        print_nl_cstr("! ");
-    }
-    print_cstr("Limit controls must follow a math operator");
+    t_eprint!("Limit controls must follow a math operator");
     help!("I\'m ignoring this misplaced \\limits or \\nolimits command.");
     error();
 }
@@ -480,12 +469,7 @@ unsafe fn scan_delimiter(
         }
     };
     if val < 0 {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Missing delimiter (. inserted)");
+        t_eprint!("Missing delimiter (. inserted)");
         help!(
             "I was expecting to see something like `(\' or `\\{\' or",
             "`\\}\' here. If you typed, e.g., `{\' instead of `\\{\', you",
@@ -524,14 +508,7 @@ pub(crate) unsafe fn math_radical(input: &mut input_state_t, tok: i32, chr: i32)
 pub(crate) unsafe fn math_ac(input: &mut input_state_t, cmd: Cmd, chr: i32) {
     if cmd == Cmd::Accent {
         /*1201: */
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Please use ");
-        print_esc_cstr("mathaccent");
-        print_cstr(" for accents in math mode");
+        t_eprint!("Please use {} for accents in math mode", Esc("mathaccent"));
         help!(
             "I\'m changing \\accent to \\mathaccent here; wish me luck.",
             "(Accents are not the same in formulas as they are in text.)"
@@ -664,20 +641,10 @@ pub(crate) unsafe fn sub_sup(input: &mut input_state_t, cmd: Cmd) {
             cur_list.tail = *LLIST_link(cur_list.tail) as usize;
             if t != MathCell::Empty {
                 if cmd == Cmd::SupMark {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Double superscript");
+                    t_eprint!("Double superscript");
                     help!("I treat `x^1^2\' essentially like `x^1{}^2\'.");
                 } else {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Double subscript");
+                    t_eprint!("Double subscript");
                     help!("I treat `x_1_2\' essentially like `x_1{}_2\'.");
                 }
                 error();
@@ -716,12 +683,7 @@ pub(crate) unsafe fn math_fraction(input: &mut input_state_t, tok: i32, chr: i32
         if c as i32 % DELIMITED_CODE == ABOVE_CODE {
             let _ = scan_dimen(input, false, false, None);
         }
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Ambiguous; you need another { and }");
+        t_eprint!("Ambiguous; you need another {{ and }}");
         help!(
             "I\'m ignoring this fraction specification, since I don\'t",
             "know whether a construction like `x \\over y \\over z\'",
@@ -776,17 +738,11 @@ pub(crate) unsafe fn math_left_right(
                 &mut *(&mut MEM[GARBAGE] as *mut memory_word as *mut Delimeter),
                 false,
             ); /*:1530 */
-            if file_line_error_style_p != 0 {
-                print_file_line(); /*:1530 */
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Extra ");
             if t as u16 == 1 {
-                print_esc_cstr("middle");
+                t_eprint!("Extra {}", Esc("middle"));
                 help!("I\'m ignoring a \\middle that had no matching \\left.");
             } else {
-                print_esc_cstr("right");
+                t_eprint!("Extra {}", Esc("right"));
                 help!("I\'m ignoring a \\right that had no matching \\left.");
             }
             error();
@@ -951,12 +907,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
             && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
     {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Math formula deleted: Insufficient symbol fonts");
+        t_eprint!("Math formula deleted: Insufficient symbol fonts");
 
         help!(
             "Sorry, but I can\'t typeset math unless \\textfont 2",
@@ -973,12 +924,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
             && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
     {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Math formula deleted: Insufficient extension fonts");
+        t_eprint!("Math formula deleted: Insufficient extension fonts");
 
         help!(
             "Sorry, but I can\'t typeset math unless \\textfont 3",
@@ -995,12 +941,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
     let a = if cur_list.mode == (!m.0, m.1) {
         let (tok, cmd, ..) = get_x_token(input);
         if cmd != Cmd::MathShift {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Display math should end with $$");
+            t_eprint!("Display math should end with $$");
 
             help!(
                 "The `$\' that I just saw supposedly matches a previous `$$\'.",
@@ -1030,12 +971,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
             || FONT_PARAMS[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHSY_PARAMS
                 && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(2 + SCRIPT_SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
         {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Math formula deleted: Insufficient symbol fonts");
+            t_print!("Math formula deleted: Insufficient symbol fonts");
 
             help!(
                 "Sorry, but I can\'t typeset math unless \\textfont 2",
@@ -1052,12 +988,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
             || FONT_PARAMS[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)] < TOTAL_MATHEX_PARAMS
                 && !matches!(&FONT_LAYOUT_ENGINE[MATH_FONT(3 + SCRIPT_SCRIPT_SIZE)], Font::Native(Otgr(e)) if e.is_open_type_math_font())
         {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Math formula deleted: Insufficient extension fonts");
+            t_eprint!("Math formula deleted: Insufficient extension fonts");
 
             help!(
                 "Sorry, but I can\'t typeset math unless \\textfont 3",
@@ -1097,12 +1028,7 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
             // 1232:
             let (tok, cmd, ..) = get_x_token(input);
             if cmd != Cmd::MathShift {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Display math should end with $$");
+                t_eprint!("Display math should end with $$");
 
                 help!(
                     "The `$\' that I just saw supposedly matches a previous `$$\'.",
@@ -1550,18 +1476,13 @@ pub(crate) unsafe fn fetch(a: &mut MCell) {
     cur_c = (cur_c as i64 + (a.val.chr.font as i32 / 256) as i64 * 65536) as i32;
     if cur_f == FONT_BASE {
         // 749:
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("");
+        t_eprint!("");
         print_size(cur_size as i32);
-        print_chr(' ');
-        print_int(a.val.chr.font as i32 % 256);
-        print_cstr(" is undefined (character ");
-        print(cur_c);
-        print_chr(')');
+        t_print!(
+            " {} is undefined (character {})",
+            a.val.chr.font as i32 % 256,
+            std::char::from_u32(cur_c as u32).unwrap()
+        );
 
         help!(
             "Somewhere in the math formula just ended, you used the",

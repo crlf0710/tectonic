@@ -192,14 +192,14 @@ pub(crate) mod freetype_sys_patch {
     };
 
     extern "C" {
-        #[no_mangle]
+        //#[no_mangle]
         pub(crate) fn FT_Face_GetCharVariantIndex(
             face: FT_Face,
             charcode: FT_ULong,
             variantSelector: FT_ULong,
         ) -> FT_UInt;
 
-        #[no_mangle]
+        //#[no_mangle]
         pub(crate) fn FT_Get_Advance(
             face: FT_Face,
             gindex: FT_UInt,
@@ -207,7 +207,7 @@ pub(crate) mod freetype_sys_patch {
             padvance: *mut FT_Fixed,
         ) -> FT_Error;
 
-        #[no_mangle]
+        //#[no_mangle]
         pub(crate) fn FT_Load_Sfnt_Table(
             face: FT_Face,
             tag: FT_ULong,
@@ -216,10 +216,10 @@ pub(crate) mod freetype_sys_patch {
             length: *mut FT_ULong,
         ) -> FT_Error;
 
-        #[no_mangle]
+        //#[no_mangle]
         pub(crate) fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
 
-        #[no_mangle]
+        //#[no_mangle]
         pub(crate) fn FT_Get_Sfnt_Name(
             face: FT_Face,
             idx: FT_UInt,
@@ -685,3 +685,44 @@ pub(crate) fn c_pointer_to_str<'a>(p: *const i8) -> &'a str {
         unsafe { std::ffi::CStr::from_ptr(p).to_str().unwrap() }
     }
 }
+
+pub(crate) static mut cur_output: crate::xetex_output::Output = crate::xetex_output::Output;
+
+#[macro_export]
+macro_rules! t_print(
+    ($($arg:tt)*) => {{
+        std::fmt::Write::write_fmt(&mut $crate::cur_output, std::format_args!($($arg)*)).unwrap();
+    }};
+);
+#[macro_export]
+macro_rules! t_print_nl(
+    ($fmt:literal) => {{
+        $crate::xetex_output::printnl();
+        $crate::t_print!($fmt);
+    }};
+    ($fmt:literal, $($arg:tt)*) => {
+        $crate::xetex_output::printnl();
+        $crate::t_print!($fmt, $($arg)*);
+    };
+);
+
+// TODO: optimize
+#[macro_export]
+macro_rules! t_eprint(
+    ($fmt:literal) => {{
+        if $crate::xetex_ini::file_line_error_style_p != 0 {
+            $crate::xetex_output::print_file_line();
+        } else {
+            $crate::t_print_nl!("! ");
+        };
+        $crate::t_print!($fmt);
+    }};
+    ($fmt:literal, $($arg:tt)*) => {
+        if $crate::xetex_ini::file_line_error_style_p != 0 {
+            $crate::xetex_output::print_file_line();
+        } else {
+            $crate::t_print_nl!("! ");
+        };
+        $crate::t_print!($fmt, $($arg)*);
+    };
+);

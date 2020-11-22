@@ -2,6 +2,7 @@ use bridge::TTInputFormat;
 
 use crate::help;
 
+use crate::{t_eprint, t_print, t_print_nl};
 use std::io::Read;
 
 use crate::xetex_ini::b16x4;
@@ -11,12 +12,10 @@ use crate::xetex_ini::str_number;
 use crate::xetex_ini::UTF16_code;
 use crate::xetex_scaledmath::Scaled;
 
-use crate::xetex_xetexd::print_c_str;
 use crate::xetex_xetexd::TeXInt;
 use crate::xetex_xetexd::FONT_CHARACTER_INFO;
 
 use crate::xetex_ini::cur_ext;
-use crate::xetex_ini::file_line_error_style_p;
 use crate::xetex_ini::fmem_ptr;
 use crate::xetex_ini::font_used;
 use crate::xetex_ini::loaded_font_design_size;
@@ -68,11 +67,9 @@ use crate::xetex_consts::LIST_TAG;
 use crate::xetex_consts::NON_ADDRESS;
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
-use crate::xetex_output::print;
-use crate::xetex_output::print_file_line;
+use crate::xetex_output::print_chr;
 use crate::xetex_output::print_file_name;
 use crate::xetex_output::sprint_cs;
-use crate::xetex_output::{print_chr, print_cstr, print_int, print_nl_cstr, print_scaled};
 use crate::xetex_stringpool::make_string;
 use crate::xetex_stringpool::PoolString;
 use crate::xetex_stringpool::EMPTY_STRING;
@@ -109,16 +106,10 @@ pub(crate) unsafe fn read_font_info(
 
     if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
-            print_nl_cstr("Requested font \"");
-            print_c_str(&name_of_file);
-            print('\"' as i32);
             if s < Scaled::ZERO {
-                print_cstr(" scaled ");
-                print_int(-s.0);
+                t_print_nl!("Requested font \"{}\" scaled {}", name_of_file, -s.0);
             } else {
-                print_cstr(" at ");
-                print_scaled(s);
-                print_cstr("pt");
+                t_print_nl!("Requested font \"{}\" at {}pt", name_of_file, s);
             }
         });
     }
@@ -565,12 +556,7 @@ pub(crate) unsafe fn bad_tfm(
 ) {
     if get_int_par(IntPar::suppress_fontnotfound_error) == 0 {
         /* NOTE: must preserve this path to keep passing the TRIP tests */
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Font ");
+        t_eprint!("Font ");
         sprint_cs(u);
         print_chr('=');
         if let Some(qc) = file_name_quote_char {
@@ -581,18 +567,15 @@ pub(crate) unsafe fn bad_tfm(
             print_chr(qc);
         }
         if s >= Scaled::ZERO {
-            print_cstr(" at ");
-            print_scaled(s);
-            print_cstr("pt");
+            t_print!(" at {}pt", s);
         } else if s != Scaled(-1000) {
-            print_cstr(" scaled ");
-            print_int(-s.0);
+            t_print!(" scaled {}", -s.0);
         }
         match err {
-            TfmError::BadMetric => print_cstr(" not loadable: Bad metric (TFM) file"),
-            TfmError::LongName => print_cstr(" not loadable: Metric (TFM) file name too long"),
+            TfmError::BadMetric => t_print!(" not loadable: Bad metric (TFM) file"),
+            TfmError::LongName => t_print!(" not loadable: Metric (TFM) file name too long"),
             TfmError::NotFound => {
-                print_cstr(" not loadable: Metric (TFM) file or installed font not found")
+                t_print!(" not loadable: Metric (TFM) file or installed font not found")
             }
         }
         help!(
@@ -606,7 +589,7 @@ pub(crate) unsafe fn bad_tfm(
     }
     if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
-            print_nl_cstr(" -> font not found, using \"nullfont\"")
+            t_print_nl!(" -> font not found, using \"nullfont\"")
         });
     }
 }
@@ -616,8 +599,7 @@ pub(crate) fn good_tfm(ok: (bool, usize)) -> usize {
         if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
             if ok.0 {
                 diagnostic(false, || {
-                    print_nl_cstr(" -> ");
-                    print_c_str(&name_of_file);
+                    t_print_nl!(" -> {}", name_of_file);
                 });
             }
         }
@@ -743,12 +725,7 @@ unsafe fn nf_error(
     match e {
         NativeFontError::NotFound => {}
         NativeFontError::NotEnoughMemory => {
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("Font ");
+            t_eprint!("Font ");
             sprint_cs(u);
             print_chr('=');
             if let Some(qc) = file_name_quote_char {
@@ -759,14 +736,11 @@ unsafe fn nf_error(
                 print_chr(qc);
             }
             if s >= Scaled::ZERO {
-                print_cstr(" at ");
-                print_scaled(s);
-                print_cstr("pt");
+                t_print!(" at {}pt", s);
             } else if s != Scaled(-1000) {
-                print_cstr(" scaled ");
-                print_int(-s.0);
+                t_print!(" scaled {}", -s.0);
             }
-            print_cstr(" not loaded: Not enough room left");
+            t_print!(" not loaded: Not enough room left");
             help!(
                 "I\'m afraid I won\'t be able to make use of this font,",
                 "because my memory for character-size data is too small.",

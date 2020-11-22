@@ -1,8 +1,4 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::xetex_ini::{
     halt_on_error_p, in_initex_mode, semantic_pagination_enabled, shell_escape_enabled,

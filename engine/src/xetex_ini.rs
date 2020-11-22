@@ -1,9 +1,6 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::{t_eprint, t_print, t_print_nl};
 use std::ptr;
 
 use super::xetex_texmfmp::{get_date_and_time, to_rust_string};
@@ -16,10 +13,7 @@ use crate::trie::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
-use crate::xetex_output::{
-    print, print_chr, print_cstr, print_esc_cstr, print_file_line, print_int, print_nl,
-    print_nl_cstr,
-};
+use crate::xetex_output::Esc;
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
 use crate::xetex_stringpool::{
@@ -461,8 +455,6 @@ pub(crate) static mut rust_stdout: Option<OutputHandleWrapper> = None;
 pub(crate) static mut log_file: Option<OutputHandleWrapper> = None;
 #[no_mangle]
 pub(crate) static mut selector: Selector = Selector::File(0);
-#[no_mangle]
-pub(crate) static mut dig: [u8; 23] = [0; 23];
 #[no_mangle]
 pub(crate) static mut tally: i32 = 0;
 #[no_mangle]
@@ -1114,12 +1106,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                         } else {
                             chr = *LC_CODE(chr as usize);
                             if chr == 0 {
-                                if file_line_error_style_p != 0 {
-                                    print_file_line();
-                                } else {
-                                    print_nl_cstr("! ");
-                                }
-                                print_cstr("Nonletter");
+                                t_eprint!("Nonletter");
                                 help!("(See Appendix H.)");
                                 error();
                             }
@@ -1194,12 +1181,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                             q = p;
                         }
                         if trie_o[q as usize] != MIN_TRIE_OP {
-                            if file_line_error_style_p != 0 {
-                                print_file_line();
-                            } else {
-                                print_nl_cstr("! ");
-                            }
-                            print_cstr("Duplicate pattern");
+                            t_eprint!("Duplicate pattern");
                             help!("(See Appendix H.)");
                             error();
                         }
@@ -1213,13 +1195,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                     digit_sensed = false
                 }
                 _ => {
-                    if file_line_error_style_p != 0 {
-                        print_file_line();
-                    } else {
-                        print_nl_cstr("! ");
-                    }
-                    print_cstr("Bad ");
-                    print_esc_cstr("patterns");
+                    t_eprint!("Bad {}", Esc("patterns"));
                     help!("(See Appendix H.)");
                     error();
                 }
@@ -1297,13 +1273,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
             }
         }
     } else {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Too late for ");
-        print_esc_cstr("patterns");
+        t_eprint!("Too late for {}", Esc("patterns"));
         help!("All patterns must be given before typesetting begins.");
         error();
         *LLIST_link(GARBAGE) = scan_toks(input, cs, false, false) as i32;
@@ -1360,12 +1330,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                         trie_tro[(hyph_index + chr) as usize]
                     };
                     if hc[0] == 0 {
-                        if file_line_error_style_p != 0 {
-                            print_file_line();
-                        } else {
-                            print_nl_cstr("! ");
-                        }
-                        print_cstr("Not a letter");
+                        t_eprint!("Not a letter");
                         help!(
                             "Letters in \\hyphenation words must have \\lccode>0.",
                             "Proceed; I\'ll ignore the character I just read."
@@ -1456,14 +1421,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                 p = None;
             }
             _ => {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Improper ");
-                print_esc_cstr("hyphenation");
-                print_cstr(" will be flushed");
+                t_eprint!("Improper {} will be flushed", Esc("hyphenation"));
                 help!(
                     "Hyphenation exceptions must contain only letters",
                     "and hyphens. But continue; I\'ll forgive and forget."
@@ -1497,14 +1455,9 @@ pub(crate) unsafe fn prefixed_command(
         ocs = next.3;
         if ocmd <= MAX_NON_PREFIXED_COMMAND {
             /*1247:*/
-            if file_line_error_style_p != 0 {
-                print_file_line();
-            } else {
-                print_nl_cstr("! ");
-            }
-            print_cstr("You can\'t use a prefix with `");
+            t_eprint!("You can\'t use a prefix with `");
             print_cmd_chr(ocmd, ochr);
-            print_chr('\'');
+            t_print!("\'");
             help!("I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
             back_error(input, tok);
             return;
@@ -1522,21 +1475,11 @@ pub(crate) unsafe fn prefixed_command(
     }
 
     if ocmd != Cmd::Def && (a % 4 != 0 || j != 0) {
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("You can\'t use `");
-        print_esc_cstr("long");
-        print_cstr("\' or `");
-        print_esc_cstr("outer");
+        t_eprint!("You can\'t use `{}\' or `{}", Esc("long"), Esc("outer"));
         help!("I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.");
-        print_cstr("\' or `");
-        print_esc_cstr("protected");
-        print_cstr("\' with `");
+        t_print!("\' or `{}\' with `", Esc("protected"));
         print_cmd_chr(ocmd, ochr);
-        print_chr('\'');
+        t_print!("\'");
         error();
     }
 
@@ -1633,12 +1576,10 @@ pub(crate) unsafe fn prefixed_command(
                 let val = scan_char_num(input);
                 if get_int_par(IntPar::tracing_char_sub_def) > 0 {
                     diagnostic(false, || {
-                        print_nl_cstr("New character substitution: ");
-                        print(p - CHAR_SUB_CODE_BASE as i32);
-                        print_cstr(" = ");
-                        print(n);
-                        print_chr(' ');
-                        print(val);
+                        t_print_nl!("New character substitution: {} = {} {}",
+                        std::char::from_u32((p - CHAR_SUB_CODE_BASE as i32) as u32).unwrap(),
+                        std::char::from_u32(n as u32).unwrap(),
+                        std::char::from_u32(val as u32).unwrap());
                     });
                 }
                 n = n * 256 + val;
@@ -1760,12 +1701,7 @@ pub(crate) unsafe fn prefixed_command(
             let j = ochr;
             let n = scan_int(input);
             if !scan_keyword(input, "to") {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Missing `to\' inserted");
+                t_eprint!("Missing `to\' inserted");
                 help!("You should have said `\\read<number> to \\cs\'.", "I\'m going to look for the \\cs now.");
                 error();
             }
@@ -2009,19 +1945,11 @@ pub(crate) unsafe fn prefixed_command(
             let val = scan_int(input);
 
             let val = if (val < 0 && p < DEL_CODE_BASE as i32) || val > n {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Invalid code (");
-                print_int(val);
                 if p < MATH_CODE_BASE as i32 {
-                    print_cstr("), should be in the range 0..");
+                    t_eprint!("Invalid code ({}), should be in the range 0..{}", val, n);
                 } else {
-                    print_cstr("), should be at most ");
+                    t_eprint!("Invalid code ({}), should be at most {}", val, n);
                 }
-                print_int(n);
                 help!("I\'m going to use 0 instead of that illegal code value.");
                 error();
                 0
@@ -2080,13 +2008,7 @@ pub(crate) unsafe fn prefixed_command(
             if set_box_allowed {
                 scan_box(input, n);
             } else {
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Improper ");
-                print_esc_cstr("setbox");
+                t_eprint!("Improper {}", Esc("setbox"));
                 help!("Sorry, \\setbox is not allowed after \\halign in a display,", "or between \\accent and an accented character.");
                 error();
             }
@@ -2142,12 +2064,7 @@ pub(crate) unsafe fn prefixed_command(
                     return done(input);
                 }
 
-                if file_line_error_style_p != 0 {
-                    print_file_line();
-                } else {
-                    print_nl_cstr("! ");
-                }
-                print_cstr("Patterns can be loaded only by INITEX");
+                t_eprint!("Patterns can be loaded only by INITEX");
                 help!();
                 error();
                 loop  {
@@ -2218,27 +2135,24 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
         }
     }
     while open_parens > 0 {
-        print_cstr(" )");
+        t_print!(" )");
         open_parens -= 1;
     }
     if cur_level > LEVEL_ONE {
-        print_nl('(' as i32);
-        print_esc_cstr("end occurred ");
-        print_cstr("inside a group at level ");
-        print_int(cur_level as i32 - 1);
-        print_chr(')');
+        t_print_nl!(
+            "({} occurred inside a group at level {})",
+            Esc("end"),
+            cur_level as i32 - 1
+        );
         show_save_groups(cur_group, cur_level);
     }
     while let Some(cp) = cond_ptr {
-        print_nl('(' as i32);
-        print_esc_cstr("end occurred ");
-        print_cstr("when ");
+        t_print_nl!("({} occurred when ", Esc("end"));
         print_cmd_chr(Cmd::IfTest, cur_if as i32);
         if if_line != 0 {
-            print_cstr(" on line ");
-            print_int(if_line);
+            t_print!(" on line {}", if_line);
         }
-        print_cstr(" was incomplete)");
+        t_print!(" was incomplete)");
         if_line = MEM[cp + 1].b32.s1;
         cur_if = MEM[cp].b16.s0 as i16;
         let tmp_ptr = cp;
@@ -2249,7 +2163,7 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
         if history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop {
             if selector == Selector::TERM_AND_LOG {
                 selector = Selector::TERM_ONLY;
-                print_nl_cstr("(see the transcript file for additional information)");
+                t_print_nl!("(see the transcript file for additional information)");
                 selector = Selector::TERM_AND_LOG
             }
         }
@@ -2275,7 +2189,7 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
             store_fmt_file();
             return;
         }
-        print_nl_cstr("(\\dump is performed only by INITEX)");
+        t_print_nl!("(\\dump is performed only by INITEX)");
         return;
     };
 }
@@ -2437,19 +2351,19 @@ unsafe fn initialize_more_initex_variables() {
         MEM[k].b16.s0 = NORMAL;
     }
 
-    FIL_GLUE
-        .set_stretch(Scaled::ONE)
+    let mut glue = FIL_GLUE;
+    glue.set_stretch(Scaled::ONE)
         .set_stretch_order(GlueOrder::Fil);
-    FILL_GLUE
-        .set_stretch(Scaled::ONE)
+    let mut glue = FILL_GLUE;
+    glue.set_stretch(Scaled::ONE)
         .set_stretch_order(GlueOrder::Fill);
-    SS_GLUE
-        .set_stretch(Scaled::ONE)
+    let mut glue = SS_GLUE;
+    glue.set_stretch(Scaled::ONE)
         .set_stretch_order(GlueOrder::Fil)
         .set_shrink(Scaled::ONE)
         .set_shrink_order(GlueOrder::Fil);
-    FIL_NEG_GLUE
-        .set_stretch(-Scaled::ONE)
+    let mut glue = FIL_NEG_GLUE;
+    glue.set_stretch(-Scaled::ONE)
         .set_stretch_order(GlueOrder::Fil);
     rover = LO_MEM_STAT_MAX + 1;
     *LLIST_link(rover as usize) = MAX_HALFWORD; // now initialize the dynamic memory
@@ -3784,7 +3698,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: *const i8, input_file_name: *const
         bad = 41
     }
     if bad > 0 {
-        panic!("failed internal consistency check #{}", bad,);
+        panic!("failed internal consistency check #{}", bad);
     }
 
     /* OK, ready to keep on initializing. */

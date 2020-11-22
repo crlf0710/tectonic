@@ -1,11 +1,8 @@
-#![allow(
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-)]
+#![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::help;
 use crate::node::*;
+use crate::t_eprint;
 use crate::trie::{
     hyf_distance, hyf_next, hyf_num, hyph_start, init_trie, max_hyph_char, op_start,
     trie_not_ready, trie_trc, trie_trl, trie_tro, MIN_TRIE_OP,
@@ -15,14 +12,13 @@ use crate::xetex_errors::{confusion, error};
 use crate::xetex_ini::b16x4;
 use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, cur_l, cur_lang, cur_list, cur_q, cur_r,
-    file_line_error_style_p, first_p, font_in_short_display, global_prev_p, hc, hf, hu, hyf,
-    hyph_index, hyphen_passed, init_lft, init_lig, init_list, just_box, last_leftmost_char,
-    last_rightmost_char, lft_hit, lig_stack, ligature_present, pack_begin_line, pre_adjust_tail,
-    rt_hit, semantic_pagination_enabled, xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB,
-    FONT_BCHAR, FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE,
-    MEM, WIDTH_BASE,
+    first_p, font_in_short_display, global_prev_p, hc, hf, hu, hyf, hyph_index, hyphen_passed,
+    init_lft, init_lig, init_list, just_box, last_leftmost_char, last_rightmost_char, lft_hit,
+    lig_stack, ligature_present, pack_begin_line, pre_adjust_tail, rt_hit,
+    semantic_pagination_enabled, xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR,
+    FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM,
+    WIDTH_BASE,
 };
-use crate::xetex_output::{print_cstr, print_file_line, print_nl_cstr};
 
 use crate::xetex_stringpool::{PoolString, TOO_BIG_CHAR};
 use crate::xetex_xetex0::{
@@ -2368,12 +2364,7 @@ unsafe fn hyphenate() {
 unsafe fn finite_shrink(p: GlueSpec) -> GlueSpec {
     if no_shrink_error_yet {
         no_shrink_error_yet = false;
-        if file_line_error_style_p != 0 {
-            print_file_line();
-        } else {
-            print_nl_cstr("! ");
-        }
-        print_cstr("Infinite glue shrinkage found in a paragraph");
+        t_eprint!("Infinite glue shrinkage found in a paragraph");
         help!(
             "The paragraph just ended includes some glue that has",
             "infinite shrinkability, e.g., `\\hskip 0pt minus 1fil\'.",
