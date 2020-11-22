@@ -97,8 +97,11 @@ unsafe fn print_term_log_char<W: io::Write>(
     } else {
         if s.is_control() {
             let (buf, len) = replace_control(s);
-            stdout.write(&buf[..len])?;
-            lg.write(&buf[..len])?;
+            for &c in &buf[..len] {
+                let c = char::from(c);
+                write_term_char(stdout, c)?;
+                write_log_char(lg, c)?;
+            }
         } else {
             write_term_char(stdout, s)?;
             write_log_char(lg, s)?;
@@ -114,7 +117,9 @@ unsafe fn print_log_char<W: io::Write>(lg: &mut W, s: char, nl: i32) -> io::Resu
     } else {
         if s.is_control() {
             let (buf, len) = replace_control(s);
-            lg.write(&buf[..len])?;
+            for &c in &buf[..len] {
+                write_log_char(lg, char::from(c))?;
+            }
         } else {
             write_log_char(lg, s)?;
         }
@@ -128,7 +133,9 @@ unsafe fn print_term_char<W: io::Write>(stdout: &mut W, s: char, nl: i32) -> io:
     } else {
         if s.is_control() {
             let (buf, len) = replace_control(s);
-            stdout.write(&buf[..len])?;
+            for &c in &buf[..len] {
+                write_term_char(stdout, char::from(c))?;
+            }
         } else {
             write_term_char(stdout, s)?;
         }
@@ -143,7 +150,9 @@ unsafe fn print_file_char<W: io::Write>(file: &mut W, s: char, nl: i32) -> io::R
     } else {
         if s.is_control() {
             let (buf, len) = replace_control(s);
-            file.write(&buf[..len])?;
+            for &c in &buf[..len] {
+                write!(file, "{}", char::from(c))?;
+            }
         } else {
             write!(file, "{}", s)?;
         }
