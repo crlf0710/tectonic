@@ -42,8 +42,8 @@ use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
 use crate::bridge::{
-    ttstub_input_get_size, ttstub_input_getc, ttstub_output_close, ttstub_output_open,
-    ttstub_output_open_stdout, ttstub_output_putc,
+    ttstub_input_get_size, ttstub_input_getc, ttstub_output_close, ttstub_output_open_stdout,
+    ttstub_output_putc,
 };
 use libc::{free, memset, strlen, strtoul};
 
@@ -540,8 +540,7 @@ pub(crate) unsafe fn pdf_out_init(filename: &str, do_encryption: bool, enable_ob
     if filename.is_empty() {
         panic!("stdout PDF output not supported");
     }
-    let cfilename = CString::new(filename).unwrap();
-    pdf_output_handle = ttstub_output_open(cfilename.as_ptr(), 0i32);
+    pdf_output_handle = OutputHandleWrapper::open(&filename, 0);
     if pdf_output_handle.is_none() {
         if filename.len() < 128 {
             panic!("Unable to open \"{}\".", filename);

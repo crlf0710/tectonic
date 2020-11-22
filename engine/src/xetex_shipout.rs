@@ -1,5 +1,4 @@
 use bridge::abort;
-use std::ffi::CString;
 use std::io::Write;
 
 use crate::help;
@@ -11,15 +10,15 @@ use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
 use crate::xetex_ini::shell_escape_enabled;
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
-    avail, cur_area, cur_dir, cur_ext, cur_h, cur_h_offset, cur_input, cur_list, cur_name,
-    cur_page_height, cur_page_width, cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders,
-    doing_special, file_offset, font_used, init_pool_ptr, input_state_t, job_name, last_bop,
-    log_opened, max_h, max_print_line, max_push, max_v, output_file_extension, pdf_last_x_pos,
-    pdf_last_y_pos, pool_ptr, pool_size, rule_dp, rule_ht, rule_wd, rust_stdout, selector,
-    semantic_pagination_enabled, str_pool, str_ptr, str_start, term_offset, write_file, write_loc,
-    write_open, xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC,
-    FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
-    FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
+    avail, cur_dir, cur_h, cur_h_offset, cur_input, cur_list, cur_page_height, cur_page_width,
+    cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, doing_special, file_offset,
+    font_used, init_pool_ptr, input_state_t, job_name, last_bop, log_opened, max_h, max_print_line,
+    max_push, max_v, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size,
+    rule_dp, rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool,
+    str_ptr, str_start, term_offset, write_file, write_loc, write_open, xtx_ligature_present,
+    LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE,
+    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE,
+    MEM, TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{print_chr, print_file_name, print_ln};
 use crate::xetex_scaledmath::{tex_round, Scaled};
@@ -43,7 +42,7 @@ use crate::xetex_xetexd::{
     FONT_CHARACTER_WIDTH,
 };
 use crate::{t_print, t_print_nl};
-use bridge::{ttstub_output_close, ttstub_output_open};
+use bridge::ttstub_output_close;
 use libc::strerror;
 
 use bridge::OutputHandleWrapper;
@@ -190,8 +189,7 @@ pub(crate) unsafe fn ship_out(mut p: List) {
                 open_log_file();
             }
             let name = pack_job_name(&output_file_extension);
-            let cname = CString::new(name.as_str()).unwrap();
-            dvi_file = ttstub_output_open(cname.as_ptr(), 0);
+            dvi_file = OutputHandleWrapper::open(&name, 0);
             if dvi_file.is_none() {
                 abort!("cannot open output file \"{}\"", name);
             }
@@ -1747,19 +1745,18 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 return;
             }
 
-            cur_name = p.name();
-            cur_area = p.area();
-            cur_ext = p.ext();
-            if PoolString::from(cur_ext).len() == 0 {
-                cur_ext = maketexstring(".tex")
+            let name = p.name();
+            let area = p.area();
+            let mut ext = p.ext();
+            if PoolString::from(ext).len() == 0 {
+                ext = maketexstring(".tex")
             }
 
-            let name = pack_file_name(cur_name, cur_area, cur_ext);
+            let fullname = pack_file_name(name, area, ext);
 
-            let cname = CString::new(name.as_str()).unwrap();
-            write_file[j as usize] = ttstub_output_open(cname.as_ptr(), 0);
+            write_file[j as usize] = OutputHandleWrapper::open(&fullname, 0);
             if write_file[j as usize].is_none() {
-                abort!("cannot open output file \"{}\"", name);
+                abort!("cannot open output file \"{}\"", fullname);
             }
 
             write_open[j as usize] = true;
@@ -1772,7 +1769,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                     selector = Selector::TERM_AND_LOG
                 }
                 t_print_nl!("\\openout{} = `", j as i32);
-                print_file_name(cur_name, cur_area, cur_ext);
+                print_file_name(name, area, ext);
                 t_print!("\'.");
                 t_print_nl!("");
                 print_ln();

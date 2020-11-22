@@ -7,7 +7,7 @@ use crate::help;
 use crate::node::Picture;
 use crate::xetex_errors::error;
 use crate::xetex_ext::{D2Fix, Fix2D};
-use crate::xetex_ini::{cur_area, cur_ext, cur_list, cur_name, input_state_t};
+use crate::xetex_ini::{cur_list, input_state_t};
 use crate::xetex_output::print_file_name;
 use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetex0::{
@@ -163,8 +163,8 @@ fn to_points(r: &Rect) -> [Point; 4] {
 
 pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
     let mut result: i32 = 0;
-    scan_file_name(input);
-    let filename = pack_file_name(cur_name, cur_area, cur_ext);
+    let (name, area, ext, ..) = scan_file_name(input);
+    let filename = pack_file_name(name, area, ext);
     let mut pdf_box_type = 0;
     let mut page = 0;
     if is_pdf {
@@ -332,7 +332,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
         tail_pic.path_mut().copy_from_slice(pic_path.as_bytes());
     } else {
         t_eprint!("Unable to load picture or PDF file \'");
-        print_file_name(cur_name, cur_area, cur_ext);
+        print_file_name(name, area, ext);
         t_print!("\'");
         if result == -43i32 {
             help!(

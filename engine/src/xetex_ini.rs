@@ -704,10 +704,6 @@ pub(crate) static mut skip_line: i32 = 0;
 #[no_mangle]
 pub(crate) static mut cur_name: str_number = 0;
 #[no_mangle]
-pub(crate) static mut cur_area: str_number = 0;
-#[no_mangle]
-pub(crate) static mut cur_ext: str_number = 0;
-#[no_mangle]
 pub(crate) static mut TEX_format_default: String = String::new();
 #[no_mangle]
 pub(crate) static mut name_in_progress: bool = false;

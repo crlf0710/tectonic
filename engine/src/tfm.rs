@@ -15,7 +15,6 @@ use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetexd::TeXInt;
 use crate::xetex_xetexd::FONT_CHARACTER_INFO;
 
-use crate::xetex_ini::cur_ext;
 use crate::xetex_ini::fmem_ptr;
 use crate::xetex_ini::font_used;
 use crate::xetex_ini::loaded_font_design_size;
@@ -97,11 +96,12 @@ pub(crate) unsafe fn read_font_info(
     u: i32,
     nom: str_number,
     aire: str_number,
+    ext: str_number,
     s: Scaled,
     quoted_filename: bool,
     file_name_quote_char: Option<char>,
 ) -> Result<(bool, usize, String), TfmError> {
-    let name = pack_file_name(nom, aire, cur_ext);
+    let name = pack_file_name(nom, aire, ext);
 
     if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
         diagnostic(false, || {
@@ -115,7 +115,7 @@ pub(crate) unsafe fn read_font_info(
 
     if quoted_filename {
         if let Ok(g) = load_native_font(&name, s)
-            .map_err(|e| nf_error(e, u, nom, aire, s, file_name_quote_char))
+            .map_err(|e| nf_error(e, u, nom, aire, ext, s, file_name_quote_char))
         {
             return Ok((false, g, name));
         }
@@ -132,7 +132,7 @@ pub(crate) unsafe fn read_font_info(
     if tfm_file_owner.is_none() {
         if !quoted_filename {
             if let Ok(g) = load_native_font(&name, s)
-                .map_err(|e| nf_error(e, u, nom, aire, s, file_name_quote_char))
+                .map_err(|e| nf_error(e, u, nom, aire, ext, s, file_name_quote_char))
             {
                 return Ok((false, g, name));
             }
@@ -548,8 +548,9 @@ pub(crate) unsafe fn read_font_info(
 pub(crate) unsafe fn bad_tfm(
     err: TfmError,
     u: i32,
-    nom: i32,
-    aire: i32,
+    nom: str_number,
+    aire: str_number,
+    ext: str_number,
     s: Scaled,
     file_name_quote_char: Option<char>,
 ) {
@@ -559,7 +560,7 @@ pub(crate) unsafe fn bad_tfm(
         if let Some(qc) = file_name_quote_char {
             print_chr(qc);
         }
-        print_file_name(nom, aire, cur_ext);
+        print_file_name(nom, aire, ext);
         if let Some(qc) = file_name_quote_char {
             print_chr(qc);
         }
@@ -716,6 +717,7 @@ unsafe fn nf_error(
     u: i32,
     nom: str_number,
     aire: str_number,
+    ext: str_number,
     s: Scaled,
     file_name_quote_char: Option<char>,
 ) {
@@ -726,7 +728,7 @@ unsafe fn nf_error(
             if let Some(qc) = file_name_quote_char {
                 print_chr(qc);
             }
-            print_file_name(nom, aire, cur_ext);
+            print_file_name(nom, aire, ext);
             if let Some(qc) = file_name_quote_char {
                 print_chr(qc);
             }

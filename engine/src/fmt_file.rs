@@ -3,8 +3,7 @@ use crate::help;
 use crate::xetex_consts::IntPar;
 use crate::xetex_ini::{b16x4, b32x2, memory_word, EqtbWord, Selector, UTF16_code, FONT_PTR};
 use crate::xetex_output::Esc;
-use bridge::{ttstub_output_close, ttstub_output_open, InFile, TTHistory, TTInputFormat};
-use std::ffi::CString;
+use bridge::{ttstub_output_close, InFile, OutputHandleWrapper, TTHistory, TTInputFormat};
 
 use crate::{t_eprint, t_print, t_print_nl};
 use std::io::{Read, Write};
@@ -150,19 +149,18 @@ pub(crate) unsafe fn store_fmt_file() {
     }
 
     format_ident = make_string();
-    let name = pack_job_name(".fmt");
+    let out_name = pack_job_name(".fmt");
 
-    let out_name = CString::new(name.as_str()).unwrap();
-    let fmt_out = ttstub_output_open(out_name.as_ptr(), 0);
+    let fmt_out = OutputHandleWrapper::open(&out_name, 0);
     if fmt_out.is_none() {
-        abort!("cannot open format output file \"{}\"", name);
+        abort!("cannot open format output file \"{}\"", out_name);
     }
 
     let mut fmt_out_owner = fmt_out.unwrap();
     let fmt_out = &mut fmt_out_owner;
     t_print_nl!(
         "Beginning to dump on file {}",
-        PoolString::from(make_name_string(&name))
+        PoolString::from(make_name_string(&out_name))
     );
 
     PoolString::flush();

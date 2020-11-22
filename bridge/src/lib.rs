@@ -30,6 +30,10 @@ impl OutputHandleWrapper {
     pub fn as_ptr(&self) -> rust_output_handle_t {
         self.0.as_ptr()
     }
+    pub unsafe fn open(path: &str, mut is_gz: i32) -> Option<Self> {
+        let cpath = CString::new(path).unwrap();
+        ttstub_output_open(cpath.as_ptr(), is_gz)
+    }
 }
 
 impl Write for OutputHandleWrapper {
