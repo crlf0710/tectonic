@@ -30,11 +30,12 @@ use crate::xetex_synctex::{
     synctex_void_vlist,
 };
 use crate::xetex_texmfmp::maketexstring;
+use crate::xetex_xetex0::TokenList;
 use crate::xetex_xetex0::{
     begin_token_list, diagnostic, effective_char, end_token_list, flush_list, flush_node_list,
     free_node, get_avail, get_node, get_token, internal_font_number, make_name_string, new_kern,
     new_math, new_native_word_node, open_log_file, pack_job_name, packed_UTF16_code, prepare_mag,
-    scan_toks, show_box, show_token_list, str_number, token_show, FileName, UTF16_code,
+    scan_toks, show_box, str_number, token_show, FileName, UTF16_code,
 };
 use crate::xetex_xetexd::{
     is_char_node, llist_link, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
@@ -235,14 +236,13 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         let old_setting = selector;
         selector = Selector::NEW_STRING;
-        t_print!("pdf:pagesize ");
         if get_dimen_par(DimenPar::pdf_page_width) <= Scaled::ZERO
             || get_dimen_par(DimenPar::pdf_page_height) <= Scaled::ZERO
         {
-            t_print!("default");
+            t_print!("pdf:pagesize default");
         } else {
             t_print!(
-                "width {}pt height {}pt",
+                "pdf:pagesize width {}pt height {}pt",
                 get_dimen_par(DimenPar::pdf_page_width),
                 get_dimen_par(DimenPar::pdf_page_height)
             );
@@ -881,8 +881,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                g.shrink_order() ==
                                    g_order {
                         if g.rc().opt().is_none() {
-                            free_node(g.ptr(),
-                                      GLUE_SPEC_SIZE);
+                            g.free();
                         } else {
                             g.rc_dec();
                         }
@@ -2016,11 +2015,7 @@ unsafe fn special_out(p: &Special) {
     doing_special = true;
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    show_token_list(
-        MEM[p.tokens() as usize].b32.s1.opt(),
-        None,
-        (pool_size - pool_ptr) as i32,
-    );
+    t_print!("{}", TokenList(MEM[p.tokens() as usize].b32.s1.opt()));
     selector = old_setting;
 
     if pool_ptr + 1 > pool_size {
@@ -2080,8 +2075,9 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
     cur_list.mode = old_mode;
     end_token_list(input);
-    let old_setting = selector;
+
     let j = p.id() as i16;
+    let old_setting = selector;
 
     if j == 18 {
         selector = Selector::NEW_STRING
@@ -2138,11 +2134,11 @@ unsafe fn pic_out(p: &Picture) {
         dvi_v = cur_v
     }
 
+    let matrix = p.transform_matrix();
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    let matrix = p.transform_matrix();
     t_print!(
-        "pdf:image matrix {} {} {} {} {} {} page {} {}",
+        "pdf:image matrix {} {} {} {} {} {} page {} {}(",
         matrix[0],
         matrix[1],
         matrix[2],
@@ -2160,7 +2156,6 @@ unsafe fn pic_out(p: &Picture) {
         }
     );
 
-    print_chr('(');
     for i in p.path() {
         // TODO: fix
         print_chr(char::from(*i));

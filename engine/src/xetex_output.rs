@@ -448,6 +448,7 @@ impl<'a> fmt::Display for Cs {
 use crate::xetex_xetex0::FileName;
 impl<'a> fmt::Display for FileName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // TODO: optimize
         let n = self.name;
         let a = self.area;
         let e = self.ext;

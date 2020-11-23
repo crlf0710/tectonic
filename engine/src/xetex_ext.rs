@@ -31,7 +31,7 @@ use crate::xetex_ini::{
 };
 use crate::xetex_output::print_chr;
 use crate::xetex_scaledmath::xn_over_d;
-use crate::xetex_texmfmp::{gettexstring, maketexstring, to_rust_string};
+use crate::xetex_texmfmp::{gettexstring, maketexstring};
 use crate::xetex_xetex0::{
     diagnostic, font_feature_warning, font_mapping_warning, get_tracing_fonts_state,
 };
@@ -938,7 +938,9 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
         if !fontRef.is_null() {
             /* update name_of_font to the full name of the font, for error messages during font loading */
             let fullName: *const i8 = getFullName(fontRef);
-            name_of_font = to_rust_string(fullName);
+            name_of_font = std::ffi::CStr::from_ptr(fullName)
+                .to_string_lossy()
+                .to_string();
             if scaled_size < Scaled::ZERO {
                 if let Some(font) = createFont(fontRef, scaled_size) {
                     let dsize_0 = D2Fix(getDesignSize(&font));

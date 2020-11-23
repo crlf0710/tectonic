@@ -2,6 +2,7 @@
 
 use crate::xetex_output::{Cs, Esc, Roman};
 use crate::{t_eprint, t_print, t_print_nl};
+use std::fmt;
 use std::io::Write;
 use std::ptr;
 
@@ -128,6 +129,85 @@ pub(crate) unsafe fn badness(t: Scaled, s: Scaled) -> i32 {
     (r * r * r + 0x20000) / 0x40000
 }
 
+pub(crate) struct TokenList(pub Option<usize>);
+impl<'a> fmt::Display for TokenList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut popt = self.0;
+        let mut match_chr = '#'; // character used in a `match`
+        let mut n = b'0'; // the highest parameter number, as an ASCII digit
+        while let Some(p) = popt {
+            // Display token |p|, and |return|
+            if unsafe { p < hi_mem_min as usize || p > mem_end as usize } {
+                Esc("CLOBBERED").fmt(f)?;
+                ".".fmt(f)?;
+                return Ok(());
+            }
+            let info = unsafe { *LLIST_info(p as usize) };
+            if info >= CS_TOKEN_FLAG {
+                Cs(info - CS_TOKEN_FLAG).fmt(f)?;
+            } else {
+                let m = Cmd::from((info / MAX_CHAR_VAL) as u16);
+                let c = info % MAX_CHAR_VAL;
+                if info < 0 {
+                    Esc("BAD").fmt(f)?;
+                    ".".fmt(f)?;
+                } else {
+                    // Display the token `$(m,c)$`
+                    /*306:*/
+                    match m {
+                        Cmd::LeftBrace
+                        | Cmd::RightBrace
+                        | Cmd::MathShift
+                        | Cmd::TabMark
+                        | Cmd::SupMark
+                        | Cmd::SubMark
+                        | Cmd::Spacer
+                        | Cmd::Letter
+                        | Cmd::OtherChar => std::char::from_u32(c as u32).unwrap().fmt(f)?,
+                        Cmd::MacParam => {
+                            let c = std::char::from_u32(c as u32).unwrap();
+                            c.fmt(f)?;
+                            c.fmt(f)?;
+                        }
+                        OUT_PARAM => {
+                            match_chr.fmt(f)?;
+                            if c <= 0x9 {
+                                char::from((c as u8) + b'0').fmt(f)?;
+                            } else {
+                                '!'.fmt(f)?;
+                                return Ok(());
+                            }
+                        }
+                        MATCH => {
+                            match_chr = std::char::from_u32(c as u32).unwrap();
+                            match_chr.fmt(f)?;
+                            n += 1;
+                            char::from(n).fmt(f)?;
+                            if n > b'9' {
+                                return Ok(());
+                            }
+                        }
+                        END_MATCH => {
+                            if c == 0 {
+                                "->".fmt(f)?;
+                            }
+                        }
+                        _ => {
+                            Esc("BAD").fmt(f)?;
+                            ".".fmt(f)?;
+                        }
+                    }
+                }
+            }
+            popt = unsafe { LLIST_link(p as usize).opt() };
+        }
+        if popt.is_some() {
+            Esc("ETC").fmt(f)?;
+            ".".fmt(f)?;
+        }
+        Ok(())
+    }
+}
 /*:112*/
 /*118:*/
 pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
@@ -3229,8 +3309,19 @@ pub(crate) unsafe fn prepare_mag() {
 pub(crate) unsafe fn token_show(p: Option<usize>) {
     if let Some(p) = p {
         show_token_list(llist_link(p), None, 10000000);
-    };
+    }
 }
+pub(crate) struct TokenNode(pub Option<usize>);
+impl<'a> fmt::Display for TokenNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(p) = self.0 {
+            TokenList(unsafe { llist_link(p) }).fmt(f)
+        } else {
+            Ok(())
+        }
+    }
+}
+
 pub(crate) unsafe fn print_meaning(cmd: Cmd, chr: i32) {
     print_cmd_chr(cmd, chr);
     if cmd >= Cmd::Call {
@@ -7550,7 +7641,7 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     let _ = scan_general_text(input, cs);
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    token_show(Some(TEMP_HEAD));
+    t_print!("{}", TokenNode(Some(TEMP_HEAD)));
     selector = old_setting;
     flush_list(llist_link(TEMP_HEAD));
     if pool_ptr + 1 > pool_size {
@@ -7667,14 +7758,14 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
             assert!(val.opt().is_some());
             return val as usize; // TODO: check TEX_NULL
         } else {
-            let old_setting = selector;
-            selector = Selector::NEW_STRING;
             let b = pool_ptr;
             let p = get_avail();
             *LLIST_link(p) = *LLIST_link(TEMP_HEAD);
-            token_show(Some(p));
-            flush_list(Some(p));
+            let old_setting = selector;
+            selector = Selector::NEW_STRING;
+            t_print!("{}", TokenNode(Some(p)));
             selector = old_setting;
+            flush_list(Some(p));
             return str_toks(b);
         }
     }
@@ -7697,9 +7788,9 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
             p
         }
         _ => {
+            let b = pool_ptr;
             let old_setting = selector; // holds |selector| setting
             selector = Selector::NEW_STRING;
-            let b = pool_ptr;
             match val_level {
                 ValLevel::Int => t_print!("{}", val),
                 ValLevel::Dimen => {
@@ -7808,7 +7899,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
             let old_setting = selector;
             selector = Selector::NEW_STRING;
-            show_token_list(llist_link(def_ref), None, (pool_size - pool_ptr) as i32);
+            t_print!("{}", TokenList(llist_link(def_ref)));
             selector = old_setting;
             let s = make_string();
             delete_token_ref(def_ref);
@@ -7900,9 +7991,9 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
         }
         ConvertCode::EtexRevision | ConvertCode::XetexRevision => {}
     }
+    let b = pool_ptr;
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    let b = pool_ptr;
     match c {
         ConvertCode::Number => t_print!("{}", oval.unwrap()),
         ConvertCode::RomanNumeral => t_print!("{}", Roman(oval.unwrap())),
@@ -9142,7 +9233,7 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
     let fn_0 = gettexstring(FONT_NAME[f]);
     let prev_selector = selector;
     selector = Selector::NEW_STRING;
-    print_chr(std::char::from_u32(c as u32).unwrap());
+    t_print!("{}", std::char::from_u32(c as u32).unwrap());
     selector = prev_selector;
     let s = make_string();
     let chr = gettexstring(s);
@@ -13243,7 +13334,7 @@ pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32)
     *LLIST_link(GARBAGE) = scan_toks(input, cs, false, true) as i32;
     let old_setting_0 = selector;
     selector = Selector::NEW_STRING;
-    token_show(Some(def_ref));
+    t_print!("{}", TokenNode(Some(def_ref)));
     selector = old_setting_0;
     flush_list(Some(def_ref));
     if pool_ptr + 1 > pool_size {
@@ -15519,11 +15610,7 @@ pub(crate) unsafe fn tokens_to_string(p: i32) -> str_number {
     }
     let old_setting = selector;
     selector = Selector::NEW_STRING;
-    show_token_list(
-        LLIST_link(p as usize).opt(),
-        None,
-        (pool_size - pool_ptr) as i32,
-    );
+    t_print!("{}", TokenList(LLIST_link(p as usize).opt()));
     selector = old_setting;
     make_string()
 }

@@ -746,7 +746,7 @@ pub(crate) unsafe fn XeTeXFontMgr_getFullName(
     let FONT_PTR = if let Some(FONT_PTR) = (*(*self_0).m_platformRefToFont).get(&font).cloned() {
         FONT_PTR
     } else {
-        abort!("internal error {} in XeTeXFontMgr", 2i32,);
+        abort!("internal error {} in XeTeXFontMgr", 2);
     };
     let FONT_PTR = FONT_PTR.as_ptr();
 

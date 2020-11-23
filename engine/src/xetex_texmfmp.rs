@@ -64,11 +64,6 @@ pub(crate) unsafe fn gettexstring(s: str_number) -> String {
         String::new()
     }
 }
-pub(crate) unsafe fn to_rust_string(string: *const i8) -> String {
-    std::ffi::CStr::from_ptr(string)
-        .to_string_lossy()
-        .to_string()
-}
 pub(crate) unsafe fn is_new_source(srcfilename: str_number, lineno: i32) -> bool {
     use std::path::Path;
     Path::new(&gettexstring(srcfilename)) != Path::new(&last_source_name) || lineno != last_lineno
