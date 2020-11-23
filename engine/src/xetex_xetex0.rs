@@ -690,38 +690,49 @@ pub(crate) unsafe fn print_rule_dimen(d: Scaled) {
         t_print!("{}", d);
     };
 }
-pub(crate) unsafe fn print_glue(d: Scaled, order: GlueOrder, s: &str) {
-    t_print!(
-        "{}{}",
-        d,
-        match order {
+pub(crate) struct GlueUnit(pub Scaled, pub GlueOrder, pub &'static str);
+impl fmt::Display for GlueUnit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)?;
+        match self.1 {
             GlueOrder::Incorrect => "foul",
             GlueOrder::Fil => "fil",
             GlueOrder::Fill => "fill",
             GlueOrder::Filll => "filll",
-            GlueOrder::Normal => s,
+            GlueOrder::Normal => self.2,
         }
-    );
+        .fmt(f)
+    }
 }
-pub(crate) unsafe fn print_spec(p: i32, unit: &str) {
-    if p < 0 || p >= lo_mem_max {
-        print_chr('*');
-    } else {
-        let p = GlueSpec(p as usize);
-        t_print!("{}", p.size());
-        if !unit.is_empty() {
-            t_print!("{}", unit);
+
+pub(crate) struct GlueSpecUnit(pub i32, pub &'static str);
+impl fmt::Display for GlueSpecUnit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            let p = self.0;
+            let unit = self.1;
+            if p < 0 || p >= lo_mem_max {
+                '*'.fmt(f)?;
+            } else {
+                let p = GlueSpec(p as usize);
+                p.size().fmt(f)?;
+                if !unit.is_empty() {
+                    unit.fmt(f)?;
+                }
+                if p.stretch() != Scaled::ZERO {
+                    " plus ".fmt(f)?;
+                    GlueUnit(p.stretch(), p.stretch_order(), unit).fmt(f)?;
+                }
+                if p.shrink() != Scaled::ZERO {
+                    " minus ".fmt(f)?;
+                    GlueUnit(p.shrink(), p.shrink_order(), unit).fmt(f)?;
+                }
+            }
         }
-        if p.stretch() != Scaled::ZERO {
-            t_print!(" plus ");
-            print_glue(p.stretch(), p.stretch_order(), unit);
-        }
-        if p.shrink() != Scaled::ZERO {
-            t_print!(" minus ");
-            print_glue(p.shrink(), p.shrink_order(), unit);
-        }
-    };
+        Ok(())
+    }
 }
+
 pub(crate) unsafe fn print_fam_and_char(p: usize) {
     let c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
     t_print!(
@@ -852,9 +863,9 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             } else {
                                 t_print!("< -");
                             }
-                            print_glue(Scaled::from(20000), p.glue_order(), "");
+                            t_print!("{}", GlueUnit(Scaled::from(20000), p.glue_order(), ""));
                         } else {
-                            print_glue(tex_round(65536_f64 * g), p.glue_order(), "");
+                            t_print!("{}", GlueUnit(tex_round(65536_f64 * g), p.glue_order(), ""));
                         }
                     }
                     if p.shift_amount() != Scaled::ZERO {
@@ -882,12 +893,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!(" ({} columns)", p.columns() as i32 + 1);
                     }
                     if p.stretch() != Scaled::ZERO {
-                        t_print!(", stretch ");
-                        print_glue(p.stretch(), p.stretch_order(), "");
+                        t_print!(", stretch {}", GlueUnit(p.stretch(), p.stretch_order(), ""));
                     }
                     if p.shrink() != Scaled::ZERO {
-                        t_print!(", shrink ");
-                        print_glue(p.shrink(), p.shrink_order(), "");
+                        t_print!(", shrink {}", GlueUnit(p.shrink(), p.shrink_order(), ""));
                     }
                     str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
@@ -904,13 +913,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 }
                 TxtNode::Ins(p_ins) => {
                     t_print!(
-                        "{}{}, natural size {}; split(",
+                        "{}{}, natural size {}; split({},{}); float cost {}",
                         Esc("insert"),
                         p_ins.box_reg() as i32,
-                        p_ins.height()
+                        p_ins.height(),
+                        GlueSpecUnit(p_ins.split_top_ptr(), ""),
+                        p_ins.depth(),
+                        p_ins.float_cost()
                     );
-                    print_spec(p_ins.split_top_ptr(), "");
-                    t_print!(",{}); float cost {}", p_ins.depth(), p_ins.float_cost());
                     str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(p_ins.ins_ptr().opt());
@@ -986,8 +996,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         } else if g.param() == X_LEADERS {
                             print_chr('x');
                         }
-                        t_print!("leaders ");
-                        print_spec(g.glue_ptr(), "");
+                        t_print!("leaders {}", GlueSpecUnit(g.glue_ptr(), ""));
                         str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list(g.leader_ptr().opt());
@@ -1009,12 +1018,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_chr(')');
                         }
                         if g.param() != COND_MATH_GLUE {
-                            print_chr(' ');
-                            if g.param() < COND_MATH_GLUE {
-                                print_spec(g.glue_ptr(), "");
+                            t_print!(" {}", if g.param() < COND_MATH_GLUE {
+                                GlueSpecUnit(g.glue_ptr(), "")
                             } else {
-                                print_spec(g.glue_ptr(), "mu");
-                            }
+                                GlueSpecUnit(g.glue_ptr(), "mu")
+                            });
                         }
                     }
                 }
@@ -7726,6 +7734,22 @@ pub(crate) unsafe fn str_toks_cat(buf: &[u16], cat: i16) -> usize {
     }
     p
 }
+pub(crate) unsafe fn str_toks_cat_utf8(buf: &str, cat: i16) -> usize {
+    let mut p = TEMP_HEAD; // tail of the token list
+    *LLIST_link(p) = None.tex_int();
+    for c in buf.chars() {
+        // token being appended
+        let t = if c == ' ' && cat == 0 {
+            SPACE_TOKEN
+        } else if cat == 0 {
+            OTHER_TOKEN + c as i32
+        } else {
+            MAX_CHAR_VAL * cat as i32 + c as i32
+        };
+        fast_store_new_token(&mut p, t);
+    }
+    p
+}
 /// converting the current string into a token list.
 ///
 /// The `str_toks` function does this; it classifies spaces as type `spacer`
@@ -7788,6 +7812,24 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
             p
         }
         _ => {
+            let s = match val_level {
+                ValLevel::Int => format!("{}", val),
+                ValLevel::Dimen => format!("{}pt", Scaled(val)),
+                ValLevel::Glue => {
+                    let s = format!("{}", GlueSpecUnit(val, "pt"));
+                    delete_glue_ref(val as usize);
+                    s
+                }
+                ValLevel::Mu => {
+                    let s = format!("{}", GlueSpecUnit(val, "mu"));
+                    delete_glue_ref(val as usize);
+                    s
+                }
+                _ => String::new(),
+            };
+
+            str_toks_cat_utf8(&s, 0)
+            /*
             let b = pool_ptr;
             let old_setting = selector; // holds |selector| setting
             selector = Selector::NEW_STRING;
@@ -7797,17 +7839,17 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
                     t_print!("{}pt", Scaled(val));
                 }
                 ValLevel::Glue => {
-                    print_spec(val, "pt");
+                    t_print!("{}", GlueSpecUnit(val, "pt"));
                     delete_glue_ref(val as usize);
                 }
                 ValLevel::Mu => {
-                    print_spec(val, "mu");
+                    t_print!("{}", GlueSpecUnit(val, "mu"));
                     delete_glue_ref(val as usize);
                 }
                 _ => {}
             }
             selector = old_setting;
-            str_toks(b)
+            str_toks(b)*/
         }
     }
 }
