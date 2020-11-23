@@ -6,7 +6,7 @@ use std::io::Write;
 use std::ptr;
 
 use super::xetex_ini::{input_state_t, EqtbWord, Selector};
-use super::xetex_io::{bytesFromUTF8, name_of_input_file, offsetsFromUTF8, u_open_in};
+use super::xetex_io::{name_of_input_file, u_open_in};
 use crate::cmd::*;
 use crate::core_memory::{mfree, xmalloc_array};
 use crate::help;
@@ -85,7 +85,7 @@ use bridge::{ttstub_issue_warning, ttstub_output_close};
 
 use bridge::{OutputHandleWrapper, TTHistory, TTInputFormat};
 
-use libc::{memcpy, strlen};
+use libc::memcpy;
 
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
@@ -5083,7 +5083,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         insert_relax(input, ocs);
                     } else {
                         /* \input */
-                        start_input(input, ptr::null()); /*393:*/
+                        start_input(input, ""); /*393:*/
                     }
                     break;
                 }
@@ -9002,9 +9002,9 @@ pub(crate) unsafe fn open_log_file() {
 ///
 /// Let's turn now to the procedure that is used to initiate file reading
 /// when an `\input` command is being processed.
-pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: *const i8) {
+pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: &str) {
     let mut format = TTInputFormat::TEX;
-    let file = if !primary_input_name.is_null() {
+    let file = if !primary_input_name.is_empty() {
         /* If this is the case, we're opening the primary input file, and the
          * name that we should use to refer to it has been handed directly to
          * us. We emulate the hacks used below to fill in cur_name, etc., from
@@ -9014,47 +9014,23 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
         name_in_progress = true;
         let res = make_name(|area_delimiter, ext_delimiter, _, _| {
             stop_at_space = false;
-            let mut cp: *const u8 = primary_input_name as *const u8;
             assert!(
-                !((pool_ptr as usize).wrapping_add(strlen(primary_input_name).wrapping_mul(2))
-                    >= pool_size as usize),
+                !((pool_ptr as usize) + primary_input_name.len() * 2 >= pool_size as usize),
                 "string pool overflow [{} bytes]",
                 pool_size,
             );
-            loop {
-                let mut rval = *cp as u32;
-                if !(rval != 0_u32) {
-                    break;
-                }
-                cp = cp.offset(1);
-                let extraBytes: u16 = bytesFromUTF8[rval as usize] as u16;
-                if extraBytes < 6 {
-                    for _ in 0..extraBytes {
-                        rval <<= 6i32;
-                        if *cp != 0 {
-                            rval = (rval as u32).wrapping_add(*cp as u32) as u32 as u32;
-                            cp = cp.offset(1);
-                        }
+            for rval in primary_input_name.chars() {
+                let mut b = [0; 2];
+                for i in rval.encode_utf16(&mut b) {
+                    if pool_ptr < pool_size {
+                        str_pool[pool_ptr as usize] = *i;
+                        pool_ptr += 1
                     }
                 }
-                rval =
-                    (rval as u32).wrapping_sub(offsetsFromUTF8[extraBytes as usize]) as u32 as u32;
-                if rval > 0xffff_u32 {
-                    rval = (rval as u32).wrapping_sub(0x10000_u32) as u32 as u32;
-                    str_pool[pool_ptr] = (0xd800_u32).wrapping_add(rval.wrapping_div(0x400_u32))
-                        as packed_UTF16_code;
-                    pool_ptr += 1;
-                    str_pool[pool_ptr] = (0xdc00_u32).wrapping_add(rval.wrapping_rem(0x400_u32))
-                        as packed_UTF16_code;
-                    pool_ptr += 1;
-                } else {
-                    str_pool[pool_ptr] = rval as packed_UTF16_code;
-                    pool_ptr += 1;
-                }
-                if rval == '/' as i32 as u32 {
+                if rval == '/' {
                     *area_delimiter = PoolString::current().len();
                     *ext_delimiter = 0;
-                } else if rval == '.' as i32 as u32 {
+                } else if rval == '.' {
                     *ext_delimiter = PoolString::current().len();
                 }
             }

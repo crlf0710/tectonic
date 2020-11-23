@@ -12,8 +12,6 @@ extern crate objc;
 
 //use log::{info, warn};
 
-pub(crate) type size_t = usize;
-
 use bibtex::bibtex_main;
 pub use bibtex::BibtexConfig;
 use bridge::TTHistory;
@@ -27,8 +25,8 @@ pub use xetex_engine_interface::tt_xetex_set_int_variable;
 
 pub unsafe fn tex_simple_main(
     api: *const tt_bridge_api_t,
-    dump_name: *const i8,
-    input_file_name: *const i8,
+    dump_name: &str,
+    input_file_name: &str,
 ) -> i32 {
     bridge::tt_with_bridge(api, || tt_run_engine(dump_name, input_file_name) as i32)
         .unwrap_or(TTHistory::FATAL_ERROR as i32)

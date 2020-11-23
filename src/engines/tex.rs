@@ -2,8 +2,6 @@
 // Copyright 2017-2018 the Tectonic Project
 // Licensed under the MIT License.
 
-use std::ffi::CString;
-
 use super::{ExecutionState, IoEventBackend, TectonicBridgeApi};
 use crate::errors::{DefinitelySame, ErrorKind, Result};
 use crate::io::IoStack;
@@ -103,9 +101,6 @@ impl TexEngine {
     ) -> Result<TexResult> {
         let _guard = super::ENGINE_LOCK.lock().unwrap(); // until we're thread-safe ...
 
-        let cformat = CString::new(format_file_name)?;
-        let cinput = CString::new(input_file_name)?;
-
         let /*mut*/ state = ExecutionState::new(io, events, status);
         let bridge = TectonicBridgeApi::new(&state);
 
@@ -137,7 +132,7 @@ impl TexEngine {
         }
 
         unsafe {
-            match super::tex_simple_main(&*bridge, cformat.as_ptr(), cinput.as_ptr()) {
+            match super::tex_simple_main(&*bridge, format_file_name, input_file_name) {
                 0 => Ok(TexResult::Spotless),
                 1 => Ok(TexResult::Warnings),
                 2 => Ok(TexResult::Errors),
