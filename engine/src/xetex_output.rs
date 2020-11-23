@@ -163,16 +163,15 @@ unsafe fn print_file_char<W: io::Write>(file: &mut W, s: char, nl: i32) -> io::R
 
 pub(crate) unsafe fn print_chr(c: char) {
     use std::fmt::Write;
-    crate::cur_output.write_char(c).unwrap();
+    selector.write_char(c).unwrap();
 }
 
 use std::fmt;
-pub(crate) struct Output;
-impl fmt::Write for Output {
+impl fmt::Write for Selector {
     #[inline]
     fn write_str(&mut self, s: &str) -> fmt::Result {
         unsafe {
-            match selector {
+            match self {
                 Selector::TERM_AND_LOG => {
                     let stdout = rust_stdout.as_mut().unwrap();
                     let lg = log_file.as_mut().unwrap();
@@ -251,7 +250,7 @@ impl fmt::Write for Output {
                     }
                 }
                 Selector::File(u) => {
-                    let file = write_file[u as usize].as_mut().unwrap();
+                    let file = write_file[*u as usize].as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
                     if !s.contains(|c: char| (c as i32) == nl || c.is_control()) {
                         io::Write::write(file, s.as_bytes()).unwrap();
@@ -446,116 +445,123 @@ impl<'a> fmt::Display for Cs {
     }
 }
 
-pub(crate) unsafe fn print_file_name(n: i32, a: i32, e: i32) {
-    let mut must_quote: bool = false;
-    let mut quote_char = None;
-    if a != 0 {
-        for &j in PoolString::from(a).as_slice() {
-            if must_quote && quote_char.is_some() {
-                break;
-            }
-            if j as i32 == ' ' as i32 {
-                must_quote = true;
-            } else if j as i32 == '\"' as i32 {
-                must_quote = true;
-                quote_char = Some('\'');
-            } else if j as i32 == '\'' as i32 {
-                must_quote = true;
-                quote_char = Some('\"');
-            }
-        }
-    }
-    if n != 0 {
-        for &j in PoolString::from(n).as_slice() {
-            if must_quote && quote_char.is_some() {
-                break;
-            }
-            if j as i32 == ' ' as i32 {
-                must_quote = true;
-            } else if j as i32 == '\"' as i32 {
-                must_quote = true;
-                quote_char = Some('\'');
-            } else if j as i32 == '\'' as i32 {
-                must_quote = true;
-                quote_char = Some('\"');
+use crate::xetex_xetex0::FileName;
+impl<'a> fmt::Display for FileName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let n = self.name;
+        let a = self.area;
+        let e = self.ext;
+        let mut must_quote: bool = false;
+        let mut quote_char = None;
+        if a != 0 {
+            for &j in PoolString::from(a).as_slice() {
+                if must_quote && quote_char.is_some() {
+                    break;
+                }
+                if j as i32 == ' ' as i32 {
+                    must_quote = true;
+                } else if j as i32 == '\"' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\'');
+                } else if j as i32 == '\'' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\"');
+                }
             }
         }
-    }
-    if e != 0 {
-        for &j in PoolString::from(e).as_slice() {
-            if must_quote && quote_char.is_some() {
-                break;
-            }
-            if j as i32 == ' ' as i32 {
-                must_quote = true;
-            } else if j as i32 == '\"' as i32 {
-                must_quote = true;
-                quote_char = Some('\'');
-            } else if j as i32 == '\'' as i32 {
-                must_quote = true;
-                quote_char = Some('\"');
+        if n != 0 {
+            for &j in PoolString::from(n).as_slice() {
+                if must_quote && quote_char.is_some() {
+                    break;
+                }
+                if j as i32 == ' ' as i32 {
+                    must_quote = true;
+                } else if j as i32 == '\"' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\'');
+                } else if j as i32 == '\'' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\"');
+                }
             }
         }
-    }
-    if must_quote {
+        if e != 0 {
+            for &j in PoolString::from(e).as_slice() {
+                if must_quote && quote_char.is_some() {
+                    break;
+                }
+                if j as i32 == ' ' as i32 {
+                    must_quote = true;
+                } else if j as i32 == '\"' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\'');
+                } else if j as i32 == '\'' as i32 {
+                    must_quote = true;
+                    quote_char = Some('\"');
+                }
+            }
+        }
+        if must_quote {
+            if let Some(qc) = quote_char {
+                qc.fmt(f)?;
+            } else {
+                quote_char = Some('\"');
+                '\"'.fmt(f)?;
+            }
+        }
+        if a != 0 {
+            for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
+                let j = j.unwrap();
+                if Some(j) == quote_char {
+                    j.fmt(f)?;
+                    let c = match j {
+                        '\"' => '\'',
+                        '\'' => '\"',
+                        _ => unreachable!(),
+                    };
+                    quote_char = Some(c);
+                    c.fmt(f)?;
+                }
+                j.fmt(f)?;
+            }
+        }
+        if n != 0 {
+            for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
+                let j = j.unwrap();
+                if Some(j) == quote_char {
+                    j.fmt(f)?;
+                    let c = match j {
+                        '\"' => '\'',
+                        '\'' => '\"',
+                        _ => unreachable!(),
+                    };
+                    quote_char = Some(c);
+                    c.fmt(f)?;
+                }
+                j.fmt(f)?;
+            }
+        }
+        if e != 0 {
+            for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
+                let j = j.unwrap();
+                if Some(j) == quote_char {
+                    j.fmt(f)?;
+                    let c = match j {
+                        '\"' => '\'',
+                        '\'' => '\"',
+                        _ => unreachable!(),
+                    };
+                    quote_char = Some(c);
+                    c.fmt(f)?;
+                }
+                j.fmt(f)?;
+            }
+        }
         if let Some(qc) = quote_char {
-            print_chr(qc);
-        } else {
-            quote_char = Some('\"');
-            print_chr('\"');
-        }
+            qc.fmt(f)?;
+        };
+        Ok(())
     }
-    if a != 0 {
-        for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
-            let j = j.unwrap();
-            if Some(j) == quote_char {
-                print_chr(j);
-                let c = match j {
-                    '\"' => '\'',
-                    '\'' => '\"',
-                    _ => unreachable!(),
-                };
-                quote_char = Some(c);
-                print_chr(c);
-            }
-            print_chr(j);
-        }
-    }
-    if n != 0 {
-        for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
-            let j = j.unwrap();
-            if Some(j) == quote_char {
-                print_chr(j);
-                let c = match j {
-                    '\"' => '\'',
-                    '\'' => '\"',
-                    _ => unreachable!(),
-                };
-                quote_char = Some(c);
-                print_chr(c);
-            }
-            print_chr(j);
-        }
-    }
-    if e != 0 {
-        for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
-            let j = j.unwrap();
-            if Some(j) == quote_char {
-                print_chr(j);
-                let c = match j {
-                    '\"' => '\'',
-                    '\'' => '\"',
-                    _ => unreachable!(),
-                };
-                quote_char = Some(c);
-                print_chr(c);
-            }
-            print_chr(j);
-        }
-    }
-    if let Some(qc) = quote_char {
-        print_chr(qc);
-    };
 }
 pub(crate) unsafe fn print_size(s: i32) {
     if s == TEXT_SIZE as i32 {
@@ -566,25 +572,46 @@ pub(crate) unsafe fn print_size(s: i32) {
         print_esc_cstr("scriptscriptfont");
     };
 }
-pub(crate) unsafe fn print_write_whatsit(s: &str, p: usize) {
-    print_esc_cstr(s);
-    if MEM[p + 1].b32.s0 < 16 {
-        t_print!("{}", MEM[p + 1].b32.s0);
-    } else if MEM[p + 1].b32.s0 == 16 {
-        t_print!("*");
-    } else {
-        t_print!("-");
-    };
-}
-pub(crate) unsafe fn print_native_word(p: &NativeWord) {
-    for c in std::char::decode_utf16(p.text().iter().cloned()) {
-        if let Ok(c) = c {
-            t_print!("{}", c);
-        } else {
-            t_print!(".");
+
+impl<'a> fmt::Display for crate::node::whatsit::WriteFile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Esc("write").fmt(f)?;
+        let i = unsafe { self.id() };
+        match i {
+            0..=15 => i.fmt(f),
+            16 => '*'.fmt(f),
+            _ => '-'.fmt(f),
         }
     }
 }
+
+impl<'a> fmt::Display for crate::node::whatsit::OpenFile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Esc("openout").fmt(f)?;
+        unsafe { self.id() }.fmt(f)
+    }
+}
+
+impl<'a> fmt::Display for crate::node::whatsit::CloseFile {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Esc("closeout").fmt(f)?;
+        unsafe { self.id() }.fmt(f)
+    }
+}
+
+impl<'a> fmt::Display for NativeWord {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for c in std::char::decode_utf16(unsafe { self.text() }.iter().cloned()) {
+            if let Ok(c) = c {
+                c.fmt(f)?;
+            } else {
+                ".".fmt(f)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 pub(crate) unsafe fn print_sa_num(mut q: usize) {
     let mut n;
     if MEM[q].b16.s1 < DIMEN_VAL_LIMIT {

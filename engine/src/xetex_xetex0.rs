@@ -2,7 +2,6 @@
 
 use crate::xetex_output::{Cs, Esc, Roman};
 use crate::{t_eprint, t_print, t_print_nl};
-use std::ffi::CString;
 use std::io::Write;
 use std::ptr;
 
@@ -28,29 +27,29 @@ use crate::xetex_ini::FONT_LETTER_SPACE;
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state, arith_error,
     avail, bchar, best_height_plus_depth, breadth_max, cancel_boundary, cond_ptr, cur_align,
-    cur_area, cur_boundary, cur_box, cur_chr, cur_cmd, cur_cs, cur_dir, cur_ext, cur_group,
-    cur_head, cur_if, cur_input, cur_l, cur_lang, cur_level, cur_list, cur_loop, cur_mark,
-    cur_name, cur_order, cur_pre_head, cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail,
-    cur_tok, dead_cycles, def_ref, deletions_allowed, depth_threshold, disc_ptr, error_count,
-    error_line, expand_depth, expand_depth_count, false_bchar, file_offset, first, first_count,
-    fmem_ptr, font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash,
-    hash_extra, hash_high, hash_used, hi_mem_min, history, if_limit, if_line, init_pool_ptr,
-    init_str_ptr, ins_disc, insert_penalties, insert_src_special_auto,
-    insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
-    is_in_csname, job_name, last, last_badness, last_glue, last_kern, last_leftmost_char,
-    last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack, ligature_present, line,
-    lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i,
-    main_j, main_k, main_s, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num,
-    max_strings, mem_end, name_in_progress, name_of_file, no_new_control_sequence, open_parens,
-    output_active, pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token,
-    pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim,
-    prim_eqtb, prim_used, pseudo_files, pstack, read_file, read_open, rover, rt_hit, rust_stdout,
-    sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed, shown_mode, skip_line,
-    space_class, stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, texmf_log_name,
-    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
-    warning_index, write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL,
-    BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE,
-    FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
+    cur_boundary, cur_box, cur_chr, cur_cmd, cur_cs, cur_dir, cur_group, cur_head, cur_if,
+    cur_input, cur_l, cur_lang, cur_level, cur_list, cur_loop, cur_mark, cur_name, cur_order,
+    cur_pre_head, cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail, cur_tok, dead_cycles,
+    def_ref, deletions_allowed, depth_threshold, disc_ptr, error_count, error_line, expand_depth,
+    expand_depth_count, false_bchar, file_offset, first, first_count, fmem_ptr,
+    font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash, hash_extra,
+    hash_high, hash_used, hi_mem_min, history, if_limit, if_line, init_pool_ptr, init_str_ptr,
+    ins_disc, insert_penalties, insert_src_special_auto, insert_src_special_every_par,
+    insert_src_special_every_vbox, interaction, is_hyph, is_in_csname, job_name, last,
+    last_badness, last_glue, last_kern, last_leftmost_char, last_node_type, last_penalty,
+    last_rightmost_char, lft_hit, lig_stack, ligature_present, line, lo_mem_max, log_file,
+    log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j, main_k,
+    main_s, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num, max_strings, mem_end,
+    name_in_progress, name_of_font, no_new_control_sequence, open_parens, output_active,
+    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
+    pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used,
+    pseudo_files, pstack, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
+    sa_root, scanner_status, selector, set_box_allowed, shown_mode, skip_line, space_class,
+    stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, texmf_log_name, total_shrink,
+    total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
+    write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER,
+    BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC,
+    FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
     FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
     GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE,
     LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK,
@@ -66,10 +65,7 @@ use crate::xetex_math::{
     math_fraction, math_left_right, math_limit_switch, math_radical, resume_after_display,
     start_eq_no, sub_sup,
 };
-use crate::xetex_output::{
-    print_chr, print_esc_cstr, print_file_name, print_ln, print_native_word, print_sa_num,
-    print_size, print_write_whatsit,
-};
+use crate::xetex_output::{print_chr, print_esc_cstr, print_ln, print_sa_num, print_size};
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
 use crate::xetex_scaledmath::{
@@ -85,9 +81,9 @@ use crate::xetex_texmfmp::{
     getmd5sum, gettexstring, is_new_source, make_src_special, maketexstring, remember_source_info,
 };
 use crate::xetex_xetexd::*;
-use bridge::{ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
+use bridge::{ttstub_issue_warning, ttstub_output_close};
 
-use bridge::{TTHistory, TTInputFormat};
+use bridge::{OutputHandleWrapper, TTHistory, TTInputFormat};
 
 use libc::{memcpy, strlen};
 
@@ -531,17 +527,19 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                     WhatsIt::NativeWord(nw) => {
                         if nw.font() as usize != font_in_short_display {
                             t_print!(
-                                "{} ",
+                                "{} {}",
                                 Esc(&PoolString::from(
                                     (*hash
                                         .offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
                                     .s1
                                 )
-                                .to_string())
+                                .to_string()),
+                                nw
                             );
-                            font_in_short_display = nw.font() as usize
+                            font_in_short_display = nw.font() as usize;
+                        } else {
+                            t_print!("{}", nw);
                         }
-                        print_native_word(&nw);
                     }
                     _ => t_print!("[]"),
                 },
@@ -840,15 +838,21 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 }
                 TxtNode::WhatsIt(p) => match p {
                     WhatsIt::Open(p) => {
-                        print_write_whatsit("openout", p.ptr());
-                        print_chr('=');
-                        print_file_name(p.name(), p.area(), p.ext());
+                        t_print!(
+                            "{}={}",
+                            p,
+                            FileName {
+                                name: p.name(),
+                                area: p.area(),
+                                ext: p.ext()
+                            }
+                        );
                     }
                     WhatsIt::Write(p) => {
-                        print_write_whatsit("write", p.ptr());
+                        t_print!("{}", p);
                         print_mark(p.tokens());
                     }
-                    WhatsIt::Close(p) => print_write_whatsit("closeout", p.ptr()),
+                    WhatsIt::Close(p) => t_print!("{}", p),
                     WhatsIt::Special(s) => {
                         print_esc_cstr("special");
                         print_mark(s.tokens());
@@ -864,14 +868,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                     WhatsIt::NativeWord(nw) => {
                         t_print!(
-                            "{} ",
+                            "{} {}",
                             Esc(&PoolString::from(
                                 (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
                                     .s1,
                             )
-                            .to_string())
+                            .to_string()),
+                            nw
                         );
-                        print_native_word(&nw);
                     }
                     WhatsIt::Glyph(g) => {
                         t_print!(
@@ -5266,9 +5270,9 @@ pub(crate) unsafe fn mu_error() {
 }
 pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont) -> i32 {
     if scan_keyword(input, "/") {
-        scan_file_name(input);
-        pack_file_name(cur_name, cur_area, cur_ext);
-        let val = map_glyph_to_index(f);
+        let (file, ..) = scan_file_name(input);
+        let fullname = file.to_string();
+        let val = map_glyph_to_index(f, &fullname);
         val
     } else if scan_keyword(input, "u") {
         let val = scan_char_num(input);
@@ -6226,9 +6230,8 @@ pub(crate) unsafe fn scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    scan_file_name(input);
-                                    pack_file_name(cur_name, cur_area, cur_ext);
-                                    aat::aat_font_get_named(m.into(), *e)
+                                    let name = scan_file_name(input).0.to_string();
+                                    aat::aat_font_get_named(&name, m.into(), *e)
                                 }
                                 _ => {
                                     not_aat_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6241,14 +6244,12 @@ pub(crate) unsafe fn scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
-                                    scan_file_name(input);
-                                    pack_file_name(cur_name, cur_area, cur_ext);
-                                    aat::aat_font_get_named(m.into(), *e)
+                                    let name = scan_file_name(input).0.to_string();
+                                    aat::aat_font_get_named(&name, m.into(), *e)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                                    scan_file_name(input);
-                                    pack_file_name(cur_name, cur_area, cur_ext);
-                                    gr_font_get_named((m as i32) - 14, e)
+                                    let name = scan_file_name(input).0.to_string();
+                                    gr_font_get_named(&name, (m as i32) - 14, e)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6262,15 +6263,13 @@ pub(crate) unsafe fn scan_something_internal(
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     let k = scan_int(input);
-                                    scan_file_name(input);
-                                    pack_file_name(cur_name, cur_area, cur_ext);
-                                    aat::aat_font_get_named_1(m.into(), *e, k)
+                                    let name = scan_file_name(input).0.to_string();
+                                    aat::aat_font_get_named_1(&name, m.into(), *e, k)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
-                                    scan_file_name(input);
-                                    pack_file_name(cur_name, cur_area, cur_ext);
-                                    gr_font_get_named_1((m as i32) - 14, e, k)
+                                    let name = scan_file_name(input).0.to_string();
+                                    gr_font_get_named_1(&name, (m as i32) - 14, e, k)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6348,9 +6347,8 @@ pub(crate) unsafe fn scan_something_internal(
                             if let Font::Native(nf) =
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
-                                scan_file_name(input);
-                                pack_file_name(cur_name, cur_area, cur_ext);
-                                map_glyph_to_index(nf)
+                                let name = scan_file_name(input).0.to_string();
+                                map_glyph_to_index(nf, &name)
                             } else {
                                 not_native_font_error(
                                     Cmd::LastItem,
@@ -6386,9 +6384,8 @@ pub(crate) unsafe fn scan_something_internal(
                         LastItemCode::PdfLastXPos => pdf_last_x_pos.0,
                         LastItemCode::PdfLastYPos => pdf_last_y_pos.0,
                         LastItemCode::XetexPdfPageCount => {
-                            scan_file_name(input);
-                            pack_file_name(cur_name, cur_area, cur_ext);
-                            count_pdf_file_pages()
+                            let name = scan_file_name(input).0.to_string();
+                            count_pdf_file_pages(&name)
                         }
                         LastItemCode::CurrentGroupLevel => cur_level as i32 - 1,
                         LastItemCode::CurrentGroupType => cur_group as i32,
@@ -8034,7 +8031,14 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 _ => t_print!("0pt"),
             }
         }
-        ConvertCode::JobName => print_file_name(job_name, 0, 0),
+        ConvertCode::JobName => t_print!(
+            "{}",
+            FileName {
+                name: job_name,
+                area: 0,
+                ext: 0
+            }
+        ),
         _ => {}
     }
     selector = old_setting;
@@ -8813,7 +8817,15 @@ pub(crate) unsafe fn more_name(
     }
     true
 }
-pub(crate) unsafe fn make_name<F>(mut f: F) -> (bool, Option<char>)
+
+#[derive(Clone, Debug)]
+pub(crate) struct FileName {
+    pub name: str_number,
+    pub area: str_number,
+    pub ext: str_number,
+}
+
+pub(crate) unsafe fn make_name<F>(mut f: F) -> (FileName, bool, Option<char>)
 where
     F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<char>),
 {
@@ -8834,17 +8846,20 @@ where
     }
     /* area_delimiter is the length from the start of the filename to the
      * directory seperator "/", which we use to construct the stringpool
-     * string `cur_area`. If there was already a string in the stringpool for
+     * string `area`. If there was already a string in the stringpool for
      * the area, reuse it. */
+    let mut name;
+    let mut area;
+    let ext;
     if area_delimiter == 0 {
-        cur_area = EMPTY_STRING as str_number
+        area = EMPTY_STRING as str_number
     } else {
-        cur_area = str_ptr;
+        area = str_ptr;
         str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize] =
             str_start[(str_ptr - TOO_BIG_CHAR) as usize] + area_delimiter;
         str_ptr += 1;
-        if let Some(temp_str) = search_string(cur_area) {
-            cur_area = temp_str;
+        if let Some(temp_str) = search_string(area) {
+            area = temp_str;
             str_ptr -= 1;
             for j in str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize]..=(pool_ptr - 1) {
                 str_pool[(j - area_delimiter) as usize] = str_pool[j];
@@ -8854,40 +8869,48 @@ where
     }
     /* ext_delimiter is the length from the start of the filename to the
      * extension '.' delimiter, which we use to construct the stringpool
-     * strings `cur_ext` and `cur_name`. */
+     * strings `ext` and `name`. */
     if ext_delimiter == 0 {
-        cur_ext = EMPTY_STRING as str_number;
-        cur_name = slow_make_string()
+        ext = EMPTY_STRING as str_number;
+        name = slow_make_string()
     } else {
-        cur_name = str_ptr;
+        name = str_ptr;
         str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize] =
             str_start[(str_ptr - TOO_BIG_CHAR) as usize] + ext_delimiter - area_delimiter - 1;
         str_ptr += 1;
-        cur_ext = make_string();
+        let _ext = make_string();
         str_ptr -= 1;
-        if let Some(temp_str) = search_string(cur_name) {
-            cur_name = temp_str;
+        if let Some(temp_str) = search_string(name) {
+            name = temp_str;
             str_ptr -= 1;
             for j in str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize]..=(pool_ptr - 1) {
                 str_pool[(j - ext_delimiter + area_delimiter + 1) as usize] = str_pool[j];
             }
             pool_ptr = pool_ptr - ext_delimiter + area_delimiter + 1;
         }
-        cur_ext = slow_make_string()
+        ext = slow_make_string()
     };
-    (quoted_filename, file_name_quote_char)
+    (
+        FileName { name, area, ext },
+        quoted_filename,
+        file_name_quote_char,
+    )
 }
-pub(crate) unsafe fn pack_file_name(name: str_number, path: str_number, ext: str_number) {
-    name_of_file = gettexstring(path) + &gettexstring(name) + &gettexstring(ext);
+
+impl FileName {
+    pub(crate) unsafe fn to_string(&self) -> String {
+        gettexstring(self.area) + &gettexstring(self.name) + &gettexstring(self.ext)
+    }
 }
-pub(crate) unsafe fn make_name_string() -> str_number {
-    if pool_ptr as usize + name_of_file.as_bytes().len() > pool_size as usize
+
+pub(crate) unsafe fn make_name_string(name: &str) -> str_number {
+    if pool_ptr as usize + name.len() > pool_size as usize
         || str_ptr == max_strings as i32
         || PoolString::current().len() > 0
     {
         return '?' as i32;
     }
-    let name_of_file16: Vec<u16> = name_of_file.encode_utf16().collect();
+    let name_of_file16: Vec<u16> = name.encode_utf16().collect();
     for &k in &name_of_file16 {
         str_pool[pool_ptr] = k;
         pool_ptr += 1;
@@ -8895,17 +8918,19 @@ pub(crate) unsafe fn make_name_string() -> str_number {
     let result = make_string();
     let save_name_in_progress = name_in_progress;
     name_in_progress = true;
-    make_name(|a, e, q, qc| {
+    let res = make_name(|a, e, q, qc| {
         for &k in &name_of_file16 {
             if !more_name(k, false, a, e, q, qc) {
                 break;
             }
         }
     });
+    cur_name = res.0.name;
     name_in_progress = save_name_in_progress;
     result
 }
-pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (bool, Option<char>) {
+
+pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, bool, Option<char>) {
     name_in_progress = true;
     let res = make_name(|a, e, q, qc| {
         let (mut tok, mut cmd, mut chr, _) = loop {
@@ -8932,24 +8957,21 @@ pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (bool, Option<
     name_in_progress = false;
     res
 }
-pub(crate) unsafe fn pack_job_name(s: &str) {
-    cur_area = EMPTY_STRING as str_number;
-    cur_ext = maketexstring(s);
-    cur_name = job_name;
-    pack_file_name(cur_name, cur_area, cur_ext);
+pub(crate) unsafe fn pack_job_name(ext: &str) -> String {
+    maketexstring(ext); // NOTE: format file only
+    gettexstring(job_name) + ext
 }
 pub(crate) unsafe fn open_log_file() {
     let old_setting = selector;
     if job_name == 0 {
         job_name = maketexstring("texput")
     }
-    pack_job_name(".log");
-    let log_name = CString::new(name_of_file.as_str()).unwrap();
-    log_file = ttstub_output_open(log_name.as_ptr(), 0);
+    let log_name = pack_job_name(".log");
+    log_file = OutputHandleWrapper::open(&log_name, 0);
     if log_file.is_none() {
-        abort!("cannot open log file output \"{}\"", name_of_file);
+        abort!("cannot open log file output \"{}\"", log_name);
     }
-    texmf_log_name = make_name_string();
+    texmf_log_name = make_name_string(&log_name);
     selector = Selector::LOG_ONLY;
     log_opened = true;
     INPUT_STACK[INPUT_PTR] = cur_input;
@@ -8982,7 +9004,7 @@ pub(crate) unsafe fn open_log_file() {
 /// when an `\input` command is being processed.
 pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: *const i8) {
     let mut format = TTInputFormat::TEX;
-    if !primary_input_name.is_null() {
+    let file = if !primary_input_name.is_null() {
         /* If this is the case, we're opening the primary input file, and the
          * name that we should use to refer to it has been handed directly to
          * us. We emulate the hacks used below to fill in cur_name, etc., from
@@ -8990,7 +9012,7 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
          * are hardly used so it'd be nice to get rid of them someday. */
         format = TTInputFormat::TECTONIC_PRIMARY;
         name_in_progress = true;
-        make_name(|area_delimiter, ext_delimiter, _, _| {
+        let res = make_name(|area_delimiter, ext_delimiter, _, _| {
             stop_at_space = false;
             let mut cp: *const u8 = primary_input_name as *const u8;
             assert!(
@@ -9038,32 +9060,32 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
             }
             stop_at_space = true;
         });
-        name_in_progress = false
+        name_in_progress = false;
+        res.0
     } else {
         /* Scan in the file name from the current token stream. The file name to
          * input is saved as the stringpool strings `cur_{name,area,ext}` and the
-         * UTF-8 string `name_of_file`. */
-        scan_file_name(input);
-    }
-    pack_file_name(cur_name, cur_area, cur_ext);
-    /* Open up the new file to be read. The name of the file to be read comes
-     * from `name_of_file`. */
+         * UTF-8 string `filename`. */
+        scan_file_name(input).0
+    };
+    let filename = file.to_string();
     begin_file_reading(input);
     let ufile = u_open_in(
+        &filename,
         format,
         b"rb",
         UnicodeMode::from(get_int_par(IntPar::xetex_default_input_mode)),
         get_int_par(IntPar::xetex_default_input_encoding),
     );
     if ufile.is_none() {
-        abort!("failed to open input file \"{}\"", name_of_file);
+        abort!("failed to open input file \"{}\"", filename);
     }
     INPUT_FILE[cur_input.index as usize] = ufile;
-    /* Now re-encode `name_of_file` into the UTF-16 variable `name_of_file16`,
+    /* Now re-encode `filename` into the UTF-16 variable `name_of_file16`,
      * and use that to recompute `cur_{name,area,ext}`. */
     name_in_progress = true;
     make_name(|a, e, q, qc| {
-        for k in name_of_file.encode_utf16() {
+        for k in filename.encode_utf16() {
             if !more_name(k, false, a, e, q, qc) {
                 break;
             }
@@ -9075,7 +9097,7 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
      * input file. This calls make_utf16_name() again and reruns through the
      * {begin,more,end}_name() trifecta to re-re-compute
      * `cur_{name,area,ext}`. */
-    input.name = make_name_string();
+    input.name = make_name_string(&filename);
     SOURCE_FILENAME_STACK[IN_OPEN] = input.name;
     /* *This* variant is a TeX string made out of `name_of_input_file`. */
     FULL_SOURCE_FILENAME_STACK[IN_OPEN] = maketexstring(&name_of_input_file);
@@ -9260,7 +9282,7 @@ pub(crate) unsafe fn font_feature_warning(feature_name: &[u8], setting_name: &[u
         t_print!(
             "feature `{}\' in font `{}\'.",
             std::str::from_utf8(feature_name).unwrap(),
-            name_of_file
+            name_of_font
         );
     });
 }
@@ -9270,13 +9292,13 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
             t_print_nl!(
                 "Loaded mapping `{}\' for font `{}",
                 mapping_name,
-                name_of_file
+                name_of_font
             );
         } else {
             t_print_nl!(
                 "Font mapping `{}\' for font `{}",
                 mapping_name,
-                name_of_file
+                name_of_font
             );
         }
         match warningType {
@@ -9293,7 +9315,7 @@ pub(crate) unsafe fn font_mapping_warning(mapping_name: &str, warningType: i32) 
     diagnostic(false, || {
         t_print_nl!(
             "Font `{}\' does not support Graphite. Trying OpenType layout instead.",
-            name_of_file
+            name_of_font
         );
     });
 }*/
@@ -13145,7 +13167,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         eq_define(u, Cmd::SetFont, Some(FONT_BASE));
     }
     scan_optional_equals(input);
-    let (quoted_filename, file_name_quote_char) = scan_file_name(input);
+    let (file, quoted_filename, file_name_quote_char) = scan_file_name(input);
     name_in_progress = true;
     let mut s;
     if scan_keyword(input, "at") {
@@ -13179,8 +13201,8 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         // TODO: check
         let font_name = PoolString::from(FONT_NAME[f]);
         let font_area = PoolString::from(FONT_AREA[f]);
-        let area = PoolString::from(cur_area);
-        let name = PoolString::from(cur_name);
+        let area = PoolString::from(file.area);
+        let name = PoolString::from(file.name);
         if font_name == name
             && ((area.len() == 0 && matches!(&FONT_LAYOUT_ENGINE[f], Font::Native(_)))
                 || font_area == area)
@@ -13193,9 +13215,9 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
                 return common_ending(a, u, f, t);
             }
         }
-        append_str(cur_area);
-        append_str(cur_name);
-        append_str(cur_ext);
+        append_str(file.area);
+        append_str(file.name);
+        append_str(file.ext);
         if PoolString::from(FONT_NAME[f]) == PoolString::from(make_string()) {
             PoolString::flush();
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
@@ -13222,19 +13244,12 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
     }
 
-    let f = crate::tfm::read_font_info(
-        u as i32,
-        cur_name,
-        cur_area,
-        s,
-        quoted_filename,
-        file_name_quote_char,
-    )
-    .map(crate::tfm::good_tfm)
-    .unwrap_or_else(|e| {
-        crate::tfm::bad_tfm(e, u as i32, cur_name, cur_area, s, file_name_quote_char);
-        FONT_BASE
-    });
+    let f = crate::tfm::read_font_info(u as i32, &file, s, quoted_filename, file_name_quote_char)
+        .map(crate::tfm::good_tfm)
+        .unwrap_or_else(|e| {
+            crate::tfm::bad_tfm(e, u as i32, &file, s, file_name_quote_char);
+            FONT_BASE
+        });
     common_ending(a, u, f, t)
 }
 pub(crate) unsafe fn new_interaction(chr: i32) {
@@ -13445,8 +13460,8 @@ pub(crate) unsafe fn do_extension(
             let val = scan_four_bit_int(input);
             o.set_id(val);
             scan_optional_equals(input);
-            scan_file_name(input);
-            o.set_name(cur_name).set_area(cur_area).set_ext(cur_ext);
+            let (file, ..) = scan_file_name(input);
+            o.set_name(file.name).set_area(file.area).set_ext(file.ext);
         }
         1 => {
             // WriteFile
@@ -13571,9 +13586,8 @@ pub(crate) unsafe fn do_extension(
             }
         }
         XETEX_INPUT_ENCODING_EXTENSION_CODE => {
-            scan_file_name(input);
-            pack_file_name(cur_name, cur_area, cur_ext);
-            let i = get_encoding_mode_and_info(&mut j);
+            let name = scan_file_name(input).0.to_string();
+            let i = get_encoding_mode_and_info(&name, &mut j);
             if i == UnicodeMode::Auto {
                 t_eprint!("Encoding mode `auto\' is not valid for \\XeTeXinputencoding");
                 help!(
@@ -13586,18 +13600,17 @@ pub(crate) unsafe fn do_extension(
             }
         }
         XETEX_DEFAULT_ENCODING_EXTENSION_CODE => {
-            scan_file_name(input);
-            pack_file_name(cur_name, cur_area, cur_ext);
-            let i = get_encoding_mode_and_info(&mut j);
+            let name = scan_file_name(input).0.to_string();
+            let i = get_encoding_mode_and_info(&name, &mut j);
             set_int_par(IntPar::xetex_default_input_mode, i as i32);
             set_int_par(IntPar::xetex_default_input_encoding, j);
         }
         XETEX_LINEBREAK_LOCALE_EXTENSION_CODE => {
-            scan_file_name(input);
-            if PoolString::from(cur_name).len() == 0 {
+            let (file, ..) = scan_file_name(input);
+            if PoolString::from(file.name).len() == 0 {
                 set_int_par(IntPar::xetex_linebreak_locale, 0);
             } else {
-                set_int_par(IntPar::xetex_linebreak_locale, cur_name);
+                set_int_par(IntPar::xetex_linebreak_locale, file.name);
             }
         }
         6 => {

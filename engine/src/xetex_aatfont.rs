@@ -18,8 +18,7 @@ use crate::core_memory::{xcalloc, xmalloc};
 use crate::node::NativeWord;
 use crate::xetex_ext::{readCommonFeatures, read_double, D2Fix, Fix2D};
 use crate::xetex_ini::{
-    loaded_font_flags, loaded_font_letter_space, name_of_file, FONT_LAYOUT_ENGINE,
-    FONT_LETTER_SPACE,
+    loaded_font_flags, loaded_font_letter_space, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
 };
 use crate::xetex_xetex0::font_feature_warning;
 use libc::{free, strlen};
@@ -1143,7 +1142,11 @@ pub(crate) unsafe fn aat_font_get_2(
     return rval;
 }
 
-pub(crate) unsafe fn aat_font_get_named(what: ExtCmd, attributes: CFDictionaryRef) -> libc::c_int {
+pub(crate) unsafe fn aat_font_get_named(
+    name: &str,
+    what: ExtCmd,
+    attributes: CFDictionaryRef,
+) -> libc::c_int {
     let mut rval: libc::c_int = -1i32;
     if what == ExtCmd::XetexFindFeatureByName {
         let font = font_from_attributes(attributes);
@@ -1152,7 +1155,7 @@ pub(crate) unsafe fn aat_font_get_named(what: ExtCmd, attributes: CFDictionaryRe
             let feature = findDictionaryInArray(
                 features,
                 kCTFontFeatureTypeNameKey as *const libc::c_void,
-                name_of_file.as_bytes(),
+                name.as_bytes(),
             );
             if !feature.is_null() {
                 let identifier = CFDictionaryGetValue(
@@ -1172,6 +1175,7 @@ pub(crate) unsafe fn aat_font_get_named(what: ExtCmd, attributes: CFDictionaryRe
 }
 
 pub(crate) unsafe fn aat_font_get_named_1(
+    name: &str,
     what: ExtCmd,
     attributes: CFDictionaryRef,
     param: i32,
@@ -1187,7 +1191,7 @@ pub(crate) unsafe fn aat_font_get_named_1(
                 param,
             );
             if !feature.is_null() {
-                let selector = findSelectorByName(feature, name_of_file.as_bytes());
+                let selector = findSelectorByName(feature, name.as_bytes());
                 if !selector.is_null() {
                     CFNumberGetValue(
                         selector,

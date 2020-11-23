@@ -7,13 +7,13 @@ use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::UnicodeMode;
 use crate::xetex_ini::{
-    cur_area, cur_ext, cur_name, first, input_state_t, last, max_buf_stack, name_in_progress,
-    name_of_file, read_file, read_open, stop_at_space, BUFFER, BUF_SIZE,
+    first, input_state_t, last, max_buf_stack, name_in_progress, read_file, read_open,
+    stop_at_space, BUFFER, BUF_SIZE,
 };
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetex0::{
     bad_utf8_warning, diagnostic, get_input_normalization_state, make_name, more_name,
-    pack_file_name, scan_file_name, scan_four_bit_int, scan_optional_equals,
+    scan_file_name, scan_four_bit_int, scan_optional_equals,
 };
 use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
@@ -50,16 +50,16 @@ pub(crate) struct UFILE {
 */
 #[no_mangle]
 pub(crate) static mut name_of_input_file: String = String::new();
-pub(crate) unsafe fn tt_xetex_open_input(filefmt: TTInputFormat) -> Option<InFile> {
+pub(crate) unsafe fn tt_xetex_open_input(filename: &str, filefmt: TTInputFormat) -> Option<InFile> {
     let handle = if filefmt == TTInputFormat::TECTONIC_PRIMARY {
         InFile::open_primary()
     } else {
-        InFile::open(&name_of_file, filefmt as TTInputFormat, 0)
+        InFile::open(&filename, filefmt as TTInputFormat, 0)
     };
     if handle.is_none() {
         return None;
     }
-    name_of_input_file = name_of_file.clone();
+    name_of_input_file = filename.to_string();
     handle
 }
 /* tables/values used in UTF-8 interpretation -
@@ -115,12 +115,13 @@ pub(crate) unsafe fn set_input_file_encoding(f: &mut UFILE, mode: UnicodeMode, e
     };
 }
 pub(crate) unsafe fn u_open_in(
+    filename: &str,
     filefmt: TTInputFormat,
     mut _fopen_mode: &[u8],
     mut mode: UnicodeMode,
     encodingData: i32,
 ) -> Option<Box<UFILE>> {
-    let handle = tt_xetex_open_input(filefmt);
+    let handle = tt_xetex_open_input(filename, filefmt);
     if handle.is_none() {
         return None;
     }
@@ -513,9 +514,9 @@ pub(crate) unsafe fn open_or_close_in(input: &mut input_state_t, chr: i32) {
     }
     if c != 0 {
         scan_optional_equals(input);
-        scan_file_name(input);
-        pack_file_name(cur_name, cur_area, cur_ext);
+        let filename = scan_file_name(input).0.to_string();
         let ufile = u_open_in(
+            &filename,
             TTInputFormat::TEX,
             b"rb",
             UnicodeMode::from(get_int_par(IntPar::xetex_default_input_mode)),
@@ -525,7 +526,7 @@ pub(crate) unsafe fn open_or_close_in(input: &mut input_state_t, chr: i32) {
             read_file[n as usize] = ufile;
             name_in_progress = true;
             make_name(|a, e, q, qc| {
-                for k in name_of_file.encode_utf16() {
+                for k in filename.encode_utf16() {
                     if !more_name(k, false, a, e, q, qc) {
                         break;
                     }

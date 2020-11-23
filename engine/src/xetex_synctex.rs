@@ -3,7 +3,6 @@
 use crate::xetex_scaledmath::Scaled;
 const S_72_27: Scaled = Scaled(4736287);
 
-use std::ffi::CString;
 use std::io::Write;
 
 use crate::node::{Kern, List, TxtNode, BOX_NODE_SIZE, MEDIUM_NODE_SIZE, RULE_NODE_SIZE};
@@ -15,7 +14,7 @@ use crate::xetex_ini::{
 use crate::xetex_io::name_of_input_file;
 use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetexd::{SYNCTEX_line, SYNCTEX_tag};
-use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close, ttstub_output_open};
+use bridge::{ttstub_issue_error, ttstub_issue_warning, ttstub_output_close};
 
 use bridge::OutputHandleWrapper;
 bitflags::bitflags! {
@@ -182,12 +181,11 @@ unsafe fn synctex_dot_open() -> bool {
     if synctex_ctxt.file.is_some() {
         return true;
     }
-    let mut tmp = gettexstring(job_name);
-    if !tmp.is_empty() {
-        tmp += synctex_suffix;
-        tmp += synctex_suffix_gz;
-        let the_name = CString::new(tmp.as_str()).unwrap();
-        synctex_ctxt.file = ttstub_output_open(the_name.as_ptr(), 1i32);
+    let mut the_name = gettexstring(job_name);
+    if !the_name.is_empty() {
+        the_name += synctex_suffix;
+        the_name += synctex_suffix_gz;
+        synctex_ctxt.file = OutputHandleWrapper::open(&the_name, 1);
         if synctex_ctxt.file.is_some() {
             if !(synctex_record_preamble() != 0) {
                 synctex_ctxt.magnification = 1000i32;

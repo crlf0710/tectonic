@@ -1,12 +1,9 @@
 use crate::cmd::{Cmd, InteractionMode};
 use crate::help;
 use crate::xetex_consts::IntPar;
-use crate::xetex_ini::{
-    b16x4, b32x2, memory_word, name_of_file, EqtbWord, Selector, UTF16_code, FONT_PTR,
-};
+use crate::xetex_ini::{b16x4, b32x2, memory_word, EqtbWord, Selector, UTF16_code, FONT_PTR};
 use crate::xetex_output::Esc;
-use bridge::{ttstub_output_close, ttstub_output_open, InFile, TTHistory, TTInputFormat};
-use std::ffi::CString;
+use bridge::{ttstub_output_close, InFile, OutputHandleWrapper, TTHistory, TTInputFormat};
 
 use crate::{t_eprint, t_print, t_print_nl};
 use std::io::{Read, Write};
@@ -52,7 +49,6 @@ use crate::xetex_stringpool::{make_string, PoolString, EMPTY_STRING, TOO_BIG_CHA
 
 use crate::xetex_errors::error;
 use crate::xetex_errors::overflow;
-use crate::xetex_output::print_file_name;
 use crate::xetex_output::print_ln;
 use crate::xetex_xetexd::llist_link;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
@@ -60,6 +56,7 @@ use crate::xetex_xetexd::{TeXInt, TeXOpt};
 use crate::core_memory::xmalloc_array;
 
 use crate::xetex_xetex0::get_node;
+use crate::xetex_xetex0::FileName;
 use crate::xetex_xetex0::{
     close_files_and_terminate, make_name_string, pack_job_name, pseudo_close,
 };
@@ -76,8 +73,8 @@ const sup_font_mem_size: i32 = 147483647;
 
 use libc::free;
 
-unsafe fn pack_buffered_name(mut _n: i16, mut _a: i32, mut _b: i32) {
-    name_of_file = TEX_format_default.clone();
+unsafe fn pack_buffered_name(mut _n: i16, mut _a: i32, mut _b: i32) -> String {
+    TEX_format_default.clone()
 }
 
 unsafe fn sort_avail() {
@@ -152,19 +149,18 @@ pub(crate) unsafe fn store_fmt_file() {
     }
 
     format_ident = make_string();
-    pack_job_name(".fmt");
+    let out_name = pack_job_name(".fmt");
 
-    let out_name = CString::new(name_of_file.as_str()).unwrap();
-    let fmt_out = ttstub_output_open(out_name.as_ptr(), 0);
+    let fmt_out = OutputHandleWrapper::open(&out_name, 0);
     if fmt_out.is_none() {
-        abort!("cannot open format output file \"{}\"", name_of_file);
+        abort!("cannot open format output file \"{}\"", out_name);
     }
 
     let mut fmt_out_owner = fmt_out.unwrap();
     let fmt_out = &mut fmt_out_owner;
     t_print_nl!(
         "Beginning to dump on file {}",
-        PoolString::from(make_name_string())
+        PoolString::from(make_name_string(&out_name))
     );
 
     PoolString::flush();
@@ -405,7 +401,14 @@ pub(crate) unsafe fn store_fmt_file() {
         if matches!(&FONT_LAYOUT_ENGINE[k], crate::xetex_ext::Font::Native(_))
             || !(FONT_MAPPING[k]).is_null()
         {
-            print_file_name(FONT_NAME[k], EMPTY_STRING, EMPTY_STRING);
+            t_print!(
+                "{}",
+                FileName {
+                    name: FONT_NAME[k],
+                    area: EMPTY_STRING,
+                    ext: EMPTY_STRING
+                }
+            );
 
             t_eprint!("Can\'t \\dump a format with native fonts or font-mappings");
 
@@ -416,7 +419,14 @@ pub(crate) unsafe fn store_fmt_file() {
             );
             error();
         } else {
-            print_file_name(FONT_NAME[k], FONT_AREA[k], EMPTY_STRING);
+            t_print!(
+                "{}",
+                FileName {
+                    name: FONT_NAME[k],
+                    area: FONT_AREA[k],
+                    ext: EMPTY_STRING
+                }
+            );
         }
 
         if FONT_SIZE[k] != FONT_DSIZE[k] {
@@ -497,6 +507,8 @@ pub(crate) unsafe fn store_fmt_file() {
     ttstub_output_close(fmt_out_owner);
 }
 
+static mut name_of_fmt_file: String = String::new();
+
 pub(crate) unsafe fn load_fmt_file() -> bool {
     let mut x: i32 = 0;
 
@@ -505,10 +517,11 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     /* This is where a first line starting with "&" used to
      * trigger code that would change the format file. */
 
-    pack_buffered_name((TEX_format_default.as_bytes().len() - 4) as i16, 1, 0);
+    let filename = pack_buffered_name((TEX_format_default.as_bytes().len() - 4) as i16, 1, 0);
+    name_of_fmt_file = filename.clone();
 
-    let mut fmt_in = InFile::open(&name_of_file, TTInputFormat::FORMAT, 0)
-        .unwrap_or_else(|| abort!("cannot open the format file \"{}\"", name_of_file));
+    let mut fmt_in = InFile::open(&filename, TTInputFormat::FORMAT, 0)
+        .unwrap_or_else(|| abort!("cannot open the format file \"{}\"", filename));
 
     cur_input.loc = j;
 
@@ -536,7 +549,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     if x != FORMAT_SERIAL {
         abort!(
             "format file \"{}\" is of the wrong version: expected {}, found {}",
-            name_of_file,
+            filename,
             FORMAT_SERIAL,
             x
         );
@@ -1239,7 +1252,7 @@ where
             "could not write {} {}-byte item(s) to {}",
             nitems,
             item_size,
-            unsafe { &name_of_file },
+            unsafe { &name_of_fmt_file },
         ));
     }
 }
@@ -1274,7 +1287,7 @@ where
                     "could not undump {} {}-byte item(s) from {}",
                     nitems,
                     item_size,
-                    name_of_file
+                    name_of_fmt_file
                 );
             }
         }
