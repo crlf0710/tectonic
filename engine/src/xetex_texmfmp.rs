@@ -72,22 +72,9 @@ pub(crate) unsafe fn remember_source_info(srcfilename: str_number, lineno: i32) 
     last_source_name = gettexstring(srcfilename);
     last_lineno = lineno;
 }
-pub(crate) unsafe fn make_src_special(srcfilename: str_number, lineno: i32) -> usize {
-    let oldpool_ptr: usize = pool_ptr;
-
+pub(crate) unsafe fn make_src_special(srcfilename: str_number, lineno: i32) -> String {
     // Always put a space after the number, which makes things easier to parse.
-    let src = format!("src:{} {}", lineno, &gettexstring(srcfilename));
-
-    assert!(
-        pool_ptr + src.as_bytes().len() < pool_size,
-        "string pool overflow"
-    );
-
-    for &b in src.as_bytes() {
-        str_pool[pool_ptr] = b as u16;
-        pool_ptr += 1;
-    }
-    oldpool_ptr
+    format!("src:{} {}", lineno, &gettexstring(srcfilename))
 }
 /* Converts any given string in into an allowed PDF string which is
  * hexadecimal encoded;

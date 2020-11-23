@@ -1018,11 +1018,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_chr(')');
                         }
                         if g.param() != COND_MATH_GLUE {
-                            t_print!(" {}", if g.param() < COND_MATH_GLUE {
-                                GlueSpecUnit(g.glue_ptr(), "")
-                            } else {
-                                GlueSpecUnit(g.glue_ptr(), "mu")
-                            });
+                            t_print!(
+                                " {}",
+                                if g.param() < COND_MATH_GLUE {
+                                    GlueSpecUnit(g.glue_ptr(), "")
+                                } else {
+                                    GlueSpecUnit(g.glue_ptr(), "mu")
+                                }
+                            );
                         }
                     }
                 }
@@ -7782,15 +7785,11 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
             assert!(val.opt().is_some());
             return val as usize; // TODO: check TEX_NULL
         } else {
-            let b = pool_ptr;
             let p = get_avail();
             *LLIST_link(p) = *LLIST_link(TEMP_HEAD);
-            let old_setting = selector;
-            selector = Selector::NEW_STRING;
-            t_print!("{}", TokenNode(Some(p)));
-            selector = old_setting;
+            let s = format!("{}", TokenNode(Some(p)));
             flush_list(Some(p));
-            return str_toks(b);
+            return str_toks_cat_utf8(&s, 0);
         }
     }
     let (tok, cmd, chr, _) = get_x_token(input);
@@ -7829,27 +7828,6 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
             };
 
             str_toks_cat_utf8(&s, 0)
-            /*
-            let b = pool_ptr;
-            let old_setting = selector; // holds |selector| setting
-            selector = Selector::NEW_STRING;
-            match val_level {
-                ValLevel::Int => t_print!("{}", val),
-                ValLevel::Dimen => {
-                    t_print!("{}pt", Scaled(val));
-                }
-                ValLevel::Glue => {
-                    t_print!("{}", GlueSpecUnit(val, "pt"));
-                    delete_glue_ref(val as usize);
-                }
-                ValLevel::Mu => {
-                    t_print!("{}", GlueSpecUnit(val, "mu"));
-                    delete_glue_ref(val as usize);
-                }
-                _ => {}
-            }
-            selector = old_setting;
-            str_toks(b)*/
         }
     }
 }
@@ -13756,7 +13734,8 @@ pub(crate) unsafe fn insert_src_special() {
         *LLIST_link(p) = Some(get_avail()).tex_int();
         let p = *LLIST_link(p) as usize;
         MEM[p].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
-        let q = str_toks(make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line)) as usize;
+        let q =
+            str_toks_cat_utf8(&make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line), 0) as usize;
         *LLIST_link(p) = *LLIST_link(TEMP_HEAD);
         let p = q;
         *LLIST_link(p) = Some(get_avail()).tex_int();
@@ -13774,7 +13753,7 @@ pub(crate) unsafe fn append_src_special() {
         MEM[cur_list.tail + 1].b32.s0 = 0;
         def_ref = get_avail();
         MEM[def_ref].b32.s0 = None.tex_int();
-        str_toks(make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line));
+        str_toks_cat_utf8(&make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line), 0);
         *LLIST_link(def_ref) = *LLIST_link(TEMP_HEAD);
         MEM[cur_list.tail + 1].b32.s1 = def_ref as i32;
         remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
