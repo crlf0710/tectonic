@@ -3,7 +3,7 @@
 use crate::{t_eprint, t_print, t_print_nl};
 use std::ptr;
 
-use super::xetex_texmfmp::{get_date_and_time, to_rust_string};
+use super::xetex_texmfmp::get_date_and_time;
 use crate::cmd::*;
 use crate::core_memory::xmalloc_array;
 use crate::fmt_file::{load_fmt_file, store_fmt_file};
@@ -3569,12 +3569,12 @@ pub(crate) unsafe fn tt_cleanup() {
     read_open = [OpenMode::Closed; 17];
 }
 
-pub(crate) unsafe fn tt_run_engine(dump_name: *const i8, input_file_name: *const i8) -> TTHistory {
+pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TTHistory {
     /* Miscellaneous initializations that were mostly originally done in the
      * main() driver routines. */
     /* Get our stdout handle */
     rust_stdout = ttstub_output_open_stdout();
-    TEX_format_default = to_rust_string(dump_name);
+    TEX_format_default = dump_name.to_string();
     /* Not sure why these get custom initializations. */
     if file_line_error_style_p < 0 {
         file_line_error_style_p = 0

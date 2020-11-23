@@ -2,7 +2,6 @@
 
 use bridge::{stub_errno as errno, ttstub_input_getc, InFile, TTInputFormat};
 
-use crate::core_memory::{xcalloc, xmalloc};
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
 use crate::xetex_consts::UnicodeMode;
@@ -214,8 +213,8 @@ unsafe fn apply_normalization(buf: *mut u32, len: i32, norm: i32) {
         as i32;
 }
 pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
-    static mut byteBuffer: *mut i8 = ptr::null_mut();
-    static mut utf32Buf: *mut u32 = ptr::null_mut();
+    static mut byteBuffer: Vec<i8> = Vec::new();
+    static mut utf32Buf: Vec<u32> = Vec::new();
     let mut i;
     let norm = get_input_normalization_state();
     if f.handle.is_none() {
@@ -224,11 +223,11 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
     }
     last = first;
     if f.encodingMode == UnicodeMode::ICUMapping {
-        let mut bytesRead: u32 = 0_u32;
         let mut errorCode: UErrorCode = U_ZERO_ERROR;
-        if byteBuffer.is_null() {
-            byteBuffer = xmalloc((BUF_SIZE + 1) as size_t) as *mut i8
+        if byteBuffer.is_empty() {
+            byteBuffer = Vec::with_capacity(BUF_SIZE + 1);
         }
+        byteBuffer.clear();
         /* Recognize either LF or CR as a line terminator; skip initial LF if prev line ended with CR.  */
         let handle = f.handle.as_mut().unwrap();
         i = ttstub_input_getc(handle);
@@ -239,12 +238,10 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
             }
         }
         if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-            let fresh1 = bytesRead;
-            bytesRead = bytesRead.wrapping_add(1);
-            *byteBuffer.offset(fresh1 as isize) = i as i8
+            byteBuffer.push(i as i8);
         }
         if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-            while bytesRead < BUF_SIZE as u32
+            while byteBuffer.len() < BUF_SIZE
                 && {
                     i = ttstub_input_getc(handle);
                     i != -1i32
@@ -252,12 +249,10 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                 && i != '\n' as i32
                 && i != '\r' as i32
             {
-                let fresh2 = bytesRead;
-                bytesRead = bytesRead.wrapping_add(1);
-                *byteBuffer.offset(fresh2 as isize) = i as i8
+                byteBuffer.push(i as i8);
             }
         }
-        if i == -1i32 && errno::errno() != errno::EINTR && bytesRead == 0_u32 {
+        if i == -1i32 && errno::errno() != errno::EINTR && byteBuffer.is_empty() {
             return false;
         }
         if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
@@ -269,17 +264,16 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
             1 | 2 => {
                 // NFC
                 // NFD
-                if utf32Buf.is_null() {
-                    utf32Buf =
-                        xcalloc(BUF_SIZE as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
+                if utf32Buf.is_empty() {
+                    utf32Buf = vec![0; BUF_SIZE];
                 } // sets 'last' correctly
                 let tmpLen = icu::ucnv_toAlgorithmic(
                     icu::UCNV_UTF32_LittleEndian,
                     cnv,
-                    utf32Buf as *mut i8,
+                    utf32Buf.as_ptr() as *mut i8,
                     (BUF_SIZE as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as i32,
-                    byteBuffer,
-                    bytesRead as i32,
+                    byteBuffer.as_ptr(),
+                    byteBuffer.len() as i32,
                     &mut errorCode,
                 );
                 if errorCode != 0 {
@@ -287,7 +281,7 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                     return false;
                 }
                 apply_normalization(
-                    utf32Buf,
+                    utf32Buf.as_mut_ptr(),
                     (tmpLen as u64).wrapping_div(::std::mem::size_of::<u32>() as _) as i32,
                     norm,
                 );
@@ -300,8 +294,8 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                     &mut BUFFER[first as usize] as *mut UnicodeScalar as *mut i8,
                     (::std::mem::size_of::<UnicodeScalar>() as u64)
                         .wrapping_mul((BUF_SIZE as i32 - first) as u64) as i32,
-                    byteBuffer,
-                    bytesRead as i32,
+                    byteBuffer.as_ptr(),
+                    byteBuffer.len() as i32,
                     &mut errorCode,
                 );
                 if errorCode != 0 {
@@ -327,17 +321,15 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                 // NFC
                 // NFD
                 // read Unicode chars into utf32Buf as UTF32
-                if utf32Buf.is_null() {
-                    utf32Buf =
-                        xcalloc(BUF_SIZE as size_t, ::std::mem::size_of::<u32>() as _) as *mut u32
+                if utf32Buf.is_empty() {
+                    utf32Buf = Vec::with_capacity(BUF_SIZE);
                 }
-                let mut tmpLen = 0i32;
+                utf32Buf.clear();
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-                    *utf32Buf.offset(tmpLen as isize) = i as u32;
-                    tmpLen += 1;
+                    utf32Buf.push(i as u32);
                 }
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-                    while tmpLen < BUF_SIZE as i32
+                    while utf32Buf.len() < BUF_SIZE
                         && {
                             i = get_uni_c(f);
                             i != -1i32
@@ -345,18 +337,17 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                         && i != '\n' as i32
                         && i != '\r' as i32
                     {
-                        *utf32Buf.offset(tmpLen as isize) = i as u32;
-                        tmpLen += 1;
+                        utf32Buf.push(i as u32);
                     }
                 }
-                if i == -1i32 && errno::errno() != errno::EINTR && tmpLen == 0i32 {
+                if i == -1i32 && errno::errno() != errno::EINTR && utf32Buf.is_empty() {
                     return false;
                 }
                 /* We didn't get the whole line because our buffer was too small.  */
                 if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
                     buffer_overflow();
                 }
-                apply_normalization(utf32Buf, tmpLen, norm);
+                apply_normalization(utf32Buf.as_mut_ptr(), utf32Buf.len() as _, norm);
             }
             _ => {
                 // none
