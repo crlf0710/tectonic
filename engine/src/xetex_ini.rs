@@ -468,8 +468,6 @@ pub(crate) static mut trick_count: i32 = 0;
 #[no_mangle]
 pub(crate) static mut first_count: i32 = 0;
 #[no_mangle]
-pub(crate) static mut doing_special: bool = false;
-#[no_mangle]
 pub(crate) static mut interaction: InteractionMode = InteractionMode::Batch;
 #[no_mangle]
 pub(crate) static mut deletions_allowed: bool = false;
@@ -2211,8 +2209,6 @@ unsafe fn init_io(input: &mut input_state_t) {
     first = last + 1;
 }
 unsafe fn initialize_more_variables() {
-    doing_special = false;
-
     interaction = InteractionMode::ErrorStop;
 
     deletions_allowed = true;

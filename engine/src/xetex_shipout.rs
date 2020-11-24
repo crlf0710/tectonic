@@ -11,14 +11,14 @@ use crate::xetex_ini::shell_escape_enabled;
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_dir, cur_h, cur_h_offset, cur_input, cur_list, cur_page_height, cur_page_width,
-    cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, doing_special, file_offset,
-    font_used, init_pool_ptr, input_state_t, job_name, last_bop, log_opened, max_h, max_print_line,
-    max_push, max_v, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size,
-    rule_dp, rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool,
-    str_ptr, str_start, term_offset, write_file, write_loc, write_open, xtx_ligature_present,
-    LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE,
-    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE,
-    MEM, TOTAL_PAGES, WIDTH_BASE,
+    cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, file_offset, font_used,
+    init_pool_ptr, input_state_t, job_name, last_bop, log_opened, max_h, max_print_line, max_push,
+    max_v, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp,
+    rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr,
+    str_start, term_offset, write_file, write_loc, write_open, xtx_ligature_present, LR_problems,
+    LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM,
+    TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{print_chr, print_ln};
 use crate::xetex_scaledmath::{tex_round, Scaled};
@@ -2012,18 +2012,9 @@ unsafe fn special_out(p: &Special) {
         movement(cur_v - dvi_v, DOWN1);
         dvi_v = cur_v
     }
-    doing_special = true;
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
-    t_print!("{}", TokenList(MEM[p.tokens() as usize].b32.s1.opt()));
-    selector = old_setting;
-
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", pool_size - init_pool_ptr);
-    }
-
-    let cur_str = PoolString::current();
-    let len = cur_str.len();
+    let s = format!("{}", TokenList(MEM[p.tokens() as usize].b32.s1.opt()));
+    let bytes = s.as_bytes();
+    let len = bytes.len();
     if len < 256 {
         dvi_out(XXX1);
         dvi_out(len as u8);
@@ -2032,11 +2023,9 @@ unsafe fn special_out(p: &Special) {
         dvi_four(len as i32);
     }
 
-    for &k in cur_str.as_slice() {
-        dvi_out(k as u8);
+    for &k in bytes {
+        dvi_out(k);
     }
-    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-    doing_special = false;
 }
 
 unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {

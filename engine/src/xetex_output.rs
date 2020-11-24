@@ -16,9 +16,9 @@ use crate::xetex_stringpool::PoolString;
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
-    doing_special, error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr,
-    pool_size, rust_stdout, selector, str_pool, str_ptr, tally, term_offset, trick_buf,
-    trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
+    error_line, file_offset, hash, line, log_file, max_print_line, pool_ptr, pool_size,
+    rust_stdout, selector, str_pool, str_ptr, tally, term_offset, trick_buf, trick_count,
+    write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 
 /* Extra stuff used in various change files for various reasons.  */
@@ -231,23 +231,13 @@ impl fmt::Write for Selector {
                     }
                 }
                 Selector::NEW_STRING => {
-                    if !doing_special {
-                        for i in s.encode_utf16() {
-                            if pool_ptr < pool_size {
-                                str_pool[pool_ptr as usize] = i;
-                                pool_ptr += 1
-                            }
+                    for i in s.encode_utf16() {
+                        if pool_ptr < pool_size {
+                            str_pool[pool_ptr as usize] = i;
+                            pool_ptr += 1
                         }
-                        return Ok(());
-                    } else {
-                        for c in s.bytes() {
-                            if pool_ptr < pool_size {
-                                str_pool[pool_ptr as usize] = c as u16;
-                                pool_ptr += 1
-                            }
-                        }
-                        return Ok(());
                     }
+                    return Ok(());
                 }
                 Selector::File(u) => {
                     let file = write_file[*u as usize].as_mut().unwrap();
@@ -307,25 +297,14 @@ impl fmt::Write for Selector {
                     tally += count;
                 }
                 Selector::NEW_STRING => {
-                    if !doing_special {
-                        let mut b = [0; 2];
-                        for i in s.encode_utf16(&mut b) {
-                            if pool_ptr < pool_size {
-                                str_pool[pool_ptr as usize] = *i;
-                                pool_ptr += 1
-                            }
+                    let mut b = [0; 2];
+                    for i in s.encode_utf16(&mut b) {
+                        if pool_ptr < pool_size {
+                            str_pool[pool_ptr as usize] = *i;
+                            pool_ptr += 1
                         }
-                        return Ok(());
-                    } else {
-                        let mut b = [0; 4];
-                        for c in s.encode_utf8(&mut b).bytes() {
-                            if pool_ptr < pool_size {
-                                str_pool[pool_ptr as usize] = c as u16;
-                                pool_ptr += 1
-                            }
-                        }
-                        return Ok(());
                     }
+                    return Ok(());
                 }
                 Selector::File(u) => {
                     let file = write_file[u as usize].as_mut().unwrap();
