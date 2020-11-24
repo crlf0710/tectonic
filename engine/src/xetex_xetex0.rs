@@ -7719,7 +7719,13 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
         input.synctex_tag = 0;
     };
 }
-/// changes the string `str_pool[b..pool_ptr]` to a token list
+/// converting the current string into a token list.
+///
+/// The `str_toks` function does this; it classifies spaces as type `spacer`
+/// and everything else as type `other_char`.
+///
+/// The token list created by `str_toks` begins at `link(temp_head)` and ends
+/// at the value `p` that is returned. (If `p=temp_head`, the list is empty.)
 pub(crate) unsafe fn str_toks_cat(buf: &[u16], cat: i16) -> usize {
     let mut p = TEMP_HEAD; // tail of the token list
     *LLIST_link(p) = None.tex_int();
@@ -7751,25 +7757,6 @@ pub(crate) unsafe fn str_toks_cat_utf8(buf: &str, cat: i16) -> usize {
         };
         fast_store_new_token(&mut p, t);
     }
-    p
-}
-/// converting the current string into a token list.
-///
-/// The `str_toks` function does this; it classifies spaces as type `spacer`
-/// and everything else as type `other_char`.
-///
-/// The token list created by `str_toks` begins at `link(temp_head)` and ends
-/// at the value `p` that is returned. (If `p=temp_head`, the list is empty.)
-///
-/// The `str_toks_cat` function is the same, except that the catcode `cat` is
-/// stamped on all the characters, unless zero is passed in which case it
-/// chooses `spacer` or `other_char` automatically.
-pub(crate) unsafe fn str_toks(b: usize) -> usize {
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
-    let p = str_toks_cat(&str_pool[b..pool_ptr], 0);
-    pool_ptr = b;
     p
 }
 
@@ -7917,21 +7904,13 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                     "tokens_to_string() called while selector = new_string",
                 );
             }
-            let old_setting = selector;
-            selector = Selector::NEW_STRING;
-            t_print!("{}", TokenList(llist_link(def_ref)));
-            selector = old_setting;
-            let s = make_string();
+            let s = format!("{}", TokenList(llist_link(def_ref)));
             delete_token_ref(def_ref);
             def_ref = save_def_ref;
             warning_index = save_warning_index;
             scanner_status = save_scanner_status;
-            let b = pool_ptr;
-            getmd5sum(s, boolvar);
-            *LLIST_link(GARBAGE as usize) = Some(str_toks(b)).tex_int();
-            if s == str_ptr - 1 {
-                PoolString::flush();
-            }
+            let md5 = getmd5sum(&s, boolvar);
+            *LLIST_link(GARBAGE as usize) = Some(str_toks_cat_utf8(&md5, 0)).tex_int();
             begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
             if u != 0 {
                 str_ptr -= 1;
@@ -9251,13 +9230,7 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
         set_int_par(IntPar::tracing_online, old_setting);
     }
     let fn_0 = gettexstring(FONT_NAME[f]);
-    let prev_selector = selector;
-    selector = Selector::NEW_STRING;
-    t_print!("{}", std::char::from_u32(c as u32).unwrap());
-    selector = prev_selector;
-    let s = make_string();
-    let chr = gettexstring(s);
-    PoolString::flush();
+    let chr = std::char::from_u32(c as u32).unwrap().to_string();
     ttstub_issue_warning(&format!(
         "could not represent character \"{}\" (0x{:x}) in font \"{}\"",
         chr, c as u32, fn_0
