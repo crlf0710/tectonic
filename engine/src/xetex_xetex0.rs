@@ -3398,6 +3398,15 @@ impl<'a> fmt::Display for TokenNode {
     }
 }
 
+pub(crate) unsafe fn format_meaning(cmd: Cmd, chr: i32) -> String {
+    if cmd >= Cmd::Call {
+        format!("{}:{}", CmdChr(cmd, chr), TokenNode(chr.opt()))
+    } else if cmd == Cmd::TopBotMark && chr < 5 {
+        format!("{}:{}", CmdChr(cmd, chr), TokenNode(cur_mark[chr as usize]))
+    } else {
+        format!("{}", CmdChr(cmd, chr))
+    }
+}
 pub(crate) unsafe fn print_meaning(cmd: Cmd, chr: i32) {
     t_print!("{}", CmdChr(cmd, chr));
     if cmd >= Cmd::Call {
@@ -7797,23 +7806,6 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
 ///
 /// The token list created by `str_toks` begins at `link(temp_head)` and ends
 /// at the value `p` that is returned. (If `p=temp_head`, the list is empty.)
-pub(crate) unsafe fn str_toks_cat(buf: &[u16], cat: i16) -> usize {
-    let mut p = TEMP_HEAD; // tail of the token list
-    *LLIST_link(p) = None.tex_int();
-    for c in std::char::decode_utf16(buf.iter().cloned()) {
-        let c = c.unwrap();
-        // token being appended
-        let t = if c == ' ' && cat == 0 {
-            SPACE_TOKEN
-        } else if cat == 0 {
-            OTHER_TOKEN + c as i32
-        } else {
-            MAX_CHAR_VAL * cat as i32 + c as i32
-        };
-        fast_store_new_token(&mut p, t);
-    }
-    p
-}
 pub(crate) unsafe fn str_toks_cat_utf8(buf: &str, cat: i16) -> usize {
     let mut p = TEMP_HEAD; // tail of the token list
     *LLIST_link(p) = None.tex_int();
@@ -8055,81 +8047,68 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
         }
         ConvertCode::EtexRevision | ConvertCode::XetexRevision => {}
     }
-    let b = pool_ptr;
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
-    match c {
-        ConvertCode::Number => t_print!("{}", oval.unwrap()),
-        ConvertCode::RomanNumeral => t_print!("{}", Roman(oval.unwrap())),
+    let s = match c {
+        ConvertCode::Number => format!("{}", oval.unwrap()),
+        ConvertCode::RomanNumeral => format!("{}", Roman(oval.unwrap())),
         ConvertCode::String => {
             let (_, chr, cs) = o.unwrap();
             if cs != 0 {
-                t_print!("{:#}", Cs(cs));
+                format!("{:#}", Cs(cs))
             } else {
-                print_chr(std::char::from_u32(chr as u32).unwrap());
+                std::char::from_u32(chr as u32).unwrap().to_string()
             }
         }
         ConvertCode::Meaning => {
             let (cmd, chr, _) = o.unwrap();
-            print_meaning(cmd, chr);
+            format_meaning(cmd, chr)
         }
         ConvertCode::FontName => {
             let val = oval.unwrap();
             let font_name_str = PoolString::from(FONT_NAME[val as usize]);
-            match &FONT_LAYOUT_ENGINE[val as usize] {
+            let mut s = match &FONT_LAYOUT_ENGINE[val as usize] {
                 Font::Native(_) => {
                     let mut quote_char = '\"';
                     if font_name_str.as_slice().contains(&('\"' as u16)) {
                         quote_char = '\'';
                     }
-                    t_print!("{0}{1}{0}", quote_char, font_name_str);
+                    format!("{0}{1}{0}", quote_char, font_name_str)
                 }
-                _ => t_print!("{}", font_name_str),
-            }
+                _ => format!("{}", font_name_str),
+            };
             if FONT_SIZE[val as usize] != FONT_DSIZE[val as usize] {
-                t_print!(" at {}pt", FONT_SIZE[val as usize]);
+                s += &format!(" at {}pt", FONT_SIZE[val as usize]);
             }
+            s
         }
         ConvertCode::XetexUchar | ConvertCode::XetexUcharcat => {
-            t_print!("{}", std::char::from_u32(oval.unwrap() as u32).unwrap());
+            format!("{}", std::char::from_u32(oval.unwrap() as u32).unwrap())
         }
-        ConvertCode::EtexRevision => t_print!(".6"),
-        ConvertCode::PdfStrcmp => t_print!("{}", oval.unwrap()),
-        ConvertCode::XetexRevision => t_print!(".99998"),
-        ConvertCode::XetexVariationName => {
-            match &FONT_LAYOUT_ENGINE[fnt as usize] {
-                #[cfg(target_os = "macos")]
-                Font::Native(Aat(e)) => {
-                    aat::aat_get_font_name(c as i32, *e, arg1, arg2);
-                }
-                _ => {
-                    // do nothing
-                }
-            }
-        }
+        ConvertCode::EtexRevision => ".6".to_string(),
+        ConvertCode::PdfStrcmp => format!("{}", oval.unwrap()),
+        ConvertCode::XetexRevision => format!(".99998"),
+        ConvertCode::XetexVariationName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
+            #[cfg(target_os = "macos")]
+            Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
+            _ => String::new(),
+        },
         ConvertCode::XetexFeatureName | ConvertCode::XetexSelectorName => {
             match &FONT_LAYOUT_ENGINE[fnt as usize] {
                 #[cfg(target_os = "macos")]
-                Font::Native(Aat(e)) => {
-                    aat::aat_get_font_name(c as i32, *e, arg1, arg2);
-                }
+                Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                    gr_get_font_name(c as i32, e, arg1, arg2);
+                    gr_get_font_name(c as i32, e, arg1, arg2)
                 }
-                _ => {}
+                _ => String::new(),
             }
         }
-        ConvertCode::XetexGlyphName => t_print!(
-            "{}",
-            match &FONT_LAYOUT_ENGINE[fnt as usize] {
-                #[cfg(target_os = "macos")]
-                Font::Native(Aat(attributes)) => {
-                    aat::GetGlyphNameFromCTFont(aat::font_from_attributes(*attributes), arg1 as u16)
-                }
-                Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(arg1 as u16),
-                _ => panic!("bad native font flag in `print_glyph_name`"),
+        ConvertCode::XetexGlyphName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
+            #[cfg(target_os = "macos")]
+            Font::Native(Aat(attributes)) => {
+                aat::GetGlyphNameFromCTFont(aat::font_from_attributes(*attributes), arg1 as u16)
             }
-        ),
+            Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(arg1 as u16),
+            _ => panic!("bad native font flag in `print_glyph_name`"),
+        },
         ConvertCode::LeftMarginKern => {
             let mut popt = List::from(p.unwrap()).list_ptr().opt();
             while let Some(p) = popt {
@@ -8156,9 +8135,9 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
             match popt.map(|p| CharOrText::from(p)) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 0 => {
-                    t_print!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1));
+                    format!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1))
                 }
-                _ => t_print!("0pt"),
+                _ => "0pt".to_string(),
             }
         }
         ConvertCode::RightMarginKern => {
@@ -8188,12 +8167,12 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
             match popt.map(|p| CharOrText::from(p)) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 1 => {
-                    t_print!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1));
+                    format!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1))
                 }
-                _ => t_print!("0pt"),
+                _ => "0pt".to_string(),
             }
         }
-        ConvertCode::JobName => t_print!(
+        ConvertCode::JobName => format!(
             "{}",
             FileName {
                 name: job_name,
@@ -8201,14 +8180,9 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 ext: 0
             }
         ),
-        _ => {}
-    }
-    selector = old_setting;
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
-    *LLIST_link(GARBAGE) = str_toks_cat(&str_pool[b..pool_ptr], cat) as i32;
-    pool_ptr = b;
+        _ => String::new(),
+    };
+    *LLIST_link(GARBAGE) = str_toks_cat_utf8(&s, cat) as i32;
     begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
 /// Returns a pointer to the tail of a new token
