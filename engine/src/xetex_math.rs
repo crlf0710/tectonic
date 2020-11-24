@@ -19,7 +19,7 @@ use crate::xetex_ini::{
 use crate::xetex_ini::{b16x4, b16x4_le_t};
 use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
-use crate::xetex_output::{print_size, Esc};
+use crate::xetex_output::Esc;
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_scaledmath::{tex_round, x_over_n, xn_over_d, Scaled};
 use crate::xetex_xetex0::{
@@ -1476,10 +1476,9 @@ pub(crate) unsafe fn fetch(a: &mut MCell) {
     cur_c = (cur_c as i64 + (a.val.chr.font as i32 / 256) as i64 * 65536) as i32;
     if cur_f == FONT_BASE {
         // 749:
-        t_eprint!("");
-        print_size(cur_size as i32);
-        t_print!(
-            " {} is undefined (character {})",
+        t_eprint!(
+            "{} {} is undefined (character {})",
+            FontSize::from(cur_size),
             a.val.chr.font as i32 % 256,
             std::char::from_u32(cur_c as u32).unwrap()
         );

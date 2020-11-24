@@ -8,7 +8,7 @@ use crate::{t_print, t_print_nl};
 
 use super::xetex_consts::{
     get_int_par, IntPar, ACTIVE_BASE, BIGGEST_USV, CAT_CODE, DIMEN_VAL_LIMIT, EQTB_SIZE, HASH_BASE,
-    NULL_CS, SCRIPT_SIZE, SINGLE_BASE, TEXT_SIZE, UNDEFINED_CONTROL_SEQUENCE,
+    NULL_CS, SINGLE_BASE, UNDEFINED_CONTROL_SEQUENCE,
 };
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
@@ -564,17 +564,8 @@ impl<'a> fmt::Display for FileName {
         Ok(())
     }
 }
-pub(crate) unsafe fn print_size(s: i32) {
-    if s == TEXT_SIZE as i32 {
-        print_esc_cstr("textfont");
-    } else if s == SCRIPT_SIZE as i32 {
-        print_esc_cstr("scriptfont");
-    } else {
-        print_esc_cstr("scriptscriptfont");
-    };
-}
 
-impl<'a> fmt::Display for crate::node::whatsit::WriteFile {
+impl fmt::Display for crate::node::whatsit::WriteFile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Esc("write").fmt(f)?;
         let i = unsafe { self.id() };
@@ -586,21 +577,21 @@ impl<'a> fmt::Display for crate::node::whatsit::WriteFile {
     }
 }
 
-impl<'a> fmt::Display for crate::node::whatsit::OpenFile {
+impl fmt::Display for crate::node::whatsit::OpenFile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Esc("openout").fmt(f)?;
         unsafe { self.id() }.fmt(f)
     }
 }
 
-impl<'a> fmt::Display for crate::node::whatsit::CloseFile {
+impl fmt::Display for crate::node::whatsit::CloseFile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         Esc("closeout").fmt(f)?;
         unsafe { self.id() }.fmt(f)
     }
 }
 
-impl<'a> fmt::Display for NativeWord {
+impl fmt::Display for NativeWord {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for c in std::char::decode_utf16(unsafe { self.text() }.iter().cloned()) {
             if let Ok(c) = c {
@@ -613,18 +604,26 @@ impl<'a> fmt::Display for NativeWord {
     }
 }
 
-pub(crate) unsafe fn print_sa_num(mut q: usize) {
-    let mut n;
-    if MEM[q].b16.s1 < DIMEN_VAL_LIMIT {
-        n = MEM[q + 1].b32.s1
-    } else {
-        n = MEM[q].b16.s1 as i32 % 64;
-        q = MEM[q].b32.s1 as usize;
-        n = n + 64 * MEM[q].b16.s1 as i32;
-        q = MEM[q].b32.s1 as usize;
-        n = n + 64 * 64 * (MEM[q].b16.s1 as i32 + 64 * MEM[MEM[q].b32.s1 as usize].b16.s1 as i32)
+pub(crate) struct SaNum(pub usize);
+impl fmt::Display for SaNum {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            let mut q = self.0;
+            let mut n;
+            if MEM[q].b16.s1 < DIMEN_VAL_LIMIT {
+                n = MEM[q + 1].b32.s1
+            } else {
+                n = MEM[q].b16.s1 as i32 % 64;
+                q = MEM[q].b32.s1 as usize;
+                n = n + 64 * MEM[q].b16.s1 as i32;
+                q = MEM[q].b32.s1 as usize;
+                n = n + 64
+                    * 64
+                    * (MEM[q].b16.s1 as i32 + 64 * MEM[MEM[q].b32.s1 as usize].b16.s1 as i32)
+            }
+            n.fmt(f)
+        }
     }
-    t_print!("{}", n);
 }
 pub(crate) unsafe fn print_file_line() {
     let mut level = IN_OPEN;
