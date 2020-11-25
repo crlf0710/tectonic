@@ -7969,12 +7969,6 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             };
             let boolvar = scan_keyword(input, "file");
             scan_pdf_ext_toks(input, cs);
-            if selector == Selector::NEW_STRING {
-                pdf_error(
-                    "tokens",
-                    "tokens_to_string() called while selector = new_string",
-                );
-            }
             let s = format!("{}", TokenList(llist_link(def_ref)));
             delete_token_ref(def_ref);
             def_ref = save_def_ref;
@@ -15673,55 +15667,22 @@ pub(crate) unsafe fn flush_str(s: str_number) {
         PoolString::flush();
     };
 }
-pub(crate) unsafe fn tokens_to_string(p: i32) -> str_number {
-    if selector == Selector::NEW_STRING {
-        pdf_error(
-            "tokens",
-            "tokens_to_string() called while selector = new_string",
-        );
-    }
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
-    t_print!("{}", TokenList(LLIST_link(p as usize).opt()));
-    selector = old_setting;
-    make_string()
-}
 pub(crate) unsafe fn scan_pdf_ext_toks(input: &mut input_state_t, cs: i32) {
     scan_toks(input, cs, false, true);
 }
 pub(crate) unsafe fn compare_strings(input: &mut input_state_t, cs: i32) -> i32 {
-    unsafe fn done(s1: str_number, s2: str_number, val: i32) -> i32 {
-        flush_str(s2);
-        flush_str(s1);
-        //cur_val_level = ValLevel::Int;
-        val
-    }
     scan_toks(input, cs, false, true);
-    let s1 = tokens_to_string(def_ref as i32);
+    let s1 = format!("{}", TokenList(LLIST_link(def_ref).opt()));
     delete_token_ref(def_ref);
     scan_toks(input, cs, false, true);
-    let s2 = tokens_to_string(def_ref as i32);
+    let s2 = format!("{}", TokenList(LLIST_link(def_ref).opt()));
     delete_token_ref(def_ref);
-    let i = PoolString::from(s1);
-    let sl1 = i.as_slice();
-    let j = PoolString::from(s2);
-    let sl2 = j.as_slice();
-    for (c1, c2) in sl1.iter().zip(sl2.iter()) {
-        if *c1 < *c2 {
-            return done(s1, s2, -1);
-        }
-        if *c1 > *c2 {
-            return done(s1, s2, 1);
-        }
+    use std::cmp::Ordering;
+    match s1.cmp(&s2) {
+        Ordering::Equal => 0,
+        Ordering::Greater => 1,
+        Ordering::Less => -1,
     }
-    let val = if sl1.len() == sl2.len() {
-        0
-    } else if sl1.len() > sl2.len() {
-        1
-    } else {
-        -1
-    };
-    done(s1, s2, val)
 }
 pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, s: bool) -> i32 {
     let mut r: i32 = None.tex_int();
