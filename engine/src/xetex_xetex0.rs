@@ -13372,16 +13372,8 @@ pub(crate) unsafe fn new_interaction(chr: i32) {
 pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32) {
     let c = chr as u8;
     *LLIST_link(GARBAGE) = scan_toks(input, cs, false, true) as i32;
-    let old_setting_0 = selector;
-    selector = Selector::NEW_STRING;
-    t_print!("{}", TokenNode(Some(def_ref)));
-    selector = old_setting_0;
+    let s = format!("{}", TokenNode(Some(def_ref)));
     flush_list(Some(def_ref));
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
-    let s = make_string();
-    let s = PoolString::from(s);
     if c == 0 {
         /*1315: */
         if term_offset + (s.len() as i32) > max_print_line - 2 {
@@ -13411,7 +13403,6 @@ pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32)
         error();
         use_err_help = false
     }
-    PoolString::flush();
 }
 pub(crate) unsafe fn shift_case(input: &mut input_state_t, chr: i32, cs: i32) {
     let b = chr;
