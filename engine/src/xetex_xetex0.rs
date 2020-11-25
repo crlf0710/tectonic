@@ -2,6 +2,7 @@
 
 use crate::xetex_output::{Cs, Esc, Roman};
 use crate::{t_eprint, t_print, t_print_nl};
+use std::fmt;
 use std::io::Write;
 use std::ptr;
 
@@ -19,9 +20,8 @@ use crate::xetex_ext::{
     apply_mapping, apply_tfm_font_mapping, get_encoding_mode_and_info, get_font_char_range,
     get_glyph_bounds, get_native_char_height_depth, get_native_char_sidebearings, getnativechardp,
     getnativecharht, getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1,
-    gr_print_font_name, linebreak_next, linebreak_start, map_char_to_glyph, map_glyph_to_index,
-    ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, print_glyph_name, Font, NativeFont,
-    NativeFont::*,
+    gr_get_font_name, linebreak_next, linebreak_start, map_char_to_glyph, map_glyph_to_index,
+    ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, Font, NativeFont, NativeFont::*,
 };
 use crate::xetex_ini::FONT_LETTER_SPACE;
 use crate::xetex_ini::{
@@ -65,7 +65,7 @@ use crate::xetex_math::{
     math_fraction, math_left_right, math_limit_switch, math_radical, resume_after_display,
     start_eq_no, sub_sup,
 };
-use crate::xetex_output::{print_chr, print_esc_cstr, print_ln, print_sa_num, print_size};
+use crate::xetex_output::{print_chr, print_esc_cstr, print_ln, SaNum};
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
 use crate::xetex_scaledmath::{
@@ -128,6 +128,85 @@ pub(crate) unsafe fn badness(t: Scaled, s: Scaled) -> i32 {
     (r * r * r + 0x20000) / 0x40000
 }
 
+pub(crate) struct TokenList(pub Option<usize>);
+impl<'a> fmt::Display for TokenList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut popt = self.0;
+        let mut match_chr = '#'; // character used in a `match`
+        let mut n = b'0'; // the highest parameter number, as an ASCII digit
+        while let Some(p) = popt {
+            // Display token |p|, and |return|
+            if unsafe { p < hi_mem_min as usize || p > mem_end as usize } {
+                Esc("CLOBBERED").fmt(f)?;
+                ".".fmt(f)?;
+                return Ok(());
+            }
+            let info = unsafe { *LLIST_info(p as usize) };
+            if info >= CS_TOKEN_FLAG {
+                Cs(info - CS_TOKEN_FLAG).fmt(f)?;
+            } else {
+                let m = Cmd::from((info / MAX_CHAR_VAL) as u16);
+                let c = info % MAX_CHAR_VAL;
+                if info < 0 {
+                    Esc("BAD").fmt(f)?;
+                    ".".fmt(f)?;
+                } else {
+                    // Display the token `$(m,c)$`
+                    /*306:*/
+                    match m {
+                        Cmd::LeftBrace
+                        | Cmd::RightBrace
+                        | Cmd::MathShift
+                        | Cmd::TabMark
+                        | Cmd::SupMark
+                        | Cmd::SubMark
+                        | Cmd::Spacer
+                        | Cmd::Letter
+                        | Cmd::OtherChar => std::char::from_u32(c as u32).unwrap().fmt(f)?,
+                        Cmd::MacParam => {
+                            let c = std::char::from_u32(c as u32).unwrap();
+                            c.fmt(f)?;
+                            c.fmt(f)?;
+                        }
+                        OUT_PARAM => {
+                            match_chr.fmt(f)?;
+                            if c <= 0x9 {
+                                char::from((c as u8) + b'0').fmt(f)?;
+                            } else {
+                                '!'.fmt(f)?;
+                                return Ok(());
+                            }
+                        }
+                        MATCH => {
+                            match_chr = std::char::from_u32(c as u32).unwrap();
+                            match_chr.fmt(f)?;
+                            n += 1;
+                            char::from(n).fmt(f)?;
+                            if n > b'9' {
+                                return Ok(());
+                            }
+                        }
+                        END_MATCH => {
+                            if c == 0 {
+                                "->".fmt(f)?;
+                            }
+                        }
+                        _ => {
+                            Esc("BAD").fmt(f)?;
+                            ".".fmt(f)?;
+                        }
+                    }
+                }
+            }
+            popt = unsafe { LLIST_link(p as usize).opt() };
+        }
+        if popt.is_some() {
+            Esc("ETC").fmt(f)?;
+            ".".fmt(f)?;
+        }
+        Ok(())
+    }
+}
 /*:112*/
 /*118:*/
 pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
@@ -610,38 +689,49 @@ pub(crate) unsafe fn print_rule_dimen(d: Scaled) {
         t_print!("{}", d);
     };
 }
-pub(crate) unsafe fn print_glue(d: Scaled, order: GlueOrder, s: &str) {
-    t_print!(
-        "{}{}",
-        d,
-        match order {
+pub(crate) struct GlueUnit(pub Scaled, pub GlueOrder, pub &'static str);
+impl fmt::Display for GlueUnit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)?;
+        match self.1 {
             GlueOrder::Incorrect => "foul",
             GlueOrder::Fil => "fil",
             GlueOrder::Fill => "fill",
             GlueOrder::Filll => "filll",
-            GlueOrder::Normal => s,
+            GlueOrder::Normal => self.2,
         }
-    );
+        .fmt(f)
+    }
 }
-pub(crate) unsafe fn print_spec(p: i32, unit: &str) {
-    if p < 0 || p >= lo_mem_max {
-        print_chr('*');
-    } else {
-        let p = GlueSpec(p as usize);
-        t_print!("{}", p.size());
-        if !unit.is_empty() {
-            t_print!("{}", unit);
+
+pub(crate) struct GlueSpecUnit(pub i32, pub &'static str);
+impl fmt::Display for GlueSpecUnit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            let p = self.0;
+            let unit = self.1;
+            if p < 0 || p >= lo_mem_max {
+                '*'.fmt(f)?;
+            } else {
+                let p = GlueSpec(p as usize);
+                p.size().fmt(f)?;
+                if !unit.is_empty() {
+                    unit.fmt(f)?;
+                }
+                if p.stretch() != Scaled::ZERO {
+                    " plus ".fmt(f)?;
+                    GlueUnit(p.stretch(), p.stretch_order(), unit).fmt(f)?;
+                }
+                if p.shrink() != Scaled::ZERO {
+                    " minus ".fmt(f)?;
+                    GlueUnit(p.shrink(), p.shrink_order(), unit).fmt(f)?;
+                }
+            }
         }
-        if p.stretch() != Scaled::ZERO {
-            t_print!(" plus ");
-            print_glue(p.stretch(), p.stretch_order(), unit);
-        }
-        if p.shrink() != Scaled::ZERO {
-            t_print!(" minus ");
-            print_glue(p.shrink(), p.shrink_order(), unit);
-        }
-    };
+        Ok(())
+    }
 }
+
 pub(crate) unsafe fn print_fam_and_char(p: usize) {
     let c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
     t_print!(
@@ -691,38 +781,33 @@ pub(crate) unsafe fn print_subsidiary_data(p: usize, c: UTF16_code) {
         pool_ptr -= 1
     };
 }
-pub(crate) unsafe fn print_style(c: i32) {
-    match MathStyle::from_cur(c as i16) {
-        Some(MathStyle::Display) => print_esc_cstr("displaystyle"),
-        Some(MathStyle::Text) => print_esc_cstr("textstyle"),
-        Some(MathStyle::Script) => print_esc_cstr("scriptstyle"),
-        Some(MathStyle::ScriptScript) => print_esc_cstr("scriptscriptstyle"),
-        None => t_print!("Unknown style!"),
-    };
-}
-pub(crate) unsafe fn print_skip_param(n: GluePar) {
-    use GluePar::*;
-    match n {
-        line_skip => print_esc_cstr("lineskip"),
-        baseline_skip => print_esc_cstr("baselineskip"),
-        par_skip => print_esc_cstr("parskip"),
-        above_display_skip => print_esc_cstr("abovedisplayskip"),
-        below_display_skip => print_esc_cstr("belowdisplayskip"),
-        above_display_short_skip => print_esc_cstr("abovedisplayshortskip"),
-        below_display_short_skip => print_esc_cstr("belowdisplayshortskip"),
-        left_skip => print_esc_cstr("leftskip"),
-        right_skip => print_esc_cstr("rightskip"),
-        top_skip => print_esc_cstr("topskip"),
-        split_top_skip => print_esc_cstr("splittopskip"),
-        tab_skip => print_esc_cstr("tabskip"),
-        space_skip => print_esc_cstr("spaceskip"),
-        xspace_skip => print_esc_cstr("xspaceskip"),
-        par_fill_skip => print_esc_cstr("parfillskip"),
-        xetex_linebreak_skip => print_esc_cstr("XeTeXlinebreakskip"),
-        thin_mu_skip => print_esc_cstr("thinmuskip"),
-        med_mu_skip => print_esc_cstr("medmuskip"),
-        thick_mu_skip => print_esc_cstr("thickmuskip"),
-    };
+
+impl fmt::Display for GluePar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use GluePar::*;
+        match self {
+            line_skip => Esc("lineskip"),
+            baseline_skip => Esc("baselineskip"),
+            par_skip => Esc("parskip"),
+            above_display_skip => Esc("abovedisplayskip"),
+            below_display_skip => Esc("belowdisplayskip"),
+            above_display_short_skip => Esc("abovedisplayshortskip"),
+            below_display_short_skip => Esc("belowdisplayshortskip"),
+            left_skip => Esc("leftskip"),
+            right_skip => Esc("rightskip"),
+            top_skip => Esc("topskip"),
+            split_top_skip => Esc("splittopskip"),
+            tab_skip => Esc("tabskip"),
+            space_skip => Esc("spaceskip"),
+            xspace_skip => Esc("xspaceskip"),
+            par_fill_skip => Esc("parfillskip"),
+            xetex_linebreak_skip => Esc("XeTeXlinebreakskip"),
+            thin_mu_skip => Esc("thinmuskip"),
+            med_mu_skip => Esc("medmuskip"),
+            thick_mu_skip => Esc("thickmuskip"),
+        }
+        .fmt(f)
+    }
 }
 pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
     if PoolString::current().len() as i32 > depth_threshold {
@@ -772,9 +857,9 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             } else {
                                 t_print!("< -");
                             }
-                            print_glue(Scaled::from(20000), p.glue_order(), "");
+                            t_print!("{}", GlueUnit(Scaled::from(20000), p.glue_order(), ""));
                         } else {
-                            print_glue(tex_round(65536_f64 * g), p.glue_order(), "");
+                            t_print!("{}", GlueUnit(tex_round(65536_f64 * g), p.glue_order(), ""));
                         }
                     }
                     if p.shift_amount() != Scaled::ZERO {
@@ -802,12 +887,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!(" ({} columns)", p.columns() as i32 + 1);
                     }
                     if p.stretch() != Scaled::ZERO {
-                        t_print!(", stretch ");
-                        print_glue(p.stretch(), p.stretch_order(), "");
+                        t_print!(", stretch {}", GlueUnit(p.stretch(), p.stretch_order(), ""));
                     }
                     if p.shrink() != Scaled::ZERO {
-                        t_print!(", shrink ");
-                        print_glue(p.shrink(), p.shrink_order(), "");
+                        t_print!(", shrink {}", GlueUnit(p.shrink(), p.shrink_order(), ""));
                     }
                     str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
@@ -824,13 +907,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 }
                 TxtNode::Ins(p_ins) => {
                     t_print!(
-                        "{}{}, natural size {}; split(",
+                        "{}{}, natural size {}; split({},{}); float cost {}",
                         Esc("insert"),
                         p_ins.box_reg() as i32,
-                        p_ins.height()
+                        p_ins.height(),
+                        GlueSpecUnit(p_ins.split_top_ptr(), ""),
+                        p_ins.depth(),
+                        p_ins.float_cost()
                     );
-                    print_spec(p_ins.split_top_ptr(), "");
-                    t_print!(",{}); float cost {}", p_ins.depth(), p_ins.float_cost());
                     str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                     pool_ptr += 1;
                     show_node_list(p_ins.ins_ptr().opt());
@@ -906,8 +990,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         } else if g.param() == X_LEADERS {
                             print_chr('x');
                         }
-                        t_print!("leaders ");
-                        print_spec(g.glue_ptr(), "");
+                        t_print!("leaders {}", GlueSpecUnit(g.glue_ptr(), ""));
                         str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
                         pool_ptr += 1;
                         show_node_list(g.leader_ptr().opt());
@@ -918,7 +1001,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_chr('(');
                             if g.param() < COND_MATH_GLUE {
                                 match GluePar::n(g.param() - 1) {
-                                    Some(dimen) => print_skip_param(dimen),
+                                    Some(dimen) => t_print!("{}", dimen),
                                     None => t_print!("[unknown glue parameter!]"),
                                 }
                             } else if g.param() == COND_MATH_GLUE {
@@ -929,12 +1012,14 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_chr(')');
                         }
                         if g.param() != COND_MATH_GLUE {
-                            print_chr(' ');
-                            if g.param() < COND_MATH_GLUE {
-                                print_spec(g.glue_ptr(), "");
-                            } else {
-                                print_spec(g.glue_ptr(), "mu");
-                            }
+                            t_print!(
+                                " {}",
+                                if g.param() < COND_MATH_GLUE {
+                                    GlueSpecUnit(g.glue_ptr(), "")
+                                } else {
+                                    GlueSpecUnit(g.glue_ptr(), "mu")
+                                }
+                            );
                         }
                     }
                 }
@@ -1033,7 +1118,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     show_node_list(a.adj_ptr().opt());
                     pool_ptr -= 1
                 }
-                TxtNode::Style(_) => print_style(MEM[p].b16.s0 as i32),
+                TxtNode::Style(_) => match MathStyle::from_cur(MEM[p].b16.s0 as i16) {
+                    Some(m) => t_print!("{}", m),
+                    None => t_print!("Unknown style!"),
+                },
                 TxtNode::Choice(c) => {
                     print_esc_cstr("mathchoice");
                     str_pool[pool_ptr] = 'D' as i32 as packed_UTF16_code;
@@ -1655,93 +1743,95 @@ pub(crate) unsafe fn show_activities() {
         }
     };
 }
-pub(crate) unsafe fn print_param(n: IntPar) {
-    use IntPar::*;
-    match n {
-        pretolerance => print_esc_cstr("pretolerance"),
-        tolerance => print_esc_cstr("tolerance"),
-        line_penalty => print_esc_cstr("linepenalty"),
-        hyphen_penalty => print_esc_cstr("hyphenpenalty"),
-        ex_hyphen_penalty => print_esc_cstr("exhyphenpenalty"),
-        club_penalty => print_esc_cstr("clubpenalty"),
-        widow_penalty => print_esc_cstr("widowpenalty"),
-        display_widow_penalty => print_esc_cstr("displaywidowpenalty"),
-        broken_penalty => print_esc_cstr("brokenpenalty"),
-        bin_op_penalty => print_esc_cstr("binoppenalty"),
-        rel_penalty => print_esc_cstr("relpenalty"),
-        pre_display_penalty => print_esc_cstr("predisplaypenalty"),
-        post_display_penalty => print_esc_cstr("postdisplaypenalty"),
-        inter_line_penalty => print_esc_cstr("interlinepenalty"),
-        double_hyphen_demerits => print_esc_cstr("doublehyphendemerits"),
-        final_hyphen_demerits => print_esc_cstr("finalhyphendemerits"),
-        adj_demerits => print_esc_cstr("adjdemerits"),
-        mag => print_esc_cstr("mag"),
-        delimiter_factor => print_esc_cstr("delimiterfactor"),
-        looseness => print_esc_cstr("looseness"),
-        time => print_esc_cstr("time"),
-        day => print_esc_cstr("day"),
-        month => print_esc_cstr("month"),
-        year => print_esc_cstr("year"),
-        show_box_breadth => print_esc_cstr("showboxbreadth"),
-        show_box_depth => print_esc_cstr("showboxdepth"),
-        hbadness => print_esc_cstr("hbadness"),
-        vbadness => print_esc_cstr("vbadness"),
-        pausing => print_esc_cstr("pausing"),
-        tracing_online => print_esc_cstr("tracingonline"),
-        tracing_macros => print_esc_cstr("tracingmacros"),
-        tracing_stats => print_esc_cstr("tracingstats"),
-        tracing_paragraphs => print_esc_cstr("tracingparagraphs"),
-        tracing_pages => print_esc_cstr("tracingpages"),
-        tracing_output => print_esc_cstr("tracingoutput"),
-        tracing_lost_chars => print_esc_cstr("tracinglostchars"),
-        tracing_commands => print_esc_cstr("tracingcommands"),
-        tracing_restores => print_esc_cstr("tracingrestores"),
-        uc_hyph => print_esc_cstr("uchyph"),
-        output_penalty => print_esc_cstr("outputpenalty"),
-        max_dead_cycles => print_esc_cstr("maxdeadcycles"),
-        hang_after => print_esc_cstr("hangafter"),
-        floating_penalty => print_esc_cstr("floatingpenalty"),
-        global_defs => print_esc_cstr("globaldefs"),
-        cur_fam => print_esc_cstr("fam"),
-        escape_char => print_esc_cstr("escapechar"),
-        default_hyphen_char => print_esc_cstr("defaulthyphenchar"),
-        default_skew_char => print_esc_cstr("defaultskewchar"),
-        end_line_char => print_esc_cstr("endlinechar"),
-        new_line_char => print_esc_cstr("newlinechar"),
-        language => print_esc_cstr("language"),
-        left_hyphen_min => print_esc_cstr("lefthyphenmin"),
-        right_hyphen_min => print_esc_cstr("righthyphenmin"),
-        holding_inserts => print_esc_cstr("holdinginserts"),
-        error_context_lines => print_esc_cstr("errorcontextlines"),
-        char_sub_def_min => print_esc_cstr("charsubdefmin"),
-        char_sub_def_max => print_esc_cstr("charsubdefmax"),
-        tracing_char_sub_def => print_esc_cstr("tracingcharsubdef"),
-        xetex_linebreak_penalty => print_esc_cstr("XeTeXlinebreakpenalty"),
-        xetex_protrude_chars => print_esc_cstr("XeTeXprotrudechars"),
-        synctex => print_esc_cstr("synctex"),
-        tracing_assigns => print_esc_cstr("tracingassigns"),
-        tracing_groups => print_esc_cstr("tracinggroups"),
-        tracing_ifs => print_esc_cstr("tracingifs"),
-        tracing_scan_tokens => print_esc_cstr("tracingscantokens"),
-        tracing_nesting => print_esc_cstr("tracingnesting"),
-        pre_display_correction => print_esc_cstr("predisplaydirection"),
-        last_line_fit => print_esc_cstr("lastlinefit"),
-        saving_vdiscards => print_esc_cstr("savingvdiscards"),
-        saving_hyphs => print_esc_cstr("savinghyphcodes"),
-        suppress_fontnotfound_error => print_esc_cstr("suppressfontnotfounderror"),
-        texxet => print_esc_cstr("TeXXeTstate"),
-        xetex_upwards => print_esc_cstr("XeTeXupwardsmode"),
-        xetex_use_glyph_metrics => print_esc_cstr("XeTeXuseglyphmetrics"),
-        xetex_inter_char_tokens => print_esc_cstr("XeTeXinterchartokenstate"),
-        xetex_dash_break => print_esc_cstr("XeTeXdashbreakstate"),
-        xetex_input_normalization => print_esc_cstr("XeTeXinputnormalization"),
-        xetex_tracing_fonts => print_esc_cstr("XeTeXtracingfonts"),
-        xetex_interword_space_shaping => print_esc_cstr("XeTeXinterwordspaceshaping"),
-        xetex_generate_actual_text => print_esc_cstr("XeTeXgenerateactualtext"),
-        xetex_hyphenatable_length => print_esc_cstr("XeTeXhyphenatablelength"),
-        pdfoutput => print_esc_cstr("pdfoutput"),
-        _ => t_print!("[unknown i32 parameter!]"), // NOTE: several parameters not covered
-    };
+impl fmt::Display for IntPar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use IntPar::*;
+        match self {
+            pretolerance => Esc("pretolerance").fmt(f),
+            tolerance => Esc("tolerance").fmt(f),
+            line_penalty => Esc("linepenalty").fmt(f),
+            hyphen_penalty => Esc("hyphenpenalty").fmt(f),
+            ex_hyphen_penalty => Esc("exhyphenpenalty").fmt(f),
+            club_penalty => Esc("clubpenalty").fmt(f),
+            widow_penalty => Esc("widowpenalty").fmt(f),
+            display_widow_penalty => Esc("displaywidowpenalty").fmt(f),
+            broken_penalty => Esc("brokenpenalty").fmt(f),
+            bin_op_penalty => Esc("binoppenalty").fmt(f),
+            rel_penalty => Esc("relpenalty").fmt(f),
+            pre_display_penalty => Esc("predisplaypenalty").fmt(f),
+            post_display_penalty => Esc("postdisplaypenalty").fmt(f),
+            inter_line_penalty => Esc("interlinepenalty").fmt(f),
+            double_hyphen_demerits => Esc("doublehyphendemerits").fmt(f),
+            final_hyphen_demerits => Esc("finalhyphendemerits").fmt(f),
+            adj_demerits => Esc("adjdemerits").fmt(f),
+            mag => Esc("mag").fmt(f),
+            delimiter_factor => Esc("delimiterfactor").fmt(f),
+            looseness => Esc("looseness").fmt(f),
+            time => Esc("time").fmt(f),
+            day => Esc("day").fmt(f),
+            month => Esc("month").fmt(f),
+            year => Esc("year").fmt(f),
+            show_box_breadth => Esc("showboxbreadth").fmt(f),
+            show_box_depth => Esc("showboxdepth").fmt(f),
+            hbadness => Esc("hbadness").fmt(f),
+            vbadness => Esc("vbadness").fmt(f),
+            pausing => Esc("pausing").fmt(f),
+            tracing_online => Esc("tracingonline").fmt(f),
+            tracing_macros => Esc("tracingmacros").fmt(f),
+            tracing_stats => Esc("tracingstats").fmt(f),
+            tracing_paragraphs => Esc("tracingparagraphs").fmt(f),
+            tracing_pages => Esc("tracingpages").fmt(f),
+            tracing_output => Esc("tracingoutput").fmt(f),
+            tracing_lost_chars => Esc("tracinglostchars").fmt(f),
+            tracing_commands => Esc("tracingcommands").fmt(f),
+            tracing_restores => Esc("tracingrestores").fmt(f),
+            uc_hyph => Esc("uchyph").fmt(f),
+            output_penalty => Esc("outputpenalty").fmt(f),
+            max_dead_cycles => Esc("maxdeadcycles").fmt(f),
+            hang_after => Esc("hangafter").fmt(f),
+            floating_penalty => Esc("floatingpenalty").fmt(f),
+            global_defs => Esc("globaldefs").fmt(f),
+            cur_fam => Esc("fam").fmt(f),
+            escape_char => Esc("escapechar").fmt(f),
+            default_hyphen_char => Esc("defaulthyphenchar").fmt(f),
+            default_skew_char => Esc("defaultskewchar").fmt(f),
+            end_line_char => Esc("endlinechar").fmt(f),
+            new_line_char => Esc("newlinechar").fmt(f),
+            language => Esc("language").fmt(f),
+            left_hyphen_min => Esc("lefthyphenmin").fmt(f),
+            right_hyphen_min => Esc("righthyphenmin").fmt(f),
+            holding_inserts => Esc("holdinginserts").fmt(f),
+            error_context_lines => Esc("errorcontextlines").fmt(f),
+            char_sub_def_min => Esc("charsubdefmin").fmt(f),
+            char_sub_def_max => Esc("charsubdefmax").fmt(f),
+            tracing_char_sub_def => Esc("tracingcharsubdef").fmt(f),
+            xetex_linebreak_penalty => Esc("XeTeXlinebreakpenalty").fmt(f),
+            xetex_protrude_chars => Esc("XeTeXprotrudechars").fmt(f),
+            synctex => Esc("synctex").fmt(f),
+            tracing_assigns => Esc("tracingassigns").fmt(f),
+            tracing_groups => Esc("tracinggroups").fmt(f),
+            tracing_ifs => Esc("tracingifs").fmt(f),
+            tracing_scan_tokens => Esc("tracingscantokens").fmt(f),
+            tracing_nesting => Esc("tracingnesting").fmt(f),
+            pre_display_correction => Esc("predisplaydirection").fmt(f),
+            last_line_fit => Esc("lastlinefit").fmt(f),
+            saving_vdiscards => Esc("savingvdiscards").fmt(f),
+            saving_hyphs => Esc("savinghyphcodes").fmt(f),
+            suppress_fontnotfound_error => Esc("suppressfontnotfounderror").fmt(f),
+            texxet => Esc("TeXXeTstate").fmt(f),
+            xetex_upwards => Esc("XeTeXupwardsmode").fmt(f),
+            xetex_use_glyph_metrics => Esc("XeTeXuseglyphmetrics").fmt(f),
+            xetex_inter_char_tokens => Esc("XeTeXinterchartokenstate").fmt(f),
+            xetex_dash_break => Esc("XeTeXdashbreakstate").fmt(f),
+            xetex_input_normalization => Esc("XeTeXinputnormalization").fmt(f),
+            xetex_tracing_fonts => Esc("XeTeXtracingfonts").fmt(f),
+            xetex_interword_space_shaping => Esc("XeTeXinterwordspaceshaping").fmt(f),
+            xetex_generate_actual_text => Esc("XeTeXgenerateactualtext").fmt(f),
+            xetex_hyphenatable_length => Esc("XeTeXhyphenatablelength").fmt(f),
+            pdfoutput => Esc("pdfoutput").fmt(f),
+            _ => "[unknown i32 parameter!]".fmt(f), // NOTE: several parameters not covered
+        }
+    }
 }
 
 pub(crate) unsafe fn diagnostic<F>(blank_line: bool, f: F)
@@ -1763,110 +1853,100 @@ where
     selector = oldsetting;
 }
 
-pub(crate) unsafe fn print_length_param(n: DimenPar) {
-    use DimenPar::*;
-    match n {
-        par_indent => print_esc_cstr("parindent"),
-        math_surround => print_esc_cstr("mathsurround"),
-        line_skip_limit => print_esc_cstr("lineskiplimit"),
-        hsize => print_esc_cstr("hsize"),
-        vsize => print_esc_cstr("vsize"),
-        max_depth => print_esc_cstr("maxdepth"),
-        split_max_depth => print_esc_cstr("splitmaxdepth"),
-        box_max_depth => print_esc_cstr("boxmaxdepth"),
-        hfuzz => print_esc_cstr("hfuzz"),
-        vfuzz => print_esc_cstr("vfuzz"),
-        delimiter_shortfall => print_esc_cstr("delimitershortfall"),
-        null_delimiter_space => print_esc_cstr("nulldelimiterspace"),
-        script_space => print_esc_cstr("scriptspace"),
-        pre_display_size => print_esc_cstr("predisplaysize"),
-        display_width => print_esc_cstr("displaywidth"),
-        display_indent => print_esc_cstr("displayindent"),
-        overfull_rule => print_esc_cstr("overfullrule"),
-        hang_indent => print_esc_cstr("hangindent"),
-        h_offset => print_esc_cstr("hoffset"),
-        v_offset => print_esc_cstr("voffset"),
-        emergency_stretch => print_esc_cstr("emergencystretch"),
-        pdf_page_width => print_esc_cstr("pdfpagewidth"),
-        pdf_page_height => print_esc_cstr("pdfpageheight"),
+impl fmt::Display for DimenPar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use DimenPar::*;
+        match self {
+            par_indent => Esc("parindent"),
+            math_surround => Esc("mathsurround"),
+            line_skip_limit => Esc("lineskiplimit"),
+            hsize => Esc("hsize"),
+            vsize => Esc("vsize"),
+            max_depth => Esc("maxdepth"),
+            split_max_depth => Esc("splitmaxdepth"),
+            box_max_depth => Esc("boxmaxdepth"),
+            hfuzz => Esc("hfuzz"),
+            vfuzz => Esc("vfuzz"),
+            delimiter_shortfall => Esc("delimitershortfall"),
+            null_delimiter_space => Esc("nulldelimiterspace"),
+            script_space => Esc("scriptspace"),
+            pre_display_size => Esc("predisplaysize"),
+            display_width => Esc("displaywidth"),
+            display_indent => Esc("displayindent"),
+            overfull_rule => Esc("overfullrule"),
+            hang_indent => Esc("hangindent"),
+            h_offset => Esc("hoffset"),
+            v_offset => Esc("voffset"),
+            emergency_stretch => Esc("emergencystretch"),
+            pdf_page_width => Esc("pdfpagewidth"),
+            pdf_page_height => Esc("pdfpageheight"),
+        }
+        .fmt(f)
     }
 }
 /// Cases of `print_cmd_chr` for symbolic printing of primitives
-pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
-    match cmd {
-        Cmd::LeftBrace => {
-            t_print!(
-                "begin-group character {}",
-                std::char::from_u32(chr_code as u32).unwrap()
-            );
-        }
-        Cmd::RightBrace => {
-            t_print!(
-                "end-group character {}",
-                std::char::from_u32(chr_code as u32).unwrap()
-            );
-        }
-        Cmd::MathShift => {
-            t_print!(
-                "math shift character {}",
-                std::char::from_u32(chr_code as u32).unwrap()
-            );
-        }
-        Cmd::MacParam => {
-            t_print!(
-                "macro parameter character {}",
-                std::char::from_u32(chr_code as u32).unwrap()
-            );
-        }
-        Cmd::SupMark => {
-            t_print!(
-                "superscript character {}",
-                std::char::from_u32(chr_code as u32).unwrap()
-            );
-        }
-        Cmd::SubMark => {
-            t_print!(
-                "subscript character {}",
-                std::char::from_u32(chr_code as u32).unwrap()
-            );
-        }
-        Cmd::EndV => t_print!("end of alignment template"),
-        Cmd::Spacer => {
-            t_print!(
-                "blank space {}",
-                std::char::from_u32(chr_code as u32).unwrap()
-            );
-        }
-        Cmd::Letter => {
-            t_print!(
-                "the letter {}",
-                std::char::from_u32(chr_code as u32).unwrap()
-            );
-        }
-        Cmd::OtherChar => {
-            t_print!(
-                "the character {}",
-                std::char::from_u32(chr_code as u32).unwrap()
-            );
-        }
-        Cmd::AssignGlue | Cmd::AssignMuGlue => {
-            if chr_code < SKIP_BASE as i32 {
-                match GluePar::n((chr_code - GLUE_BASE as i32) as u16) {
-                    Some(dimen) => print_skip_param(dimen),
-                    None => t_print!("[unknown glue parameter!]"),
-                }
-            } else if chr_code < MU_SKIP_BASE as i32 {
-                t_print!("{}{}", Esc("skip"), chr_code - SKIP_BASE as i32);
-            } else {
-                t_print!("{}{}", Esc("muskip"), chr_code - MU_SKIP_BASE as i32);
+pub(crate) struct CmdChr(pub Cmd, pub i32);
+impl fmt::Display for CmdChr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let cmd = self.0;
+        let mut chr_code = self.1;
+        match cmd {
+            Cmd::LeftBrace => {
+                "begin-group character ".fmt(f)?;
+                std::char::from_u32(chr_code as u32).unwrap().fmt(f)
             }
-        }
-        Cmd::AssignToks => {
-            if chr_code >= TOKS_BASE as i32 {
-                t_print!("{}{}", Esc("toks"), chr_code - TOKS_BASE as i32);
-            } else {
-                t_print!(
-                    "{}",
+            Cmd::RightBrace => {
+                "end-group character ".fmt(f)?;
+                std::char::from_u32(chr_code as u32).unwrap().fmt(f)
+            }
+            Cmd::MathShift => {
+                "math shift character ".fmt(f)?;
+                std::char::from_u32(chr_code as u32).unwrap().fmt(f)
+            }
+            Cmd::MacParam => {
+                "macro parameter character ".fmt(f)?;
+                std::char::from_u32(chr_code as u32).unwrap().fmt(f)
+            }
+            Cmd::SupMark => {
+                "superscript character ".fmt(f)?;
+                std::char::from_u32(chr_code as u32).unwrap().fmt(f)
+            }
+            Cmd::SubMark => {
+                "subscript character ".fmt(f)?;
+                std::char::from_u32(chr_code as u32).unwrap().fmt(f)
+            }
+            Cmd::EndV => "end of alignment template".fmt(f),
+            Cmd::Spacer => {
+                "blank space ".fmt(f)?;
+                std::char::from_u32(chr_code as u32).unwrap().fmt(f)
+            }
+            Cmd::Letter => {
+                "the letter ".fmt(f)?;
+                std::char::from_u32(chr_code as u32).unwrap().fmt(f)
+            }
+            Cmd::OtherChar => {
+                "the character ".fmt(f)?;
+                std::char::from_u32(chr_code as u32).unwrap().fmt(f)
+            }
+            Cmd::AssignGlue | Cmd::AssignMuGlue => {
+                if chr_code < SKIP_BASE as i32 {
+                    match GluePar::n((chr_code - GLUE_BASE as i32) as u16) {
+                        Some(dimen) => dimen.fmt(f),
+                        None => "[unknown glue parameter!]".fmt(f),
+                    }
+                } else if chr_code < MU_SKIP_BASE as i32 {
+                    Esc("skip").fmt(f)?;
+                    (chr_code - SKIP_BASE as i32).fmt(f)
+                } else {
+                    Esc("muskip").fmt(f)?;
+                    (chr_code - MU_SKIP_BASE as i32).fmt(f)
+                }
+            }
+            Cmd::AssignToks => {
+                if chr_code >= TOKS_BASE as i32 {
+                    Esc("toks").fmt(f)?;
+                    (chr_code - TOKS_BASE as i32).fmt(f)
+                } else {
                     match Local::n(chr_code - LOCAL_BASE as i32) {
                         Some(Local::output_routine) => Esc("output"),
                         Some(Local::every_par) => Esc("everypar"),
@@ -1881,644 +1961,719 @@ pub(crate) unsafe fn print_cmd_chr(cmd: Cmd, mut chr_code: i32) {
                         Some(Local::TectonicCodaTokens) => Esc("TectonicCodaTokens"),
                         _ => Esc("errhelp"),
                     }
-                );
-            }
-        }
-        Cmd::AssignInt => {
-            if chr_code < COUNT_BASE as i32 {
-                match IntPar::n(chr_code - INT_BASE as i32) {
-                    Some(dimen) => print_param(dimen),
-                    None => t_print!("[unknown i32 parameter!]"),
+                    .fmt(f)
                 }
-            } else {
-                t_print!("{}{}", Esc("count"), chr_code - COUNT_BASE as i32);
             }
-        }
-        Cmd::AssignDimen => {
-            if chr_code < SCALED_BASE as i32 {
-                match DimenPar::n(chr_code - DIMEN_BASE as i32) {
-                    Some(dimen) => print_length_param(dimen),
-                    None => t_print!("[unknown dimen parameter!]"),
+            Cmd::AssignInt => {
+                if chr_code < COUNT_BASE as i32 {
+                    match IntPar::n(chr_code - INT_BASE as i32) {
+                        Some(dimen) => dimen.fmt(f),
+                        None => "[unknown i32 parameter!]".fmt(f),
+                    }
+                } else {
+                    Esc("count").fmt(f)?;
+                    (chr_code - COUNT_BASE as i32).fmt(f)
                 }
-            } else {
-                t_print!("{}{}", Esc("dimen"), chr_code - SCALED_BASE as i32);
             }
-        }
-        Cmd::Accent => t_print!("{}", Esc("accent")),
-        Cmd::Advance => t_print!("{}", Esc("advance")),
-        Cmd::AfterAssignment => t_print!("{}", Esc("afterassignment")),
-        Cmd::AfterGroup => t_print!("{}", Esc("aftergroup")),
-        Cmd::AssignFontDimen => t_print!("{}", Esc("fontdimen")),
-        Cmd::BeginGroup => t_print!("{}", Esc("begingroup")),
-        Cmd::BreakPenalty => t_print!("{}", Esc("penalty")),
-        Cmd::CharNum => t_print!("{}", Esc("char")),
-        Cmd::CSName => t_print!("{}", Esc("csname")),
-        Cmd::DefFont => t_print!("{}", Esc("font")),
-        Cmd::DelimNum => t_print!(
-            "{}",
-            if chr_code == 1 {
+            Cmd::AssignDimen => {
+                if chr_code < SCALED_BASE as i32 {
+                    match DimenPar::n(chr_code - DIMEN_BASE as i32) {
+                        Some(dimen) => dimen.fmt(f),
+                        None => "[unknown dimen parameter!]".fmt(f),
+                    }
+                } else {
+                    Esc("dimen").fmt(f)?;
+                    (chr_code - SCALED_BASE as i32).fmt(f)
+                }
+            }
+            Cmd::Accent => Esc("accent").fmt(f),
+            Cmd::Advance => Esc("advance").fmt(f),
+            Cmd::AfterAssignment => Esc("afterassignment").fmt(f),
+            Cmd::AfterGroup => Esc("aftergroup").fmt(f),
+            Cmd::AssignFontDimen => Esc("fontdimen").fmt(f),
+            Cmd::BeginGroup => Esc("begingroup").fmt(f),
+            Cmd::BreakPenalty => Esc("penalty").fmt(f),
+            Cmd::CharNum => Esc("char").fmt(f),
+            Cmd::CSName => Esc("csname").fmt(f),
+            Cmd::DefFont => Esc("font").fmt(f),
+            Cmd::DelimNum => if chr_code == 1 {
                 Esc("Udelimiter")
             } else {
                 Esc("delimiter")
             }
-        ),
-        Cmd::Divide => t_print!("{}", Esc("divide")),
-        Cmd::EndCSName => t_print!("{}", Esc("endcsname")),
-        Cmd::EndGroup => t_print!("{}", Esc("endgroup")),
-        Cmd::ExSpace => t_print!("{}", Esc(" ")),
-        Cmd::ExpandAfter => t_print!(
-            "{}",
-            if chr_code == 0 {
+            .fmt(f),
+            Cmd::Divide => Esc("divide").fmt(f),
+            Cmd::EndCSName => Esc("endcsname").fmt(f),
+            Cmd::EndGroup => Esc("endgroup").fmt(f),
+            Cmd::ExSpace => Esc(" ").fmt(f),
+            Cmd::ExpandAfter => if chr_code == 0 {
                 Esc("expandafter")
             } else {
                 Esc("unless")
             }
-        ),
-        Cmd::HAlign => t_print!("{}", Esc("halign")),
-        Cmd::HRule => t_print!("{}", Esc("hrule")),
-        Cmd::IgnoreSpaces => t_print!(
-            "{}",
-            if chr_code == 0 {
+            .fmt(f),
+            Cmd::HAlign => Esc("halign").fmt(f),
+            Cmd::HRule => Esc("hrule").fmt(f),
+            Cmd::IgnoreSpaces => if chr_code == 0 {
                 Esc("ignorespaces")
             } else {
                 Esc("primitive")
             }
-        ),
-        Cmd::Insert => t_print!("{}", Esc("insert")),
-        Cmd::ItalCorr => t_print!("{}", Esc("/")),
-        Cmd::Mark => t_print!(
-            "{}",
-            if chr_code > 0 {
+            .fmt(f),
+            Cmd::Insert => Esc("insert").fmt(f),
+            Cmd::ItalCorr => Esc("/").fmt(f),
+            Cmd::Mark => if chr_code > 0 {
                 Esc("marks")
             } else {
                 Esc("mark")
             }
-        ),
-        Cmd::MathAccent => print_esc_cstr(if chr_code == 1 {
-            "Umathaccent"
-        } else {
-            "mathaccent"
-        }),
-        Cmd::MathCharNum => print_esc_cstr(match chr_code {
-            2 => "Umathchar",
-            1 => "Umathcharnum",
-            _ => "mathchar",
-        }),
-        Cmd::MathChoice => print_esc_cstr("mathchoice"),
-        Cmd::Multiply => print_esc_cstr("multiply"),
-        Cmd::NoAlign => print_esc_cstr("noalign"),
-        Cmd::NoBoundary => print_esc_cstr("noboundary"),
-        Cmd::NoExpand => print_esc_cstr(if chr_code == 0 {
-            "noexpand"
-        } else {
-            "primitive"
-        }),
-        Cmd::NonScript => print_esc_cstr("nonscript"),
-        Cmd::Omit => print_esc_cstr("omit"),
-        Cmd::Radical => print_esc_cstr(if chr_code == 1 { "Uradical" } else { "radical" }),
-        Cmd::ReadToCS => print_esc_cstr(if chr_code == 0 { "read" } else { "readline" }),
-        Cmd::Relax => print_esc_cstr("relax"),
-        Cmd::SetBox => print_esc_cstr("setbox"),
-        Cmd::SetPrevGraf => print_esc_cstr("prevgraf"),
-        Cmd::SetShape => print_esc_cstr(match chr_code as usize {
-            c if c == LOCAL_BASE as usize + Local::par_shape as usize => "parshape",
-            INTER_LINE_PENALTIES_LOC => "interlinepenalties",
-            CLUB_PENALTIES_LOC => "clubpenalties",
-            WIDOW_PENALTIES_LOC => "widowpenalties",
-            DISPLAY_WIDOW_PENALTIES_LOC => "displaywidowpenalties",
-            _ => unreachable!(),
-        }),
-        Cmd::The => print_esc_cstr(match chr_code {
-            0 => "the",
-            1 => "unexpanded",
-            _ => "detokenize",
-        }),
-        Cmd::ToksRegister => {
-            print_esc_cstr("toks");
-            if chr_code != 0 {
-                print_sa_num(chr_code.opt().unwrap());
-            }
-        }
-        Cmd::VAdjust => print_esc_cstr("vadjust"),
-        Cmd::VAlign => print_esc_cstr(if chr_code == 0 {
-            "valign"
-        } else {
-            match MathType::from(chr_code as u16) {
-                MathType::Eq(BE::Begin, MathMode::Left) => "beginL",
-                MathType::Eq(BE::End, MathMode::Left) => "endL",
-                MathType::Eq(BE::Begin, MathMode::Right) => "beginR",
-                _ => "endR",
-            }
-        }),
-        Cmd::VCenter => print_esc_cstr("vcenter"),
-        Cmd::VRule => print_esc_cstr("vrule"),
-        PAR_END => print_esc_cstr("par"),
-        Cmd::Input => print_esc_cstr(match chr_code {
-            0 => "input",
-            2 => "scantokens",
-            _ => "endinput",
-        }),
-        Cmd::TopBotMark => {
-            print_esc_cstr(match (chr_code % MARKS_CODE) as usize {
-                FIRST_MARK_CODE => "firstmark",
-                BOT_MARK_CODE => "botmark",
-                SPLIT_FIRST_MARK_CODE => "splitfirstmark",
-                SPLIT_BOT_MARK_CODE => "splitbotmark",
-                _ => "topmark",
-            });
-            if chr_code >= MARKS_CODE {
-                print_chr('s');
-            }
-        }
-        Cmd::Register => {
-            let cmd;
-            if chr_code < 0 || chr_code > LO_MEM_STAT_MAX {
-                cmd = (MEM[chr_code as usize].b16.s1 as i32 / 64) as u16
+            .fmt(f),
+            Cmd::MathAccent => if chr_code == 1 {
+                Esc("Umathaccent")
             } else {
-                cmd = chr_code as u16;
-                chr_code = None.tex_int();
+                Esc("mathaccent")
             }
-            print_esc_cstr(if cmd == ValLevel::Int as u16 {
-                "count"
-            } else if cmd == ValLevel::Dimen as u16 {
-                "dimen"
-            } else if cmd == ValLevel::Glue as u16 {
-                "skip"
+            .fmt(f),
+            Cmd::MathCharNum => match chr_code {
+                2 => Esc("Umathchar"),
+                1 => Esc("Umathcharnum"),
+                _ => Esc("mathchar"),
+            }
+            .fmt(f),
+            Cmd::MathChoice => Esc("mathchoice").fmt(f),
+            Cmd::Multiply => Esc("multiply").fmt(f),
+            Cmd::NoAlign => Esc("noalign").fmt(f),
+            Cmd::NoBoundary => Esc("noboundary").fmt(f),
+            Cmd::NoExpand => if chr_code == 0 {
+                Esc("noexpand")
             } else {
-                "muskip"
-            });
-            if let Some(q) = chr_code.opt() {
-                print_sa_num(q);
+                Esc("primitive")
             }
-        }
-        Cmd::SetAux => print_esc_cstr(if chr_code == ListMode::VMode as i32 {
-            "prevdepth"
-        } else {
-            "spacefactor"
-        }),
-        Cmd::SetPageInt => print_esc_cstr(match chr_code {
-            0 => "deadcycles",
-            2 => "interactionmode",
-            _ => "insertpenalties",
-        }),
-        Cmd::SetBoxDimen => print_esc_cstr(match SetBoxDimen::n(chr_code as u8).unwrap() {
-            SetBoxDimen::WidthOffset => "wd",
-            SetBoxDimen::HeightOffset => "ht",
-            SetBoxDimen::DepthOffset => "dp",
-        }),
-        Cmd::LastItem => print_esc_cstr({
-            use LastItemCode::*;
-            match LastItemCode::n(chr_code as u8).unwrap() {
-                LastPenalty => "lastpenalty",
-                LastKern => "lastkern",
-                LastSkip => "lastskip",
-                InputLineNo => "inputlineno",
-                PdfShellEscape => "shellescape",
-                LastNodeType => "lastnodetype",
-                EtexVersion => "eTeXversion",
-                XetexVersion => "XeTeXversion",
-                XetexCountGlyphs => "XeTeXcountglyphs",
-                XetexCountVariations => "XeTeXcountvariations",
-                XetexVariation => "XeTeXvariation",
-                XetexFindVariationByName => "XeTeXfindvariationbyname",
-                XetexVariationMin => "XeTeXvariationmin",
-                XetexVariationMax => "XeTeXvariationmax",
-                XetexVariationDefault => "XeTeXvariationdefault",
-                XetexCountFeatures => "XeTeXcountfeatures",
-                XetexFeatureCode => "XeTeXfeaturecode",
-                XetexFindFeatureByName => "XeTeXfindfeaturebyname",
-                XetexIsExclusiveFeature => "XeTeXisexclusivefeature",
-                XetexCountSelectors => "XeTeXcountselectors",
-                XetexSelectorCode => "XeTeXselectorcode",
-                XetexFindSelectorByName => "XeTeXfindselectorbyname",
-                XetexIsDefaultSelector => "XeTeXisdefaultselector",
-                XetexOTCountScripts => "XeTeXOTcountscripts",
-                XetexOTCountLanguages => "XeTeXOTcountlanguages",
-                XetexOTCountFeatures => "XeTeXOTcountfeatures",
-                XetexOTScript => "XeTeXOTscripttag",
-                XetexOTLanguage => "XeTeXOTlanguagetag",
-                XetexOTFeature => "XeTeXOTfeaturetag",
-                XetexMapCharToGlyph => "XeTeXcharglyph",
-                XetexGlyphIndex => "XeTeXglyphindex",
-                XetexGlyphBounds => "XeTeXglyphbounds",
-                XetexFontType => "XeTeXfonttype",
-                XetexFirstChar => "XeTeXfirstfontchar",
-                XetexLastChar => "XeTeXlastfontchar",
-                PdfLastXPos => "pdflastxpos",
-                PdfLastYPos => "pdflastypos",
-                XetexPdfPageCount => "XeTeXpdfpagecount",
-                CurrentGroupLevel => "currentgrouplevel",
-                CurrentGroupType => "currentgrouptype",
-                CurrentIfLevel => "currentiflevel",
-                CurrentIfType => "currentiftype",
-                CurrentIfBranch => "currentifbranch",
-                FontCharWd => "fontcharwd",
-                FontCharHt => "fontcharht",
-                FontCharDp => "fontchardp",
-                FontCharIc => "fontcharic",
-                ParShapeLength => "parshapelength",
-                ParShapeIndent => "parshapeindent",
-                ParShapeDimen => "parshapedimen",
-                EtexExprInt => "numexpr",
-                EtexExprDimen => "dimexpr",
-                EtexExprGlue => "glueexpr",
-                EtexExprMu => "muexpr",
-                GlueStretchOrder => "gluestretchorder",
-                GlueShrinkOrder => "glueshrinkorder",
-                GlueStretch => "gluestretch",
-                GlueShrink => "glueshrink",
-                MuToGlue => "mutoglue",
-                GlueToMu => "gluetomu",
-                Badness => "badness",
-            }
-        }),
-        Cmd::Convert => print_esc_cstr({
-            use ConvertCode::*;
-            match ConvertCode::n(chr_code as u8).unwrap() {
-                Number => "number",
-                RomanNumeral => "romannumeral",
-                String => "string",
-                Meaning => "meaning",
-                FontName => "fontname",
-                PdfStrcmp => "strcmp",
-                PdfMdfiveSum => "mdfivesum",
-                LeftMarginKern => "leftmarginkern",
-                RightMarginKern => "rightmarginkern",
-                EtexRevision => "eTeXrevision",
-                XetexRevision => "XeTeXrevision",
-                XetexVariationName => "XeTeXvariationname",
-                XetexFeatureName => "XeTeXfeaturename",
-                XetexSelectorName => "XeTeXselectorname",
-                XetexGlyphName => "XeTeXglyphname",
-                XetexUchar => "Uchar",
-                XetexUcharcat => "Ucharcat",
-                JobName => "jobname",
-            }
-        }),
-        Cmd::IfTest => {
-            if chr_code >= UNLESS_CODE {
-                print_esc_cstr("unless");
-            }
-            print_esc_cstr(
-                match IfTestCode::n((chr_code % UNLESS_CODE) as u8).unwrap() {
-                    IfTestCode::IfCat => "ifcat",
-                    IfTestCode::IfInt => "ifnum",
-                    IfTestCode::IfDim => "ifdim",
-                    IfTestCode::IfOdd => "ifodd",
-                    IfTestCode::IfVMode => "ifvmode",
-                    IfTestCode::IfHMode => "ifhmode",
-                    IfTestCode::IfMMode => "ifmmode",
-                    IfTestCode::IfInner => "ifinner",
-                    IfTestCode::IfVoid => "ifvoid",
-                    IfTestCode::IfHBox => "ifhbox",
-                    IfTestCode::IfVBox => "ifvbox",
-                    IfTestCode::Ifx => "ifx",
-                    IfTestCode::IfEof => "ifeof",
-                    IfTestCode::IfTrue => "iftrue",
-                    IfTestCode::IfFalse => "iffalse",
-                    IfTestCode::IfCase => "ifcase",
-                    IfTestCode::IfPrimitive => "ifprimitive",
-                    IfTestCode::IfDef => "ifdefined",
-                    IfTestCode::IfCS => "ifcsname",
-                    IfTestCode::IfFontChar => "iffontchar",
-                    IfTestCode::IfInCSName => "ifincsname",
-                    IfTestCode::IfChar => "if",
-                },
-            );
-        }
-        Cmd::FiOrElse => print_esc_cstr(match FiOrElseCode::n(chr_code as u8).unwrap() {
-            FiOrElseCode::Fi => "fi",
-            FiOrElseCode::Or => "or",
-            FiOrElseCode::Else => "else",
-            _ => unreachable!(),
-        }),
-        Cmd::TabMark => {
-            if chr_code == SPAN_CODE {
-                print_esc_cstr("span");
+            .fmt(f),
+            Cmd::NonScript => Esc("nonscript").fmt(f),
+            Cmd::Omit => Esc("omit").fmt(f),
+            Cmd::Radical => if chr_code == 1 {
+                Esc("Uradical")
             } else {
-                t_print!(
-                    "alignment tab character {}",
-                    std::char::from_u32(chr_code as u32).unwrap()
-                );
+                Esc("radical")
             }
-        }
-        Cmd::CarRet => print_esc_cstr(if chr_code == CR_CODE { "cr" } else { "crcr" }),
-        Cmd::SetPageDimen => print_esc_cstr(match chr_code {
-            0 => "pagegoal",         // genuine literal in WEB
-            1 => "pagetotal",        // genuine literal in WEB
-            2 => "pagestretch",      // genuine literal in WEB
-            3 => "pagefilstretch",   // genuine literal in WEB
-            4 => "pagefillstretch",  // genuine literal in WEB
-            5 => "pagefilllstretch", // genuine literal in WEB
-            6 => "pageshrink",       // genuine literal in WEB
-            _ => "pagedepth",
-        }),
-        STOP => print_esc_cstr(if chr_code == 1 { "dump" } else { "end" }),
-        Cmd::HSkip => print_esc_cstr(match SkipCode::n(chr_code as u8).unwrap() {
-            SkipCode::Skip => "hskip",
-            SkipCode::Fil => "hfil",
-            SkipCode::Fill => "hfill",
-            SkipCode::Ss => "hss",
-            SkipCode::FilNeg => "hfilneg",
-            _ => unreachable!(),
-        }),
-        Cmd::VSkip => print_esc_cstr(match SkipCode::n(chr_code as u8).unwrap() {
-            SkipCode::Skip => "vskip",
-            SkipCode::Fil => "vfil",
-            SkipCode::Fill => "vfill",
-            SkipCode::Ss => "vss",
-            SkipCode::FilNeg => "vfilneg",
-            _ => unreachable!(),
-        }),
-        Cmd::MSkip => print_esc_cstr("mskip"),
-        Cmd::Kern => print_esc_cstr("kern"),
-        Cmd::MKern => print_esc_cstr("mkern"),
-        Cmd::HMove => print_esc_cstr(if chr_code == 1 {
-            "moveleft"
-        } else {
-            "moveright"
-        }),
-        Cmd::VMove => print_esc_cstr({
-            if chr_code == 1 {
-                "raise"
+            .fmt(f),
+            Cmd::ReadToCS => if chr_code == 0 {
+                Esc("read")
             } else {
-                "lower"
+                Esc("readline")
             }
-        }),
-        Cmd::MakeBox => print_esc_cstr(match BoxCode::n(chr_code as u8).unwrap() {
-            BoxCode::Box => "box",
-            BoxCode::Copy => "copy",
-            BoxCode::LastBox => "lastbox",
-            BoxCode::VSplit => "vsplit",
-            BoxCode::VTop => "vtop",
-            BoxCode::VBox => "vbox",
-            BoxCode::HBox => "hbox",
-        }),
-        Cmd::LeaderShip => print_esc_cstr(match chr_code as u16 {
-            A_LEADERS => "leaders",
-            C_LEADERS => "cleaders",
-            X_LEADERS => "xleaders",
-            _ => "shipout",
-        }),
-        Cmd::StartPar => print_esc_cstr(if chr_code == 0 { "noindent" } else { "indent" }),
-        Cmd::RemoveItem => print_esc_cstr(match chr_code {
-            10 => "unskip", // Node::Glue
-            11 => "unkern", // Node::Kern
-            _ => "unpenalty",
-        }),
-        Cmd::UnHBox => print_esc_cstr(match BoxCode::n(chr_code as u8).unwrap() {
-            BoxCode::Copy => "unhcopy",
-            _ => "unhbox",
-        }),
-        Cmd::UnVBox => print_esc_cstr(match BoxCode::n(chr_code as u8).unwrap() {
-            BoxCode::Copy => "unvcopy",
-            BoxCode::LastBox => "pagediscards",
-            BoxCode::VSplit => "splitdiscards",
-            _ => "unvbox",
-        }),
-        Cmd::Discretionary => {
-            if chr_code == 1 {
-                t_print!("{}", Esc("-"));
-            } else {
-                t_print!("{}", Esc("discretionary"));
+            .fmt(f),
+            Cmd::Relax => Esc("relax").fmt(f),
+            Cmd::SetBox => Esc("setbox").fmt(f),
+            Cmd::SetPrevGraf => Esc("prevgraf").fmt(f),
+            Cmd::SetShape => match chr_code as usize {
+                c if c == LOCAL_BASE as usize + Local::par_shape as usize => Esc("parshape"),
+                INTER_LINE_PENALTIES_LOC => Esc("interlinepenalties"),
+                CLUB_PENALTIES_LOC => Esc("clubpenalties"),
+                WIDOW_PENALTIES_LOC => Esc("widowpenalties"),
+                DISPLAY_WIDOW_PENALTIES_LOC => Esc("displaywidowpenalties"),
+                _ => unreachable!(),
             }
-        }
-        Cmd::EqNo => print_esc_cstr(if chr_code == 1 { "leqno" } else { "eqno" }),
-        Cmd::MathComp => print_esc_cstr(match MathNode::n(chr_code as u16).unwrap() {
-            MathNode::Ord => "mathord",
-            MathNode::Op => "mathop",
-            MathNode::Bin => "mathbin",
-            MathNode::Rel => "mathrel",
-            MathNode::Open => "mathopen",
-            MathNode::Close => "mathclose",
-            MathNode::Punct => "mathpunct",
-            MathNode::Inner => "mathinner",
-            MathNode::Under => "underline",
-            _ => "overline",
-        }),
-        Cmd::LimitSwitch => match Limit::from(chr_code as u16) {
-            Limit::Limits => print_esc_cstr("limits"),
-            Limit::NoLimits => print_esc_cstr("nolimits"),
-            Limit::Normal => print_esc_cstr("displaylimits"),
-        },
-        Cmd::MathStyle => print_style(chr_code),
-        Cmd::Above => print_esc_cstr(match chr_code {
-            OVER_CODE => "over",
-            ATOP_CODE => "atop",
-            // DELIMITED_CODE + ABOVE_CODE
-            3 => "abovewithdelims",
-            // DELIMITED_CODE + OVER_CODE
-            4 => "overwithdelims",
-            // DELIMITED_CODE + ATOP_CODE
-            5 => "atopwithdelims",
-            _ => "above",
-        }),
-        Cmd::LeftRight => print_esc_cstr(if chr_code as u16 == MathNode::Left as u16 {
-            "left"
-        } else if chr_code as u16 == MIDDLE_NOAD {
-            "middle"
-        } else {
-            "right"
-        }),
-        Cmd::Prefix => print_esc_cstr(match chr_code {
-            1 => "long",
-            2 => "outer",
-            8 => "protected",
-            _ => "global",
-        }),
-        Cmd::Def => print_esc_cstr(match chr_code {
-            0 => "def",
-            1 => "gdef",
-            2 => "edef",
-            _ => "xdef",
-        }),
-        Cmd::Let => {
-            print_esc_cstr(if chr_code as u16 != NORMAL {
-                "futurelet"
+            .fmt(f),
+            Cmd::The => match chr_code {
+                0 => Esc("the"),
+                1 => Esc("unexpanded"),
+                _ => Esc("detokenize"),
+            }
+            .fmt(f),
+            Cmd::ToksRegister => {
+                Esc("toks").fmt(f)?;
+                if chr_code != 0 {
+                    SaNum(chr_code.opt().unwrap()).fmt(f)
+                } else {
+                    Ok(())
+                }
+            }
+            Cmd::VAdjust => Esc("vadjust").fmt(f),
+            Cmd::VAlign => if chr_code == 0 {
+                Esc("valign")
             } else {
-                "let"
-            });
-        }
-        Cmd::ShorthandDef => print_esc_cstr(match ShorthandDefCode::n(chr_code as u8).unwrap() {
-            ShorthandDefCode::Char => "chardef",
-            ShorthandDefCode::MathChar => "mathchardef",
-            ShorthandDefCode::XetexMathChar => "Umathchardef",
-            ShorthandDefCode::XetexMathCharNum => "Umathcharnumdef",
-            ShorthandDefCode::Count => "countdef",
-            ShorthandDefCode::Dimen => "dimendef",
-            ShorthandDefCode::Skip => "skipdef",
-            ShorthandDefCode::MuSkip => "muskipdef",
-            ShorthandDefCode::CharSub => "charsubdef",
-            ShorthandDefCode::Toks => "toksdef",
-        }),
-        Cmd::CharGiven => {
-            t_print!("{}\"{:X}", Esc("char"), chr_code);
-        }
-        Cmd::MathGiven => {
-            t_print!("{}\"{:X}", Esc("mathchar"), chr_code);
-        }
-        Cmd::XetexMathGiven => {
-            t_print!(
+                match MathType::from(chr_code as u16) {
+                    MathType::Eq(BE::Begin, MathMode::Left) => Esc("beginL"),
+                    MathType::Eq(BE::End, MathMode::Left) => Esc("endL"),
+                    MathType::Eq(BE::Begin, MathMode::Right) => Esc("beginR"),
+                    _ => Esc("endR"),
+                }
+            }
+            .fmt(f),
+            Cmd::VCenter => Esc("vcenter").fmt(f),
+            Cmd::VRule => Esc("vrule").fmt(f),
+            PAR_END => Esc("par").fmt(f),
+            Cmd::Input => match chr_code {
+                0 => Esc("input"),
+                2 => Esc("scantokens"),
+                _ => Esc("endinput"),
+            }
+            .fmt(f),
+            Cmd::TopBotMark => {
+                match (chr_code % MARKS_CODE) as usize {
+                    FIRST_MARK_CODE => Esc("firstmark"),
+                    BOT_MARK_CODE => Esc("botmark"),
+                    SPLIT_FIRST_MARK_CODE => Esc("splitfirstmark"),
+                    SPLIT_BOT_MARK_CODE => Esc("splitbotmark"),
+                    _ => Esc("topmark"),
+                }
+                .fmt(f)?;
+                if chr_code >= MARKS_CODE {
+                    's'.fmt(f)
+                } else {
+                    Ok(())
+                }
+            }
+            Cmd::Register => {
+                let cmd;
+                if chr_code < 0 || chr_code > LO_MEM_STAT_MAX {
+                    cmd = unsafe { (MEM[chr_code as usize].b16.s1 as i32 / 64) as u16 };
+                } else {
+                    cmd = chr_code as u16;
+                    chr_code = None.tex_int();
+                }
+                if cmd == ValLevel::Int as u16 {
+                    Esc("count")
+                } else if cmd == ValLevel::Dimen as u16 {
+                    Esc("dimen")
+                } else if cmd == ValLevel::Glue as u16 {
+                    Esc("skip")
+                } else {
+                    Esc("muskip")
+                }
+                .fmt(f)?;
+                if let Some(q) = chr_code.opt() {
+                    SaNum(q).fmt(f)
+                } else {
+                    Ok(())
+                }
+            }
+            Cmd::SetAux => if chr_code == ListMode::VMode as i32 {
+                Esc("prevdepth")
+            } else {
+                Esc("spacefactor")
+            }
+            .fmt(f),
+            Cmd::SetPageInt => match chr_code {
+                0 => Esc("deadcycles"),
+                2 => Esc("interactionmode"),
+                _ => Esc("insertpenalties"),
+            }
+            .fmt(f),
+            Cmd::SetBoxDimen => match SetBoxDimen::n(chr_code as u8).unwrap() {
+                SetBoxDimen::WidthOffset => Esc("wd"),
+                SetBoxDimen::HeightOffset => Esc("ht"),
+                SetBoxDimen::DepthOffset => Esc("dp"),
+            }
+            .fmt(f),
+            Cmd::LastItem => Esc({
+                use LastItemCode::*;
+                match LastItemCode::n(chr_code as u8).unwrap() {
+                    LastPenalty => "lastpenalty",
+                    LastKern => "lastkern",
+                    LastSkip => "lastskip",
+                    InputLineNo => "inputlineno",
+                    PdfShellEscape => "shellescape",
+                    LastNodeType => "lastnodetype",
+                    EtexVersion => "eTeXversion",
+                    XetexVersion => "XeTeXversion",
+                    XetexCountGlyphs => "XeTeXcountglyphs",
+                    XetexCountVariations => "XeTeXcountvariations",
+                    XetexVariation => "XeTeXvariation",
+                    XetexFindVariationByName => "XeTeXfindvariationbyname",
+                    XetexVariationMin => "XeTeXvariationmin",
+                    XetexVariationMax => "XeTeXvariationmax",
+                    XetexVariationDefault => "XeTeXvariationdefault",
+                    XetexCountFeatures => "XeTeXcountfeatures",
+                    XetexFeatureCode => "XeTeXfeaturecode",
+                    XetexFindFeatureByName => "XeTeXfindfeaturebyname",
+                    XetexIsExclusiveFeature => "XeTeXisexclusivefeature",
+                    XetexCountSelectors => "XeTeXcountselectors",
+                    XetexSelectorCode => "XeTeXselectorcode",
+                    XetexFindSelectorByName => "XeTeXfindselectorbyname",
+                    XetexIsDefaultSelector => "XeTeXisdefaultselector",
+                    XetexOTCountScripts => "XeTeXOTcountscripts",
+                    XetexOTCountLanguages => "XeTeXOTcountlanguages",
+                    XetexOTCountFeatures => "XeTeXOTcountfeatures",
+                    XetexOTScript => "XeTeXOTscripttag",
+                    XetexOTLanguage => "XeTeXOTlanguagetag",
+                    XetexOTFeature => "XeTeXOTfeaturetag",
+                    XetexMapCharToGlyph => "XeTeXcharglyph",
+                    XetexGlyphIndex => "XeTeXglyphindex",
+                    XetexGlyphBounds => "XeTeXglyphbounds",
+                    XetexFontType => "XeTeXfonttype",
+                    XetexFirstChar => "XeTeXfirstfontchar",
+                    XetexLastChar => "XeTeXlastfontchar",
+                    PdfLastXPos => "pdflastxpos",
+                    PdfLastYPos => "pdflastypos",
+                    XetexPdfPageCount => "XeTeXpdfpagecount",
+                    CurrentGroupLevel => "currentgrouplevel",
+                    CurrentGroupType => "currentgrouptype",
+                    CurrentIfLevel => "currentiflevel",
+                    CurrentIfType => "currentiftype",
+                    CurrentIfBranch => "currentifbranch",
+                    FontCharWd => "fontcharwd",
+                    FontCharHt => "fontcharht",
+                    FontCharDp => "fontchardp",
+                    FontCharIc => "fontcharic",
+                    ParShapeLength => "parshapelength",
+                    ParShapeIndent => "parshapeindent",
+                    ParShapeDimen => "parshapedimen",
+                    EtexExprInt => "numexpr",
+                    EtexExprDimen => "dimexpr",
+                    EtexExprGlue => "glueexpr",
+                    EtexExprMu => "muexpr",
+                    GlueStretchOrder => "gluestretchorder",
+                    GlueShrinkOrder => "glueshrinkorder",
+                    GlueStretch => "gluestretch",
+                    GlueShrink => "glueshrink",
+                    MuToGlue => "mutoglue",
+                    GlueToMu => "gluetomu",
+                    Badness => "badness",
+                }
+            })
+            .fmt(f),
+            Cmd::Convert => Esc({
+                use ConvertCode::*;
+                match ConvertCode::n(chr_code as u8).unwrap() {
+                    Number => "number",
+                    RomanNumeral => "romannumeral",
+                    String => "string",
+                    Meaning => "meaning",
+                    FontName => "fontname",
+                    PdfStrcmp => "strcmp",
+                    PdfMdfiveSum => "mdfivesum",
+                    LeftMarginKern => "leftmarginkern",
+                    RightMarginKern => "rightmarginkern",
+                    EtexRevision => "eTeXrevision",
+                    XetexRevision => "XeTeXrevision",
+                    XetexVariationName => "XeTeXvariationname",
+                    XetexFeatureName => "XeTeXfeaturename",
+                    XetexSelectorName => "XeTeXselectorname",
+                    XetexGlyphName => "XeTeXglyphname",
+                    XetexUchar => "Uchar",
+                    XetexUcharcat => "Ucharcat",
+                    JobName => "jobname",
+                }
+            })
+            .fmt(f),
+            Cmd::IfTest => {
+                if chr_code >= UNLESS_CODE {
+                    Esc("unless").fmt(f)?;
+                }
+                Esc(
+                    match IfTestCode::n((chr_code % UNLESS_CODE) as u8).unwrap() {
+                        IfTestCode::IfCat => "ifcat",
+                        IfTestCode::IfInt => "ifnum",
+                        IfTestCode::IfDim => "ifdim",
+                        IfTestCode::IfOdd => "ifodd",
+                        IfTestCode::IfVMode => "ifvmode",
+                        IfTestCode::IfHMode => "ifhmode",
+                        IfTestCode::IfMMode => "ifmmode",
+                        IfTestCode::IfInner => "ifinner",
+                        IfTestCode::IfVoid => "ifvoid",
+                        IfTestCode::IfHBox => "ifhbox",
+                        IfTestCode::IfVBox => "ifvbox",
+                        IfTestCode::Ifx => "ifx",
+                        IfTestCode::IfEof => "ifeof",
+                        IfTestCode::IfTrue => "iftrue",
+                        IfTestCode::IfFalse => "iffalse",
+                        IfTestCode::IfCase => "ifcase",
+                        IfTestCode::IfPrimitive => "ifprimitive",
+                        IfTestCode::IfDef => "ifdefined",
+                        IfTestCode::IfCS => "ifcsname",
+                        IfTestCode::IfFontChar => "iffontchar",
+                        IfTestCode::IfInCSName => "ifincsname",
+                        IfTestCode::IfChar => "if",
+                    },
+                )
+                .fmt(f)
+            }
+            Cmd::FiOrElse => match FiOrElseCode::n(chr_code as u8).unwrap() {
+                FiOrElseCode::Fi => Esc("fi"),
+                FiOrElseCode::Or => Esc("or"),
+                FiOrElseCode::Else => Esc("else"),
+                _ => unreachable!(),
+            }
+            .fmt(f),
+            Cmd::TabMark => {
+                if chr_code == SPAN_CODE {
+                    Esc("span").fmt(f)
+                } else {
+                    "alignment tab character ".fmt(f)?;
+                    std::char::from_u32(chr_code as u32).unwrap().fmt(f)
+                }
+            }
+            Cmd::CarRet => if chr_code == CR_CODE {
+                Esc("cr")
+            } else {
+                Esc("crcr")
+            }
+            .fmt(f),
+            Cmd::SetPageDimen => Esc(match chr_code {
+                0 => "pagegoal",         // genuine literal in WEB
+                1 => "pagetotal",        // genuine literal in WEB
+                2 => "pagestretch",      // genuine literal in WEB
+                3 => "pagefilstretch",   // genuine literal in WEB
+                4 => "pagefillstretch",  // genuine literal in WEB
+                5 => "pagefilllstretch", // genuine literal in WEB
+                6 => "pageshrink",       // genuine literal in WEB
+                _ => "pagedepth",
+            })
+            .fmt(f),
+            STOP => if chr_code == 1 {
+                Esc("dump")
+            } else {
+                Esc("end")
+            }
+            .fmt(f),
+            Cmd::HSkip => Esc(match SkipCode::n(chr_code as u8).unwrap() {
+                SkipCode::Skip => "hskip",
+                SkipCode::Fil => "hfil",
+                SkipCode::Fill => "hfill",
+                SkipCode::Ss => "hss",
+                SkipCode::FilNeg => "hfilneg",
+                _ => unreachable!(),
+            })
+            .fmt(f),
+            Cmd::VSkip => Esc(match SkipCode::n(chr_code as u8).unwrap() {
+                SkipCode::Skip => "vskip",
+                SkipCode::Fil => "vfil",
+                SkipCode::Fill => "vfill",
+                SkipCode::Ss => "vss",
+                SkipCode::FilNeg => "vfilneg",
+                _ => unreachable!(),
+            })
+            .fmt(f),
+            Cmd::MSkip => Esc("mskip").fmt(f),
+            Cmd::Kern => Esc("kern").fmt(f),
+            Cmd::MKern => Esc("mkern").fmt(f),
+            Cmd::HMove => if chr_code == 1 {
+                Esc("moveleft")
+            } else {
+                Esc("moveright")
+            }
+            .fmt(f),
+            Cmd::VMove => if chr_code == 1 {
+                Esc("raise")
+            } else {
+                Esc("lower")
+            }
+            .fmt(f),
+            Cmd::MakeBox => Esc(match BoxCode::n(chr_code as u8).unwrap() {
+                BoxCode::Box => "box",
+                BoxCode::Copy => "copy",
+                BoxCode::LastBox => "lastbox",
+                BoxCode::VSplit => "vsplit",
+                BoxCode::VTop => "vtop",
+                BoxCode::VBox => "vbox",
+                BoxCode::HBox => "hbox",
+            })
+            .fmt(f),
+            Cmd::LeaderShip => Esc(match chr_code as u16 {
+                A_LEADERS => "leaders",
+                C_LEADERS => "cleaders",
+                X_LEADERS => "xleaders",
+                _ => "shipout",
+            })
+            .fmt(f),
+            Cmd::StartPar => if chr_code == 0 {
+                Esc("noindent")
+            } else {
+                Esc("indent")
+            }
+            .fmt(f),
+            Cmd::RemoveItem => Esc(match chr_code {
+                10 => "unskip", // Node::Glue
+                11 => "unkern", // Node::Kern
+                _ => "unpenalty",
+            })
+            .fmt(f),
+            Cmd::UnHBox => Esc(match BoxCode::n(chr_code as u8).unwrap() {
+                BoxCode::Copy => "unhcopy",
+                _ => "unhbox",
+            })
+            .fmt(f),
+            Cmd::UnVBox => Esc(match BoxCode::n(chr_code as u8).unwrap() {
+                BoxCode::Copy => "unvcopy",
+                BoxCode::LastBox => "pagediscards",
+                BoxCode::VSplit => "splitdiscards",
+                _ => "unvbox",
+            })
+            .fmt(f),
+            Cmd::Discretionary => {
+                if chr_code == 1 {
+                    Esc("-").fmt(f)
+                } else {
+                    Esc("discretionary").fmt(f)
+                }
+            }
+            Cmd::EqNo => if chr_code == 1 {
+                Esc("leqno")
+            } else {
+                Esc("eqno")
+            }
+            .fmt(f),
+            Cmd::MathComp => Esc(match MathNode::n(chr_code as u16).unwrap() {
+                MathNode::Ord => "mathord",
+                MathNode::Op => "mathop",
+                MathNode::Bin => "mathbin",
+                MathNode::Rel => "mathrel",
+                MathNode::Open => "mathopen",
+                MathNode::Close => "mathclose",
+                MathNode::Punct => "mathpunct",
+                MathNode::Inner => "mathinner",
+                MathNode::Under => "underline",
+                _ => "overline",
+            })
+            .fmt(f),
+            Cmd::LimitSwitch => match Limit::from(chr_code as u16) {
+                Limit::Limits => Esc("limits").fmt(f),
+                Limit::NoLimits => Esc("nolimits").fmt(f),
+                Limit::Normal => Esc("displaylimits").fmt(f),
+            },
+            Cmd::MathStyle => match MathStyle::from_cur(chr_code as i16) {
+                Some(m) => m.fmt(f),
+                None => "Unknown style!".fmt(f),
+            },
+            Cmd::Above => match chr_code {
+                OVER_CODE => Esc("over"),
+                ATOP_CODE => Esc("atop"),
+                // DELIMITED_CODE + ABOVE_CODE
+                3 => Esc("abovewithdelims"),
+                // DELIMITED_CODE + OVER_CODE
+                4 => Esc("overwithdelims"),
+                // DELIMITED_CODE + ATOP_CODE
+                5 => Esc("atopwithdelims"),
+                _ => Esc("above"),
+            }
+            .fmt(f),
+            Cmd::LeftRight => if chr_code as u16 == MathNode::Left as u16 {
+                Esc("left")
+            } else if chr_code as u16 == MIDDLE_NOAD {
+                Esc("middle")
+            } else {
+                Esc("right")
+            }
+            .fmt(f),
+            Cmd::Prefix => match chr_code {
+                1 => Esc("long"),
+                2 => Esc("outer"),
+                8 => Esc("protected"),
+                _ => Esc("global"),
+            }
+            .fmt(f),
+            Cmd::Def => match chr_code {
+                0 => Esc("def"),
+                1 => Esc("gdef"),
+                2 => Esc("edef"),
+                _ => Esc("xdef"),
+            }
+            .fmt(f),
+            Cmd::Let => if chr_code as u16 != NORMAL {
+                Esc("futurelet")
+            } else {
+                Esc("let")
+            }
+            .fmt(f),
+            Cmd::ShorthandDef => Esc(match ShorthandDefCode::n(chr_code as u8).unwrap() {
+                ShorthandDefCode::Char => "chardef",
+                ShorthandDefCode::MathChar => "mathchardef",
+                ShorthandDefCode::XetexMathChar => "Umathchardef",
+                ShorthandDefCode::XetexMathCharNum => "Umathcharnumdef",
+                ShorthandDefCode::Count => "countdef",
+                ShorthandDefCode::Dimen => "dimendef",
+                ShorthandDefCode::Skip => "skipdef",
+                ShorthandDefCode::MuSkip => "muskipdef",
+                ShorthandDefCode::CharSub => "charsubdef",
+                ShorthandDefCode::Toks => "toksdef",
+            })
+            .fmt(f),
+            Cmd::CharGiven => format!("{}\"{:X}", Esc("char"), chr_code).fmt(f),
+            Cmd::MathGiven => format!("{}\"{:X}", Esc("mathchar"), chr_code).fmt(f),
+            Cmd::XetexMathGiven => format!(
                 "{}\"{:X}\"{:X}\"{:X}",
                 Esc("Umathchar"),
                 math_class(chr_code) as i32,
                 math_fam(chr_code) as i32,
                 math_char(chr_code) as i32
-            );
-        }
-        Cmd::DefCode => print_esc_cstr(if chr_code == CAT_CODE_BASE as i32 {
-            "catcode"
-        } else if chr_code == MATH_CODE_BASE as i32 {
-            "mathcode"
-        } else if chr_code == LC_CODE_BASE as i32 {
-            "lccode"
-        } else if chr_code == UC_CODE_BASE as i32 {
-            "uccode"
-        } else if chr_code == SF_CODE_BASE as i32 {
-            "sfcode"
-        } else {
-            "delcode"
-        }),
-        Cmd::XetexDefCode => print_esc_cstr(if chr_code == SF_CODE_BASE as i32 {
-            "XeTeXcharclass"
-        } else if chr_code == MATH_CODE_BASE as i32 {
-            "Umathcodenum"
-        } else if chr_code == MATH_CODE_BASE as i32 + 1 {
-            "Umathcode"
-        } else if chr_code == DEL_CODE_BASE as i32 {
-            "Udelcodenum"
-        } else {
-            "Udelcode"
-        }),
-        Cmd::DefFamily => print_size(chr_code - (MATH_FONT_BASE as i32)),
-        Cmd::HyphData => print_esc_cstr(if chr_code == 1 {
-            "patterns"
-        } else {
-            "hyphenation"
-        }),
-        Cmd::AssignFontInt => print_esc_cstr(match AssignFontInt::from(chr_code) {
-            AssignFontInt::HyphenChar => "hyphenchar",
-            AssignFontInt::SkewChar => "skewchar",
-            AssignFontInt::LpCode => "lpcode",
-            AssignFontInt::RpCode => "rpcode",
-        }),
-        Cmd::SetFont => {
-            t_print!("select font ");
-            let font_name_str = PoolString::from(FONT_NAME[chr_code as usize]);
-            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[chr_code as usize] {
-                let mut quote_char = '\"';
-                if font_name_str.as_slice().contains(&('\"' as u16)) {
-                    quote_char = '\'';
-                }
-                t_print!("{0}{1}{0}", quote_char, font_name_str);
+            )
+            .fmt(f),
+            Cmd::DefCode => Esc(if chr_code == CAT_CODE_BASE as i32 {
+                "catcode"
+            } else if chr_code == MATH_CODE_BASE as i32 {
+                "mathcode"
+            } else if chr_code == LC_CODE_BASE as i32 {
+                "lccode"
+            } else if chr_code == UC_CODE_BASE as i32 {
+                "uccode"
+            } else if chr_code == SF_CODE_BASE as i32 {
+                "sfcode"
             } else {
-                t_print!("{}", font_name_str)
+                "delcode"
+            })
+            .fmt(f),
+            Cmd::XetexDefCode => Esc(if chr_code == SF_CODE_BASE as i32 {
+                "XeTeXcharclass"
+            } else if chr_code == MATH_CODE_BASE as i32 {
+                "Umathcodenum"
+            } else if chr_code == MATH_CODE_BASE as i32 + 1 {
+                "Umathcode"
+            } else if chr_code == DEL_CODE_BASE as i32 {
+                "Udelcodenum"
+            } else {
+                "Udelcode"
+            })
+            .fmt(f),
+            Cmd::DefFamily => FontSize::from((chr_code - (MATH_FONT_BASE as i32)) as usize).fmt(f),
+            Cmd::HyphData => if chr_code == 1 {
+                Esc("patterns")
+            } else {
+                Esc("hyphenation")
             }
-            if FONT_SIZE[chr_code as usize] != FONT_DSIZE[chr_code as usize] {
-                t_print!(" at {}pt", FONT_SIZE[chr_code as usize]);
+            .fmt(f),
+            Cmd::AssignFontInt => Esc(match AssignFontInt::from(chr_code) {
+                AssignFontInt::HyphenChar => "hyphenchar",
+                AssignFontInt::SkewChar => "skewchar",
+                AssignFontInt::LpCode => "lpcode",
+                AssignFontInt::RpCode => "rpcode",
+            })
+            .fmt(f),
+            Cmd::SetFont => {
+                "select font ".fmt(f)?;
+                let font_name_str = unsafe { PoolString::from(FONT_NAME[chr_code as usize]) };
+                if let Font::Native(_) = unsafe { &FONT_LAYOUT_ENGINE[chr_code as usize] } {
+                    let mut quote_char = '\"';
+                    if font_name_str.as_slice().contains(&('\"' as u16)) {
+                        quote_char = '\'';
+                    }
+                    quote_char.fmt(f)?;
+                    font_name_str.fmt(f)?;
+                    quote_char.fmt(f)?;
+                } else {
+                    font_name_str.fmt(f)?
+                }
+                if unsafe { FONT_SIZE[chr_code as usize] != FONT_DSIZE[chr_code as usize] } {
+                    " at ".fmt(f)?;
+                    unsafe { FONT_SIZE[chr_code as usize] }.fmt(f)?;
+                    "pt".fmt(f)
+                } else {
+                    Ok(())
+                }
             }
+            Cmd::SetInteraction => Esc(match InteractionMode::n(chr_code as u8).unwrap() {
+                InteractionMode::Batch => "batchmode",
+                InteractionMode::NonStop => "nonstopmode",
+                InteractionMode::Scroll => "scrollmode",
+                InteractionMode::ErrorStop => "errorstopmode",
+            })
+            .fmt(f),
+            Cmd::InStream => if chr_code == 0 {
+                Esc("closein")
+            } else {
+                Esc("openin")
+            }
+            .fmt(f),
+            Cmd::Message => if chr_code == 0 {
+                Esc("message")
+            } else {
+                Esc("errmessage")
+            }
+            .fmt(f),
+            Cmd::CaseShift => if chr_code == LC_CODE_BASE as i32 {
+                Esc("lowercase")
+            } else {
+                Esc("uppercase")
+            }
+            .fmt(f),
+            Cmd::XRay => Esc(match chr_code {
+                SHOW_BOX_CODE => "showbox",
+                SHOW_THE_CODE => "showthe",
+                SHOW_LISTS => "showlists",
+                SHOW_GROUPS => "showgroups",
+                SHOW_TOKENS => "showtokens",
+                SHOW_IFS => "showifs",
+                _ => "show",
+            })
+            .fmt(f),
+            Cmd::UndefinedCS => "undefined".fmt(f),
+            Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => {
+                let mut n = match cmd {
+                    Cmd::Call => 0,
+                    Cmd::LongCall => 1,
+                    Cmd::OuterCall => 2,
+                    Cmd::LongOuterCall => 3,
+                    _ => unreachable!(),
+                };
+                if unsafe { MEM[*LLIST_link(chr_code as usize) as usize].b32.s0 == PROTECTED_TOKEN }
+                {
+                    n = n + 4
+                }
+                if n / 4 & 1 != 0 {
+                    Esc("protected").fmt(f)?;
+                }
+                if n & 1 != 0 {
+                    Esc("long").fmt(f)?;
+                }
+                if n / 2 & 1 != 0 {
+                    Esc("outer").fmt(f)?;
+                }
+                if n > 0 {
+                    " ".fmt(f)?;
+                }
+                "macro".fmt(f)
+            }
+            Cmd::EndTemplate => Esc("outer endtemplate").fmt(f),
+            Cmd::Extension => match chr_code as u16 {
+                0 => Esc("openout").fmt(f),               // WhatsIt::Open
+                1 => Esc("write").fmt(f),                 // WhatsIt::Write
+                2 => Esc("closeout").fmt(f),              // WhatsIt::Close
+                3 => Esc("special").fmt(f),               // WhatsIt::Special
+                4 => Esc("immediate").fmt(f),             // IMMEDIATE_CODE
+                5 => Esc("setlanguage").fmt(f),           // SET_LANGUAGE_CODE
+                41 => Esc("XeTeXpicfile").fmt(f),         // PIC_FILE_CODE
+                42 => Esc("XeTeXpdffile").fmt(f),         // PDF_FILE_CODE
+                43 => Esc("XeTeXglyph").fmt(f),           // GLYPH_CODE
+                46 => Esc("XeTeXlinebreaklocale").fmt(f), // XETEX_LINEBREAK_LOCALE_EXTENSION_CODE
+                44 => Esc("XeTeXinputencoding").fmt(f),   // XETEX_INPUT_ENCODING_EXTENSION_CODE
+                45 => Esc("XeTeXdefaultencoding").fmt(f), // XETEX_DEFAULT_ENCODING_EXTENSION_CODE
+                6 => Esc("pdfsavepos").fmt(f),            // WhatsIt::PdfSavePos
+                _ => ("[unknown extension!]").fmt(f),
+            },
+            _ => ("[unknown command code!]").fmt(f),
         }
-        Cmd::SetInteraction => print_esc_cstr(match InteractionMode::n(chr_code as u8).unwrap() {
-            InteractionMode::Batch => "batchmode",
-            InteractionMode::NonStop => "nonstopmode",
-            InteractionMode::Scroll => "scrollmode",
-            InteractionMode::ErrorStop => "errorstopmode",
-        }),
-        Cmd::InStream => print_esc_cstr(if chr_code == 0 { "closein" } else { "openin" }),
-        Cmd::Message => print_esc_cstr(if chr_code == 0 {
-            "message"
-        } else {
-            "errmessage"
-        }),
-        Cmd::CaseShift => print_esc_cstr(if chr_code == LC_CODE_BASE as i32 {
-            "lowercase"
-        } else {
-            "uppercase"
-        }),
-        Cmd::XRay => print_esc_cstr(match chr_code {
-            SHOW_BOX_CODE => "showbox",
-            SHOW_THE_CODE => "showthe",
-            SHOW_LISTS => "showlists",
-            SHOW_GROUPS => "showgroups",
-            SHOW_TOKENS => "showtokens",
-            SHOW_IFS => "showifs",
-            _ => "show",
-        }),
-        Cmd::UndefinedCS => t_print!("undefined"),
-        Cmd::Call | Cmd::LongCall | Cmd::OuterCall | Cmd::LongOuterCall => {
-            let mut n = match cmd {
-                Cmd::Call => 0,
-                Cmd::LongCall => 1,
-                Cmd::OuterCall => 2,
-                Cmd::LongOuterCall => 3,
-                _ => unreachable!(),
-            };
-            if MEM[*LLIST_link(chr_code as usize) as usize].b32.s0 == PROTECTED_TOKEN {
-                n = n + 4
-            }
-            if n / 4 & 1 != 0 {
-                t_print!("{}", Esc("protected"));
-            }
-            if n & 1 != 0 {
-                t_print!("{}", Esc("long"));
-            }
-            if n / 2 & 1 != 0 {
-                t_print!("{}", Esc("outer"));
-            }
-            if n > 0 {
-                t_print!(" ");
-            }
-            t_print!("macro");
-        }
-        Cmd::EndTemplate => print_esc_cstr("outer endtemplate"),
-        Cmd::Extension => match chr_code as u16 {
-            0 => print_esc_cstr("openout"),               // WhatsIt::Open
-            1 => print_esc_cstr("write"),                 // WhatsIt::Write
-            2 => print_esc_cstr("closeout"),              // WhatsIt::Close
-            3 => print_esc_cstr("special"),               // WhatsIt::Special
-            4 => print_esc_cstr("immediate"),             // IMMEDIATE_CODE
-            5 => print_esc_cstr("setlanguage"),           // SET_LANGUAGE_CODE
-            41 => print_esc_cstr("XeTeXpicfile"),         // PIC_FILE_CODE
-            42 => print_esc_cstr("XeTeXpdffile"),         // PDF_FILE_CODE
-            43 => print_esc_cstr("XeTeXglyph"),           // GLYPH_CODE
-            46 => print_esc_cstr("XeTeXlinebreaklocale"), // XETEX_LINEBREAK_LOCALE_EXTENSION_CODE
-            44 => print_esc_cstr("XeTeXinputencoding"),   // XETEX_INPUT_ENCODING_EXTENSION_CODE
-            45 => print_esc_cstr("XeTeXdefaultencoding"), // XETEX_DEFAULT_ENCODING_EXTENSION_CODE
-            6 => print_esc_cstr("pdfsavepos"),            // WhatsIt::PdfSavePos
-            _ => t_print!("[unknown extension!]"),
-        },
-        _ => t_print!("[unknown command code!]"),
-    };
+    }
 }
 pub(crate) unsafe fn not_aat_font_error(cmd: Cmd, c: i32, f: usize) {
-    t_eprint!("Cannot use ");
-    print_cmd_chr(cmd, c);
-    t_print!(" with {}; not an AAT font", PoolString::from(FONT_NAME[f]));
+    t_eprint!(
+        "Cannot use {} with {}; not an AAT font",
+        CmdChr(cmd, c),
+        PoolString::from(FONT_NAME[f])
+    );
     error();
 }
 pub(crate) unsafe fn not_aat_gr_font_error(cmd: Cmd, c: i32, f: usize) {
-    t_eprint!("Cannot use ");
-    print_cmd_chr(cmd, c);
-    t_print!(
-        " with {}; not an AAT or Graphite font",
+    t_eprint!(
+        "Cannot use {} with {}; not an AAT or Graphite font",
+        CmdChr(cmd, c),
         PoolString::from(FONT_NAME[f])
     );
     error();
 }
 pub(crate) unsafe fn not_ot_font_error(cmd: Cmd, c: i32, f: usize) {
-    t_eprint!("Cannot use ");
-    print_cmd_chr(cmd, c);
-    t_print!(
-        " with {}; not an OpenType Layout font",
+    t_eprint!(
+        "Cannot use {} with {}; not an OpenType Layout font",
+        CmdChr(cmd, c),
         PoolString::from(FONT_NAME[f])
     );
     error();
 }
 pub(crate) unsafe fn not_native_font_error(cmd: Cmd, c: i32, f: usize) {
-    t_eprint!("Cannot use ");
-    print_cmd_chr(cmd, c);
-    t_print!(
-        " with {}; not a native platform font",
+    t_eprint!(
+        "Cannot use {} with {}; not a native platform font",
+        CmdChr(cmd, c),
         PoolString::from(FONT_NAME[f])
     );
     error();
@@ -2808,8 +2963,7 @@ pub(crate) unsafe fn if_warning(input: &mut input_state_t, input_stack: &[input_
         i -= 1;
     }
     if w {
-        t_print_nl!("Warning: end of ");
-        print_cmd_chr(Cmd::IfTest, cur_if as i32);
+        t_print_nl!("Warning: end of {}", CmdChr(Cmd::IfTest, cur_if as i32));
         if if_line != 0 {
             t_print!(" entered on line {}", if_line);
         }
@@ -2842,10 +2996,12 @@ pub(crate) unsafe fn file_warning(input: &mut input_state_t) {
     let mut curif = cur_if;
     let mut ifline = if_line;
     while IF_STACK[IN_OPEN] != condptr {
-        t_print_nl!("Warning: end of file when ");
-        print_cmd_chr(Cmd::IfTest, curif as i32);
+        t_print_nl!(
+            "Warning: end of file when {}",
+            CmdChr(Cmd::IfTest, curif as i32)
+        );
         if iflimit == FiOrElseCode::Fi {
-            print_esc_cstr("else");
+            t_print!("{}", Esc("else"));
         }
         if ifline != 0 {
             t_print!(" entered on line {}", ifline);
@@ -3229,10 +3385,30 @@ pub(crate) unsafe fn prepare_mag() {
 pub(crate) unsafe fn token_show(p: Option<usize>) {
     if let Some(p) = p {
         show_token_list(llist_link(p), None, 10000000);
-    };
+    }
+}
+pub(crate) struct TokenNode(pub Option<usize>);
+impl<'a> fmt::Display for TokenNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(p) = self.0 {
+            TokenList(unsafe { llist_link(p) }).fmt(f)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+pub(crate) unsafe fn format_meaning(cmd: Cmd, chr: i32) -> String {
+    if cmd >= Cmd::Call {
+        format!("{}:{}", CmdChr(cmd, chr), TokenNode(chr.opt()))
+    } else if cmd == Cmd::TopBotMark && chr < 5 {
+        format!("{}:{}", CmdChr(cmd, chr), TokenNode(cur_mark[chr as usize]))
+    } else {
+        format!("{}", CmdChr(cmd, chr))
+    }
 }
 pub(crate) unsafe fn print_meaning(cmd: Cmd, chr: i32) {
-    print_cmd_chr(cmd, chr);
+    t_print!("{}", CmdChr(cmd, chr));
     if cmd >= Cmd::Call {
         print_chr(':');
         print_ln();
@@ -3252,7 +3428,7 @@ pub(crate) unsafe fn show_cur_cmd_chr(cmd: Cmd, chr: i32) {
             t_print!(": ");
             shown_mode = cur_list.mode
         }
-        print_cmd_chr(cmd, chr);
+        t_print!("{}", CmdChr(cmd, chr));
         if get_int_par(IntPar::tracing_ifs) > 0 {
             if cmd >= Cmd::IfTest {
                 if cmd <= Cmd::FiOrElse {
@@ -3260,8 +3436,7 @@ pub(crate) unsafe fn show_cur_cmd_chr(cmd: Cmd, chr: i32) {
                     let mut n;
                     let l;
                     if cmd == Cmd::FiOrElse {
-                        print_cmd_chr(Cmd::IfTest, cur_if as i32);
-                        print_chr(' ');
+                        t_print!("{} ", CmdChr(Cmd::IfTest, cur_if as i32));
                         n = 0;
                         l = if_line
                     } else {
@@ -3495,10 +3670,13 @@ pub(crate) unsafe fn begin_token_list(input: &mut input_state_t, p: usize, t: Bt
                         Btl::MarkText => t_print!("{}", Esc("mark")),
                         Btl::WriteText => t_print!("{}", Esc("write")),
                         _ => {
-                            print_cmd_chr(
-                                Cmd::AssignToks,
-                                (t as i32) + LOCAL_BASE as i32 + (Local::output_routine as i32)
-                                    - (Btl::OutputText) as i32,
+                            t_print!(
+                                "{}",
+                                CmdChr(
+                                    Cmd::AssignToks,
+                                    (t as i32) + LOCAL_BASE as i32 + (Local::output_routine as i32)
+                                        - (Btl::OutputText) as i32,
+                                )
                             );
                         }
                     }
@@ -3690,9 +3868,11 @@ pub(crate) unsafe fn check_outer_validity(input: &mut input_state_t, cs: &mut i3
             error();
         } else {
             // Tell the user what has run away and try to recover
-            t_eprint!("Incomplete ");
-            print_cmd_chr(Cmd::IfTest, cur_if as i32);
-            t_print!("; all text was ignored after line {}", skip_line);
+            t_eprint!(
+                "Incomplete {}; all text was ignored after line {}",
+                CmdChr(Cmd::IfTest, cur_if as i32),
+                skip_line
+            );
             let help2 = if *cs != 0 {
                 *cs = 0;
                 &"A forbidden control sequence occurred in skipped text."[..]
@@ -4911,9 +5091,11 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         if ocmd == Cmd::IfTest && ochr != IfTestCode::IfCase as i32 {
                             ochr = ochr + UNLESS_CODE
                         } else {
-                            t_eprint!("You can\'t use `{}\' before `", Esc("unless"));
-                            print_cmd_chr(ocmd, ochr);
-                            t_print!("\'");
+                            t_eprint!(
+                                "You can\'t use `{}\' before `{}\'",
+                                Esc("unless"),
+                                CmdChr(ocmd, ochr)
+                            );
                             help!("Continue, and I\'ll forget that it ever happened.");
                             back_error(input, tok);
                             break;
@@ -5048,8 +5230,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         if if_limit == FiOrElseCode::If {
                             insert_relax(input, ocs);
                         } else {
-                            t_eprint!("Extra ");
-                            print_cmd_chr(Cmd::FiOrElse, ochr);
+                            t_eprint!("Extra {}", CmdChr(Cmd::FiOrElse, ochr));
                             help!("I\'m ignoring this; it doesn\'t match any \\if.");
                             error();
                         }
@@ -5842,8 +6023,7 @@ pub(crate) unsafe fn scan_something_internal(
         Cmd::SetAux => {
             let m = chr;
             if cur_list.mode.1 as i32 != m {
-                t_eprint!("Improper ");
-                print_cmd_chr(Cmd::SetAux, m);
+                t_eprint!("Improper {}", CmdChr(Cmd::SetAux, m));
                 help!(
                     "You can refer to \\spacefactor only in horizontal mode;",
                     "you can refer to \\prevdepth only in vertical mode; and",
@@ -6510,9 +6690,11 @@ pub(crate) unsafe fn scan_something_internal(
             }
         }
         _ => {
-            t_eprint!("You can\'t use `");
-            print_cmd_chr(cmd, chr);
-            t_print!("\' after {}", Esc("the"));
+            t_eprint!(
+                "You can\'t use `{}\' after {}",
+                CmdChr(cmd, chr),
+                Esc("the")
+            );
             help!("I\'m forgetting what you said and using zero instead.");
             error();
             (
@@ -7548,22 +7730,18 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i3
 }
 pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     let _ = scan_general_text(input, cs);
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
-    token_show(Some(TEMP_HEAD));
-    selector = old_setting;
+    let s = format!("{}", TokenNode(Some(TEMP_HEAD)));
+    let mut s16 = s.encode_utf16().collect::<Vec<_>>();
+    s16.push(' ' as u16);
     flush_list(llist_link(TEMP_HEAD));
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
-    let s = make_string();
-    str_pool[pool_ptr] = ' ' as i32 as packed_UTF16_code;
-    let ps = PoolString::from(s);
     let nl = get_int_par(IntPar::new_line_char);
     let p = get_avail();
     let mut q = p;
 
-    for chunk in ps.as_slice().split(|&c| c as i32 == nl) {
+    for chunk in s16.split(|&c| c as i32 == nl) {
         let l = chunk.len();
         let mut m = 0;
         let mut sz = (l + 7) / 4;
@@ -7597,7 +7775,6 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     MEM[p].b32.s0 = MEM[p].b32.s1;
     MEM[p].b32.s1 = pseudo_files;
     pseudo_files = p as i32;
-    PoolString::flush();
     begin_file_reading(input);
     line = 0;
     input.limit = input.start;
@@ -7617,12 +7794,17 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
         input.synctex_tag = 0;
     };
 }
-/// changes the string `str_pool[b..pool_ptr]` to a token list
-pub(crate) unsafe fn str_toks_cat(buf: &[u16], cat: i16) -> usize {
+/// converting the current string into a token list.
+///
+/// The `str_toks` function does this; it classifies spaces as type `spacer`
+/// and everything else as type `other_char`.
+///
+/// The token list created by `str_toks` begins at `link(temp_head)` and ends
+/// at the value `p` that is returned. (If `p=temp_head`, the list is empty.)
+pub(crate) unsafe fn str_toks_cat_utf8(buf: &str, cat: i16) -> usize {
     let mut p = TEMP_HEAD; // tail of the token list
     *LLIST_link(p) = None.tex_int();
-    for c in std::char::decode_utf16(buf.iter().cloned()) {
-        let c = c.unwrap();
+    for c in buf.chars() {
         // token being appended
         let t = if c == ' ' && cat == 0 {
             SPACE_TOKEN
@@ -7633,25 +7815,6 @@ pub(crate) unsafe fn str_toks_cat(buf: &[u16], cat: i16) -> usize {
         };
         fast_store_new_token(&mut p, t);
     }
-    p
-}
-/// converting the current string into a token list.
-///
-/// The `str_toks` function does this; it classifies spaces as type `spacer`
-/// and everything else as type `other_char`.
-///
-/// The token list created by `str_toks` begins at `link(temp_head)` and ends
-/// at the value `p` that is returned. (If `p=temp_head`, the list is empty.)
-///
-/// The `str_toks_cat` function is the same, except that the catcode `cat` is
-/// stamped on all the characters, unless zero is passed in which case it
-/// chooses `spacer` or `other_char` automatically.
-pub(crate) unsafe fn str_toks(b: usize) -> usize {
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
-    let p = str_toks_cat(&str_pool[b..pool_ptr], 0);
-    pool_ptr = b;
     p
 }
 
@@ -7667,15 +7830,11 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
             assert!(val.opt().is_some());
             return val as usize; // TODO: check TEX_NULL
         } else {
-            let old_setting = selector;
-            selector = Selector::NEW_STRING;
-            let b = pool_ptr;
             let p = get_avail();
             *LLIST_link(p) = *LLIST_link(TEMP_HEAD);
-            token_show(Some(p));
+            let s = format!("{}", TokenNode(Some(p)));
             flush_list(Some(p));
-            selector = old_setting;
-            return str_toks(b);
+            return str_toks_cat_utf8(&s, 0);
         }
     }
     let (tok, cmd, chr, _) = get_x_token(input);
@@ -7697,26 +7856,23 @@ pub(crate) unsafe fn the_toks(input: &mut input_state_t, chr: i32, cs: i32) -> u
             p
         }
         _ => {
-            let old_setting = selector; // holds |selector| setting
-            selector = Selector::NEW_STRING;
-            let b = pool_ptr;
-            match val_level {
-                ValLevel::Int => t_print!("{}", val),
-                ValLevel::Dimen => {
-                    t_print!("{}pt", Scaled(val));
-                }
+            let s = match val_level {
+                ValLevel::Int => format!("{}", val),
+                ValLevel::Dimen => format!("{}pt", Scaled(val)),
                 ValLevel::Glue => {
-                    print_spec(val, "pt");
+                    let s = format!("{}", GlueSpecUnit(val, "pt"));
                     delete_glue_ref(val as usize);
+                    s
                 }
                 ValLevel::Mu => {
-                    print_spec(val, "mu");
+                    let s = format!("{}", GlueSpecUnit(val, "mu"));
                     delete_glue_ref(val as usize);
+                    s
                 }
-                _ => {}
-            }
-            selector = old_setting;
-            str_toks(b)
+                _ => String::new(),
+            };
+
+            str_toks_cat_utf8(&s, 0)
         }
     }
 }
@@ -7800,27 +7956,13 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             };
             let boolvar = scan_keyword(input, "file");
             scan_pdf_ext_toks(input, cs);
-            if selector == Selector::NEW_STRING {
-                pdf_error(
-                    "tokens",
-                    "tokens_to_string() called while selector = new_string",
-                );
-            }
-            let old_setting = selector;
-            selector = Selector::NEW_STRING;
-            show_token_list(llist_link(def_ref), None, (pool_size - pool_ptr) as i32);
-            selector = old_setting;
-            let s = make_string();
+            let s = format!("{}", TokenList(llist_link(def_ref)));
             delete_token_ref(def_ref);
             def_ref = save_def_ref;
             warning_index = save_warning_index;
             scanner_status = save_scanner_status;
-            let b = pool_ptr;
-            getmd5sum(s, boolvar);
-            *LLIST_link(GARBAGE as usize) = Some(str_toks(b)).tex_int();
-            if s == str_ptr - 1 {
-                PoolString::flush();
-            }
+            let md5 = getmd5sum(&s, boolvar);
+            *LLIST_link(GARBAGE as usize) = Some(str_toks_cat_utf8(&md5, 0)).tex_int();
             begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
             if u != 0 {
                 str_ptr -= 1;
@@ -7900,73 +8042,67 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
         }
         ConvertCode::EtexRevision | ConvertCode::XetexRevision => {}
     }
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
-    let b = pool_ptr;
-    match c {
-        ConvertCode::Number => t_print!("{}", oval.unwrap()),
-        ConvertCode::RomanNumeral => t_print!("{}", Roman(oval.unwrap())),
+    let s = match c {
+        ConvertCode::Number => format!("{}", oval.unwrap()),
+        ConvertCode::RomanNumeral => format!("{}", Roman(oval.unwrap())),
         ConvertCode::String => {
             let (_, chr, cs) = o.unwrap();
             if cs != 0 {
-                t_print!("{:#}", Cs(cs));
+                format!("{:#}", Cs(cs))
             } else {
-                print_chr(std::char::from_u32(chr as u32).unwrap());
+                std::char::from_u32(chr as u32).unwrap().to_string()
             }
         }
         ConvertCode::Meaning => {
             let (cmd, chr, _) = o.unwrap();
-            print_meaning(cmd, chr);
+            format_meaning(cmd, chr)
         }
         ConvertCode::FontName => {
             let val = oval.unwrap();
             let font_name_str = PoolString::from(FONT_NAME[val as usize]);
-            match &FONT_LAYOUT_ENGINE[val as usize] {
+            let mut s = match &FONT_LAYOUT_ENGINE[val as usize] {
                 Font::Native(_) => {
                     let mut quote_char = '\"';
                     if font_name_str.as_slice().contains(&('\"' as u16)) {
                         quote_char = '\'';
                     }
-                    t_print!("{0}{1}{0}", quote_char, font_name_str);
+                    format!("{0}{1}{0}", quote_char, font_name_str)
                 }
-                _ => t_print!("{}", font_name_str),
-            }
+                _ => format!("{}", font_name_str),
+            };
             if FONT_SIZE[val as usize] != FONT_DSIZE[val as usize] {
-                t_print!(" at {}pt", FONT_SIZE[val as usize]);
+                s += &format!(" at {}pt", FONT_SIZE[val as usize]);
             }
+            s
         }
         ConvertCode::XetexUchar | ConvertCode::XetexUcharcat => {
-            t_print!("{}", std::char::from_u32(oval.unwrap() as u32).unwrap());
+            format!("{}", std::char::from_u32(oval.unwrap() as u32).unwrap())
         }
-        ConvertCode::EtexRevision => t_print!(".6"),
-        ConvertCode::PdfStrcmp => t_print!("{}", oval.unwrap()),
-        ConvertCode::XetexRevision => t_print!(".99998"),
-        ConvertCode::XetexVariationName => {
-            match &FONT_LAYOUT_ENGINE[fnt as usize] {
-                #[cfg(target_os = "macos")]
-                Font::Native(Aat(e)) => {
-                    aat::aat_print_font_name(c as i32, *e, arg1, arg2);
-                }
-                _ => {
-                    // do nothing
-                }
-            }
-        }
+        ConvertCode::EtexRevision => ".6".to_string(),
+        ConvertCode::PdfStrcmp => format!("{}", oval.unwrap()),
+        ConvertCode::XetexRevision => format!(".99998"),
+        ConvertCode::XetexVariationName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
+            #[cfg(target_os = "macos")]
+            Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
+            _ => String::new(),
+        },
         ConvertCode::XetexFeatureName | ConvertCode::XetexSelectorName => {
             match &FONT_LAYOUT_ENGINE[fnt as usize] {
                 #[cfg(target_os = "macos")]
-                Font::Native(Aat(e)) => {
-                    aat::aat_print_font_name(c as i32, *e, arg1, arg2);
-                }
+                Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                    gr_print_font_name(c as i32, e, arg1, arg2);
+                    gr_get_font_name(c as i32, e, arg1, arg2)
                 }
-                _ => {}
+                _ => String::new(),
             }
         }
         ConvertCode::XetexGlyphName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
-            Font::Native(_) => print_glyph_name(fnt, arg1),
-            _ => {}
+            #[cfg(target_os = "macos")]
+            Font::Native(Aat(attributes)) => {
+                aat::GetGlyphNameFromCTFont(aat::font_from_attributes(*attributes), arg1 as u16)
+            }
+            Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(arg1 as u16),
+            _ => panic!("bad native font flag in `print_glyph_name`"),
         },
         ConvertCode::LeftMarginKern => {
             let mut popt = List::from(p.unwrap()).list_ptr().opt();
@@ -7994,9 +8130,9 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
             match popt.map(|p| CharOrText::from(p)) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 0 => {
-                    t_print!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1));
+                    format!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1))
                 }
-                _ => t_print!("0pt"),
+                _ => "0pt".to_string(),
             }
         }
         ConvertCode::RightMarginKern => {
@@ -8026,12 +8162,12 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
             match popt.map(|p| CharOrText::from(p)) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 1 => {
-                    t_print!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1));
+                    format!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1))
                 }
-                _ => t_print!("0pt"),
+                _ => "0pt".to_string(),
             }
         }
-        ConvertCode::JobName => t_print!(
+        ConvertCode::JobName => format!(
             "{}",
             FileName {
                 name: job_name,
@@ -8039,14 +8175,9 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 ext: 0
             }
         ),
-        _ => {}
-    }
-    selector = old_setting;
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
-    *LLIST_link(GARBAGE) = str_toks_cat(&str_pool[b..pool_ptr], cat) as i32;
-    pool_ptr = b;
+        _ => String::new(),
+    };
+    *LLIST_link(GARBAGE) = str_toks_cat_utf8(&s, cat) as i32;
     begin_token_list(input, *LLIST_link(TEMP_HEAD) as usize, Btl::Inserted);
 }
 /// Returns a pointer to the tail of a new token
@@ -8467,8 +8598,10 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             let r = if tok >= OTHER_TOKEN + 60 && tok <= OTHER_TOKEN + 62 {
                 (tok - OTHER_TOKEN) as u8
             } else {
-                t_eprint!("Missing = inserted for ");
-                print_cmd_chr(Cmd::IfTest, this_if as i32);
+                t_eprint!(
+                    "Missing = inserted for {}",
+                    CmdChr(Cmd::IfTest, this_if as i32)
+                );
                 help!("I was expecting to see `<\', `=\', or `>\'. Didn\'t.");
                 back_error(input, tok);
                 b'='
@@ -9140,13 +9273,7 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
         set_int_par(IntPar::tracing_online, old_setting);
     }
     let fn_0 = gettexstring(FONT_NAME[f]);
-    let prev_selector = selector;
-    selector = Selector::NEW_STRING;
-    print_chr(std::char::from_u32(c as u32).unwrap());
-    selector = prev_selector;
-    let s = make_string();
-    let chr = gettexstring(s);
-    PoolString::flush();
+    let chr = std::char::from_u32(c as u32).unwrap().to_string();
     ttstub_issue_warning(&format!(
         "could not represent character \"{}\" (0x{:x}) in font \"{}\"",
         chr, c as u32, fn_0
@@ -10934,8 +11061,7 @@ pub(crate) unsafe fn max_hyphenatable_length() -> usize {
 }
 pub(crate) unsafe fn eTeX_enabled(b: bool, j: Cmd, k: i32) -> bool {
     if !b {
-        t_eprint!("Improper ");
-        print_cmd_chr(j, k);
+        t_eprint!("Improper {}", CmdChr(j, k));
         help!("Sorry, this optional e-TeX feature has been disabled.");
         error();
     }
@@ -11043,9 +11169,9 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
             }
             GroupCode::MathShift => {
                 if m == (false, ListMode::MMode) {
-                    print_chr('$');
+                    t_print!("{}", '$');
                 } else if NEST[p].mode == (false, ListMode::MMode) {
-                    print_cmd_chr(Cmd::EqNo, SAVE_STACK[SAVE_PTR1 - 2].val);
+                    t_print!("{}", CmdChr(Cmd::EqNo, SAVE_STACK[SAVE_PTR1 - 2].val));
                     return found(p, a);
                 }
                 print_chr('$');
@@ -11070,12 +11196,11 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
                 } else {
                     Cmd::VMove
                 };
-                if i > 0 {
-                    print_cmd_chr(j, 0);
-                } else {
-                    print_cmd_chr(j, 1);
-                }
-                t_print!("{}pt", Scaled(i.abs()));
+                t_print!(
+                    "{}{}pt",
+                    if i > 0 { CmdChr(j, 0) } else { CmdChr(j, 1) },
+                    Scaled(i.abs())
+                );
             } else if i < SHIP_OUT_FLAG {
                 if i >= GLOBAL_BOX_FLAG {
                     print_esc_cstr("global");
@@ -11083,7 +11208,10 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
                 }
                 t_print!("{}{}=", Esc("setbox"), i - BOX_FLAG);
             } else {
-                print_cmd_chr(Cmd::LeaderShip, i - (LEADER_FLAG - (A_LEADERS as i32)));
+                t_print!(
+                    "{}",
+                    CmdChr(Cmd::LeaderShip, i - (LEADER_FLAG - (A_LEADERS as i32)))
+                );
             }
         }
         found1(s, p, a)
@@ -11499,8 +11627,7 @@ pub(crate) unsafe fn insert_dollar_sign(input: &mut input_state_t, tok: i32) {
     ins_error(input, tok);
 }
 pub(crate) unsafe fn you_cant(cmd: Cmd, chr: i32) {
-    t_eprint!("You can\'t use `");
-    print_cmd_chr(cmd, chr);
+    t_eprint!("You can\'t use `{}", CmdChr(cmd, chr));
     print_in_mode(cur_list.mode);
 }
 pub(crate) unsafe fn report_illegal_case(cmd: Cmd, chr: i32) {
@@ -11578,8 +11705,7 @@ pub(crate) unsafe fn off_save(
 ) {
     if group == GroupCode::BottomLevel {
         /*1101:*/
-        t_eprint!("Extra ");
-        print_cmd_chr(cmd, chr);
+        t_eprint!("Extra {}", CmdChr(cmd, chr));
         help!("Things are pretty mixed up, but I think the worst is over.");
         error();
     } else {
@@ -12500,8 +12626,7 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
 pub(crate) unsafe fn align_error(input: &mut input_state_t, tok: i32, cmd: Cmd, chr: i32) {
     if align_state.abs() > 2 {
         /*1163: */
-        t_eprint!("Misplaced ");
-        print_cmd_chr(cmd, chr);
+        t_eprint!("Misplaced {}", CmdChr(cmd, chr));
         if tok == TAB_TOKEN + 38 {
             help!(
                 "I can\'t figure out why you would want to use a tab mark",
@@ -12863,10 +12988,11 @@ pub(crate) unsafe fn do_register_command(
             }
             _ => {
                 if cmd != Cmd::Register {
-                    t_eprint!("You can\'t use `");
-                    print_cmd_chr(cmd, chr);
-                    t_print!("\' after ");
-                    print_cmd_chr(q, 0);
+                    t_eprint!(
+                        "You can\'t use `{}\' after {}",
+                        CmdChr(cmd, chr),
+                        CmdChr(q, 0)
+                    );
                     help!("I\'m forgetting what you said and not changing anything.");
                     error();
                     return;
@@ -13128,10 +13254,13 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
             (u - SINGLE_BASE) as i32
         }
     } else {
-        let old_setting = selector;
-        selector = Selector::NEW_STRING;
-        t_print!("FONT{}", PoolString::from((u - 1) as i32));
-        selector = old_setting;
+        let s = format!("FONT{}", PoolString::from((u - 1) as i32));
+        for i in s.encode_utf16() {
+            if pool_ptr < pool_size {
+                str_pool[pool_ptr as usize] = i;
+                pool_ptr += 1
+            }
+        }
         if pool_ptr + 1 > pool_size {
             overflow("pool size", (pool_size - init_pool_ptr) as usize);
         }
@@ -13241,16 +13370,8 @@ pub(crate) unsafe fn new_interaction(chr: i32) {
 pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32) {
     let c = chr as u8;
     *LLIST_link(GARBAGE) = scan_toks(input, cs, false, true) as i32;
-    let old_setting_0 = selector;
-    selector = Selector::NEW_STRING;
-    token_show(Some(def_ref));
-    selector = old_setting_0;
+    let s = format!("{}", TokenNode(Some(def_ref)));
     flush_list(Some(def_ref));
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
-    let s = make_string();
-    let s = PoolString::from(s);
     if c == 0 {
         /*1315: */
         if term_offset + (s.len() as i32) > max_print_line - 2 {
@@ -13280,7 +13401,6 @@ pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32)
         error();
         use_err_help = false
     }
-    PoolString::flush();
 }
 pub(crate) unsafe fn shift_case(input: &mut input_state_t, chr: i32, cs: i32) {
     let b = chr;
@@ -13354,8 +13474,7 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
                     let mut l = if_line;
                     let mut m = if_limit;
                     loop {
-                        t_print_nl!("### level {}: ", n);
-                        print_cmd_chr(Cmd::IfTest, t as i32);
+                        t_print_nl!("### level {}: {}", n, CmdChr(Cmd::IfTest, t as i32));
                         if m == FiOrElseCode::Fi {
                             t_print!("{}", Esc("else"));
                         }
@@ -13623,7 +13742,8 @@ pub(crate) unsafe fn insert_src_special() {
         *LLIST_link(p) = Some(get_avail()).tex_int();
         let p = *LLIST_link(p) as usize;
         MEM[p].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
-        let q = str_toks(make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line)) as usize;
+        let q =
+            str_toks_cat_utf8(&make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line), 0) as usize;
         *LLIST_link(p) = *LLIST_link(TEMP_HEAD);
         let p = q;
         *LLIST_link(p) = Some(get_avail()).tex_int();
@@ -13641,7 +13761,7 @@ pub(crate) unsafe fn append_src_special() {
         MEM[cur_list.tail + 1].b32.s0 = 0;
         def_ref = get_avail();
         MEM[def_ref].b32.s0 = None.tex_int();
-        str_toks(make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line));
+        str_toks_cat_utf8(&make_src_special(SOURCE_FILENAME_STACK[IN_OPEN], line), 0);
         *LLIST_link(def_ref) = *LLIST_link(TEMP_HEAD);
         MEM[cur_list.tail + 1].b32.s1 = def_ref as i32;
         remember_source_info(SOURCE_FILENAME_STACK[IN_OPEN], line);
@@ -15505,64 +15625,22 @@ pub(crate) unsafe fn close_files_and_terminate() {
     }
     print_ln();
 }
-pub(crate) unsafe fn flush_str(s: str_number) {
-    if s == str_ptr - 1 {
-        PoolString::flush();
-    };
-}
-pub(crate) unsafe fn tokens_to_string(p: i32) -> str_number {
-    if selector == Selector::NEW_STRING {
-        pdf_error(
-            "tokens",
-            "tokens_to_string() called while selector = new_string",
-        );
-    }
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
-    show_token_list(
-        LLIST_link(p as usize).opt(),
-        None,
-        (pool_size - pool_ptr) as i32,
-    );
-    selector = old_setting;
-    make_string()
-}
 pub(crate) unsafe fn scan_pdf_ext_toks(input: &mut input_state_t, cs: i32) {
     scan_toks(input, cs, false, true);
 }
 pub(crate) unsafe fn compare_strings(input: &mut input_state_t, cs: i32) -> i32 {
-    unsafe fn done(s1: str_number, s2: str_number, val: i32) -> i32 {
-        flush_str(s2);
-        flush_str(s1);
-        //cur_val_level = ValLevel::Int;
-        val
-    }
     scan_toks(input, cs, false, true);
-    let s1 = tokens_to_string(def_ref as i32);
+    let s1 = format!("{}", TokenList(LLIST_link(def_ref).opt()));
     delete_token_ref(def_ref);
     scan_toks(input, cs, false, true);
-    let s2 = tokens_to_string(def_ref as i32);
+    let s2 = format!("{}", TokenList(LLIST_link(def_ref).opt()));
     delete_token_ref(def_ref);
-    let i = PoolString::from(s1);
-    let sl1 = i.as_slice();
-    let j = PoolString::from(s2);
-    let sl2 = j.as_slice();
-    for (c1, c2) in sl1.iter().zip(sl2.iter()) {
-        if *c1 < *c2 {
-            return done(s1, s2, -1);
-        }
-        if *c1 > *c2 {
-            return done(s1, s2, 1);
-        }
+    use std::cmp::Ordering;
+    match s1.cmp(&s2) {
+        Ordering::Equal => 0,
+        Ordering::Greater => 1,
+        Ordering::Less => -1,
     }
-    let val = if sl1.len() == sl2.len() {
-        0
-    } else if sl1.len() > sl2.len() {
-        1
-    } else {
-        -1
-    };
-    done(s1, s2, val)
 }
 pub(crate) unsafe fn prune_page_top(mut popt: Option<usize>, s: bool) -> i32 {
     let mut r: i32 = None.tex_int();

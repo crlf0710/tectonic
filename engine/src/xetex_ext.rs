@@ -1,7 +1,7 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::c_pointer_to_str;
-use crate::{t_print, t_print_nl};
+use crate::t_print_nl;
 use std::ffi::CString;
 
 use crate::node::{Glyph, NativeWord};
@@ -29,9 +29,8 @@ use crate::xetex_ini::{
     name_of_font, DEPTH_BASE, FONT_FLAGS, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
     HEIGHT_BASE, PARAM_BASE,
 };
-use crate::xetex_output::print_chr;
 use crate::xetex_scaledmath::xn_over_d;
-use crate::xetex_texmfmp::{gettexstring, maketexstring, to_rust_string};
+use crate::xetex_texmfmp::{gettexstring, maketexstring};
 use crate::xetex_xetex0::{
     diagnostic, font_feature_warning, font_mapping_warning, get_tracing_fonts_state,
 };
@@ -938,7 +937,9 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
         if !fontRef.is_null() {
             /* update name_of_font to the full name of the font, for error messages during font loading */
             let fullName: *const i8 = getFullName(fontRef);
-            name_of_font = to_rust_string(fullName);
+            name_of_font = std::ffi::CStr::from_ptr(fullName)
+                .to_string_lossy()
+                .to_string();
             if scaled_size < Scaled::ZERO {
                 if let Some(font) = createFont(fontRef, scaled_size) {
                     let dsize_0 = D2Fix(getDesignSize(&font));
@@ -1097,12 +1098,12 @@ pub(crate) unsafe fn ot_font_get_3(
     }
     0i32
 }
-pub(crate) unsafe fn gr_print_font_name(
+pub(crate) unsafe fn gr_get_font_name(
     what: i32,
     engine: &XeTeXLayoutEngine,
     param1: i32,
     param2: i32,
-) {
+) -> String {
     let mut name: *mut i8 = 0 as *mut i8;
     match what {
         8 => name = getGraphiteFeatureLabel(engine, param1 as u32),
@@ -1110,9 +1111,12 @@ pub(crate) unsafe fn gr_print_font_name(
         _ => {}
     }
     if !name.is_null() {
-        t_print!("{}", c_pointer_to_str(name));
+        let s = c_pointer_to_str(name).to_string();
         gr_label_destroy(name as *mut libc::c_void);
-    };
+        s
+    } else {
+        String::new()
+    }
 }
 pub(crate) unsafe fn gr_font_get_named(name: &str, what: i32, engine: &XeTeXLayoutEngine) -> i32 {
     match what {
@@ -1768,19 +1772,6 @@ pub(crate) unsafe fn Fix2D(f: Scaled) -> f64 {
     f.0 as f64 / 65536.
 }
 
-pub(crate) unsafe fn print_glyph_name(font: usize, gid: i32) {
-    let s = match &FONT_LAYOUT_ENGINE[font as usize] {
-        #[cfg(target_os = "macos")]
-        Font::Native(Aat(attributes)) => {
-            aat::GetGlyphNameFromCTFont(aat::font_from_attributes(*attributes), gid as u16)
-        }
-        Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(gid as u16),
-        _ => panic!("bad native font flag in `print_glyph_name`"),
-    };
-    for c in s.chars() {
-        print_chr(c);
-    }
-}
 pub(crate) unsafe fn real_get_native_word_cp(node: &NativeWord, side: Side) -> i32 {
     let locations = node.glyph_info_ptr() as *mut FixedPoint;
     let glyphIDs: *mut u16 = locations.offset(node.glyph_count() as isize) as *mut u16;

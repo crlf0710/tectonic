@@ -1206,12 +1206,12 @@ pub(crate) unsafe fn aat_font_get_named_1(
     return rval;
 }
 
-pub(crate) unsafe fn aat_print_font_name(
+pub(crate) unsafe fn aat_get_font_name(
     what: i32,
     attributes: CFDictionaryRef,
     param1: i32,
     param2: i32,
-) {
+) -> String {
     let mut name: CFStringRef = 0 as CFStringRef;
     if what == 8i32 || what == 9i32 {
         let font = font_from_attributes(attributes);
@@ -1253,9 +1253,10 @@ pub(crate) unsafe fn aat_print_font_name(
         let len = CFStringGetLength(name);
         let buf = xcalloc(len as _, ::std::mem::size_of::<UniChar>() as _) as *mut UniChar;
         CFStringGetCharacters(name, CFRangeMake(0i32 as CFIndex, len), buf);
-        for &c in std::slice::from_raw_parts(buf, len as _) {
-            print_chr(std::char::from_u32(c as u32).unwrap());
-        }
+        let s = String::from_utf16(std::slice::from_raw_parts(buf, len as _)).unwrap();
         free(buf as *mut libc::c_void);
-    };
+        s
+    } else {
+        String::new()
+    }
 }

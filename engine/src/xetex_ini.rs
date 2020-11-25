@@ -28,11 +28,11 @@ use crate::xetex_xetex0::{
     find_font_dimen, find_sa_element, flush_list, flush_node_list, free_node, geq_define,
     geq_word_define, get_avail, get_node, get_r_token, get_token, get_x_token, gsa_def, id_lookup,
     main_control, max_hyphenatable_length, new_font, new_interaction, open_log_file, prim_lookup,
-    print_cmd_chr, read_toks, sa_def, scan_box, scan_char_class, scan_char_class_not_ignored,
-    scan_char_num, scan_dimen, scan_fifteen_bit_int, scan_font_ident, scan_glue, scan_glyph_number,
-    scan_int, scan_keyword, scan_left_brace, scan_math_class_int, scan_math_fam_int,
-    scan_optional_equals, scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int,
-    show_cur_cmd_chr, show_save_groups, start_input, trap_zero_glue,
+    read_toks, sa_def, scan_box, scan_char_class, scan_char_class_not_ignored, scan_char_num,
+    scan_dimen, scan_fifteen_bit_int, scan_font_ident, scan_glue, scan_glyph_number, scan_int,
+    scan_keyword, scan_left_brace, scan_math_class_int, scan_math_fam_int, scan_optional_equals,
+    scan_register_num, scan_toks, scan_usv_num, scan_xetex_math_char_int, show_cur_cmd_chr,
+    show_save_groups, start_input, trap_zero_glue, CmdChr,
 };
 use crate::xetex_xetexd::{
     llist_link, node_size, set_class, set_family, DLIST_llink, DLIST_rlink, LLIST_info, LLIST_link,
@@ -70,7 +70,6 @@ pub(crate) enum Selector {
     LOG_ONLY,
     TERM_AND_LOG,
     PSEUDO,
-    NEW_STRING,
     File(u8),
 }
 
@@ -467,8 +466,6 @@ pub(crate) static mut trick_buf: [char; 256] = ['\u{0}'; 256];
 pub(crate) static mut trick_count: i32 = 0;
 #[no_mangle]
 pub(crate) static mut first_count: i32 = 0;
-#[no_mangle]
-pub(crate) static mut doing_special: bool = false;
 #[no_mangle]
 pub(crate) static mut interaction: InteractionMode = InteractionMode::Batch;
 #[no_mangle]
@@ -1451,9 +1448,7 @@ pub(crate) unsafe fn prefixed_command(
         ocs = next.3;
         if ocmd <= MAX_NON_PREFIXED_COMMAND {
             /*1247:*/
-            t_eprint!("You can\'t use a prefix with `");
-            print_cmd_chr(ocmd, ochr);
-            t_print!("\'");
+            t_eprint!("You can\'t use a prefix with `{}\'", CmdChr(ocmd, ochr));
             help!("I\'ll pretend you didn\'t say \\long or \\outer or \\global or \\protected.");
             back_error(input, tok);
             return;
@@ -1471,11 +1466,14 @@ pub(crate) unsafe fn prefixed_command(
     }
 
     if ocmd != Cmd::Def && (a % 4 != 0 || j != 0) {
-        t_eprint!("You can\'t use `{}\' or `{}", Esc("long"), Esc("outer"));
+        t_eprint!(
+            "You can\'t use `{}\' or `{}\' or `{}\' with `{}\'",
+            Esc("long"),
+            Esc("outer"),
+            Esc("protected"),
+            CmdChr(ocmd, ochr)
+        );
         help!("I\'ll pretend you didn\'t say \\long or \\outer or \\protected here.");
-        t_print!("\' or `{}\' with `", Esc("protected"));
-        print_cmd_chr(ocmd, ochr);
-        t_print!("\'");
         error();
     }
 
@@ -2143,8 +2141,11 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
         show_save_groups(cur_group, cur_level);
     }
     while let Some(cp) = cond_ptr {
-        t_print_nl!("({} occurred when ", Esc("end"));
-        print_cmd_chr(Cmd::IfTest, cur_if as i32);
+        t_print_nl!(
+            "({} occurred when {}",
+            Esc("end"),
+            CmdChr(Cmd::IfTest, cur_if as i32)
+        );
         if if_line != 0 {
             t_print!(" on line {}", if_line);
         }
@@ -2207,8 +2208,6 @@ unsafe fn init_io(input: &mut input_state_t) {
     first = last + 1;
 }
 unsafe fn initialize_more_variables() {
-    doing_special = false;
-
     interaction = InteractionMode::ErrorStop;
 
     deletions_allowed = true;

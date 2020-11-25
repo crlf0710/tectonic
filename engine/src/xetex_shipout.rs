@@ -11,14 +11,14 @@ use crate::xetex_ini::shell_escape_enabled;
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_dir, cur_h, cur_h_offset, cur_input, cur_list, cur_page_height, cur_page_width,
-    cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, doing_special, file_offset,
-    font_used, init_pool_ptr, input_state_t, job_name, last_bop, log_opened, max_h, max_print_line,
-    max_push, max_v, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size,
-    rule_dp, rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool,
-    str_ptr, str_start, term_offset, write_file, write_loc, write_open, xtx_ligature_present,
-    LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE,
-    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE,
-    MEM, TOTAL_PAGES, WIDTH_BASE,
+    cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, file_offset, font_used,
+    init_pool_ptr, input_state_t, job_name, last_bop, log_opened, max_h, max_print_line, max_push,
+    max_v, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp,
+    rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr,
+    str_start, term_offset, write_file, write_loc, write_open, xtx_ligature_present, LR_problems,
+    LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM,
+    TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{print_chr, print_ln};
 use crate::xetex_scaledmath::{tex_round, Scaled};
@@ -34,8 +34,9 @@ use crate::xetex_xetex0::{
     begin_token_list, diagnostic, effective_char, end_token_list, flush_list, flush_node_list,
     free_node, get_avail, get_node, get_token, internal_font_number, make_name_string, new_kern,
     new_math, new_native_word_node, open_log_file, pack_job_name, packed_UTF16_code, prepare_mag,
-    scan_toks, show_box, show_token_list, str_number, token_show, FileName, UTF16_code,
+    scan_toks, show_box, str_number, token_show, FileName, UTF16_code,
 };
+use crate::xetex_xetex0::{TokenList, TokenNode};
 use crate::xetex_xetexd::{
     is_char_node, llist_link, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
     FONT_CHARACTER_WIDTH,
@@ -233,30 +234,25 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         /* Generate a PDF pagesize special unilaterally */
 
-        let old_setting = selector;
-        selector = Selector::NEW_STRING;
-        t_print!("pdf:pagesize ");
-        if get_dimen_par(DimenPar::pdf_page_width) <= Scaled::ZERO
+        let s = if get_dimen_par(DimenPar::pdf_page_width) <= Scaled::ZERO
             || get_dimen_par(DimenPar::pdf_page_height) <= Scaled::ZERO
         {
-            t_print!("default");
+            "pdf:pagesize default".to_string()
         } else {
-            t_print!(
-                "width {}pt height {}pt",
+            format!(
+                "pdf:pagesize width {}pt height {}pt",
                 get_dimen_par(DimenPar::pdf_page_width),
                 get_dimen_par(DimenPar::pdf_page_height)
-            );
-        }
-        selector = old_setting;
+            )
+        };
+        let bytes = s.as_bytes();
 
         dvi_out(XXX1);
-        dvi_out(PoolString::current().len() as u8);
+        dvi_out(bytes.len() as u8);
 
-        for s in str_start[(str_ptr - TOO_BIG_CHAR) as usize]..pool_ptr {
-            dvi_out(str_pool[s] as u8);
+        for &b in bytes {
+            dvi_out(b);
         }
-
-        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
@@ -881,8 +877,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                g.shrink_order() ==
                                    g_order {
                         if g.rc().opt().is_none() {
-                            free_node(g.ptr(),
-                                      GLUE_SPEC_SIZE);
+                            g.free();
                         } else {
                             g.rc_dec();
                         }
@@ -2013,22 +2008,9 @@ unsafe fn special_out(p: &Special) {
         movement(cur_v - dvi_v, DOWN1);
         dvi_v = cur_v
     }
-    doing_special = true;
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
-    show_token_list(
-        MEM[p.tokens() as usize].b32.s1.opt(),
-        None,
-        (pool_size - pool_ptr) as i32,
-    );
-    selector = old_setting;
-
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", pool_size - init_pool_ptr);
-    }
-
-    let cur_str = PoolString::current();
-    let len = cur_str.len();
+    let s = format!("{}", TokenList(MEM[p.tokens() as usize].b32.s1.opt()));
+    let bytes = s.as_bytes();
+    let len = bytes.len();
     if len < 256 {
         dvi_out(XXX1);
         dvi_out(len as u8);
@@ -2037,11 +2019,9 @@ unsafe fn special_out(p: &Special) {
         dvi_four(len as i32);
     }
 
-    for &k in cur_str.as_slice() {
-        dvi_out(k as u8);
+    for &k in bytes {
+        dvi_out(k);
     }
-    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
-    doing_special = false;
 }
 
 unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
@@ -2080,25 +2060,13 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
     cur_list.mode = old_mode;
     end_token_list(input);
-    let old_setting = selector;
+
     let j = p.id() as i16;
+    let old_setting = selector;
 
     if j == 18 {
-        selector = Selector::NEW_STRING
-    } else if write_open[j as usize] {
-        selector = Selector::File(j as u8);
-    } else {
-        if j == 17 && (selector == Selector::TERM_AND_LOG) {
-            selector = Selector::LOG_ONLY
-        }
-        t_print_nl!("");
-    }
-
-    token_show(Some(def_ref));
-    print_ln();
-    flush_list(Some(def_ref));
-
-    if j == 18 {
+        let s = format!("{}", TokenNode(Some(def_ref)));
+        flush_list(Some(def_ref));
         if get_int_par(IntPar::tracing_online) <= 0 {
             selector = Selector::LOG_ONLY
         } else {
@@ -2109,21 +2077,30 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
         }
 
         if !shell_escape_enabled {
-            t_print_nl!("runsystem({})...disabled.", PoolString::current());
+            t_print_nl!("runsystem({})...disabled.", s);
         } else {
             // Currently, -Z shell-escape is implemented but hidden (see
             // src/unstable_opts.rs). When this gets actually implemented,
             // uncomment the relevant parts in that file.
-            t_print_nl!(
-                "runsystem({})...enabled but not implemented yet!",
-                PoolString::current()
-            );
+            t_print_nl!("runsystem({})...enabled but not implemented yet!", s);
         }
 
         t_print_nl!("");
         print_ln();
-        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+    } else {
+        if write_open[j as usize] {
+            selector = Selector::File(j as u8);
+        } else {
+            if j == 17 && (selector == Selector::TERM_AND_LOG) {
+                selector = Selector::LOG_ONLY
+            }
+            t_print_nl!("");
+        }
+        token_show(Some(def_ref));
+        print_ln();
+        flush_list(Some(def_ref));
     }
+
     selector = old_setting;
 }
 
@@ -2138,11 +2115,11 @@ unsafe fn pic_out(p: &Picture) {
         dvi_v = cur_v
     }
 
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
     let matrix = p.transform_matrix();
-    t_print!(
-        "pdf:image matrix {} {} {} {} {} {} page {} {}",
+    let mut buf = Vec::<u8>::new();
+    write!(
+        buf,
+        "pdf:image matrix {} {} {} {} {} {} page {} {}(",
         matrix[0],
         matrix[1],
         matrix[2],
@@ -2157,19 +2134,12 @@ unsafe fn pic_out(p: &Picture) {
             5 => "pagebox artbox ",
             4 => "pagebox trimbox ",
             _ => "",
-        }
-    );
-
-    print_chr('(');
-    for i in p.path() {
-        // TODO: fix
-        print_chr(char::from(*i));
-    }
-    print_chr(')');
-
-    selector = old_setting;
-    let cur_str = PoolString::current();
-    let len = cur_str.len();
+        },
+    )
+    .unwrap();
+    buf.extend(p.path());
+    buf.push(b')');
+    let len = buf.len();
     if len < 256 {
         dvi_out(XXX1);
         dvi_out(len as u8);
@@ -2178,10 +2148,9 @@ unsafe fn pic_out(p: &Picture) {
         dvi_four(len as i32);
     }
 
-    for &k in cur_str.as_slice() {
-        dvi_out(k as u8);
+    for &b in &buf {
+        dvi_out(b);
     }
-    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]; /* discard the string we just made */
 }
 
 pub(crate) unsafe fn finalize_dvi_file() {

@@ -725,6 +725,44 @@ impl MathStyle {
     }
 }
 
+use crate::xetex_output::Esc;
+use std::fmt;
+impl fmt::Display for MathStyle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MathStyle::Display => Esc("displaystyle"),
+            MathStyle::Text => Esc("textstyle"),
+            MathStyle::Script => Esc("scriptstyle"),
+            MathStyle::ScriptScript => Esc("scriptscriptstyle"),
+        }
+        .fmt(f)
+    }
+}
+
+#[repr(usize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
+pub(crate) enum FontSize {
+    Text = 0,
+    Script = NUMBER_MATH_FAMILIES,
+    ScriptScript = 2 * NUMBER_MATH_FAMILIES,
+}
+impl fmt::Display for FontSize {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Text => Esc("textfont"),
+            Self::Script => Esc("scriptfont"),
+            Self::ScriptScript => Esc("scriptscriptfont"),
+        }
+        .fmt(f)
+    }
+}
+
+impl From<usize> for FontSize {
+    fn from(n: usize) -> Self {
+        Self::n(n).unwrap()
+    }
+}
+
 /// The `token_type` can take several values, depending on
 /// where the current token list came from:
 #[repr(u16)]

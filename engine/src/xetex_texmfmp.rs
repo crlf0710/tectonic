@@ -64,11 +64,6 @@ pub(crate) unsafe fn gettexstring(s: str_number) -> String {
         String::new()
     }
 }
-pub(crate) unsafe fn to_rust_string(string: *const i8) -> String {
-    std::ffi::CStr::from_ptr(string)
-        .to_string_lossy()
-        .to_string()
-}
 pub(crate) unsafe fn is_new_source(srcfilename: str_number, lineno: i32) -> bool {
     use std::path::Path;
     Path::new(&gettexstring(srcfilename)) != Path::new(&last_source_name) || lineno != last_lineno
@@ -77,22 +72,9 @@ pub(crate) unsafe fn remember_source_info(srcfilename: str_number, lineno: i32) 
     last_source_name = gettexstring(srcfilename);
     last_lineno = lineno;
 }
-pub(crate) unsafe fn make_src_special(srcfilename: str_number, lineno: i32) -> usize {
-    let oldpool_ptr: usize = pool_ptr;
-
+pub(crate) unsafe fn make_src_special(srcfilename: str_number, lineno: i32) -> String {
     // Always put a space after the number, which makes things easier to parse.
-    let src = format!("src:{} {}", lineno, &gettexstring(srcfilename));
-
-    assert!(
-        pool_ptr + src.as_bytes().len() < pool_size,
-        "string pool overflow"
-    );
-
-    for &b in src.as_bytes() {
-        str_pool[pool_ptr] = b as u16;
-        pool_ptr += 1;
-    }
-    oldpool_ptr
+    format!("src:{} {}", lineno, &gettexstring(srcfilename))
 }
 /* Converts any given string in into an allowed PDF string which is
  * hexadecimal encoded;
@@ -111,9 +93,9 @@ unsafe fn convertStringToHexString(in_0: &[u8; 16], out: &mut [u8; 33]) {
     out[j] = 0;
 }
 /* Functions originating in texmfmp.c */
-pub(crate) unsafe fn getmd5sum(s: str_number, file: bool) {
+pub(crate) unsafe fn getmd5sum(s: &str, file: bool) -> String {
     let ret;
-    let xname = CString::new(gettexstring(s).as_str()).unwrap();
+    let xname = CString::new(s).unwrap();
     let digest = if file {
         let mut digest: [i8; 16] = [0; 16];
         ret = ttstub_get_file_md5(xname.as_ptr(), digest.as_mut_ptr());
@@ -123,16 +105,13 @@ pub(crate) unsafe fn getmd5sum(s: str_number, file: bool) {
         md5::compute(xname.as_bytes())
     };
     if ret != 0 {
-        return;
-    }
-    if pool_ptr + 2 * 16 >= pool_size {
-        /* error by str_toks that calls str_room(1) */
-        return;
+        return String::new();
     }
     let mut outbuf: [u8; 33] = [0; 33];
     convertStringToHexString(&digest, &mut outbuf);
+    let mut v = Vec::with_capacity(2 * 16);
     for i in 0..(2 * 16) {
-        str_pool[pool_ptr] = outbuf[i as usize] as u16;
-        pool_ptr += 1;
+        v.push(outbuf[i as usize])
     }
+    String::from_utf8(v).unwrap()
 }
