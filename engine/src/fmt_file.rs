@@ -129,14 +129,19 @@ pub(crate) unsafe fn store_fmt_file() {
         panic!("\\dump inside a group");
     }
 
-    selector = Selector::NEW_STRING;
-    t_print!(
+    let s = format!(
         " (preloaded format={} {}.{}.{})",
         PoolString::from(job_name),
         get_int_par(IntPar::year),
         get_int_par(IntPar::month),
         get_int_par(IntPar::day),
     );
+    for i in s.encode_utf16() {
+        if pool_ptr < pool_size {
+            str_pool[pool_ptr as usize] = i;
+            pool_ptr += 1
+        }
+    }
 
     selector = if interaction == InteractionMode::Batch {
         Selector::LOG_ONLY

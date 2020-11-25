@@ -70,7 +70,6 @@ pub(crate) enum Selector {
     LOG_ONLY,
     TERM_AND_LOG,
     PSEUDO,
-    NEW_STRING,
     File(u8),
 }
 

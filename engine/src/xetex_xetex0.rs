@@ -7730,22 +7730,18 @@ pub(crate) unsafe fn scan_general_text(input: &mut input_state_t, cs: i32) -> i3
 }
 pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     let _ = scan_general_text(input, cs);
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
-    t_print!("{}", TokenNode(Some(TEMP_HEAD)));
-    selector = old_setting;
+    let s = format!("{}", TokenNode(Some(TEMP_HEAD)));
+    let mut s16 = s.encode_utf16().collect::<Vec<_>>();
+    s16.push(' ' as u16);
     flush_list(llist_link(TEMP_HEAD));
     if pool_ptr + 1 > pool_size {
         overflow("pool size", (pool_size - init_pool_ptr) as usize);
     }
-    let s = make_string();
-    str_pool[pool_ptr] = ' ' as i32 as packed_UTF16_code;
-    let ps = PoolString::from(s);
     let nl = get_int_par(IntPar::new_line_char);
     let p = get_avail();
     let mut q = p;
 
-    for chunk in ps.as_slice().split(|&c| c as i32 == nl) {
+    for chunk in s16.split(|&c| c as i32 == nl) {
         let l = chunk.len();
         let mut m = 0;
         let mut sz = (l + 7) / 4;
@@ -7779,7 +7775,6 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     MEM[p].b32.s0 = MEM[p].b32.s1;
     MEM[p].b32.s1 = pseudo_files;
     pseudo_files = p as i32;
-    PoolString::flush();
     begin_file_reading(input);
     line = 0;
     input.limit = input.start;
@@ -13259,10 +13254,13 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
             (u - SINGLE_BASE) as i32
         }
     } else {
-        let old_setting = selector;
-        selector = Selector::NEW_STRING;
-        t_print!("FONT{}", PoolString::from((u - 1) as i32));
-        selector = old_setting;
+        let s = format!("FONT{}", PoolString::from((u - 1) as i32));
+        for i in s.encode_utf16() {
+            if pool_ptr < pool_size {
+                str_pool[pool_ptr as usize] = i;
+                pool_ptr += 1
+            }
+        }
         if pool_ptr + 1 > pool_size {
             overflow("pool size", (pool_size - init_pool_ptr) as usize);
         }
