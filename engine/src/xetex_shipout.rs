@@ -234,29 +234,25 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
         /* Generate a PDF pagesize special unilaterally */
 
-        let old_setting = selector;
-        selector = Selector::NEW_STRING;
-        if get_dimen_par(DimenPar::pdf_page_width) <= Scaled::ZERO
+        let s = if get_dimen_par(DimenPar::pdf_page_width) <= Scaled::ZERO
             || get_dimen_par(DimenPar::pdf_page_height) <= Scaled::ZERO
         {
-            t_print!("pdf:pagesize default");
+            "pdf:pagesize default".to_string()
         } else {
-            t_print!(
+            format!(
                 "pdf:pagesize width {}pt height {}pt",
                 get_dimen_par(DimenPar::pdf_page_width),
                 get_dimen_par(DimenPar::pdf_page_height)
-            );
-        }
-        selector = old_setting;
+            )
+        };
+        let bytes = s.as_bytes();
 
         dvi_out(XXX1);
-        dvi_out(PoolString::current().len() as u8);
+        dvi_out(bytes.len() as u8);
 
-        for s in str_start[(str_ptr - TOO_BIG_CHAR) as usize]..pool_ptr {
-            dvi_out(str_pool[s] as u8);
+        for &b in bytes {
+            dvi_out(b);
         }
-
-        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
 
         /* Done with the synthesized special. The meat: emit this page box. */
 
@@ -2124,9 +2120,9 @@ unsafe fn pic_out(p: &Picture) {
     }
 
     let matrix = p.transform_matrix();
-    let old_setting = selector;
-    selector = Selector::NEW_STRING;
-    t_print!(
+    let mut buf = Vec::<u8>::new();
+    write!(
+        buf,
         "pdf:image matrix {} {} {} {} {} {} page {} {}(",
         matrix[0],
         matrix[1],
@@ -2142,18 +2138,12 @@ unsafe fn pic_out(p: &Picture) {
             5 => "pagebox artbox ",
             4 => "pagebox trimbox ",
             _ => "",
-        }
-    );
-
-    for i in p.path() {
-        // TODO: fix
-        print_chr(char::from(*i));
-    }
-    print_chr(')');
-
-    selector = old_setting;
-    let cur_str = PoolString::current();
-    let len = cur_str.len();
+        },
+    )
+    .unwrap();
+    buf.extend(p.path());
+    buf.push(b')');
+    let len = buf.len();
     if len < 256 {
         dvi_out(XXX1);
         dvi_out(len as u8);
@@ -2162,10 +2152,9 @@ unsafe fn pic_out(p: &Picture) {
         dvi_four(len as i32);
     }
 
-    for &k in cur_str.as_slice() {
-        dvi_out(k as u8);
+    for &b in &buf {
+        dvi_out(b);
     }
-    pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]; /* discard the string we just made */
 }
 
 pub(crate) unsafe fn finalize_dvi_file() {
