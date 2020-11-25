@@ -30,13 +30,13 @@ use crate::xetex_synctex::{
     synctex_void_vlist,
 };
 use crate::xetex_texmfmp::maketexstring;
-use crate::xetex_xetex0::TokenList;
 use crate::xetex_xetex0::{
     begin_token_list, diagnostic, effective_char, end_token_list, flush_list, flush_node_list,
     free_node, get_avail, get_node, get_token, internal_font_number, make_name_string, new_kern,
     new_math, new_native_word_node, open_log_file, pack_job_name, packed_UTF16_code, prepare_mag,
     scan_toks, show_box, str_number, token_show, FileName, UTF16_code,
 };
+use crate::xetex_xetex0::{TokenList, TokenNode};
 use crate::xetex_xetexd::{
     is_char_node, llist_link, set_NODE_type, LLIST_link, SYNCTEX_tag, TeXInt, TeXOpt,
     FONT_CHARACTER_WIDTH,
@@ -2065,21 +2065,8 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     let old_setting = selector;
 
     if j == 18 {
-        selector = Selector::NEW_STRING
-    } else if write_open[j as usize] {
-        selector = Selector::File(j as u8);
-    } else {
-        if j == 17 && (selector == Selector::TERM_AND_LOG) {
-            selector = Selector::LOG_ONLY
-        }
-        t_print_nl!("");
-    }
-
-    token_show(Some(def_ref));
-    print_ln();
-    flush_list(Some(def_ref));
-
-    if j == 18 {
+        let s = format!("{}", TokenNode(Some(def_ref)));
+        flush_list(Some(def_ref));
         if get_int_par(IntPar::tracing_online) <= 0 {
             selector = Selector::LOG_ONLY
         } else {
@@ -2090,21 +2077,30 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
         }
 
         if !shell_escape_enabled {
-            t_print_nl!("runsystem({})...disabled.", PoolString::current());
+            t_print_nl!("runsystem({})...disabled.", s);
         } else {
             // Currently, -Z shell-escape is implemented but hidden (see
             // src/unstable_opts.rs). When this gets actually implemented,
             // uncomment the relevant parts in that file.
-            t_print_nl!(
-                "runsystem({})...enabled but not implemented yet!",
-                PoolString::current()
-            );
+            t_print_nl!("runsystem({})...enabled but not implemented yet!", s);
         }
 
         t_print_nl!("");
         print_ln();
-        pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
+    } else {
+        if write_open[j as usize] {
+            selector = Selector::File(j as u8);
+        } else {
+            if j == 17 && (selector == Selector::TERM_AND_LOG) {
+                selector = Selector::LOG_ONLY
+            }
+            t_print_nl!("");
+        }
+        token_show(Some(def_ref));
+        print_ln();
+        flush_list(Some(def_ref));
     }
+
     selector = old_setting;
 }
 

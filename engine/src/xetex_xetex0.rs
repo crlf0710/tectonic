@@ -15662,11 +15662,6 @@ pub(crate) unsafe fn close_files_and_terminate() {
     }
     print_ln();
 }
-pub(crate) unsafe fn flush_str(s: str_number) {
-    if s == str_ptr - 1 {
-        PoolString::flush();
-    };
-}
 pub(crate) unsafe fn scan_pdf_ext_toks(input: &mut input_state_t, cs: i32) {
     scan_toks(input, cs, false, true);
 }
