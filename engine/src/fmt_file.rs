@@ -749,7 +749,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         }
 
         fmt_in.undump(&mut EQTB[k as usize..(k + x) as usize]);
-        k = k + x;
+        k += x;
 
         fmt_in.undump_one(&mut x);
         if x < 0 || k + x > (EQTB_SIZE as i32) + 1 {
@@ -761,7 +761,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             EQTB[j as usize] = EQTB[(k - 1) as usize];
             j += 1
         }
-        k = k + x;
+        k += x;
         if !(k <= EQTB_SIZE as i32) {
             break;
         }
@@ -997,12 +997,12 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         }
     }
     fmt_in.undump(&mut FONT_FALSE_BCHAR[..FONT_PTR + 1]);
-    for i_6 in 0..FONT_PTR + 1 {
-        if FONT_FALSE_BCHAR[i_6] < 0 || FONT_FALSE_BCHAR[i_6] > 65536 {
+    for (i, &b_char) in FONT_FALSE_BCHAR.iter().enumerate().take(FONT_PTR + 1) {
+        if b_char < 0 || b_char > 65536 {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
-                i_6,
-                FONT_FALSE_BCHAR[i_6],
+                i,
+                b_char,
                 FONT_FALSE_BCHAR.as_ptr() as u64,
                 0,
                 65536
@@ -1134,10 +1134,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         trie_used[k as usize] = 0;
     }
     let mut k = BIGGEST_LANG + 1;
-    loop {
-        if !(j > 0) {
-            break;
-        }
+    while j > 0 {
         fmt_in.undump_one(&mut x);
         if x < 0i32 || x > k - 1i32 {
             bad_fmt();
@@ -1149,7 +1146,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             bad_fmt();
         }
         trie_used[k as usize] = x as trie_opcode;
-        j = j - x;
+        j -= x;
         op_start[k as usize] = j
     }
     trie_not_ready = false;
@@ -1160,7 +1157,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     if x != FORMAT_FOOTER_MAGIC {
         bad_fmt();
     }
-    return true;
+    true
 }
 
 trait AsU8Slice {
@@ -1253,12 +1250,14 @@ where
             v.extend(i.iter().rev());
         }
 
-        self.write(&v).expect(&format!(
-            "could not write {} {}-byte item(s) to {}",
-            nitems,
-            item_size,
-            unsafe { &name_of_fmt_file },
-        ));
+        self.write_all(&v).unwrap_or_else(|_| {
+            panic!(
+                "could not write {} {}-byte item(s) to {}",
+                nitems,
+                item_size,
+                unsafe { &name_of_fmt_file },
+            )
+        });
     }
 }
 

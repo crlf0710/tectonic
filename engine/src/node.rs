@@ -1986,21 +1986,21 @@ pub(crate) mod math {
         pub(crate) unsafe fn nucleus(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 1] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn nucleus_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn nucleus_mut(&mut self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 1] as *mut memory_word as *mut MCell))
         }
         /// the `supscr` field of a noad
         pub(crate) unsafe fn supscr(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 2] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn supscr_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn supscr_mut(&mut self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 2] as *mut memory_word as *mut MCell))
         }
         /// the `subscr` field of a noad
         pub(crate) unsafe fn subscr(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 3] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn subscr_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn subscr_mut(&mut self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 3] as *mut memory_word as *mut MCell))
         }
     }
@@ -2085,7 +2085,7 @@ pub(crate) mod math {
         pub(crate) unsafe fn delimeter(&self) -> &Delimeter {
             &(*(&MEM[self.ptr() + 4] as *const memory_word as *const Delimeter))
         }
-        pub(crate) unsafe fn delimeter_mut(&self) -> &mut Delimeter {
+        pub(crate) unsafe fn delimeter_mut(&mut self) -> &mut Delimeter {
             &mut (*(&mut MEM[self.ptr() + 4] as *mut memory_word as *mut Delimeter))
         }
     }
@@ -2130,7 +2130,7 @@ pub(crate) mod math {
         /*pub(crate) unsafe fn fourth(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 4] as *const memory_word as *const MCell))
         }*/
-        pub(crate) unsafe fn fourth_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn fourth_mut(&mut self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 4] as *mut memory_word as *mut MCell))
         }
     }
@@ -2150,25 +2150,25 @@ pub(crate) mod math {
         pub(crate) unsafe fn numerator(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 2] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn numerator_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn numerator_mut(&mut self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 2] as *mut memory_word as *mut MCell))
         }
         pub(crate) unsafe fn denumerator(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 3] as *const memory_word as *const MCell))
         }
-        pub(crate) unsafe fn denumerator_mut(&self) -> &mut MCell {
+        pub(crate) unsafe fn denumerator_mut(&mut self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 3] as *mut memory_word as *mut MCell))
         }
         pub(crate) unsafe fn left_delimeter(&self) -> &Delimeter {
             &(*(&MEM[self.ptr() + 4] as *const memory_word as *const Delimeter))
         }
-        pub(crate) unsafe fn left_delimeter_mut(&self) -> &mut Delimeter {
+        pub(crate) unsafe fn left_delimeter_mut(&mut self) -> &mut Delimeter {
             &mut (*(&mut MEM[self.ptr() + 4] as *mut memory_word as *mut Delimeter))
         }
         pub(crate) unsafe fn right_delimeter(&self) -> &Delimeter {
             &(*(&MEM[self.ptr() + 5] as *const memory_word as *const Delimeter))
         }
-        pub(crate) unsafe fn right_delimeter_mut(&self) -> &mut Delimeter {
+        pub(crate) unsafe fn right_delimeter_mut(&mut self) -> &mut Delimeter {
             &mut (*(&mut MEM[self.ptr() + 5] as *mut memory_word as *mut Delimeter))
         }
     }

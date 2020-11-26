@@ -194,18 +194,18 @@ pub(crate) unsafe fn line_break(d: bool) {
     if get_int_par(IntPar::last_line_fit) > 0 {
         let llf = Glue(last_line_fill as usize);
         let q = GlueSpec(llf.glue_ptr() as usize);
-        if q.stretch() > Scaled::ZERO && q.stretch_order() > GlueOrder::Normal {
-            if background.stretch1 == Scaled::ZERO
+        if q.stretch() > Scaled::ZERO
+            && q.stretch_order() > GlueOrder::Normal
+            && (background.stretch1 == Scaled::ZERO
                 && background.stretch2 == Scaled::ZERO
-                && background.stretch3 == Scaled::ZERO
-            {
-                do_last_line_fit = true;
-                active_node_size = ACTIVE_NODE_SIZE_EXTENDED as _;
-                fill_width[0] = Scaled::ZERO;
-                fill_width[1] = Scaled::ZERO;
-                fill_width[2] = Scaled::ZERO;
-                fill_width[q.stretch_order() as usize - 1] = q.stretch();
-            }
+                && background.stretch3 == Scaled::ZERO)
+        {
+            do_last_line_fit = true;
+            active_node_size = ACTIVE_NODE_SIZE_EXTENDED as _;
+            fill_width[0] = Scaled::ZERO;
+            fill_width[1] = Scaled::ZERO;
+            fill_width[2] = Scaled::ZERO;
+            fill_width[q.stretch_order() as usize - 1] = q.stretch();
         }
     }
     minimum_demerits = AWFUL_BAD; /* 863: */
@@ -221,28 +221,26 @@ pub(crate) unsafe fn line_break(d: bool) {
         /* These direct `mem` accesses are in the original WEB code */
         second_width = Scaled(MEM[ps + 2 * (last_special_line as usize + 1)].b32.s1);
         second_indent = Scaled(MEM[ps + 2 * last_special_line as usize + 1].b32.s1);
+    } else if get_dimen_par(DimenPar::hang_indent) == Scaled::ZERO {
+        last_special_line = 0;
+        second_width = get_dimen_par(DimenPar::hsize);
+        second_indent = Scaled::ZERO;
     } else {
-        if get_dimen_par(DimenPar::hang_indent) == Scaled::ZERO {
-            last_special_line = 0;
+        /*878:*/
+        last_special_line = (get_int_par(IntPar::hang_after)).abs();
+
+        if get_int_par(IntPar::hang_after) < 0 {
+            first_width =
+                get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
+            first_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
             second_width = get_dimen_par(DimenPar::hsize);
             second_indent = Scaled::ZERO;
         } else {
-            /*878:*/
-            last_special_line = (get_int_par(IntPar::hang_after)).abs();
-
-            if get_int_par(IntPar::hang_after) < 0 {
-                first_width =
-                    get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
-                first_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
-                second_width = get_dimen_par(DimenPar::hsize);
-                second_indent = Scaled::ZERO;
-            } else {
-                first_width = get_dimen_par(DimenPar::hsize);
-                first_indent = Scaled::ZERO;
-                second_width =
-                    get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
-                second_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
-            }
+            first_width = get_dimen_par(DimenPar::hsize);
+            first_indent = Scaled::ZERO;
+            second_width =
+                get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
+            second_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
         }
     }
 
@@ -712,11 +710,8 @@ pub(crate) unsafe fn line_break(d: bool) {
                             flag = false;
                         }
                         CharOrText::Text(TxtNode::Math(m))
-                            if (match m.subtype() {
-                                MathType::Eq(_, MathMode::Left)
-                                | MathType::Eq(_, MathMode::Right) => true,
-                                _ => false,
-                            }) =>
+                            if matches!(m.subtype(), MathType::Eq(_, MathMode::Left)
+                                | MathType::Eq(_, MathMode::Right)) =>
                         {
                             flag = false
                         }
@@ -1640,19 +1635,17 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
                         if let ActiveNode::Delta(mut prev_r) = ActiveNode::from(prev_r) {
                             /* this is unused */
                             prev_r.set_from_size(prev_r.to_size() - cur_active_width + break_width);
+                        } else if prev_r == ACTIVE_LIST {
+                            active_width = break_width;
                         } else {
-                            if prev_r == ACTIVE_LIST {
-                                active_width = break_width;
-                            } else {
-                                let q = get_node(DELTA_NODE_SIZE);
-                                *LLIST_link(q) = Some(r.ptr()).tex_int();
-                                MEM[q].b16.s1 = 2; // DELTA_NODE
-                                clear_NODE_subtype(q);
-                                Delta(q).set_from_size(break_width - cur_active_width);
-                                *LLIST_link(prev_r) = Some(q).tex_int();
-                                prev_prev_r = Some(prev_r);
-                                prev_r = q;
-                            }
+                            let q = get_node(DELTA_NODE_SIZE);
+                            *LLIST_link(q) = Some(r.ptr()).tex_int();
+                            MEM[q].b16.s1 = 2; // DELTA_NODE
+                            clear_NODE_subtype(q);
+                            Delta(q).set_from_size(break_width - cur_active_width);
+                            *LLIST_link(prev_r) = Some(q).tex_int();
+                            prev_prev_r = Some(prev_r);
+                            prev_r = q;
                         }
                         /* ... resuming 865 ... */
                         if (get_int_par(IntPar::adj_demerits)).abs()

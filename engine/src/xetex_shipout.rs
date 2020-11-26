@@ -1766,7 +1766,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 t_print_nl!("\\openout{} = `{}\'.", j as i32, file);
                 t_print_nl!("");
                 print_ln();
-                selector = old_setting
+                selector = old_setting;
             }
         }
         WhatsIt::Write(p) => {
@@ -1774,7 +1774,6 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 return;
             }
             write_out(input, &p);
-            return;
         }
         WhatsIt::Close(p) => {
             if doing_leaders {
@@ -1787,12 +1786,11 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
             }
 
             write_open[j as usize] = false;
-            return;
         }
         WhatsIt::Special(p) => special_out(&p),
         WhatsIt::Language(_) => {}
         _ => confusion("ext4"),
-    };
+    }
 }
 
 unsafe fn dvi_native_font_def(f: internal_font_number) {
@@ -2090,15 +2088,18 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     } else {
         if write_open[j as usize] {
             selector = Selector::File(j as u8);
+            token_show(Some(def_ref));
+            print_ln();
+            flush_list(Some(def_ref));
         } else {
             if j == 17 && (selector == Selector::TERM_AND_LOG) {
                 selector = Selector::LOG_ONLY
             }
             t_print_nl!("");
+            token_show(Some(def_ref));
+            print_ln();
+            flush_list(Some(def_ref));
         }
-        token_show(Some(def_ref));
-        print_ln();
-        flush_list(Some(def_ref));
     }
 
     selector = old_setting;

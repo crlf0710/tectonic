@@ -156,7 +156,6 @@ unsafe fn print_file_char<W: io::Write>(file: &mut W, s: char, nl: i32) -> io::R
         } else {
             write!(file, "{}", s)?;
         }
-        tally += 1;
     }
     Ok(())
 }
@@ -235,7 +234,6 @@ impl fmt::Write for Selector {
                     let nl = get_int_par(IntPar::new_line_char);
                     if !s.contains(|c: char| (c as i32) == nl || c.is_control()) {
                         io::Write::write(file, s.as_bytes()).unwrap();
-                        tally += s.len() as i32;
                     } else {
                         for c in s.chars() {
                             print_file_char(file, c, nl).unwrap();

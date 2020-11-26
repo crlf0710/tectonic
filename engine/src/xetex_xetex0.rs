@@ -2609,7 +2609,7 @@ impl fmt::Display for CmdChr {
                 };
                 if unsafe { MEM[*LLIST_link(chr_code as usize) as usize].b32.s0 == PROTECTED_TOKEN }
                 {
-                    n = n + 4
+                    n += 4
                 }
                 if n / 4 & 1 != 0 {
                     Esc("protected").fmt(f)?;
@@ -9494,15 +9494,14 @@ pub(crate) unsafe fn new_character(f: internal_font_number, c: UTF16_code) -> Op
         return Some(new_native_character(f, c as UnicodeScalar).ptr());
     }
     let ec = effective_char(false, f, c) as u16;
-    if FONT_BC[f] as i32 <= ec as i32 {
-        if FONT_EC[f] as i32 >= ec as i32 {
-            if FONT_CHARACTER_INFO(f, ec as usize).s3 > 0 {
-                let mut p = Char(get_avail());
-                p.set_font(f as u16);
-                p.set_character(c);
-                return Some(p.ptr());
-            }
-        }
+    if FONT_BC[f] as i32 <= ec as i32
+        && FONT_EC[f] as i32 >= ec as i32
+        && FONT_CHARACTER_INFO(f, ec as usize).s3 > 0
+    {
+        let mut p = Char(get_avail());
+        p.set_font(f as u16);
+        p.set_character(c);
+        return Some(p.ptr());
     }
     char_warning(f, c as i32);
     None
@@ -9868,19 +9867,17 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
         } else {
             r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
         }
-        if o == GlueOrder::Normal {
-            if r.list_ptr().opt().is_some() {
-                /*685: */
-                last_badness = badness(x, total_stretch[NORMAL as usize]); /*normal *//*:690 */
-                if last_badness > get_int_par(IntPar::hbadness) {
-                    print_ln();
-                    if last_badness > 100 {
-                        t_print_nl!("Underfull \\hbox (badness {}", last_badness);
-                    } else {
-                        t_print_nl!("Loose \\hbox (badness {}", last_badness);
-                    }
-                    return common_ending(r, q);
+        if o == GlueOrder::Normal && r.list_ptr().opt().is_some() {
+            /*685: */
+            last_badness = badness(x, total_stretch[NORMAL as usize]); /*normal *//*:690 */
+            if last_badness > get_int_par(IntPar::hbadness) {
+                print_ln();
+                if last_badness > 100 {
+                    t_print_nl!("Underfull \\hbox (badness {}", last_badness);
+                } else {
+                    t_print_nl!("Loose \\hbox (badness {}", last_badness);
                 }
+                return common_ending(r, q);
             }
         }
         return exit(r, q);
@@ -10223,7 +10220,7 @@ pub(crate) unsafe fn new_noad() -> usize {
     let p = get_node(NOAD_SIZE);
     MEM[p].b16.s1 = MathNode::Ord as u16;
     MEM[p].b16.s0 = NORMAL;
-    let p = BaseMath(p);
+    let mut p = BaseMath(p);
     p.nucleus_mut().empty();
     p.subscr_mut().empty();
     p.supscr_mut().empty();
@@ -12135,12 +12132,11 @@ pub(crate) unsafe fn new_graf(input: &mut input_state_t, indented: bool) {
     push_nest();
     cur_list.mode = (false, ListMode::HMode);
     cur_list.aux.b32.s0 = 1000;
-    cur_lang = if get_int_par(IntPar::language) <= 0 {
-        0
-    } else if get_int_par(IntPar::language) > BIGGEST_LANG {
+    let lang = get_int_par(IntPar::language);
+    cur_lang = if lang <= 0 || lang > BIGGEST_LANG {
         0
     } else {
-        get_int_par(IntPar::language) as u8
+        lang as u8
     };
     cur_list.aux.b32.s1 = cur_lang as i32;
     cur_list.prev_graf = ((norm_min(get_int_par(IntPar::left_hyphen_min)) as i32 * 64i32
@@ -14361,7 +14357,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         *LLIST_link(cur_list.tail) = Some(n).tex_int();
                         cur_list.tail = n;
                         back_input(input, cur_tok);
-                        let m = BaseMath(cur_list.tail);
+                        let mut m = BaseMath(cur_list.tail);
                         scan_math(input, m.nucleus_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::Letter) | (MMode, Cmd::OtherChar) | (MMode, Cmd::CharGiven) => {
@@ -14440,7 +14436,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         *LLIST_link(cur_list.tail) = Some(n).tex_int();
                         cur_list.tail = n;
                         set_math_NODE_type(n, MathNode::n(cur_chr as u16).unwrap());
-                        let m = BaseMath(cur_list.tail);
+                        let mut m = BaseMath(cur_list.tail);
                         scan_math(input, m.nucleus_mut(), cur_list.tail + 1);
                     }
                     (MMode, Cmd::LimitSwitch) => {
@@ -14953,14 +14949,12 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                     | TxtNode::Ins(_)
                                     | TxtNode::Mark(_)
                                     | TxtNode::Adjust(_) => true,
-                                    TxtNode::WhatsIt(n) => match n {
+                                    TxtNode::WhatsIt(n) => matches!(n,
                                         WhatsIt::Open(_)
                                         | WhatsIt::Write(_)
                                         | WhatsIt::Close(_)
                                         | WhatsIt::Special(_)
-                                        | WhatsIt::Language(_) => true,
-                                        _ => false,
-                                    },
+                                        | WhatsIt::Language(_)),
                                     _ => false,
                                 },
                                 _ => false,
@@ -15056,7 +15050,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
         main_f = EQTB[CUR_FONT_LOC].val as usize;
         bchar = FONT_BCHAR[main_f as usize];
         false_bchar = FONT_FALSE_BCHAR[main_f as usize];
-        if cur_list.mode.0 == false {
+        if !cur_list.mode.0 {
             if get_int_par(IntPar::language) != cur_list.aux.b32.s1 {
                 fix_language();
             }
@@ -15152,7 +15146,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                         }
                                         if ins_disc {
                                             ins_disc = false;
-                                            if cur_list.mode.0 == false {
+                                            if !cur_list.mode.0 {
                                                 let d = new_disc();
                                                 *LLIST_link(cur_list.tail) = Some(d).tex_int();
                                                 cur_list.tail = d;
@@ -15608,7 +15602,7 @@ pub(crate) unsafe fn close_files_and_terminate() {
     finalize_dvi_file();
     synctex_terminate(log_opened);
     if log_opened {
-        write!(log_file.as_mut().unwrap(), "\n").unwrap();
+        writeln!(log_file.as_mut().unwrap()).unwrap();
         ttstub_output_close(log_file.take().unwrap());
         log_file = None;
         match selector {

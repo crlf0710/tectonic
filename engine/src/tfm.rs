@@ -1,6 +1,7 @@
 use bridge::TTInputFormat;
 
 use crate::help;
+use std::ptr;
 
 use crate::{t_eprint, t_print, t_print_nl};
 use std::io::Read;
@@ -198,9 +199,9 @@ pub(crate) unsafe fn read_font_info(
     READFIFTEEN!(ne);
     READFIFTEEN!(np);
 
-    if lf != 6 + lh + (ec - bc + 1) + nw + nh + nd + ni + nl + nk + ne + np {
-        return Err(TfmError::BadMetric);
-    } else if nw == 0 || nh == 0 || nd == 0 || ni == 0 {
+    if (lf != 6 + lh + (ec - bc + 1) + nw + nh + nd + ni + nl + nk + ne + np)
+        || (nw == 0 || nh == 0 || nd == 0 || ni == 0)
+    {
         return Err(TfmError::BadMetric);
     }
 
@@ -294,10 +295,7 @@ pub(crate) unsafe fn read_font_info(
                 if d < bc || d > ec {
                     return Err(TfmError::BadMetric);
                 }
-                loop {
-                    if !(d < k + bc - fmem_ptr) {
-                        break;
-                    }
+                while d < k + bc - fmem_ptr {
                     let qw = FONT_CHARACTER_INFO(f, d as usize);
                     if qw.s1 as i32 % 4 != LIST_TAG {
                         break;
@@ -540,11 +538,11 @@ pub(crate) unsafe fn read_font_info(
     FONT_EC[f] = ec as UTF16_code;
     FONT_GLUE[f] = None.tex_int();
     PARAM_BASE[f] -= 1;
-    fmem_ptr = fmem_ptr + lf;
+    fmem_ptr += lf;
     FONT_PTR = f;
     FONT_MAPPING[f] = load_tfm_font_mapping();
 
-    return Ok((true, f, name)); // TODO: check name
+    Ok((true, f, name)) // TODO: check name
 }
 
 /// Called on error
@@ -624,7 +622,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
     }
     for b in name.bytes() {
         str_pool[pool_ptr] = b as packed_UTF16_code;
-        pool_ptr = pool_ptr + 1;
+        pool_ptr += 1;
     }
 
     let full_name = make_string();
@@ -675,7 +673,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
     SKEW_CHAR[FONT_PTR] = get_int_par(IntPar::default_skew_char);
     PARAM_BASE[FONT_PTR] = fmem_ptr - 1;
     FONT_LAYOUT_ENGINE[FONT_PTR] = crate::xetex_ext::Font::Native(font_engine);
-    FONT_MAPPING[FONT_PTR] = 0 as *mut libc::c_void;
+    FONT_MAPPING[FONT_PTR] = ptr::null_mut();
     FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
     /* "measure the width of the space character and set up font parameters" */
     let p = new_native_character(FONT_PTR, ' ' as i32);

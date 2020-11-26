@@ -477,7 +477,7 @@ pub(crate) static mut history: TTHistory = TTHistory::SPOTLESS;
 #[no_mangle]
 pub(crate) static mut error_count: i8 = 0;
 #[no_mangle]
-pub(crate) static mut help_line: [&'static str; 6] = [""; 6];
+pub(crate) static mut help_line: [&str; 6] = [""; 6];
 #[no_mangle]
 pub(crate) static mut help_ptr: u8 = 0;
 #[no_mangle]
@@ -1379,13 +1379,11 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                         let k = HYPH_WORD[h as usize];
                         let hyph = PoolString::from(k);
                         let string = PoolString::from(s);
-                        if hyph.len() == string.len() {
-                            if string.as_slice().starts_with(hyph.as_slice()) {
-                                PoolString::flush();
-                                s = HYPH_WORD[h as usize];
-                                HYPH_COUNT -= 1;
-                                break;
-                            }
+                        if hyph == string {
+                            PoolString::flush();
+                            s = HYPH_WORD[h as usize];
+                            HYPH_COUNT -= 1;
+                            break;
                         }
                         /*:975*/
                         /*:976*/
@@ -1550,11 +1548,9 @@ pub(crate) unsafe fn prefixed_command(
             }
             if cmd >= Cmd::Call {
                 MEM[chr as usize].b32.s0 += 1
-            } else if cmd == Cmd::Register ||
-                          cmd == Cmd::ToksRegister {
-                if chr < 0 || chr > LO_MEM_STAT_MAX {
+            } else if (cmd == Cmd::Register ||
+                          cmd == Cmd::ToksRegister) && (chr < 0 || chr > LO_MEM_STAT_MAX) {
                     MEM[(chr + 1) as usize].b32.s0 += 1;
-                }
             }
             if a >= 4 {
                 geq_define(p as usize, cmd, chr.opt());
@@ -1775,16 +1771,14 @@ pub(crate) unsafe fn prefixed_command(
                         } else if a >= 4 {
                             geq_define(p as usize, Cmd::Call, Some(q));
                         } else { eq_define(p as usize, Cmd::Call, Some(q)); }
+                    } else if e {
+                        if a >= 4 {
+                            gsa_def(p as usize, None);
+                        } else { sa_def(p as usize, None); }
+                    } else if a >= 4 {
+                        geq_define(p as usize, Cmd::UndefinedCS, None);
                     } else {
-                        if e {
-                            if a >= 4 {
-                                gsa_def(p as usize, None);
-                            } else { sa_def(p as usize, None); }
-                        } else if a >= 4 {
-                            geq_define(p as usize, Cmd::UndefinedCS, None);
-                        } else {
-                            eq_define(p as usize, Cmd::UndefinedCS, None);
-                        }
+                        eq_define(p as usize, Cmd::UndefinedCS, None);
                     }
                     return done(input);
                 }
@@ -2156,14 +2150,13 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
         cond_ptr = llist_link(cp);
         free_node(tmp_ptr, IF_NODE_SIZE);
     }
-    if history != TTHistory::SPOTLESS {
-        if history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop {
-            if selector == Selector::TERM_AND_LOG {
-                selector = Selector::TERM_ONLY;
-                t_print_nl!("(see the transcript file for additional information)");
-                selector = Selector::TERM_AND_LOG
-            }
-        }
+    if history != TTHistory::SPOTLESS
+        && (history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop)
+        && selector == Selector::TERM_AND_LOG
+    {
+        selector = Selector::TERM_ONLY;
+        t_print_nl!("(see the transcript file for additional information)");
+        selector = Selector::TERM_AND_LOG
     }
     if c == 1 {
         if in_initex_mode {
@@ -4201,10 +4194,8 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     }
     no_new_control_sequence = true;
 
-    if !in_initex_mode {
-        if !load_fmt_file() {
-            return history;
-        }
+    if !in_initex_mode && !load_fmt_file() {
+        return history;
     }
 
     if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) < TOO_BIG_CHAR {

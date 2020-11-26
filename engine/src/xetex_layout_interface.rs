@@ -461,13 +461,13 @@ pub(crate) unsafe fn getGlyphBBoxCache() -> *mut CppStdMap<u32, GlyphBBox> {
     if cache.is_null() {
         cache = CppStdMap_create()
     }
-    return cache;
+    cache
 }
 pub(crate) unsafe fn getCachedGlyphBBox(fontID: u16, glyphID: u16, bbox: *mut GlyphBBox) -> i32 {
     let sGlyphBoxes = getGlyphBBoxCache();
     let key: u32 = ((fontID as u32) << 16i32).wrapping_add(glyphID as libc::c_uint);
     if let Some(v) = (*sGlyphBoxes).get(&key) {
-        *bbox = v.clone();
+        *bbox = *v;
         1
     } else {
         0
@@ -480,11 +480,10 @@ pub(crate) unsafe fn cacheGlyphBBox(fontID: u16, glyphID: u16, bbox: *const Glyp
 }
 #[inline]
 fn GlyphId_create(fontNum: usize, code: libc::c_uint) -> GlyphId {
-    let id = GlyphId {
+    GlyphId {
         fontNum: fontNum as i32,
         code,
-    };
-    id
+    }
 }
 pub(crate) unsafe fn getProtrusionFactor(side: Side) -> *mut ProtrusionFactor {
     static mut leftProt: *mut ProtrusionFactor = ptr::null_mut();
@@ -534,7 +533,7 @@ pub(crate) unsafe fn createFont(
     let font;
     #[cfg(not(target_os = "macos"))]
     {
-        let mut pathname: *mut u8 = 0 as *mut u8;
+        let mut pathname = ptr::null_mut();
         FcPatternGetString(
             fontRef as *const FcPattern,
             b"file\x00" as *const u8 as *const libc::c_char,
@@ -627,9 +626,9 @@ unsafe fn getLargerScriptListTable(
     let mut scriptCountSub: libc::c_uint = hb_ot_layout_table_get_script_tags(
         face,
         u32::from_be_bytes([b'G', b'S', b'U', b'B']),
-        0i32 as libc::c_uint,
-        0 as *mut libc::c_uint,
-        0 as *mut hb_tag_t,
+        0,
+        ptr::null_mut(),
+        ptr::null_mut(),
     );
     let scriptListSub = xcalloc(
         scriptCountSub as _,
@@ -638,16 +637,16 @@ unsafe fn getLargerScriptListTable(
     hb_ot_layout_table_get_script_tags(
         face,
         u32::from_be_bytes([b'G', b'S', b'U', b'B']),
-        0i32 as libc::c_uint,
+        0,
         &mut scriptCountSub,
         scriptListSub,
     );
     let mut scriptCountPos: libc::c_uint = hb_ot_layout_table_get_script_tags(
         face,
         u32::from_be_bytes([b'G', b'P', b'O', b'S']),
-        0i32 as libc::c_uint,
-        0 as *mut libc::c_uint,
-        0 as *mut hb_tag_t,
+        0,
+        ptr::null_mut(),
+        ptr::null_mut(),
     );
     let scriptListPos = xcalloc(
         scriptCountPos as _,
@@ -673,23 +672,21 @@ unsafe fn getLargerScriptListTable(
     }
 }
 pub(crate) unsafe fn countScripts(font: &XeTeXFontInst) -> libc::c_uint {
-    getLargerScriptListTable(font, 0 as *mut *mut hb_tag_t)
+    getLargerScriptListTable(font, ptr::null_mut())
 }
 pub(crate) unsafe fn getIndScript(font: &XeTeXFontInst, index: libc::c_uint) -> hb_tag_t {
-    let mut rval: hb_tag_t = 0i32 as hb_tag_t;
-    let mut scriptList: *mut hb_tag_t = 0 as *mut hb_tag_t;
+    let mut scriptList = ptr::null_mut();
     let scriptCount = getLargerScriptListTable(font, &mut scriptList);
-    if !scriptList.is_null() {
-        if index < scriptCount {
-            rval = *scriptList.offset(index as isize)
-        }
+    if !scriptList.is_null() && index < scriptCount {
+        *scriptList.offset(index as isize)
+    } else {
+        0
     }
-    rval
 }
 pub(crate) unsafe fn countLanguages(font: &XeTeXFontInst, script: hb_tag_t) -> libc::c_uint {
     let mut rval: libc::c_uint = 0i32 as libc::c_uint;
     let face = hb_font_get_face(font.get_hb_font());
-    let mut scriptList = 0 as *mut hb_tag_t;
+    let mut scriptList = ptr::null_mut();
     let scriptCount = getLargerScriptListTable(font, &mut scriptList);
     if !scriptList.is_null() {
         let mut i: libc::c_uint = 0i32 as libc::c_uint;
@@ -699,17 +696,17 @@ pub(crate) unsafe fn countLanguages(font: &XeTeXFontInst, script: hb_tag_t) -> l
                     face,
                     u32::from_be_bytes([b'G', b'S', b'U', b'B']),
                     i,
-                    0i32 as libc::c_uint,
-                    0 as *mut libc::c_uint,
-                    0 as *mut hb_tag_t,
+                    0,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
                 ));
                 rval = rval.wrapping_add(hb_ot_layout_script_get_language_tags(
                     face,
                     u32::from_be_bytes([b'G', b'P', b'O', b'S']),
                     i,
-                    0i32 as libc::c_uint,
-                    0 as *mut libc::c_uint,
-                    0 as *mut hb_tag_t,
+                    0,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
                 ));
                 break;
             } else {
@@ -737,9 +734,9 @@ pub(crate) unsafe fn getIndLanguage(
                     face,
                     u32::from_be_bytes([b'G', b'S', b'U', b'B']),
                     i,
-                    0i32 as libc::c_uint,
-                    0 as *mut libc::c_uint,
-                    0 as *mut hb_tag_t,
+                    0,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
                 );
                 let langList = xcalloc(
                     langCount as size_t,
@@ -749,7 +746,7 @@ pub(crate) unsafe fn getIndLanguage(
                     face,
                     u32::from_be_bytes([b'G', b'S', b'U', b'B']),
                     i,
-                    0i32 as libc::c_uint,
+                    0,
                     &mut langCount,
                     langList,
                 );
@@ -762,9 +759,9 @@ pub(crate) unsafe fn getIndLanguage(
                         face,
                         u32::from_be_bytes([b'G', b'P', b'O', b'S']),
                         i,
-                        0i32 as libc::c_uint,
-                        0 as *mut libc::c_uint,
-                        0 as *mut hb_tag_t,
+                        0,
+                        ptr::null_mut(),
+                        ptr::null_mut(),
                     );
                     let langList = xcalloc(
                         langCount as size_t,
@@ -774,7 +771,7 @@ pub(crate) unsafe fn getIndLanguage(
                         face,
                         u32::from_be_bytes([b'G', b'P', b'O', b'S']),
                         i,
-                        0i32 as libc::c_uint,
+                        0,
                         &mut langCount,
                         langList,
                     );
@@ -823,8 +820,8 @@ pub(crate) unsafe fn countFeatures(
                     scriptIndex,
                     langIndex,
                     0i32 as libc::c_uint,
-                    0 as *mut libc::c_uint,
-                    0 as *mut hb_tag_t,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
                 ))
             }
         }
@@ -866,8 +863,8 @@ pub(crate) unsafe fn getIndFeature(
                     scriptIndex,
                     langIndex,
                     0i32 as libc::c_uint,
-                    0 as *mut libc::c_uint,
-                    0 as *mut hb_tag_t,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
                 );
                 let featList = xcalloc(
                     featCount as size_t,
@@ -972,7 +969,7 @@ pub(crate) unsafe fn getGraphiteFeatureLabel(
         let mut langID: u16 = 0x409i32 as u16;
         return gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut libc::c_char;
     }
-    0 as *mut libc::c_char
+    ptr::null_mut()
 }
 pub(crate) unsafe fn getGraphiteFeatureSettingLabel(
     engine: &XeTeXLayoutEngine,
@@ -994,7 +991,7 @@ pub(crate) unsafe fn getGraphiteFeatureSettingLabel(
             i += 1
         }
     }
-    0 as *mut libc::c_char
+    ptr::null_mut()
 }
 pub(crate) unsafe fn findGraphiteFeature(
     engine: &XeTeXLayoutEngine,
@@ -1169,7 +1166,7 @@ unsafe fn _get_unicode_funcs() -> *mut hb_unicode_funcs_t {
     hb_unicode_funcs_set_decompose_compatibility_func(
         ufuncs,
         Some(_decompose_compat),
-        0 as *mut libc::c_void,
+        ptr::null_mut(),
         None,
     );
     ufuncs
@@ -1189,8 +1186,8 @@ impl XeTeXLayoutEngine {
             direction: HB_DIRECTION_INVALID,
             script: HB_SCRIPT_INVALID,
             language: ptr::null(),
-            reserved1: 0 as *mut libc::c_void,
-            reserved2: 0 as *mut libc::c_void,
+            reserved1: ptr::null_mut(),
+            reserved2: ptr::null_mut(),
         };
         let hbFont = self.font.get_hb_font();
         let hbFace = hb_font_get_face(hbFont);
@@ -1221,12 +1218,12 @@ impl XeTeXLayoutEngine {
                 as *mut *mut libc::c_char;
             *self.shaper_list.list.offset(0) =
                 b"ot\x00" as *const u8 as *const libc::c_char as *mut libc::c_char;
-            *self.shaper_list.list.offset(1) = 0 as *mut libc::c_char;
+            *self.shaper_list.list.offset(1) = ptr::null_mut();
             self.shaper_list.to_free = true;
         }
         let mut shape_plan = hb_shape_plan_create_cached(
             hbFace,
-            &mut segment_props,
+            &segment_props,
             self.features.as_ptr(),
             self.features.len() as u32,
             self.shaper_list.list as *const *const libc::c_char,
@@ -1251,10 +1248,10 @@ impl XeTeXLayoutEngine {
             hb_shape_plan_destroy(shape_plan); /* negative is forwards */
             shape_plan = hb_shape_plan_create(
                 hbFace,
-                &mut segment_props,
+                &segment_props,
                 self.features.as_ptr(),
                 self.features.len() as u32,
-                0 as *const *const libc::c_char,
+                ptr::null(),
             ); /* negative is upwards */
             let res = hb_shape_plan_execute(
                 shape_plan,
@@ -1324,17 +1321,13 @@ impl XeTeXLayoutEngine {
                 y: self.font.units_to_points(y),
             });
         } else {
-            for i in 0..glyphCount as usize {
+            for pos in hbPositions.iter().take(glyphCount as usize) {
                 positions.push(FloatPoint {
-                    x: self
-                        .font
-                        .units_to_points(x + hbPositions[i].x_offset as f32),
-                    y: -self
-                        .font
-                        .units_to_points(y + hbPositions[i].y_offset as f32),
+                    x: self.font.units_to_points(x + pos.x_offset as f32),
+                    y: -self.font.units_to_points(y + pos.y_offset as f32),
                 });
-                x += hbPositions[i].x_advance as f32;
-                y += hbPositions[i].y_advance as f32;
+                x += pos.x_advance as f32;
+                y += pos.y_advance as f32;
             }
             positions.push(FloatPoint {
                 x: self.font.units_to_points(x),
@@ -1362,10 +1355,10 @@ impl XeTeXLayoutEngine {
         if hb_script_get_horizontal_direction(script) as libc::c_uint
             == HB_DIRECTION_RTL as i32 as libc::c_uint
         {
-            return 0xffi32;
+            0xff
         } else {
-            return 0xfei32;
-        };
+            0xfe
+        }
     }
     pub(crate) unsafe fn get_rgb_value(&self) -> u32 {
         self.rgbValue
@@ -1411,8 +1404,8 @@ pub(crate) unsafe fn mapGlyphToIndex(
 ) -> i32 {
     engine.font.map_glyph_to_index(glyphName) as i32
 }
-static mut grSegment: *mut gr_segment = 0 as *mut gr_segment;
-static mut grPrevSlot: *const gr_slot = 0 as *const gr_slot;
+static mut grSegment: *mut gr_segment = ptr::null_mut();
+static mut grPrevSlot: *const gr_slot = ptr::null();
 static mut grTextLen: i32 = 0;
 pub(crate) unsafe fn initGraphiteBreaking(engine: &XeTeXLayoutEngine, txt: &[u16]) -> bool {
     let hbFace = hb_font_get_face(engine.font.get_hb_font());
@@ -1421,8 +1414,8 @@ pub(crate) unsafe fn initGraphiteBreaking(engine: &XeTeXLayoutEngine, txt: &[u16
     if !grFace.is_null() && !grFont.is_null() {
         if !grSegment.is_null() {
             gr_seg_destroy(grSegment);
-            grSegment = 0 as *mut gr_segment;
-            grPrevSlot = 0 as *const gr_slot;
+            grSegment = ptr::null_mut();
+            grPrevSlot = ptr::null();
         }
         let grFeatureValues = gr_face_featureval_for_lang(
             grFace,

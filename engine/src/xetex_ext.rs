@@ -334,12 +334,13 @@ pub(crate) unsafe fn check_for_tfm_font_mapping() {
     }
 }
 pub(crate) unsafe fn load_tfm_font_mapping() -> *mut libc::c_void {
-    let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
     if !saved_mapping_name.is_empty() {
-        rval = load_mapping_file(&saved_mapping_name, 1_i8);
+        let rval = load_mapping_file(&saved_mapping_name, 1_i8);
         saved_mapping_name = String::new();
+        rval
+    } else {
+        ptr::null_mut()
     }
-    rval
 }
 pub(crate) unsafe fn apply_tfm_font_mapping(cnv: *mut libc::c_void, c: i32) -> i32 {
     let mut in_0: UniChar = c as UniChar;
@@ -385,9 +386,9 @@ pub(crate) fn read_double(s: &mut &[u8]) -> f64 {
         let mut dec = 10_f64;
         cp = &cp[1..];
         while (b'0'..=b'9').contains(&cp[0]) {
-            val = val + (cp[0] as i32 - '0' as i32) as f64 / dec;
+            val += (cp[0] as i32 - '0' as i32) as f64 / dec;
             cp = &cp[1..];
-            dec = dec * 10.;
+            dec *= 10.;
         }
     }
     *s = cp;
@@ -574,10 +575,7 @@ unsafe fn loadOTfont(
     let mut font = Some(font);
     let mut current_block: u64;
     let mut engine = None;
-    let mut script: hb_tag_t = (0_u32 & 0xff_u32) << 24i32
-        | (0_u32 & 0xff_u32) << 16i32
-        | (0_u32 & 0xff_u32) << 8i32
-        | 0_u32 & 0xff_u32;
+    let mut script = 0;
     let mut shapers: *mut *mut i8 = 0 as *mut *mut i8;
     let mut nShapers: i32 = 0i32;
     let mut tag: hb_tag_t = 0;
@@ -648,137 +646,127 @@ unsafe fn loadOTfont(
                     hb_tag_from_string(cp3.as_ptr() as *const i8, (cp3.len() - cp2.len()) as _);
                 current_block = 13857423536159756434;
             }
-        } else {
-            if let Some(mut cp3) = strstartswith(cp1, b"language") {
-                if cp3[0] != b'=' {
-                    current_block = 10622493848381539643;
-                } else {
-                    cp3 = &cp3[1..];
-                    language = std::str::from_utf8(&cp3[..cp3.len() - cp2.len()])
-                        .unwrap()
-                        .to_string();
-                    current_block = 13857423536159756434;
-                }
+        } else if let Some(mut cp3) = strstartswith(cp1, b"language") {
+            if cp3[0] != b'=' {
+                current_block = 10622493848381539643;
             } else {
-                if let Some(mut cp3) = strstartswith(cp1, b"shaper") {
-                    if cp3[0] != b'=' {
-                        current_block = 10622493848381539643;
-                    } else {
-                        cp3 = &cp3[1..];
-                        shapers = xrealloc(
-                            shapers as *mut libc::c_void,
-                            ((nShapers + 1i32) as u64)
-                                .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
-                                as _,
-                        ) as *mut *mut i8;
-                        /* some dumb systems have no strndup() */
-                        let len = cp3.len() - cp2.len();
-                        let ccp3 = CString::new(cp3).unwrap();
-                        *shapers.offset(nShapers as isize) = strdup(ccp3.as_ptr());
-                        *(*shapers.offset(nShapers as isize)).offset(len as _) =
-                            '\u{0}' as i32 as i8;
-                        nShapers += 1;
+                cp3 = &cp3[1..];
+                language = std::str::from_utf8(&cp3[..cp3.len() - cp2.len()])
+                    .unwrap()
+                    .to_string();
+                current_block = 13857423536159756434;
+            }
+        } else if let Some(mut cp3) = strstartswith(cp1, b"shaper") {
+            if cp3[0] != b'=' {
+                current_block = 10622493848381539643;
+            } else {
+                cp3 = &cp3[1..];
+                shapers = xrealloc(
+                    shapers as *mut libc::c_void,
+                    ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
+                        as _,
+                ) as *mut *mut i8;
+                /* some dumb systems have no strndup() */
+                let len = cp3.len() - cp2.len();
+                let ccp3 = CString::new(cp3).unwrap();
+                *shapers.offset(nShapers as isize) = strdup(ccp3.as_ptr());
+                *(*shapers.offset(nShapers as isize)).offset(len as _) = '\u{0}' as i32 as i8;
+                nShapers += 1;
+                current_block = 13857423536159756434;
+            }
+        } else {
+            let i = readCommonFeatures(
+                cp1,
+                cp1.len() - cp2.len(),
+                &mut extend,
+                &mut slant,
+                &mut embolden,
+                &mut letterspace,
+                &mut rgbValue,
+            );
+            if i == 1i32 {
+                current_block = 13857423536159756434;
+            } else if i == -1i32 {
+                current_block = 10622493848381539643;
+            } else {
+                if reqEngine as i32 == 'G' as i32 {
+                    let mut value: i32 = 0i32;
+                    if readFeatureNumber(&cp1[..cp1.len() - cp2.len()], &mut tag, &mut value)
+                        || findGraphiteFeature(
+                            engine.as_ref().unwrap(),
+                            &cp1[..cp1.len() - cp2.len()],
+                            &mut tag,
+                            &mut value,
+                        ) as i32
+                            != 0
+                    {
+                        features.push(hb_feature_t {
+                            tag,
+                            value: value as u32,
+                            start: 0,
+                            end: -1i32 as u32,
+                        });
                         current_block = 13857423536159756434;
+                    } else {
+                        current_block = 15669289850109000831;
                     }
                 } else {
-                    let i = readCommonFeatures(
-                        cp1,
-                        cp1.len() - cp2.len(),
-                        &mut extend,
-                        &mut slant,
-                        &mut embolden,
-                        &mut letterspace,
-                        &mut rgbValue,
-                    );
-                    if i == 1i32 {
-                        current_block = 13857423536159756434;
-                    } else if i == -1i32 {
-                        current_block = 10622493848381539643;
-                    } else {
-                        if reqEngine as i32 == 'G' as i32 {
-                            let mut value: i32 = 0i32;
-                            if readFeatureNumber(
-                                &cp1[..cp1.len() - cp2.len()],
-                                &mut tag,
-                                &mut value,
-                            ) || findGraphiteFeature(
-                                engine.as_ref().unwrap(),
-                                &cp1[..cp1.len() - cp2.len()],
-                                &mut tag,
-                                &mut value,
-                            ) as i32
-                                != 0
-                            {
-                                features.push(hb_feature_t {
-                                    tag,
-                                    value: value as u32,
-                                    start: 0,
-                                    end: -1i32 as u32,
-                                });
+                    current_block = 15669289850109000831;
+                }
+                match current_block {
+                    13857423536159756434 => {}
+                    _ => {
+                        if cp1[0] == b'+' {
+                            let mut param: i32 = 0i32;
+                            tag = read_tag_with_param(&cp1[1..], &mut param);
+                            let start = 0;
+                            let end = -1i32 as u32;
+                            // for backward compatibility with pre-0.9999 where feature
+                            // indices started from 0
+                            if param >= 0i32 {
+                                param += 1
+                            }
+                            let value = param as u32;
+                            features.push(hb_feature_t {
+                                tag,
+                                value,
+                                start,
+                                end,
+                            });
+                            current_block = 13857423536159756434;
+                        } else if cp1[0] == b'-' {
+                            cp1 = &cp1[1..];
+                            tag = hb_tag_from_string(
+                                cp1.as_ptr() as *const i8,
+                                (cp1.len() - cp2.len()) as _,
+                            );
+                            features.push(hb_feature_t {
+                                tag,
+                                start: 0,
+                                end: -1i32 as u32,
+                                value: 0,
+                            });
+                            current_block = 13857423536159756434;
+                        } else if cp1.starts_with(b"vertical") {
+                            let mut n = cp1.len() - cp2.len();
+                            if b";:".contains(&cp1[n]) {
+                                n -= 1;
+                            }
+                            while n != 0 || b" \t".contains(&cp1[n]) {
+                                n -= 1;
+                            }
+                            if n != 0 {
+                                // TODO: check
+                                n += 1;
+                            }
+                            if n == 8 {
+                                loaded_font_flags = (loaded_font_flags as i32 | 0x2i32) as i8;
                                 current_block = 13857423536159756434;
                             } else {
-                                current_block = 15669289850109000831;
+                                current_block = 10622493848381539643;
                             }
                         } else {
-                            current_block = 15669289850109000831;
-                        }
-                        match current_block {
-                            13857423536159756434 => {}
-                            _ => {
-                                if cp1[0] == b'+' {
-                                    let mut param: i32 = 0i32;
-                                    tag = read_tag_with_param(&cp1[1..], &mut param);
-                                    let start = 0;
-                                    let end = -1i32 as u32;
-                                    // for backward compatibility with pre-0.9999 where feature
-                                    // indices started from 0
-                                    if param >= 0i32 {
-                                        param += 1
-                                    }
-                                    let value = param as u32;
-                                    features.push(hb_feature_t {
-                                        tag,
-                                        value,
-                                        start,
-                                        end,
-                                    });
-                                    current_block = 13857423536159756434;
-                                } else if cp1[0] == b'-' {
-                                    cp1 = &cp1[1..];
-                                    tag = hb_tag_from_string(
-                                        cp1.as_ptr() as *const i8,
-                                        (cp1.len() - cp2.len()) as _,
-                                    );
-                                    features.push(hb_feature_t {
-                                        tag,
-                                        start: 0,
-                                        end: -1i32 as u32,
-                                        value: 0,
-                                    });
-                                    current_block = 13857423536159756434;
-                                } else if cp1.starts_with(b"vertical") {
-                                    let mut n = cp1.len() - cp2.len();
-                                    if b";:".contains(&cp1[n]) {
-                                        n -= 1;
-                                    }
-                                    while n != 0 || b" \t".contains(&cp1[n]) {
-                                        n -= 1;
-                                    }
-                                    if n != 0 {
-                                        // TODO: check
-                                        n += 1;
-                                    }
-                                    if n == 8 {
-                                        loaded_font_flags =
-                                            (loaded_font_flags as i32 | 0x2i32) as i8;
-                                        current_block = 13857423536159756434;
-                                    } else {
-                                        current_block = 10622493848381539643;
-                                    }
-                                } else {
-                                    current_block = 10622493848381539643;
-                                }
-                            }
+                            current_block = 10622493848381539643;
                         }
                     }
                 }

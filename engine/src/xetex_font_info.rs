@@ -205,11 +205,11 @@ impl XeTeXFontInst {
             m_italicAngle: 0i32 as f32,
             m_vertical: false,
             m_filename: 0 as *mut libc::c_char,
-            m_index: 0i32 as uint32_t,
+            m_index: 0,
             m_ftFace: 0 as FT_Face,
             m_backingData: Vec::new(),
             m_backingData2: Vec::new(),
-            m_hbFont: 0 as *mut hb_font_t,
+            m_hbFont: ptr::null_mut(),
         };
         if !pathname.is_empty() {
             res.initialize(pathname, index, status);
@@ -249,14 +249,14 @@ unsafe extern "C" fn _get_glyph(
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
     let face = font_data as FT_Face;
-    *gid = 0i32 as hb_codepoint_t;
+    *gid = 0 as hb_codepoint_t;
     if vs != 0 {
         *gid = FT_Face_GetCharVariantIndex(face, ch as FT_ULong, vs as FT_ULong)
     }
-    if *gid == 0i32 as libc::c_uint {
+    if *gid == 0 {
         *gid = FT_Get_Char_Index(face, ch as FT_ULong)
     }
-    return (*gid != 0i32 as libc::c_uint) as libc::c_int;
+    (*gid != 0) as hb_bool_t
 }
 unsafe extern "C" fn _get_glyph_advance(face: FT_Face, gid: FT_UInt, vertical: bool) -> FT_Fixed {
     let mut advance = 0;
@@ -270,9 +270,10 @@ unsafe extern "C" fn _get_glyph_advance(face: FT_Face, gid: FT_UInt, vertical: b
     }
     /* FreeType's vertical metrics grows downward */
     if vertical {
-        advance = -advance
+        -advance
+    } else {
+        advance
     }
-    return advance;
 }
 unsafe extern "C" fn _get_glyph_h_advance(
     mut _hbf: *mut hb_font_t,
@@ -280,7 +281,7 @@ unsafe extern "C" fn _get_glyph_h_advance(
     gid: hb_codepoint_t,
     mut _p: *mut libc::c_void,
 ) -> hb_position_t {
-    return _get_glyph_advance(font_data as FT_Face, gid, false) as hb_position_t;
+    _get_glyph_advance(font_data as FT_Face, gid, false) as hb_position_t
 }
 unsafe extern "C" fn _get_glyph_v_advance(
     mut _hbf: *mut hb_font_t,
@@ -288,7 +289,7 @@ unsafe extern "C" fn _get_glyph_v_advance(
     gid: hb_codepoint_t,
     mut _p: *mut libc::c_void,
 ) -> hb_position_t {
-    return _get_glyph_advance(font_data as FT_Face, gid, true) as hb_position_t;
+    _get_glyph_advance(font_data as FT_Face, gid, true) as hb_position_t
 }
 unsafe extern "C" fn _get_glyph_h_origin(
     mut _hbf: *mut hb_font_t,
@@ -299,7 +300,7 @@ unsafe extern "C" fn _get_glyph_h_origin(
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
     // horizontal origin is (0, 0)
-    return 1i32;
+    1
 }
 unsafe extern "C" fn _get_glyph_v_origin(
     mut _hbf: *mut hb_font_t,
@@ -310,7 +311,7 @@ unsafe extern "C" fn _get_glyph_v_origin(
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
     // vertical origin is (0, 0) for now
-    return 1i32;
+    1
 }
 unsafe extern "C" fn _get_glyph_h_kerning(
     mut _hbf: *mut hb_font_t,
@@ -343,7 +344,7 @@ unsafe extern "C" fn _get_glyph_v_kerning(
     mut _p: *mut libc::c_void,
 ) -> hb_position_t {
     /* FreeType does not support vertical kerning */
-    return 0i32;
+    0
 }
 unsafe extern "C" fn _get_glyph_extents(
     mut _hbf: *mut hb_font_t,
@@ -388,7 +389,7 @@ unsafe extern "C" fn _get_glyph_contour_point(
             }
         }
     }
-    return ret as hb_bool_t;
+    ret as hb_bool_t
 }
 unsafe extern "C" fn _get_glyph_name(
     mut _hbf: *mut hb_font_t,
@@ -423,33 +424,23 @@ unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
                     _: *mut libc::c_void,
                 ) -> hb_bool_t,
         ),
-        0 as *mut libc::c_void,
+        ptr::null_mut(),
         None,
     );
     hb_font_funcs_set_glyph_h_advance_func(
         funcs,
         Some(_get_glyph_h_advance),
-        0 as *mut libc::c_void,
+        ptr::null_mut(),
         None,
     );
     hb_font_funcs_set_glyph_v_advance_func(
         funcs,
         Some(_get_glyph_v_advance),
-        0 as *mut libc::c_void,
+        ptr::null_mut(),
         None,
     );
-    hb_font_funcs_set_glyph_h_origin_func(
-        funcs,
-        Some(_get_glyph_h_origin),
-        0 as *mut libc::c_void,
-        None,
-    );
-    hb_font_funcs_set_glyph_v_origin_func(
-        funcs,
-        Some(_get_glyph_v_origin),
-        0 as *mut libc::c_void,
-        None,
-    );
+    hb_font_funcs_set_glyph_h_origin_func(funcs, Some(_get_glyph_h_origin), ptr::null_mut(), None);
+    hb_font_funcs_set_glyph_v_origin_func(funcs, Some(_get_glyph_v_origin), ptr::null_mut(), None);
     hb_font_funcs_set_glyph_h_kerning_func(
         funcs,
         Some(
@@ -462,7 +453,7 @@ unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
                     _: *mut libc::c_void,
                 ) -> hb_position_t,
         ),
-        0 as *mut libc::c_void,
+        ptr::null_mut(),
         None,
     );
     hb_font_funcs_set_glyph_v_kerning_func(
@@ -477,19 +468,14 @@ unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
                     _: *mut libc::c_void,
                 ) -> hb_position_t,
         ),
-        0 as *mut libc::c_void,
+        ptr::null_mut(),
         None,
     );
-    hb_font_funcs_set_glyph_extents_func(
-        funcs,
-        Some(_get_glyph_extents),
-        0 as *mut libc::c_void,
-        None,
-    );
+    hb_font_funcs_set_glyph_extents_func(funcs, Some(_get_glyph_extents), ptr::null_mut(), None);
     hb_font_funcs_set_glyph_contour_point_func(
         funcs,
         Some(_get_glyph_contour_point),
-        0 as *mut libc::c_void,
+        ptr::null_mut(),
         None,
     );
     hb_font_funcs_set_glyph_name_func(funcs, Some(_get_glyph_name), 0 as *mut libc::c_void, None);

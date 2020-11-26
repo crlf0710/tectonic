@@ -494,7 +494,7 @@ unsafe fn scan_delimiter(
     };
 }
 pub(crate) unsafe fn math_radical(input: &mut input_state_t, tok: i32, chr: i32) {
-    let rn = Radical::from(get_node(RADICAL_NOAD_SIZE));
+    let mut rn = Radical::from(get_node(RADICAL_NOAD_SIZE));
     *LLIST_link(cur_list.tail) = Some(rn.ptr()).tex_int();
     cur_list.tail = rn.ptr();
     set_math_NODE_type(rn.ptr(), MathNode::Radical);
@@ -503,7 +503,8 @@ pub(crate) unsafe fn math_radical(input: &mut input_state_t, tok: i32, chr: i32)
     rn.subscr_mut().empty();
     rn.supscr_mut().empty();
     scan_delimiter(input, tok, chr, rn.delimeter_mut(), true);
-    scan_math(input, rn.nucleus_mut(), rn.ptr() + 1);
+    let p = rn.ptr() + 1;
+    scan_math(input, rn.nucleus_mut(), p);
 }
 pub(crate) unsafe fn math_ac(input: &mut input_state_t, cmd: Cmd, chr: i32) {
     if cmd == Cmd::Accent {
@@ -556,7 +557,8 @@ pub(crate) unsafe fn math_ac(input: &mut input_state_t, cmd: Cmd, chr: i32) {
         math_fam(val) as u16
     };
     acc.fourth_mut().val.chr.font = (font as i64 + math_char(val) as i64 / 65536 * 256) as u16;
-    scan_math(input, acc.nucleus_mut(), acc.ptr() + 1);
+    let p = acc.ptr() + 1;
+    scan_math(input, acc.nucleus_mut(), p);
 }
 pub(crate) unsafe fn append_choices(input: &mut input_state_t) {
     let c = new_choice();
@@ -653,7 +655,7 @@ pub(crate) unsafe fn sub_sup(input: &mut input_state_t, cmd: Cmd) {
         }
     };
     let p = p + cell;
-    let m = BaseMath(cur_list.tail);
+    let mut m = BaseMath(cur_list.tail);
     if cell == 2 {
         scan_math(input, m.supscr_mut(), p);
     } else {
@@ -1507,11 +1509,12 @@ pub(crate) unsafe fn fetch(a: &mut MCell) {
     };
 }
 unsafe fn make_over(q: &mut Over) {
-    q.nucleus_mut().set_subbox(overbar(
+    let subbox = overbar(
         clean_box(q.nucleus(), (cur_style.0, 1)),
         default_rule_thickness() * 3,
         default_rule_thickness(),
-    ));
+    );
+    q.nucleus_mut().set_subbox(subbox);
 }
 unsafe fn make_under(q: &mut Under) {
     let x = clean_box(q.nucleus(), cur_style);
@@ -2152,7 +2155,7 @@ unsafe fn make_ord(q: &mut Ord) {
             },
             _ => break,
         }
-        let p = BaseMath(p);
+        let mut p = BaseMath(p);
         if !(p.nucleus().typ == MathCell::MathChar) {
             break;
         }
@@ -2192,7 +2195,7 @@ unsafe fn make_ord(q: &mut Ord) {
                             1 | 5 => q.nucleus_mut().val.chr.character = cur_i.s0,
                             2 | 6 => p.nucleus_mut().val.chr.character = cur_i.s0,
                             3 | 7 | 11 => {
-                                let r = BaseMath(new_noad());
+                                let mut r = BaseMath(new_noad());
                                 r.nucleus_mut().val.chr.character = cur_i.s0;
                                 r.nucleus_mut().val.chr.font =
                                     (q.nucleus().val.chr.font as i32 % 256) as u16;
