@@ -1722,10 +1722,8 @@ pub(crate) unsafe fn show_activities() {
                 }
                 ListMode::HMode => {
                     t_print_nl!("spacefactor {}", a.b32.s0);
-                    if m.0 == false {
-                        if a.b32.s1 > 0 {
-                            t_print!(", current language {}", a.b32.s1);
-                        }
+                    if m.0 == false && a.b32.s1 > 0 {
+                        t_print!(", current language {}", a.b32.s1);
                     }
                 }
                 ListMode::MMode => {
@@ -4802,13 +4800,12 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                 } else {
                     // Store the current token, but |goto continue| if it is
                     // a blank space that would become an undelimited parameter
-                    if tok == SPACE_TOKEN {
-                        if *LLIST_info(r) <= END_MATCH_TOKEN {
-                            if *LLIST_info(r) >= MATCH_TOKEN {
-                                cont = true;
-                                continue;
-                            }
-                        }
+                    if tok == SPACE_TOKEN
+                        && *LLIST_info(r) <= END_MATCH_TOKEN
+                        && *LLIST_info(r) >= MATCH_TOKEN
+                    {
+                        cont = true;
+                        continue;
                     }
 
                     store_new_token(p.as_mut().unwrap(), tok);
@@ -5221,10 +5218,10 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     break;
                 }
                 Cmd::FiOrElse => {
-                    if get_int_par(IntPar::tracing_ifs) > 0 {
-                        if get_int_par(IntPar::tracing_commands) <= 1 {
-                            show_cur_cmd_chr(ocmd, ochr);
-                        }
+                    if get_int_par(IntPar::tracing_ifs) > 0
+                        && get_int_par(IntPar::tracing_commands) <= 1
+                    {
+                        show_cur_cmd_chr(ocmd, ochr);
                     }
                     if ochr > if_limit as i32 {
                         if if_limit == FiOrElseCode::If {
@@ -5410,14 +5407,12 @@ pub(crate) unsafe fn scan_keyword(input: &mut input_state_t, s: &str) -> bool {
                 store_new_token(&mut p, tok);
                 flush_list(llist_link(BACKUP_HEAD));
                 return true;
-            } else {
-                if cmd != Cmd::Spacer || p != BACKUP_HEAD {
-                    back_input(input, tok);
-                    if p != BACKUP_HEAD {
-                        begin_token_list(input, *LLIST_link(BACKUP_HEAD) as usize, Btl::BackedUp);
-                    }
-                    return false;
+            } else if cmd != Cmd::Spacer || p != BACKUP_HEAD {
+                back_input(input, tok);
+                if p != BACKUP_HEAD {
+                    begin_token_list(input, *LLIST_link(BACKUP_HEAD) as usize, Btl::BackedUp);
                 }
+                return false;
             }
         }
     }
@@ -5789,10 +5784,11 @@ pub(crate) unsafe fn get_x_or_protected(input: &mut input_state_t) -> (i32, Cmd,
         if cmd <= MAX_COMMAND {
             return (tok, cmd, chr);
         }
-        if cmd >= Cmd::Call && cmd < Cmd::EndTemplate {
-            if MEM[*LLIST_link(chr as usize) as usize].b32.s0 == PROTECTED_TOKEN {
-                return (tok, cmd, chr);
-            }
+        if cmd >= Cmd::Call
+            && cmd < Cmd::EndTemplate
+            && MEM[*LLIST_link(chr as usize) as usize].b32.s0 == PROTECTED_TOKEN
+        {
+            return (tok, cmd, chr);
         }
         expand(input, cmd, chr, cs);
     }
@@ -6831,7 +6827,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             if tok < ZERO_TOKEN + radix as i32 && tok >= ZERO_TOKEN && tok <= ZERO_TOKEN + 9 {
                 d = (tok - ZERO_TOKEN) as i16
             } else {
-                if !(radix as i32 == 16) {
+                if radix as i32 != 16 {
                     break;
                 }
                 if tok <= A_TOKEN + 5 && tok >= A_TOKEN {
@@ -6912,7 +6908,7 @@ pub(crate) unsafe fn xetex_scan_dimen(
                 negative = !negative;
                 tok = OTHER_TOKEN + '+' as i32
             }
-            if !(tok == OTHER_TOKEN + '+' as i32) {
+            if tok != OTHER_TOKEN + '+' as i32 {
                 break;
             }
         }
@@ -7167,12 +7163,10 @@ pub(crate) unsafe fn xetex_scan_dimen(
         let val = (val.0 as i64 + f_ as i64 / 65536) as i32;
         f = Scaled((f_ as i64 % 65536) as i32);
         return attach_fraction(input, f, negative, val);
+    } else if val >= 16384 {
+        arith_error = true
     } else {
-        if val >= 16384 {
-            arith_error = true
-        } else {
-            val = (val as i64 * 65536 + f.0 as i64) as i32
-        }
+        val = (val as i64 * 65536 + f.0 as i64) as i32
     }
 
     // done2:
@@ -7246,11 +7240,9 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> Gl
             }
         };
 
-        if tok == OTHER_TOKEN + 45 {
-            /*"-"*/
+        if tok == OTHER_TOKEN + "-" as i32 {
             negative = !negative;
-            tok = OTHER_TOKEN + 43
-            /*"+"*/
+            tok = OTHER_TOKEN + "+" as i32
         }
         if !(tok == OTHER_TOKEN + 43) {
             break (tok, cmd, chr);
@@ -7331,7 +7323,7 @@ pub(crate) unsafe fn quotient(mut n: i32, mut d: i32) -> i32 {
             negative = !negative;
         }
         let mut a = n / d;
-        n = n - a * d;
+        n -= a * d;
         d = n - d;
         if d + n >= 0 {
             a += 1;
@@ -7383,7 +7375,7 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) 
         return too_big();
     }
     a = t * x;
-    n = n - t * d;
+    n -= t * d;
     if n == 0 {
         return found(a, negative);
     }
@@ -7391,8 +7383,8 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) 
     if t > (max_answer - a) / n {
         return too_big();
     }
-    a = a + t * n;
-    x = x - t * d;
+    a += t * n;
+    x -= t * d;
     if x == 0 {
         return found(a, negative);
     }
@@ -7406,13 +7398,13 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) 
     let h = -r;
     loop {
         if n & 1 != 0 {
-            r = r + x;
+            r += x;
             if r >= 0 {
-                r = r - d;
+                r -= d;
                 f += 1
             }
         }
-        n = n / 2;
+        n /= 2;
         if n == 0 {
             break;
         }
@@ -7420,8 +7412,8 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) 
             x = x + x
         } else {
             let t = x - d;
-            x = t + x;
-            f = f + n;
+            x += t;
+            f += n;
             if !(x < n) {
                 continue;
             }
@@ -7436,7 +7428,7 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) 
     if f > max_answer - a {
         too_big()
     } else {
-        a = a + f;
+        a += f;
         found(a, negative)
     }
 }
@@ -7762,7 +7754,7 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
                 s0: chunk[m + 3],
             };
             MEM[r].b16 = w;
-            m = m + 4
+            m += 4
         }
         let w = b16x4 {
             s3: if l > m { chunk[m] } else { ' ' as u16 },
@@ -8080,7 +8072,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
         }
         ConvertCode::EtexRevision => ".6".to_string(),
         ConvertCode::PdfStrcmp => format!("{}", oval.unwrap()),
-        ConvertCode::XetexRevision => format!(".99998"),
+        ConvertCode::XetexRevision => ".99998".to_string(),
         ConvertCode::XetexVariationName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
             #[cfg(target_os = "macos")]
             Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
@@ -8128,7 +8120,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                     break;
                 }
             }
-            match popt.map(|p| CharOrText::from(p)) {
+            match popt.map(CharOrText::from) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 0 => {
                     format!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1))
                 }
@@ -8160,7 +8152,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                     break;
                 }
             }
-            match popt.map(|p| CharOrText::from(p)) {
+            match popt.map(CharOrText::from) {
                 Some(CharOrText::Text(TxtNode::MarginKern(m))) if MEM[m.ptr()].b16.s0 == 1 => {
                     format!("{}pt", Scaled(MEM[m.ptr() + 1].b32.s1))
                 }
@@ -8296,11 +8288,11 @@ pub(crate) unsafe fn scan_toks(
                 ocmd = cmd;
                 ochr = chr;
                 ocs = cs;
-                if ocmd >= Cmd::Call {
-                    if *LLIST_info(*LLIST_link(ochr as usize) as usize) == PROTECTED_TOKEN {
-                        ocmd = Cmd::Relax;
-                        ochr = NO_EXPAND_FLAG;
-                    }
+                if ocmd >= Cmd::Call
+                    && *LLIST_info(*LLIST_link(ochr as usize) as usize) == PROTECTED_TOKEN
+                {
+                    ocmd = Cmd::Relax;
+                    ochr = NO_EXPAND_FLAG;
                 }
                 if ocmd > MAX_COMMAND {
                     if ocmd == Cmd::The {
@@ -8332,34 +8324,32 @@ pub(crate) unsafe fn scan_toks(
                     return found(p, hash_brace);
                 }
             }
-        } else if cmd == Cmd::MacParam {
-            if macro_def {
-                // Look for parameter number or `##`
-                let s = tok;
-                let next = if xpand {
-                    get_x_token(input)
+        } else if cmd == Cmd::MacParam && macro_def {
+            // Look for parameter number or `##`
+            let s = tok;
+            let next = if xpand {
+                get_x_token(input)
+            } else {
+                get_token(input)
+            };
+            tok = next.0;
+            let cmd = next.1;
+            let chr = next.2;
+            if cmd != Cmd::MacParam {
+                if tok <= ZERO_TOKEN || tok > t {
+                    t_eprint!(
+                        "Illegal parameter number in definition of {:#}",
+                        Cs(warning_index)
+                    );
+                    help!(
+                        "You meant to type ## instead of #, right?",
+                        "Or maybe a } was forgotten somewhere earlier, and things",
+                        "are all screwed up? I\'m going to assume that you meant ##."
+                    );
+                    back_error(input, tok);
+                    tok = s
                 } else {
-                    get_token(input)
-                };
-                tok = next.0;
-                let cmd = next.1;
-                let chr = next.2;
-                if cmd != Cmd::MacParam {
-                    if tok <= ZERO_TOKEN || tok > t {
-                        t_eprint!(
-                            "Illegal parameter number in definition of {:#}",
-                            Cs(warning_index)
-                        );
-                        help!(
-                            "You meant to type ## instead of #, right?",
-                            "Or maybe a } was forgotten somewhere earlier, and things",
-                            "are all screwed up? I\'m going to assume that you meant ##."
-                        );
-                        back_error(input, tok);
-                        tok = s
-                    } else {
-                        tok = OUT_PARAM_TOKEN - ('0' as i32) + chr
-                    }
+                    tok = OUT_PARAM_TOKEN - ('0' as i32) + chr
                 }
             }
         }
@@ -8463,7 +8453,7 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
             }
         }
         end_file_reading(input);
-        if !(align_state as i64 != 1000000) {
+        if align_state as i64 == 1000000 {
             break;
         }
     }
@@ -8519,10 +8509,8 @@ pub(crate) unsafe fn change_if_limit(l: FiOrElseCode, p: Option<usize>) {
 pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) {
     let mut b: bool = false;
 
-    if get_int_par(IntPar::tracing_ifs) > 0 {
-        if get_int_par(IntPar::tracing_commands) <= 1 {
-            show_cur_cmd_chr(cmd, chr);
-        }
+    if get_int_par(IntPar::tracing_ifs) > 0 && get_int_par(IntPar::tracing_commands) <= 1 {
+        show_cur_cmd_chr(cmd, chr);
     }
 
     let p = get_node(IF_NODE_SIZE);
@@ -8544,10 +8532,8 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             // Test if two characters match
             unsafe fn get_x_token_or_active_char(input: &mut input_state_t) -> (Cmd, i32) {
                 let (tok, cmd, chr, _) = get_x_token(input);
-                if cmd == Cmd::Relax {
-                    if chr == NO_EXPAND_FLAG {
-                        return (Cmd::ActiveChar, tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32));
-                    }
+                if cmd == Cmd::Relax && chr == NO_EXPAND_FLAG {
+                    return (Cmd::ActiveChar, tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32));
                 }
                 (cmd, chr)
             }
@@ -8562,11 +8548,9 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
             let (tok, mut cmd, mut chr, _) = get_x_token(input);
 
-            if cmd == Cmd::Relax {
-                if chr == NO_EXPAND_FLAG {
-                    cmd = Cmd::ActiveChar;
-                    chr = tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32)
-                }
+            if cmd == Cmd::Relax && chr == NO_EXPAND_FLAG {
+                cmd = Cmd::ActiveChar;
+                chr = tok - (CS_TOKEN_FLAG + ACTIVE_BASE as i32);
             }
 
             if cmd > Cmd::ActiveChar || chr > BIGGEST_USV as i32 {
@@ -8648,7 +8632,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
         }
 
         IfTestCode::IfInner => {
-            b = cur_list.mode.0 == true;
+            b = cur_list.mode.0;
         }
 
         IfTestCode::IfVoid | IfTestCode::IfHBox | IfTestCode::IfVBox => {
@@ -8733,8 +8717,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
                 let (tok, cmd, _, cs) = get_x_token(input);
                 if cs == 0 {
                     store_new_token(&mut p, tok);
-                }
-                if !(cs == 0) {
+                } else {
                     break (tok, cmd);
                 }
             };
@@ -8997,7 +8980,7 @@ where
             for j in str_start[((str_ptr + 1) - TOO_BIG_CHAR) as usize]..=(pool_ptr - 1) {
                 str_pool[(j - area_delimiter) as usize] = str_pool[j];
             }
-            pool_ptr = pool_ptr - area_delimiter
+            pool_ptr -= area_delimiter
         }
     }
     /* ext_delimiter is the length from the start of the filename to the
@@ -9347,10 +9330,8 @@ pub(crate) unsafe fn new_native_character(
         p = new_native_word_node(f, mapped_text.len() as _);
         p.text_mut().copy_from_slice(&mapped_text[..]);
     } else {
-        if get_int_par(IntPar::tracing_lost_chars) > 0 {
-            if map_char_to_glyph(nf, c) == 0 {
-                char_warning(f, c);
-            }
+        if get_int_par(IntPar::tracing_lost_chars) > 0 && map_char_to_glyph(nf, c) == 0 {
+            char_warning(f, c);
         }
         p = NativeWord::from(get_node(NATIVE_NODE_SIZE + 1));
         set_NODE_type(p.ptr(), TextNode::WhatsIt);
