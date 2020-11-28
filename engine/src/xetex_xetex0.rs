@@ -14515,10 +14515,8 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
         }
 
         /*main_loop *//*1069: */
-        if cur_list.head == cur_list.tail && !cur_list.mode.0 {
-            if insert_src_special_auto {
-                append_src_special();
-            }
+        if cur_list.head == cur_list.tail && !cur_list.mode.0 && insert_src_special_auto {
+            append_src_special();
         }
         prev_class = CHAR_CLASS_LIMIT - 1;
         if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
@@ -14974,10 +14972,8 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
         main_f = EQTB[CUR_FONT_LOC].val as usize;
         bchar = FONT_BCHAR[main_f as usize];
         false_bchar = FONT_FALSE_BCHAR[main_f as usize];
-        if !cur_list.mode.0 {
-            if get_int_par(IntPar::language) != cur_list.aux.b32.s1 {
-                fix_language();
-            }
+        if !cur_list.mode.0 && get_int_par(IntPar::language) != cur_list.aux.b32.s1 {
+            fix_language();
         }
         let mut ls = Char(fast_get_avail());
         lig_stack = Some(ls.ptr());
@@ -15045,12 +15041,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 /*1075: */
                                 if main_j.s1 >= 128 {
                                     if cur_l < TOO_BIG_CHAR {
-                                        if LLIST_link(cur_q as usize).opt().is_some() {
-                                            if MEM[cur_list.tail].b16.s0 as i32
+                                        if LLIST_link(cur_q as usize).opt().is_some()
+                                            && MEM[cur_list.tail].b16.s0 as i32
                                                 == HYPHEN_CHAR[main_f as usize]
-                                            {
-                                                ins_disc = true
-                                            }
+                                        {
+                                            ins_disc = true;
                                         }
                                         if ligature_present {
                                             let mut main_p = Ligature(new_ligature(
@@ -15132,12 +15127,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                         }
                                         7 | 11 => {
                                             if cur_l < TOO_BIG_CHAR {
-                                                if LLIST_link(cur_q as usize).opt().is_some() {
-                                                    if MEM[cur_list.tail].b16.s0 as i32
+                                                if LLIST_link(cur_q as usize).opt().is_some()
+                                                    && MEM[cur_list.tail].b16.s0 as i32
                                                         == HYPHEN_CHAR[main_f as usize]
-                                                    {
-                                                        ins_disc = true
-                                                    }
+                                                {
+                                                    ins_disc = true;
                                                 }
                                                 if ligature_present {
                                                     let main_p = new_ligature(
@@ -15350,12 +15344,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             // lab80:
                             /*main_loop_wrapup *//*1070: */
                             if cur_l < TOO_BIG_CHAR {
-                                if LLIST_link(cur_q as usize).opt().is_some() {
-                                    if MEM[cur_list.tail].b16.s0 as i32
+                                if LLIST_link(cur_q as usize).opt().is_some()
+                                    && MEM[cur_list.tail].b16.s0 as i32
                                         == HYPHEN_CHAR[main_f as usize]
-                                    {
-                                        ins_disc = true
-                                    }
+                                {
+                                    ins_disc = true;
                                 }
                                 if ligature_present {
                                     let main_p = new_ligature(
@@ -15367,11 +15360,9 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                         MEM[main_p].b16.s0 = 2;
                                         lft_hit = false
                                     }
-                                    if rt_hit {
-                                        if lig_stack.is_none() {
-                                            MEM[main_p].b16.s0 += 1;
-                                            rt_hit = false
-                                        }
+                                    if rt_hit && lig_stack.is_none() {
+                                        MEM[main_p].b16.s0 += 1;
+                                        rt_hit = false;
                                     }
                                     *LLIST_link(cur_q as usize) = Some(main_p).tex_int();
                                     cur_list.tail = main_p;

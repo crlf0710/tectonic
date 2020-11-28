@@ -595,11 +595,12 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                 // try again using the bold flag, as we can't trust weight values
                 let mut newBest: *mut XeTeXFontMgrFont = ptr::null_mut();
                 for (_, v) in (*(*parent).styles).iter() {
-                    if v.as_ref().isBold == (*font).isBold {
-                        if newBest.is_null() && v.as_ref().isItalic != (*font).isItalic {
-                            newBest = v.as_ptr();
-                            break;
-                        }
+                    if v.as_ref().isBold == (*font).isBold
+                        && newBest.is_null()
+                        && v.as_ref().isItalic != (*font).isItalic
+                    {
+                        newBest = v.as_ptr();
+                        break;
                     }
                 }
                 if !newBest.is_null() {
@@ -653,8 +654,8 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                     let mut newBest_0: *mut XeTeXFontMgrFont = ptr::null_mut();
                     for (_, v) in (*(*parent).styles).iter() {
                         let style_FONT_PTR = v.as_ptr();
-                        if (*style_FONT_PTR).isItalic == (*font).isItalic {
-                            if newBest_0.is_null()
+                        if (*style_FONT_PTR).isItalic == (*font).isItalic
+                            && (newBest_0.is_null()
                                 || XeTeXFontMgr_weightAndWidthDiff(
                                     self_0,
                                     style_FONT_PTR,
@@ -663,10 +664,9 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                                     self_0,
                                     newBest_0,
                                     bestMatch_0,
-                                )
-                            {
-                                newBest_0 = style_FONT_PTR;
-                            }
+                                ))
+                        {
+                            newBest_0 = style_FONT_PTR;
                         }
                     }
                     if !newBest_0.is_null() {

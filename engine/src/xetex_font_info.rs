@@ -376,18 +376,13 @@ unsafe extern "C" fn _get_glyph_contour_point(
     let face = font_data as FT_Face;
     let mut ret = false;
     let error = FT_Load_Glyph(face, gid, (1i64 << 0i32) as FT_Int32);
-    if error == 0 {
-        if (*(*face).glyph).format as libc::c_uint
-            == FT_GLYPH_FORMAT_OUTLINE as libc::c_int as libc::c_uint
-        {
-            if point_index < (*(*face).glyph).outline.n_points as libc::c_uint {
-                *x = (*(*(*face).glyph).outline.points.offset(point_index as isize)).x
-                    as hb_position_t;
-                *y = (*(*(*face).glyph).outline.points.offset(point_index as isize)).y
-                    as hb_position_t;
-                ret = true
-            }
-        }
+    if error == 0
+        && (*(*face).glyph).format as libc::c_uint == FT_GLYPH_FORMAT_OUTLINE as libc::c_uint
+        && point_index < (*(*face).glyph).outline.n_points as libc::c_uint
+    {
+        *x = (*(*(*face).glyph).outline.points.offset(point_index as isize)).x as hb_position_t;
+        *y = (*(*(*face).glyph).outline.points.offset(point_index as isize)).y as hb_position_t;
+        ret = true;
     }
     ret as hb_bool_t
 }

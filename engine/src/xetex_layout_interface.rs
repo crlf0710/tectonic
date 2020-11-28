@@ -795,37 +795,34 @@ pub(crate) unsafe fn countFeatures(
 ) -> libc::c_uint {
     let mut rval: libc::c_uint = 0i32 as libc::c_uint;
     let face: *mut hb_face_t = hb_font_get_face(font.get_hb_font());
-    let mut i: i32 = 0i32;
-    while i < 2i32 {
+    for i in 0..2 {
         let mut scriptIndex: libc::c_uint = 0;
-        let mut langIndex: libc::c_uint = 0i32 as libc::c_uint;
-        let tableTag: hb_tag_t = if i == 0i32 {
+        let mut langIndex: libc::c_uint = 0;
+        let tableTag: hb_tag_t = if i == 0 {
             u32::from_be_bytes([b'G', b'S', b'U', b'B'])
         } else {
             u32::from_be_bytes([b'G', b'P', b'O', b'S'])
         };
-        if hb_ot_layout_table_find_script(face, tableTag, script, &mut scriptIndex) != 0 {
-            if hb_ot_layout_script_find_language(
+        if hb_ot_layout_table_find_script(face, tableTag, script, &mut scriptIndex) != 0
+            && (hb_ot_layout_script_find_language(
                 face,
                 tableTag,
                 scriptIndex,
                 language,
                 &mut langIndex,
             ) != 0
-                || language == 0i32 as libc::c_uint
-            {
-                rval = rval.wrapping_add(hb_ot_layout_language_get_feature_tags(
-                    face,
-                    tableTag,
-                    scriptIndex,
-                    langIndex,
-                    0i32 as libc::c_uint,
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                ))
-            }
+                || language == 0)
+        {
+            rval = rval.wrapping_add(hb_ot_layout_language_get_feature_tags(
+                face,
+                tableTag,
+                scriptIndex,
+                langIndex,
+                0i32 as libc::c_uint,
+                ptr::null_mut(),
+                ptr::null_mut(),
+            ))
         }
-        i += 1
     }
     rval
 }
@@ -838,56 +835,53 @@ pub(crate) unsafe fn getIndFeature(
     use bridge::size_t;
     let mut rval = 0 as hb_tag_t;
     let face = hb_font_get_face(font.get_hb_font());
-    let mut i: i32 = 0i32;
-    while i < 2i32 {
+    for i in 0..2 {
         let mut scriptIndex: libc::c_uint = 0;
-        let mut langIndex: libc::c_uint = 0i32 as libc::c_uint;
+        let mut langIndex: libc::c_uint = 0;
         let tableTag: hb_tag_t = if i == 0 {
             u32::from_be_bytes([b'G', b'S', b'U', b'B'])
         } else {
             u32::from_be_bytes([b'G', b'P', b'O', b'S'])
         };
-        if hb_ot_layout_table_find_script(face, tableTag, script, &mut scriptIndex) != 0 {
-            if hb_ot_layout_script_find_language(
+        if hb_ot_layout_table_find_script(face, tableTag, script, &mut scriptIndex) != 0
+            && (hb_ot_layout_script_find_language(
                 face,
                 tableTag,
                 scriptIndex,
                 language,
                 &mut langIndex,
             ) != 0
-                || language == 0i32 as libc::c_uint
-            {
-                let mut featCount: libc::c_uint = hb_ot_layout_language_get_feature_tags(
-                    face,
-                    tableTag,
-                    scriptIndex,
-                    langIndex,
-                    0i32 as libc::c_uint,
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                );
-                let featList = xcalloc(
-                    featCount as size_t,
-                    ::std::mem::size_of::<*mut hb_tag_t>() as _,
-                ) as *mut hb_tag_t;
-                hb_ot_layout_language_get_feature_tags(
-                    face,
-                    tableTag,
-                    scriptIndex,
-                    langIndex,
-                    0i32 as libc::c_uint,
-                    &mut featCount,
-                    featList,
-                );
-                if index < featCount {
-                    rval = *featList.offset(index as isize);
-                    break;
-                } else {
-                    index = index.wrapping_sub(featCount)
-                }
+                || language == 0)
+        {
+            let mut featCount: libc::c_uint = hb_ot_layout_language_get_feature_tags(
+                face,
+                tableTag,
+                scriptIndex,
+                langIndex,
+                0i32 as libc::c_uint,
+                ptr::null_mut(),
+                ptr::null_mut(),
+            );
+            let featList = xcalloc(
+                featCount as size_t,
+                ::std::mem::size_of::<*mut hb_tag_t>() as _,
+            ) as *mut hb_tag_t;
+            hb_ot_layout_language_get_feature_tags(
+                face,
+                tableTag,
+                scriptIndex,
+                langIndex,
+                0i32 as libc::c_uint,
+                &mut featCount,
+                featList,
+            );
+            if index < featCount {
+                rval = *featList.offset(index as isize);
+                break;
+            } else {
+                index = index.wrapping_sub(featCount)
             }
         }
-        i += 1
     }
     rval
 }
@@ -1126,17 +1120,17 @@ impl XeTeXLayoutEngine {
         Box::new(Self {
             fontRef,
             font,
-            script: script,
-            features: features,
+            script,
+            features,
             shaper_list: ShaperList {
                 list: shapers,
                 to_free: false,
             },
             shaper: String::new(),
-            rgbValue: rgbValue,
-            extend: extend,
-            slant: slant,
-            embolden: embolden,
+            rgbValue,
+            extend,
+            slant,
+            embolden,
             hbBuffer: hb::HbBuffer::new(),
             // For Graphite fonts treat the language as BCP 47 tag, for OpenType we
             // treat it as a OT language tag for backward compatibility with pre-0.9999
@@ -1448,28 +1442,26 @@ pub(crate) unsafe fn initGraphiteBreaking(engine: &XeTeXLayoutEngine, txt: &[u16
 }
 pub(crate) unsafe fn findNextGraphiteBreak() -> i32 {
     let mut ret: i32 = -1i32;
-    if !grSegment.is_null() {
-        if !grPrevSlot.is_null() && grPrevSlot != gr_seg_last_slot(grSegment) {
-            let mut s: *const gr_slot = gr_slot_next_in_segment(grPrevSlot);
-            while !s.is_null() {
-                let ci = gr_seg_cinfo(grSegment, gr_slot_index(s));
-                let bw = gr_cinfo_break_weight(ci);
-                if bw < gr_breakNone as i32 && bw >= gr_breakBeforeWord as i32 {
-                    grPrevSlot = s;
-                    ret = gr_cinfo_base(ci) as i32
-                } else if bw > gr_breakNone as i32 && bw <= gr_breakWord as i32 {
-                    grPrevSlot = gr_slot_next_in_segment(s);
-                    ret = gr_cinfo_base(ci).wrapping_add(1) as i32
-                }
-                if ret != -1i32 {
-                    break;
-                }
-                s = gr_slot_next_in_segment(s)
+    if !grSegment.is_null() && !grPrevSlot.is_null() && grPrevSlot != gr_seg_last_slot(grSegment) {
+        let mut s: *const gr_slot = gr_slot_next_in_segment(grPrevSlot);
+        while !s.is_null() {
+            let ci = gr_seg_cinfo(grSegment, gr_slot_index(s));
+            let bw = gr_cinfo_break_weight(ci);
+            if bw < gr_breakNone as i32 && bw >= gr_breakBeforeWord as i32 {
+                grPrevSlot = s;
+                ret = gr_cinfo_base(ci) as i32
+            } else if bw > gr_breakNone as i32 && bw <= gr_breakWord as i32 {
+                grPrevSlot = gr_slot_next_in_segment(s);
+                ret = gr_cinfo_base(ci).wrapping_add(1) as i32
             }
-            if ret == -1i32 {
-                grPrevSlot = gr_seg_last_slot(grSegment);
-                ret = grTextLen
+            if ret != -1i32 {
+                break;
             }
+            s = gr_slot_next_in_segment(s)
+        }
+        if ret == -1i32 {
+            grPrevSlot = gr_seg_last_slot(grSegment);
+            ret = grTextLen
         }
     }
     ret

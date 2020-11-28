@@ -333,7 +333,7 @@ pub(crate) enum AssignFontInt {
 }
 impl From<i32> for AssignFontInt {
     fn from(n: i32) -> Self {
-        Self::n(n).expect(&format!("incorrect assign font int = {}", n))
+        Self::n(n).unwrap_or_else(|| panic!("incorrect assign font int = {}", n))
     }
 }
 /// args to Cmd::LastItem -- heavily overloaded by (X)eTeX for extensions

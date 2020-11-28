@@ -2070,21 +2070,19 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
         t_print_nl!("");
         print_ln();
+    } else if write_open[j as usize] {
+        selector = Selector::File(j as u8);
+        token_show(Some(def_ref));
+        print_ln();
+        flush_list(Some(def_ref));
     } else {
-        if write_open[j as usize] {
-            selector = Selector::File(j as u8);
-            token_show(Some(def_ref));
-            print_ln();
-            flush_list(Some(def_ref));
-        } else {
-            if j == 17 && (selector == Selector::TERM_AND_LOG) {
-                selector = Selector::LOG_ONLY
-            }
-            t_print_nl!("");
-            token_show(Some(def_ref));
-            print_ln();
-            flush_list(Some(def_ref));
+        if j == 17 && (selector == Selector::TERM_AND_LOG) {
+            selector = Selector::LOG_ONLY
         }
+        t_print_nl!("");
+        token_show(Some(def_ref));
+        print_ln();
+        flush_list(Some(def_ref));
     }
 
     selector = old_setting;

@@ -2180,7 +2180,7 @@ pub(crate) mod math {
         pub(crate) unsafe fn delimeter(&self) -> &Delimeter {
             &(*(&MEM[self.ptr() + 1] as *const memory_word as *const Delimeter))
         }
-        pub(crate) unsafe fn delimeter_mut(&self) -> &mut Delimeter {
+        pub(crate) unsafe fn delimeter_mut(&mut self) -> &mut Delimeter {
             &mut (*(&mut MEM[self.ptr() + 1] as *mut memory_word as *mut Delimeter))
         }
     }

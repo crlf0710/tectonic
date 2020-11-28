@@ -524,12 +524,11 @@ pub(crate) unsafe fn read_font_info(
     FONT_BCHAR[f] = bchar_0 as _;
     FONT_FALSE_BCHAR[f] = bchar_0 as nine_bits;
 
-    if bchar_0 as i32 <= ec {
-        if bchar_0 as i32 >= bc {
-            if FONT_CHARACTER_INFO(f, bchar_0 as usize).s3 > 0 {
-                FONT_FALSE_BCHAR[f] = TOO_BIG_CHAR;
-            }
-        }
+    if bchar_0 as i32 <= ec
+        && bchar_0 as i32 >= bc
+        && FONT_CHARACTER_INFO(f, bchar_0 as usize).s3 > 0
+    {
+        FONT_FALSE_BCHAR[f] = TOO_BIG_CHAR;
     }
 
     FONT_NAME[f] = file.name;
@@ -593,12 +592,10 @@ pub(crate) unsafe fn bad_tfm(
 
 pub(crate) fn good_tfm(ok: (bool, usize, String)) -> usize {
     unsafe {
-        if get_int_par(IntPar::xetex_tracing_fonts) > 0 {
-            if ok.0 {
-                diagnostic(false, || {
-                    t_print_nl!(" -> {}", ok.2);
-                });
-            }
+        if get_int_par(IntPar::xetex_tracing_fonts) > 0 && ok.0 {
+            diagnostic(false, || {
+                t_print_nl!(" -> {}", ok.2);
+            });
         }
     }
     ok.1

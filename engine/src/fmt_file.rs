@@ -755,7 +755,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         }
 
         let mut j = k;
-        while j <= k + x - 1 {
+        while j < k + x {
             EQTB[j as usize] = EQTB[(k - 1) as usize];
             j += 1
         }

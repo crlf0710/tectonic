@@ -1136,10 +1136,11 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                                     v,
                                 )
                             }
-                            if !(l as i32 > 0) {
+                            if l as i32 > 0 {
+                                l -= 1;
+                            } else {
                                 break;
                             }
-                            l -= 1
                         }
                         let mut q = 0;
                         hc[0] = cur_lang as i32;

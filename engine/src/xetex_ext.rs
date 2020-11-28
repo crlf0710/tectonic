@@ -188,17 +188,11 @@ pub(crate) unsafe fn linebreak_start(f: usize, localeStrNum: i32, text: &[u16]) 
     }
     if localeStrNum != brkLocaleStrNum && !brkIter.is_null() {
         icu::ubrk_close(brkIter);
-        brkIter = 0 as *mut icu::UBreakIterator
+        brkIter = ptr::null_mut();
     }
     if brkIter.is_null() {
         let name = CString::new(locale.as_str()).unwrap();
-        brkIter = icu::ubrk_open(
-            icu::UBRK_LINE,
-            name.as_ptr(),
-            ptr::null(),
-            0i32,
-            &mut status,
-        );
+        brkIter = icu::ubrk_open(icu::UBRK_LINE, name.as_ptr(), ptr::null(), 0, &mut status);
         if status as i32 > icu::U_ZERO_ERROR as i32 {
             diagnostic(true, || {
                 t_print_nl!("Error {} creating linebreak iterator for locale `{}\'; trying default locale `en_us\'.", status as i32, locale);
@@ -261,7 +255,7 @@ pub(crate) unsafe fn get_encoding_mode_and_info(name: &str, info: *mut i32) -> U
     /* try for an ICU converter */
     let cname = CString::new(name).unwrap();
     let cnv = icu::ucnv_open(cname.as_ptr(), &mut err); /* ensure message starts on a new line */
-    let result = if cnv.is_null() {
+    if cnv.is_null() {
         diagnostic(true, || {
             t_print_nl!("Unknown encoding `{}\'; reading as raw bytes", name);
         });
@@ -270,8 +264,7 @@ pub(crate) unsafe fn get_encoding_mode_and_info(name: &str, info: *mut i32) -> U
         icu::ucnv_close(cnv);
         *info = maketexstring(name);
         UnicodeMode::ICUMapping
-    };
-    result
+    }
 }
 
 unsafe fn load_mapping_file(s: &str, byteMapping: i8) -> *mut libc::c_void {
@@ -324,7 +317,7 @@ pub(crate) unsafe fn check_for_tfm_font_mapping() {
     if let Some(cp) = cp {
         let (a, b) = name_of_font.split_at(cp);
         let mut cp = &b.as_bytes()[9..];
-        while !cp.is_empty() && cp[0] <= ' ' as u8 {
+        while !cp.is_empty() && cp[0] <= b' ' {
             cp = &cp[1..];
         }
         if !cp.is_empty() {
@@ -574,9 +567,8 @@ unsafe fn loadOTfont(
 ) -> Option<NativeFont> {
     let mut font = Some(font);
     let mut current_block: u64;
-    let mut engine = None;
     let mut script = 0;
-    let mut shapers: *mut *mut i8 = 0 as *mut *mut i8;
+    let mut shapers: *mut *mut i8 = ptr::null_mut();
     let mut nShapers: i32 = 0i32;
     let mut tag: hb_tag_t = 0;
     let mut rgbValue: u32 = 0xff_u32;
@@ -599,11 +591,11 @@ unsafe fn loadOTfont(
         }
         nShapers += 1
     }
-    if reqEngine as i32 == 'G' as i32 {
+    let engine = if reqEngine as i32 == 'G' as i32 {
         let mut tmpShapers: [*mut i8; 1] = [*shapers.offset(0)];
         /* create a default engine so we can query the font for Graphite features;
          * because of font caching, it's cheap to discard this and create the real one later */
-        engine = Some(XeTeXLayoutEngine::create(
+        Some(XeTeXLayoutEngine::create(
             fontRef,
             font.take().unwrap(),
             script,
@@ -614,11 +606,10 @@ unsafe fn loadOTfont(
             extend,
             slant,
             embolden,
-        ));
-        if engine.is_none() {
-            return None;
-        }
-    }
+        ))
+    } else {
+        None
+    };
     let mut language = String::new();
     let mut features = Vec::new();
     /* scan the feature string (if any) */
@@ -670,7 +661,7 @@ unsafe fn loadOTfont(
                 let len = cp3.len() - cp2.len();
                 let ccp3 = CString::new(cp3).unwrap();
                 *shapers.offset(nShapers as isize) = strdup(ccp3.as_ptr());
-                *(*shapers.offset(nShapers as isize)).offset(len as _) = '\u{0}' as i32 as i8;
+                *(*shapers.add(nShapers as usize)).add(len) = '\u{0}' as i32 as i8;
                 nShapers += 1;
                 current_block = 13857423536159756434;
             }
@@ -786,7 +777,7 @@ unsafe fn loadOTfont(
             shapers as *mut libc::c_void,
             ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as _,
         ) as *mut *mut i8;
-        *shapers.offset(nShapers as isize) = 0 as *mut i8;
+        *shapers.offset(nShapers as isize) = ptr::null_mut();
     }
     if embolden as f64 != 0.0f64 {
         embolden = (embolden as f64 * Fix2D(scaled_size) / 100.0f64) as f32
@@ -879,7 +870,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
     /* scaled_size here is in TeX points, or is a negative integer for 'Scaled' */
     let mut rval = None;
     let name = uname;
-    loaded_font_mapping = 0 as *mut libc::c_void;
+    loaded_font_mapping = ptr::null_mut();
     loaded_font_flags = 0_i8;
     loaded_font_letter_space = Scaled::ZERO;
     let (nameString, mut varString, featString, index) = splitFontName(name);
@@ -1074,17 +1065,14 @@ pub(crate) unsafe fn ot_font_get_3(
 ) -> i32 {
     let fontInst = engine.get_font();
     match what {
-        21 => {
-            return getIndFeature(
-                fontInst,
-                param1 as hb_tag_t,
-                param2 as hb_tag_t,
-                param3 as u32,
-            ) as i32
-        }
-        _ => {}
+        21 => getIndFeature(
+            fontInst,
+            param1 as hb_tag_t,
+            param2 as hb_tag_t,
+            param3 as u32,
+        ) as i32,
+        _ => 0,
     }
-    0i32
 }
 pub(crate) unsafe fn gr_get_font_name(
     what: i32,
@@ -1092,7 +1080,7 @@ pub(crate) unsafe fn gr_get_font_name(
     param1: i32,
     param2: i32,
 ) -> String {
-    let mut name: *mut i8 = 0 as *mut i8;
+    let mut name = ptr::null_mut();
     match what {
         8 => name = getGraphiteFeatureLabel(engine, param1 as u32),
         9 => name = getGraphiteFeatureSettingLabel(engine, param1 as u32, param2 as u32),
@@ -1483,11 +1471,11 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
     let f = node.font() as usize;
     if let Font::Native(Otgr(engine)) = &mut FONT_LAYOUT_ENGINE[f] {
         /* using this font in OT Layout mode, so FONT_LAYOUT_ENGINE[f] is actually a *mut XeTeXLayoutEngine */
-        let mut locations: *mut FixedPoint = 0 as *mut FixedPoint;
-        let mut glyphAdvances: *mut Scaled = 0 as *mut Scaled;
+        let mut locations: *mut FixedPoint = ptr::null_mut();
+        let mut glyphAdvances: *mut Scaled = ptr::null_mut();
         let mut totalGlyphCount: i32 = 0i32;
         /* need to find direction runs within the text, and call layoutChars separately for each */
-        let mut glyph_info: *mut libc::c_void = 0 as *mut libc::c_void;
+        let mut glyph_info: *mut libc::c_void = ptr::null_mut();
         let pBiDi: *mut icu::UBiDi = icu::ubidi_open();
         let mut errorCode: icu::UErrorCode = icu::U_ZERO_ERROR;
         icu::ubidi_setPara(
@@ -1495,7 +1483,7 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
             txt.as_ptr() as *const icu::UChar,
             txt.len() as i32,
             engine.get_default_direction() as icu::UBiDiLevel,
-            0 as *mut icu::UBiDiLevel,
+            ptr::null_mut(),
             &mut errorCode,
         );
         let mut dir = icu::ubidi_getDirection(pBiDi);
