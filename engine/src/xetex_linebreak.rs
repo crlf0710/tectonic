@@ -19,6 +19,7 @@ use crate::xetex_ini::{
     FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM,
     WIDTH_BASE,
 };
+use std::cmp::Ordering;
 
 use crate::xetex_stringpool::{PoolString, TOO_BIG_CHAR};
 use crate::xetex_xetex0::{
@@ -194,18 +195,18 @@ pub(crate) unsafe fn line_break(d: bool) {
     if get_int_par(IntPar::last_line_fit) > 0 {
         let llf = Glue(last_line_fill as usize);
         let q = GlueSpec(llf.glue_ptr() as usize);
-        if q.stretch() > Scaled::ZERO && q.stretch_order() > GlueOrder::Normal {
-            if background.stretch1 == Scaled::ZERO
+        if q.stretch() > Scaled::ZERO
+            && q.stretch_order() > GlueOrder::Normal
+            && (background.stretch1 == Scaled::ZERO
                 && background.stretch2 == Scaled::ZERO
-                && background.stretch3 == Scaled::ZERO
-            {
-                do_last_line_fit = true;
-                active_node_size = ACTIVE_NODE_SIZE_EXTENDED as _;
-                fill_width[0] = Scaled::ZERO;
-                fill_width[1] = Scaled::ZERO;
-                fill_width[2] = Scaled::ZERO;
-                fill_width[q.stretch_order() as usize - 1] = q.stretch();
-            }
+                && background.stretch3 == Scaled::ZERO)
+        {
+            do_last_line_fit = true;
+            active_node_size = ACTIVE_NODE_SIZE_EXTENDED as _;
+            fill_width[0] = Scaled::ZERO;
+            fill_width[1] = Scaled::ZERO;
+            fill_width[2] = Scaled::ZERO;
+            fill_width[q.stretch_order() as usize - 1] = q.stretch();
         }
     }
     minimum_demerits = AWFUL_BAD; /* 863: */
@@ -221,28 +222,26 @@ pub(crate) unsafe fn line_break(d: bool) {
         /* These direct `mem` accesses are in the original WEB code */
         second_width = Scaled(MEM[ps + 2 * (last_special_line as usize + 1)].b32.s1);
         second_indent = Scaled(MEM[ps + 2 * last_special_line as usize + 1].b32.s1);
+    } else if get_dimen_par(DimenPar::hang_indent) == Scaled::ZERO {
+        last_special_line = 0;
+        second_width = get_dimen_par(DimenPar::hsize);
+        second_indent = Scaled::ZERO;
     } else {
-        if get_dimen_par(DimenPar::hang_indent) == Scaled::ZERO {
-            last_special_line = 0;
+        /*878:*/
+        last_special_line = (get_int_par(IntPar::hang_after)).abs();
+
+        if get_int_par(IntPar::hang_after) < 0 {
+            first_width =
+                get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
+            first_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
             second_width = get_dimen_par(DimenPar::hsize);
             second_indent = Scaled::ZERO;
         } else {
-            /*878:*/
-            last_special_line = (get_int_par(IntPar::hang_after)).abs();
-
-            if get_int_par(IntPar::hang_after) < 0 {
-                first_width =
-                    get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
-                first_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
-                second_width = get_dimen_par(DimenPar::hsize);
-                second_indent = Scaled::ZERO;
-            } else {
-                first_width = get_dimen_par(DimenPar::hsize);
-                first_indent = Scaled::ZERO;
-                second_width =
-                    get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
-                second_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
-            }
+            first_width = get_dimen_par(DimenPar::hsize);
+            first_indent = Scaled::ZERO;
+            second_width =
+                get_dimen_par(DimenPar::hsize) - (get_dimen_par(DimenPar::hang_indent)).abs();
+            second_indent = (get_dimen_par(DimenPar::hang_indent)).max(Scaled::ZERO);
         }
     }
 
@@ -588,7 +587,7 @@ pub(crate) unsafe fn line_break(d: bool) {
                         }
                     }
                     r = *LLIST_link(r as usize);
-                    if !(r != LAST_ACTIVE as i32) {
+                    if r == LAST_ACTIVE as i32 {
                         break;
                     }
                 }
@@ -712,11 +711,8 @@ pub(crate) unsafe fn line_break(d: bool) {
                             flag = false;
                         }
                         CharOrText::Text(TxtNode::Math(m))
-                            if (match m.subtype() {
-                                MathType::Eq(_, MathMode::Left)
-                                | MathType::Eq(_, MathMode::Right) => true,
-                                _ => false,
-                            }) =>
+                            if matches!(m.subtype(), MathType::Eq(_, MathMode::Left)
+                                | MathType::Eq(_, MathMode::Right)) =>
                         {
                             flag = false
                         }
@@ -840,7 +836,7 @@ pub(crate) unsafe fn line_break(d: bool) {
 
                         let mut l = 0;
                         loop {
-                            if !(l < for_end_1) {
+                            if l >= for_end_1 {
                                 break 'restart;
                             }
                             let ha_text = ha_nw.text();
@@ -1640,19 +1636,17 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
                         if let ActiveNode::Delta(mut prev_r) = ActiveNode::from(prev_r) {
                             /* this is unused */
                             prev_r.set_from_size(prev_r.to_size() - cur_active_width + break_width);
+                        } else if prev_r == ACTIVE_LIST {
+                            active_width = break_width;
                         } else {
-                            if prev_r == ACTIVE_LIST {
-                                active_width = break_width;
-                            } else {
-                                let q = get_node(DELTA_NODE_SIZE);
-                                *LLIST_link(q) = Some(r.ptr()).tex_int();
-                                MEM[q].b16.s1 = 2; // DELTA_NODE
-                                clear_NODE_subtype(q);
-                                Delta(q).set_from_size(break_width - cur_active_width);
-                                *LLIST_link(prev_r) = Some(q).tex_int();
-                                prev_prev_r = Some(prev_r);
-                                prev_r = q;
-                            }
+                            let q = get_node(DELTA_NODE_SIZE);
+                            *LLIST_link(q) = Some(r.ptr()).tex_int();
+                            MEM[q].b16.s1 = 2; // DELTA_NODE
+                            clear_NODE_subtype(q);
+                            Delta(q).set_from_size(break_width - cur_active_width);
+                            *LLIST_link(prev_r) = Some(q).tex_int();
+                            prev_prev_r = Some(prev_r);
+                            prev_r = q;
                         }
                         /* ... resuming 865 ... */
                         if (get_int_par(IntPar::adj_demerits)).abs()
@@ -1660,8 +1654,7 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
                         {
                             minimum_demerits = AWFUL_BAD - 1;
                         } else {
-                            minimum_demerits =
-                                minimum_demerits + (get_int_par(IntPar::adj_demerits)).abs()
+                            minimum_demerits += (get_int_par(IntPar::adj_demerits)).abs();
                         }
                         fit_class = VERY_LOOSE_FIT;
                         while fit_class <= TIGHT_FIT {
@@ -1742,7 +1735,7 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
                     artificial_demerits = false;
                     shortfall = line_width - cur_active_width.width;
                     if get_int_par(IntPar::xetex_protrude_chars) > 1 {
-                        shortfall = shortfall + total_pw(&r, cur_p)
+                        shortfall += total_pw(&r, cur_p);
                     }
                 }
 
@@ -1788,59 +1781,63 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
                                                 -Scaled::MAX_HALFWORD
                                             };
                                         }
-                                        if g > Scaled::ZERO {
-                                            /*1635: "Set the value of b to the badness of the
-                                             * last line for stretching, compute the
-                                             * corresponding fit_class, and goto found" */
-                                            if g > shortfall {
-                                                g = shortfall
-                                            }
-                                            if g > Scaled(7230584) {
-                                                // 110.33: magic number in original WEB code
-                                                if cur_active_width.stretch0 < Scaled(1663497) {
-                                                    // 25.38: magic number in original WEB code
-                                                    b = INF_BAD;
-                                                    fit_class = VERY_LOOSE_FIT;
-                                                    current_block = 11849408527845460430;
+                                        match g.cmp(&Scaled::ZERO) {
+                                            Ordering::Greater => {
+                                                /*1635: "Set the value of b to the badness of the
+                                                 * last line for stretching, compute the
+                                                 * corresponding fit_class, and goto found" */
+                                                if g > shortfall {
+                                                    g = shortfall
+                                                }
+                                                if g > Scaled(7230584) {
+                                                    // 110.33: magic number in original WEB code
+                                                    if cur_active_width.stretch0 < Scaled(1663497) {
+                                                        // 25.38: magic number in original WEB code
+                                                        b = INF_BAD;
+                                                        fit_class = VERY_LOOSE_FIT;
+                                                        current_block = 11849408527845460430;
+                                                    } else {
+                                                        current_block = 16221891950104054966;
+                                                    }
                                                 } else {
                                                     current_block = 16221891950104054966;
                                                 }
-                                            } else {
-                                                current_block = 16221891950104054966;
-                                            }
-                                            match current_block {
-                                                11849408527845460430 => {}
-                                                _ => {
-                                                    b = badness(g, cur_active_width.stretch0);
-                                                    fit_class = if b > 12 {
-                                                        if b > 99 {
-                                                            VERY_LOOSE_FIT
+                                                match current_block {
+                                                    11849408527845460430 => {}
+                                                    _ => {
+                                                        b = badness(g, cur_active_width.stretch0);
+                                                        fit_class = if b > 12 {
+                                                            if b > 99 {
+                                                                VERY_LOOSE_FIT
+                                                            } else {
+                                                                LOOSE_FIT
+                                                            }
                                                         } else {
-                                                            LOOSE_FIT
-                                                        }
-                                                    } else {
-                                                        DECENT_FIT
-                                                    };
-                                                    current_block = 11849408527845460430;
+                                                            DECENT_FIT
+                                                        };
+                                                        current_block = 11849408527845460430;
+                                                    }
                                                 }
                                             }
-                                        } else if g < Scaled::ZERO {
-                                            /*1636: "Set the value of b to the badness of the
-                                             * last line for shrinking, compute the
-                                             * corresponding fit_class, and goto found" */
-                                            if -g > cur_active_width.shrink {
-                                                g = -cur_active_width.shrink
+                                            Ordering::Less => {
+                                                /*1636: "Set the value of b to the badness of the
+                                                 * last line for shrinking, compute the
+                                                 * corresponding fit_class, and goto found" */
+                                                if -g > cur_active_width.shrink {
+                                                    g = -cur_active_width.shrink
+                                                }
+                                                b = badness(-g, cur_active_width.shrink);
+                                                fit_class = if b > 12 {
+                                                    /* XXX hardcoded in WEB */
+                                                    TIGHT_FIT
+                                                } else {
+                                                    DECENT_FIT
+                                                };
+                                                current_block = 11849408527845460430;
                                             }
-                                            b = badness(-g, cur_active_width.shrink);
-                                            fit_class = if b > 12 {
-                                                /* XXX hardcoded in WEB */
-                                                TIGHT_FIT
-                                            } else {
-                                                DECENT_FIT
-                                            };
-                                            current_block = 11849408527845460430;
-                                        } else {
-                                            current_block = 5565703735569783978;
+                                            Ordering::Equal => {
+                                                current_block = 5565703735569783978;
+                                            }
                                         }
                                     }
                                 }
@@ -1904,12 +1901,10 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
                             if cur_p.is_none() {
                                 shortfall = Scaled::ZERO;
                             }
-                            g = if shortfall > Scaled::ZERO {
-                                cur_active_width.stretch0
-                            } else if shortfall < Scaled::ZERO {
-                                cur_active_width.shrink
-                            } else {
-                                Scaled::ZERO
+                            g = match shortfall.cmp(&Scaled::ZERO) {
+                                Ordering::Greater => cur_active_width.stretch0,
+                                Ordering::Less => cur_active_width.shrink,
+                                Ordering::Equal => Scaled::ZERO,
                             };
                         }
                     }
@@ -1961,9 +1956,9 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
                             };
                             if pi != 0 {
                                 if pi > 0 {
-                                    d = d + pi * pi
+                                    d += pi * pi;
                                 } else if pi > EJECT_PENALTY {
-                                    d = d - pi * pi
+                                    d -= pi * pi;
                                 }
                             }
                             if break_type == BreakType::Hyphenated
@@ -2091,7 +2086,7 @@ unsafe fn hyphenate() {
                         /*959: */
                         let mut v = trie_tro[z as usize]; /*:958 */
                         loop {
-                            v = v + op_start[cur_lang as usize];
+                            v += op_start[cur_lang as usize];
                             let i = (l as i32 - hyf_distance[v as usize] as i32) as i16;
                             if hyf_num[v as usize] as i32 > hyf[i as usize] as i32 {
                                 hyf[i as usize] = hyf_num[v as usize] as u8
@@ -2194,11 +2189,9 @@ unsafe fn hyphenate() {
                     init_lig = true;
                     init_lft = l.left_hit();
                     hu[0] = l.char() as i32;
-                    if init_list.opt().is_none() {
-                        if init_lft {
-                            hu[0] = max_hyph_char;
-                            init_lig = false
-                        }
+                    if init_list.opt().is_none() && init_lft {
+                        hu[0] = max_hyph_char;
+                        init_lig = false;
                     }
                     l.free();
                     6662862405959679103
@@ -2348,7 +2341,7 @@ unsafe fn hyphenate() {
                     s = major_tail;
                     hyphen_passed = (j - 1) as i16;
                     *LLIST_link(HOLD_HEAD) = None.tex_int();
-                    if !(hyf[(j as i32 - 1) as usize] as i32 & 1 != 0) {
+                    if hyf[(j as i32 - 1) as usize] as i32 & 1 == 0 {
                         break;
                     }
                 }
@@ -2454,114 +2447,88 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
             1434579379687443766 => {
                 let test_char = if cur_rh < TOO_BIG_CHAR { cur_rh } else { cur_r };
                 loop {
-                    if q.s2 as i32 == test_char {
-                        if q.s3 <= 128 {
-                            if cur_rh < TOO_BIG_CHAR {
+                    if q.s2 as i32 == test_char && q.s3 <= 128 {
+                        if cur_rh < TOO_BIG_CHAR {
+                            hyphen_passed = j;
+                            hchar = TOO_BIG_CHAR;
+                            cur_rh = TOO_BIG_CHAR;
+                            continue 'c_27176;
+                        } else {
+                            if hchar < TOO_BIG_CHAR && hyf[j as usize] as i32 & 1 != 0 {
                                 hyphen_passed = j;
                                 hchar = TOO_BIG_CHAR;
-                                cur_rh = TOO_BIG_CHAR;
-                                continue 'c_27176;
-                            } else {
-                                if hchar < TOO_BIG_CHAR {
-                                    if hyf[j as usize] as i32 & 1i32 != 0 {
-                                        hyphen_passed = j;
-                                        hchar = TOO_BIG_CHAR
-                                    }
+                            }
+                            if (q.s1 as i32) < 128 {
+                                /*946: */
+                                if cur_l == TOO_BIG_CHAR {
+                                    lft_hit = true
                                 }
-                                if (q.s1 as i32) < 128 {
-                                    /*946: */
-                                    if cur_l == TOO_BIG_CHAR {
-                                        lft_hit = true
+                                if j as i32 == n as i32 && lig_stack.is_none() {
+                                    rt_hit = true;
+                                }
+                                match q.s1 as i32 {
+                                    1 | 5 => {
+                                        cur_l = q.s0 as i32;
+                                        ligature_present = true
                                     }
-                                    if j as i32 == n as i32 {
-                                        if lig_stack.is_none() {
-                                            rt_hit = true
-                                        }
-                                    }
-                                    match q.s1 as i32 {
-                                        1 | 5 => {
-                                            cur_l = q.s0 as i32;
-                                            ligature_present = true
-                                        }
-                                        2 | 6 => {
-                                            cur_r = q.s0 as i32;
-                                            if let Some(ls) = lig_stack {
-                                                MEM[ls].b16.s0 = cur_r as u16
-                                            } else {
-                                                let ls = new_lig_item(cur_r as u16);
-                                                lig_stack = Some(ls);
-                                                if j as i32 == n as i32 {
-                                                    bchar = TOO_BIG_CHAR
-                                                } else {
-                                                    let p = get_avail();
-                                                    MEM[ls + 1].b32.s1 = Some(p).tex_int();
-                                                    MEM[p].b16.s0 =
-                                                        hu[(j as i32 + 1i32) as usize] as u16;
-                                                    MEM[p].b16.s1 = hf as u16
-                                                }
-                                            }
-                                        }
-                                        3 => {
-                                            cur_r = q.s0 as i32;
-                                            let p = lig_stack;
+                                    2 | 6 => {
+                                        cur_r = q.s0 as i32;
+                                        if let Some(ls) = lig_stack {
+                                            MEM[ls].b16.s0 = cur_r as u16
+                                        } else {
                                             let ls = new_lig_item(cur_r as u16);
                                             lig_stack = Some(ls);
-                                            *LLIST_link(ls) = p.tex_int()
-                                        }
-                                        7 | 11 => {
-                                            if ligature_present {
-                                                let p = new_ligature(
-                                                    hf,
-                                                    cur_l as u16,
-                                                    *LLIST_link(cur_q as usize),
-                                                );
-                                                if lft_hit {
-                                                    MEM[p as usize].b16.s0 = 2_u16;
-                                                    lft_hit = false
-                                                }
-                                                *LLIST_link(cur_q as usize) = Some(p).tex_int();
-                                                t = p as i32;
-                                                ligature_present = false
-                                            }
-                                            cur_q = t;
-                                            cur_l = q.s0 as i32;
-                                            ligature_present = true
-                                        }
-                                        _ => {
-                                            cur_l = q.s0 as i32;
-                                            ligature_present = true;
-                                            if let Some(ls) = lig_stack {
-                                                if let Some(l) = MEM[(ls + 1) as usize].b32.s1.opt()
-                                                {
-                                                    *LLIST_link(t as usize) = Some(l).tex_int();
-                                                    t = *LLIST_link(t as usize);
-                                                    j += 1
-                                                }
-                                                lig_stack = llist_link(ls);
-                                                free_node(ls, SMALL_NODE_SIZE);
-                                                if let Some(ls) = lig_stack {
-                                                    cur_r = MEM[ls].b16.s0 as i32
-                                                } else {
-                                                    if (j as i32) < n as i32 {
-                                                        cur_r = hu[(j as i32 + 1i32) as usize]
-                                                    } else {
-                                                        cur_r = bchar
-                                                    }
-                                                    if hyf[j as usize] as i32 & 1i32 != 0 {
-                                                        cur_rh = hchar
-                                                    } else {
-                                                        cur_rh = TOO_BIG_CHAR;
-                                                    }
-                                                }
+                                            if j as i32 == n as i32 {
+                                                bchar = TOO_BIG_CHAR
                                             } else {
-                                                if j as i32 == n as i32 {
-                                                    break;
-                                                }
-                                                *LLIST_link(t as usize) = get_avail() as i32;
+                                                let p = get_avail();
+                                                MEM[ls + 1].b32.s1 = Some(p).tex_int();
+                                                MEM[p].b16.s0 =
+                                                    hu[(j as i32 + 1i32) as usize] as u16;
+                                                MEM[p].b16.s1 = hf as u16
+                                            }
+                                        }
+                                    }
+                                    3 => {
+                                        cur_r = q.s0 as i32;
+                                        let p = lig_stack;
+                                        let ls = new_lig_item(cur_r as u16);
+                                        lig_stack = Some(ls);
+                                        *LLIST_link(ls) = p.tex_int()
+                                    }
+                                    7 | 11 => {
+                                        if ligature_present {
+                                            let p = new_ligature(
+                                                hf,
+                                                cur_l as u16,
+                                                *LLIST_link(cur_q as usize),
+                                            );
+                                            if lft_hit {
+                                                MEM[p as usize].b16.s0 = 2_u16;
+                                                lft_hit = false
+                                            }
+                                            *LLIST_link(cur_q as usize) = Some(p).tex_int();
+                                            t = p as i32;
+                                            ligature_present = false
+                                        }
+                                        cur_q = t;
+                                        cur_l = q.s0 as i32;
+                                        ligature_present = true
+                                    }
+                                    _ => {
+                                        cur_l = q.s0 as i32;
+                                        ligature_present = true;
+                                        if let Some(ls) = lig_stack {
+                                            if let Some(l) = MEM[(ls + 1) as usize].b32.s1.opt() {
+                                                *LLIST_link(t as usize) = Some(l).tex_int();
                                                 t = *LLIST_link(t as usize);
-                                                MEM[t as usize].b16.s1 = hf as u16;
-                                                MEM[t as usize].b16.s0 = cur_r as u16;
-                                                j += 1;
+                                                j += 1
+                                            }
+                                            lig_stack = llist_link(ls);
+                                            free_node(ls, SMALL_NODE_SIZE);
+                                            if let Some(ls) = lig_stack {
+                                                cur_r = MEM[ls].b16.s0 as i32
+                                            } else {
                                                 if (j as i32) < n as i32 {
                                                     cur_r = hu[(j as i32 + 1i32) as usize]
                                                 } else {
@@ -2570,30 +2537,46 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                                                 if hyf[j as usize] as i32 & 1i32 != 0 {
                                                     cur_rh = hchar
                                                 } else {
-                                                    cur_rh = TOO_BIG_CHAR
+                                                    cur_rh = TOO_BIG_CHAR;
                                                 }
+                                            }
+                                        } else {
+                                            if j as i32 == n as i32 {
+                                                break;
+                                            }
+                                            *LLIST_link(t as usize) = get_avail() as i32;
+                                            t = *LLIST_link(t as usize);
+                                            MEM[t as usize].b16.s1 = hf as u16;
+                                            MEM[t as usize].b16.s0 = cur_r as u16;
+                                            j += 1;
+                                            if (j as i32) < n as i32 {
+                                                cur_r = hu[(j as i32 + 1i32) as usize]
+                                            } else {
+                                                cur_r = bchar
+                                            }
+                                            if hyf[j as usize] as i32 & 1i32 != 0 {
+                                                cur_rh = hchar
+                                            } else {
+                                                cur_rh = TOO_BIG_CHAR
                                             }
                                         }
                                     }
-                                    if !(q.s1 as i32 > 4) {
-                                        continue 'c_27176;
-                                    }
-                                    if q.s1 as i32 != 7 {
-                                        break;
-                                    } else {
-                                        continue 'c_27176;
-                                    }
-                                } else {
-                                    w = Scaled(
-                                        FONT_INFO[(KERN_BASE[hf as usize]
-                                            + 256 * q.s1 as i32
-                                            + q.s0 as i32)
-                                            as usize]
-                                            .b32
-                                            .s1,
-                                    );
-                                    break;
                                 }
+                                if q.s1 as i32 > 4 && q.s1 as i32 != 7 {
+                                    break;
+                                } else {
+                                    continue 'c_27176;
+                                }
+                            } else {
+                                w = Scaled(
+                                    FONT_INFO[(KERN_BASE[hf as usize]
+                                        + 256 * q.s1 as i32
+                                        + q.s0 as i32)
+                                        as usize]
+                                        .b32
+                                        .s1,
+                                );
+                                break;
                             }
                         }
                     }
@@ -2617,11 +2600,9 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                 MEM[p].b16.s0 = 2;
                 lft_hit = false
             }
-            if rt_hit {
-                if lig_stack.is_none() {
-                    MEM[p as usize].b16.s0 += 1;
-                    rt_hit = false
-                }
+            if rt_hit && lig_stack.is_none() {
+                MEM[p as usize].b16.s0 += 1;
+                rt_hit = false;
             }
             *LLIST_link(cur_q as usize) = Some(p).tex_int();
             t = p as i32;
@@ -2782,10 +2763,7 @@ unsafe fn find_protchar_left(mut l: usize, d: bool) -> usize {
     l
 }
 unsafe fn find_protchar_right(mut l: Option<usize>, r: Option<usize>) -> Option<usize> {
-    if r.is_none() {
-        return None;
-    }
-    let mut r = r.unwrap();
+    let mut r = r?;
     let mut hlist_stack: Vec<(Option<usize>, usize)> = Vec::new();
     let mut run = true;
     loop {

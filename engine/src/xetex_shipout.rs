@@ -214,8 +214,8 @@ pub(crate) unsafe fn ship_out(mut p: List) {
 
             let l = output_comment.len();
             dvi_out(l as u8);
-            for s in 0..l {
-                dvi_out(output_comment[s]);
+            for &s in output_comment {
+                dvi_out(s);
             }
         }
 
@@ -328,14 +328,12 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         | TxtNode::Ins(_)
                                         | TxtNode::Mark(_)
                                         | TxtNode::Adjust(_) => true,
-                                        TxtNode::WhatsIt(n) => match n {
+                                        TxtNode::WhatsIt(n) => matches!(n,
                                             WhatsIt::Open(_)
                                             | WhatsIt::Write(_)
                                             | WhatsIt::Close(_)
                                             | WhatsIt::Special(_)
-                                            | WhatsIt::Language(_) => true,
-                                            _ => false,
-                                        },
+                                            | WhatsIt::Language(_)),
                                         _ => false,
                                     },
                                     _ => false,
@@ -345,7 +343,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     break;
                                 }
                             }
-                            match qopt.map(|q| CharOrText::from(q)) {
+                            match qopt.map(CharOrText::from) {
                                 Some(CharOrText::Text(TxtNode::Glue(g))) if g.param() == 0 => {
                                     if g.glue_ptr() == FONT_GLUE[r_nw.font() as usize] {
                                         /* "Found a normal space; if the next node is
@@ -359,14 +357,12 @@ unsafe fn hlist_out(this_box: &mut List) {
                                                     | TxtNode::Ins(_)
                                                     | TxtNode::Mark(_)
                                                     | TxtNode::Adjust(_) => true,
-                                                    TxtNode::WhatsIt(n) => match n {
+                                                    TxtNode::WhatsIt(n) => matches!(n,
                                                         WhatsIt::Open(_)
                                                         | WhatsIt::Write(_)
                                                         | WhatsIt::Close(_)
                                                         | WhatsIt::Special(_)
-                                                        | WhatsIt::Language(_) => true,
-                                                        _ => false,
-                                                    },
+                                                        | WhatsIt::Language(_)),
                                                     _ => false,
                                                 },
                                                 _ => false,
@@ -391,7 +387,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                     } else {
                                         qopt = llist_link(g.ptr());
                                     }
-                                    match qopt.map(|q| Node::from(q)) {
+                                    match qopt.map(Node::from) {
                                         Some(Node::Text(TxtNode::Kern(kq)))
                                             if kq.subtype() == KernType::SpaceAdjustment =>
                                         {
@@ -403,14 +399,12 @@ unsafe fn hlist_out(this_box: &mut List) {
                                                         | TxtNode::Ins(_)
                                                         | TxtNode::Mark(_)
                                                         | TxtNode::Adjust(_) => true,
-                                                        TxtNode::WhatsIt(n) => match n {
+                                                        TxtNode::WhatsIt(n) => matches!(n, 
                                                             WhatsIt::Open(_)
                                                             | WhatsIt::Write(_)
                                                             | WhatsIt::Close(_)
                                                             | WhatsIt::Special(_)
-                                                            | WhatsIt::Language(_) => true,
-                                                            _ => false,
-                                                        },
+                                                            | WhatsIt::Language(_)),
                                                         _ => false,
                                                     },
                                                     _ => false,
@@ -453,16 +447,15 @@ unsafe fn hlist_out(this_box: &mut List) {
                             let mut q = r_nw.ptr();
                             loop {
                                 match Node::from(q) {
-                                    Node::Text(TxtNode::WhatsIt(q)) => match q {
-                                        WhatsIt::NativeWord(q) => {
+                                    Node::Text(TxtNode::WhatsIt(q)) => {
+                                        if let WhatsIt::NativeWord(q) = q {
                                             for j in q.text() {
                                                 str_pool[pool_ptr] = *j;
                                                 pool_ptr += 1;
                                             }
                                             k += q.width();
                                         }
-                                        _ => {}
-                                    },
+                                    }
                                     Node::Text(TxtNode::Glue(q)) => {
                                         str_pool[pool_ptr] = ' ' as i32 as packed_UTF16_code;
                                         pool_ptr += 1;
@@ -524,14 +517,12 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         | TxtNode::Ins(_)
                                         | TxtNode::Mark(_)
                                         | TxtNode::Adjust(_) => true,
-                                        TxtNode::WhatsIt(n) => match n {
+                                        TxtNode::WhatsIt(n) => matches!(n, 
                                             WhatsIt::Open(_)
                                             | WhatsIt::Write(_)
                                             | WhatsIt::Close(_)
                                             | WhatsIt::Special(_)
-                                            | WhatsIt::Language(_) => true,
-                                            _ => false,
-                                        },
+                                            | WhatsIt::Language(_)),
                                         _ => false,
                                     },
                                     _ => false,
@@ -651,10 +642,8 @@ unsafe fn hlist_out(this_box: &mut List) {
                     dvi_f = f
                 }
                 if FONT_EC[f] as i32 >=
-                       c as i32 {
-                    if FONT_BC[f] as i32 <=
-                           c as i32 {
-                        if FONT_INFO[(CHAR_BASE[f]
+                       c as i32 && FONT_BC[f] as i32 <=
+                           c as i32 && FONT_INFO[(CHAR_BASE[f]
                                                    + c as i32)
                                                   as usize].b16.s3 > 0 {
                             /* if (char_exists(orig_char_info(f)(c))) */
@@ -664,8 +653,6 @@ unsafe fn hlist_out(this_box: &mut List) {
                             dvi_out(c as u8);
                             cur_h +=
                                 *FONT_CHARACTER_WIDTH(f, c as usize);
-                        }
-                    }
                 }
                 prev_p = *LLIST_link(prev_p) as usize;
                 popt = llist_link(p);
@@ -795,7 +782,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         WhatsIt::NativeWord(nw) => {
                             out_font(nw.font() as usize);
                             if nw.actual_text() {
-                                if nw.text().len() > 0 ||
+                                if !nw.text().is_empty() ||
                                        !nw.glyph_info_ptr().is_null()
                                    {
                                     dvi_out(SET_TEXT_AND_GLYPHS);
@@ -944,16 +931,16 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         let save_h = cur_h;
                                         cur_h = left_edge + leader_wd * ((cur_h - left_edge) / leader_wd);
                                         if cur_h < save_h {
-                                            cur_h = cur_h + leader_wd
+                                            cur_h += leader_wd;
                                         }
                                     } else {
                                         let lq = rule_wd / leader_wd;
                                         let lr = rule_wd % leader_wd;
                                         if p.param() == C_LEADERS {
-                                            cur_h = cur_h + lr / 2;
+                                            cur_h += lr / 2;
                                         } else {
                                             lx = lr / (lq + 1);
-                                            cur_h = cur_h + (lr -  lx * (lq - 1)) / 2;
+                                            cur_h += (lr -  lx * (lq - 1)) / 2;
                                         }
                                     }
 
@@ -1262,7 +1249,7 @@ unsafe fn vlist_out(this_box: &List) {
             TxtNode::WhatsIt(p) => match p {
                 /*1403: "Output the whatsit node p in a vlist" */
                 WhatsIt::Glyph(g) => {
-                    cur_v = cur_v + g.height();
+                    cur_v += g.height();
                     cur_h = left_edge;
                     if cur_h != dvi_h {
                         movement(cur_h - dvi_h, RIGHT1);
@@ -1304,7 +1291,7 @@ unsafe fn vlist_out(this_box: &List) {
                 WhatsIt::Pic(p) | WhatsIt::Pdf(p) => {
                     let save_h = dvi_h;
                     let save_v = dvi_v;
-                    cur_v = cur_v + p.height();
+                    cur_v += p.height();
                     pic_out(&p);
                     dvi_h = save_h;
                     dvi_v = save_v;
@@ -1400,16 +1387,16 @@ unsafe fn vlist_out(this_box: &List) {
                                     let save_v = cur_v;
                                     cur_v = top_edge + leader_ht * ((cur_v - top_edge) / leader_ht);
                                     if cur_v < save_v {
-                                        cur_v = cur_v + leader_ht
+                                        cur_v += leader_ht
                                     }
                                 } else {
                                     let lq = rule_ht / leader_ht;
                                     let lr = rule_ht % leader_ht;
                                     if p.param() == C_LEADERS {
-                                        cur_v = cur_v + lr / 2;
+                                        cur_v += lr / 2;
                                     } else {
                                         lx = lr / (lq + 1);
-                                        cur_v = cur_v + (lr - lx * (lq - 1)) / 2;
+                                        cur_v += (lr - lx * (lq - 1)) / 2;
                                     }
                                 }
 
@@ -1567,7 +1554,7 @@ unsafe fn reverse(
                             GlueSign::Normal => {}
                             GlueSign::Stretching => {
                                 if g.stretch_order() == g_order {
-                                    *cur_glue = *cur_glue + g.stretch().0 as f64;
+                                    *cur_glue += g.stretch().0 as f64;
                                     *cur_g = tex_round(
                                         (this_box.glue_set() * *cur_glue)
                                             .min(1_000_000_000.)
@@ -1577,7 +1564,7 @@ unsafe fn reverse(
                             }
                             GlueSign::Shrinking => {
                                 if g.shrink_order() == g_order {
-                                    *cur_glue = *cur_glue - g.shrink().0 as f64;
+                                    *cur_glue -= g.shrink().0 as f64;
                                     *cur_g = tex_round(
                                         (this_box.glue_set() * *cur_glue)
                                             .min(1_000_000_000.)
@@ -1649,18 +1636,16 @@ unsafe fn reverse(
                                         }
                                         _ => unreachable!(),
                                     });
+                                } else if m > MIN_HALFWORD {
+                                    set_NODE_type(p.ptr(), TextNode::Kern);
+                                    m -= 1
                                 } else {
-                                    if m > MIN_HALFWORD {
-                                        set_NODE_type(p.ptr(), TextNode::Kern);
-                                        m -= 1
-                                    } else {
-                                        /*1517: "Finish the reverse hlist segment and goto done" */
-                                        p.free(); /* end GLUE_NODE case */
-                                        let mut t = Edge(t.unwrap());
-                                        *LLIST_link(t.ptr()) = q;
-                                        t.set_width(rule_wd).set_edge_dist(-cur_h - rule_wd);
-                                        break 's_58;
-                                    }
+                                    /*1517: "Finish the reverse hlist segment and goto done" */
+                                    p.free(); /* end GLUE_NODE case */
+                                    let mut t = Edge(t.unwrap());
+                                    *LLIST_link(t.ptr()) = q;
+                                    t.set_width(rule_wd).set_edge_dist(-cur_h - rule_wd);
+                                    break 's_58;
                                 }
                             }
                         } else {
@@ -1763,10 +1748,10 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 } else {
                     selector = Selector::TERM_AND_LOG
                 }
-                t_print_nl!("\\openout{} = `{}\'.", j as i32, file);
+                t_print_nl!("\\openout{} = `{:#}\'.", j as i32, file);
                 t_print_nl!("");
                 print_ln();
-                selector = old_setting
+                selector = old_setting;
             }
         }
         WhatsIt::Write(p) => {
@@ -1774,7 +1759,6 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 return;
             }
             write_out(input, &p);
-            return;
         }
         WhatsIt::Close(p) => {
             if doing_leaders {
@@ -1787,12 +1771,11 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
             }
 
             write_open[j as usize] = false;
-            return;
         }
         WhatsIt::Special(p) => special_out(&p),
         WhatsIt::Language(_) => {}
         _ => confusion("ext4"),
-    };
+    }
 }
 
 unsafe fn dvi_native_font_def(f: internal_font_number) {
@@ -1869,7 +1852,7 @@ unsafe fn movement(w: Scaled, o: u8) {
                             /*633:*/
                             let mut k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
                             if k < 0 {
-                                k = k + DVI_BUF_SIZE as i32;
+                                k += DVI_BUF_SIZE as i32;
                             }
                             dvi_buf[k as usize] += 5;
                             MEM[p as usize].b32.s0 = MoveDir::YHere as i32;
@@ -1884,7 +1867,7 @@ unsafe fn movement(w: Scaled, o: u8) {
                         }
                         let mut k = MEM[(p + 2) as usize].b32.s1 - dvi_offset as i32;
                         if k < 0 {
-                            k = k + DVI_BUF_SIZE as i32;
+                            k += DVI_BUF_SIZE as i32;
                         }
                         dvi_buf[k as usize] += 10;
                         MEM[p as usize].b32.s0 = MoveDir::ZHere as i32;
@@ -1957,23 +1940,23 @@ unsafe fn movement(w: Scaled, o: u8) {
         if w.abs() >= 0x8000 {
             dvi_out(o + 2);
             if w < 0 {
-                w = w + 0x1000000;
+                w += 0x1000000;
             }
             dvi_out((w / 0x10000) as u8);
-            w = w % 0x10000;
+            w %= 0x10000;
             // lab2:
             dvi_out((w / 256) as u8);
         } else if w.abs() >= 128 {
             dvi_out(o + 1);
             if w < 0 {
-                w = w + 0x10000;
+                w += 0x10000;
             }
             // lab2:
             dvi_out((w / 256) as u8);
         } else {
             dvi_out(o);
             if w < 0 {
-                w = w + 256;
+                w += 256;
             }
         }
         // lab1:
@@ -2087,15 +2070,16 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
         t_print_nl!("");
         print_ln();
+    } else if write_open[j as usize] {
+        selector = Selector::File(j as u8);
+        token_show(Some(def_ref));
+        print_ln();
+        flush_list(Some(def_ref));
     } else {
-        if write_open[j as usize] {
-            selector = Selector::File(j as u8);
-        } else {
-            if j == 17 && (selector == Selector::TERM_AND_LOG) {
-                selector = Selector::LOG_ONLY
-            }
-            t_print_nl!("");
+        if j == 17 && (selector == Selector::TERM_AND_LOG) {
+            selector = Selector::LOG_ONLY
         }
+        t_print_nl!("");
         token_show(Some(def_ref));
         print_ln();
         flush_list(Some(def_ref));
@@ -2254,7 +2238,7 @@ unsafe fn write_to_dvi(a: usize, b: usize) {
     dvi_file
         .as_mut()
         .unwrap()
-        .write(&dvi_buf[a..=b])
+        .write_all(&dvi_buf[a..=b])
         .expect("failed to write data to XDV file");
 }
 
@@ -2266,13 +2250,13 @@ unsafe fn dvi_swap() {
     if dvi_limit == DVI_BUF_SIZE {
         write_to_dvi(0, HALF_BUF - 1);
         dvi_limit = HALF_BUF;
-        dvi_offset = dvi_offset + DVI_BUF_SIZE;
+        dvi_offset += DVI_BUF_SIZE;
         dvi_ptr = 0;
     } else {
         write_to_dvi(HALF_BUF, DVI_BUF_SIZE - 1);
         dvi_limit = DVI_BUF_SIZE;
     }
-    dvi_gone = dvi_gone + HALF_BUF as i32;
+    dvi_gone += HALF_BUF as i32;
 }
 
 unsafe fn dvi_four(x: i32) {

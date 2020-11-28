@@ -13,7 +13,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::ptr;
 
-use crate::cmd::ExtCmd;
+use crate::cmd::XetexExtCmd;
 use crate::core_memory::{xcalloc, xmalloc};
 use crate::node::NativeWord;
 use crate::xetex_ext::{readCommonFeatures, read_double, D2Fix, Fix2D};
@@ -989,12 +989,12 @@ pub(crate) unsafe fn aat_get_font_metrics(
     (ascent, descent, xheight, capheight, slant)
 }
 
-pub(crate) unsafe fn aat_font_get(what: ExtCmd, attributes: CFDictionaryRef) -> i32 {
+pub(crate) unsafe fn aat_font_get(what: XetexExtCmd, attributes: CFDictionaryRef) -> i32 {
     let mut rval: libc::c_int = -1i32;
     let font = font_from_attributes(attributes);
     match what {
-        ExtCmd::XetexCountGlyphs => rval = CTFontGetGlyphCount(font) as libc::c_int,
-        ExtCmd::XetexCountFeatures => {
+        XetexExtCmd::CountGlyphs => rval = CTFontGetGlyphCount(font) as libc::c_int,
+        XetexExtCmd::CountFeatures => {
             let list = CTFontCopyFeatures(font);
             if !list.is_null() {
                 rval = CFArrayGetCount(list) as libc::c_int;
@@ -1006,11 +1006,15 @@ pub(crate) unsafe fn aat_font_get(what: ExtCmd, attributes: CFDictionaryRef) -> 
     return rval;
 }
 
-pub(crate) unsafe fn aat_font_get_1(what: ExtCmd, attributes: CFDictionaryRef, param: i32) -> i32 {
+pub(crate) unsafe fn aat_font_get_1(
+    what: XetexExtCmd,
+    attributes: CFDictionaryRef,
+    param: i32,
+) -> i32 {
     let mut rval: libc::c_int = -1i32;
     let font = font_from_attributes(attributes);
     match what {
-        ExtCmd::XetexFeatureCode => {
+        XetexExtCmd::FeatureCode => {
             let features = CTFontCopyFeatures(font);
             if !features.is_null() {
                 if CFArrayGetCount(features) > param as CFIndex {
@@ -1031,7 +1035,7 @@ pub(crate) unsafe fn aat_font_get_1(what: ExtCmd, attributes: CFDictionaryRef, p
                 CFRelease(features as CFTypeRef);
             }
         }
-        ExtCmd::XetexIsExclusiveFeature => {
+        XetexExtCmd::IsExclusiveFeature => {
             let features_0 = CTFontCopyFeatures(font);
             if !features_0.is_null() {
                 let mut value: CFBooleanRef = ptr::null_mut();
@@ -1051,7 +1055,7 @@ pub(crate) unsafe fn aat_font_get_1(what: ExtCmd, attributes: CFDictionaryRef, p
                 CFRelease(features_0 as CFTypeRef);
             }
         }
-        ExtCmd::XetexCountSelectors => {
+        XetexExtCmd::CountSelectors => {
             let features_1 = CTFontCopyFeatures(font);
             if !features_1.is_null() {
                 let feature_1 = findDictionaryInArrayWithIdentifier(
@@ -1077,7 +1081,7 @@ pub(crate) unsafe fn aat_font_get_1(what: ExtCmd, attributes: CFDictionaryRef, p
 }
 
 pub(crate) unsafe fn aat_font_get_2(
-    what: ExtCmd,
+    what: XetexExtCmd,
     attributes: CFDictionaryRef,
     param1: i32,
     param2: i32,
@@ -1098,7 +1102,7 @@ pub(crate) unsafe fn aat_font_get_2(
             ) as CFArrayRef;
             if !selectors.is_null() {
                 match what {
-                    ExtCmd::XetexSelectorCode => {
+                    XetexExtCmd::SelectorCode => {
                         if CFArrayGetCount(selectors) > param2 as CFIndex {
                             let selector = CFArrayGetValueAtIndex(selectors, param2 as CFIndex)
                                 as CFDictionaryRef;
@@ -1115,7 +1119,7 @@ pub(crate) unsafe fn aat_font_get_2(
                             }
                         }
                     }
-                    ExtCmd::XetexIsDefaultSelector => {
+                    XetexExtCmd::IsDefaultSelector => {
                         let selector = findDictionaryInArrayWithIdentifier(
                             selectors,
                             kCTFontFeatureSelectorIdentifierKey as *const libc::c_void,
@@ -1144,11 +1148,11 @@ pub(crate) unsafe fn aat_font_get_2(
 
 pub(crate) unsafe fn aat_font_get_named(
     name: &str,
-    what: ExtCmd,
+    what: XetexExtCmd,
     attributes: CFDictionaryRef,
 ) -> libc::c_int {
     let mut rval: libc::c_int = -1i32;
-    if what == ExtCmd::XetexFindFeatureByName {
+    if what == XetexExtCmd::FindFeatureByName {
         let font = font_from_attributes(attributes);
         let features = CTFontCopyFeatures(font);
         if !features.is_null() {
@@ -1176,13 +1180,13 @@ pub(crate) unsafe fn aat_font_get_named(
 
 pub(crate) unsafe fn aat_font_get_named_1(
     name: &str,
-    what: ExtCmd,
+    what: XetexExtCmd,
     attributes: CFDictionaryRef,
     param: i32,
 ) -> i32 {
     let mut rval: libc::c_int = -1i32;
     let font = font_from_attributes(attributes);
-    if what == ExtCmd::XetexFindSelectorByName {
+    if what == XetexExtCmd::FindSelectorByName {
         let features = CTFontCopyFeatures(font);
         if !features.is_null() {
             let feature = findDictionaryInArrayWithIdentifier(

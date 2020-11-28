@@ -127,7 +127,7 @@ impl std::fmt::Display for Scaled {
             char::from(b'0' + (s >> 16) as u8).fmt(f)?;
             s = 10 * (s & 0xffff);
             delta *= 10;
-            if !(s > delta) {
+            if s <= delta {
                 break;
             }
         }

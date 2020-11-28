@@ -138,7 +138,7 @@ pub(crate) union memory_word {
 impl Default for memory_word {
     fn default() -> Self {
         Self {
-            ptr: 0 as *mut libc::c_void,
+            ptr: ptr::null_mut(),
         }
     }
 }
@@ -477,7 +477,7 @@ pub(crate) static mut history: TTHistory = TTHistory::SPOTLESS;
 #[no_mangle]
 pub(crate) static mut error_count: i8 = 0;
 #[no_mangle]
-pub(crate) static mut help_line: [&'static str; 6] = [""; 6];
+pub(crate) static mut help_line: [&str; 6] = [""; 6];
 #[no_mangle]
 pub(crate) static mut help_ptr: u8 = 0;
 #[no_mangle]
@@ -1061,7 +1061,7 @@ where
         }
         val = id_lookup(first as usize, len);
         PoolString::flush();
-        (*hash.offset(val as isize)).s1 = s;
+        (*hash.add(val as usize)).s1 = s;
         prim_val = prim_lookup(s)
     } else {
         val = b_ident[0] as i32 + SINGLE_BASE as i32;
@@ -1078,13 +1078,12 @@ where
 
 unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
     if trie_not_ready {
-        if get_int_par(IntPar::language) <= 0 {
-            cur_lang = 0
-        } else if get_int_par(IntPar::language) > BIGGEST_LANG {
-            cur_lang = 0
+        let lang = get_int_par(IntPar::language);
+        cur_lang = if lang <= 0 || lang > BIGGEST_LANG {
+            0
         } else {
-            cur_lang = get_int_par(IntPar::language) as _;
-        }
+            lang as _
+        };
         scan_left_brace(input);
         let mut k = 0;
         hyf[0] = 0;
@@ -1137,10 +1136,11 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                                     v,
                                 )
                             }
-                            if !(l as i32 > 0) {
+                            if l as i32 > 0 {
+                                l -= 1;
+                            } else {
                                 break;
                             }
-                            l -= 1
                         }
                         let mut q = 0;
                         hc[0] = cur_lang as i32;
@@ -1277,12 +1277,11 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
 unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
     scan_left_brace(input);
 
-    cur_lang = if get_int_par(IntPar::language) <= 0 {
-        0
-    } else if get_int_par(IntPar::language) > BIGGEST_LANG {
+    let lang = get_int_par(IntPar::language);
+    cur_lang = if lang <= 0 || lang > BIGGEST_LANG {
         0
     } else {
-        get_int_par(IntPar::language) as _
+        lang as _
     };
 
     hyph_index = if trie_not_ready {
@@ -1379,13 +1378,11 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                         let k = HYPH_WORD[h as usize];
                         let hyph = PoolString::from(k);
                         let string = PoolString::from(s);
-                        if hyph.len() == string.len() {
-                            if string.as_slice().starts_with(hyph.as_slice()) {
-                                PoolString::flush();
-                                s = HYPH_WORD[h as usize];
-                                HYPH_COUNT -= 1;
-                                break;
-                            }
+                        if hyph == string {
+                            PoolString::flush();
+                            s = HYPH_WORD[h as usize];
+                            HYPH_COUNT -= 1;
+                            break;
                         }
                         /*:975*/
                         /*:976*/
@@ -1432,7 +1429,7 @@ pub(crate) unsafe fn prefixed_command(
 ) {
     let mut a = 0 as i16;
     while ocmd == Cmd::Prefix {
-        if a as i32 / ochr & 1i32 == 0 {
+        if (a as i32 / ochr) & 1 == 0 {
             a = (a as i32 + ochr) as i16
         }
         let mut next;
@@ -1550,11 +1547,9 @@ pub(crate) unsafe fn prefixed_command(
             }
             if cmd >= Cmd::Call {
                 MEM[chr as usize].b32.s0 += 1
-            } else if cmd == Cmd::Register ||
-                          cmd == Cmd::ToksRegister {
-                if chr < 0 || chr > LO_MEM_STAT_MAX {
+            } else if (cmd == Cmd::Register ||
+                          cmd == Cmd::ToksRegister) && (chr < 0 || chr > LO_MEM_STAT_MAX) {
                     MEM[(chr + 1) as usize].b32.s0 += 1;
-                }
             }
             if a >= 4 {
                 geq_define(p as usize, cmd, chr.opt());
@@ -1775,16 +1770,14 @@ pub(crate) unsafe fn prefixed_command(
                         } else if a >= 4 {
                             geq_define(p as usize, Cmd::Call, Some(q));
                         } else { eq_define(p as usize, Cmd::Call, Some(q)); }
+                    } else if e {
+                        if a >= 4 {
+                            gsa_def(p as usize, None);
+                        } else { sa_def(p as usize, None); }
+                    } else if a >= 4 {
+                        geq_define(p as usize, Cmd::UndefinedCS, None);
                     } else {
-                        if e {
-                            if a >= 4 {
-                                gsa_def(p as usize, None);
-                            } else { sa_def(p as usize, None); }
-                        } else if a >= 4 {
-                            geq_define(p as usize, Cmd::UndefinedCS, None);
-                        } else {
-                            eq_define(p as usize, Cmd::UndefinedCS, None);
-                        }
+                        eq_define(p as usize, Cmd::UndefinedCS, None);
                     }
                     return done(input);
                 }
@@ -1891,9 +1884,9 @@ pub(crate) unsafe fn prefixed_command(
                 let val = scan_math_class_int(input);
                 let mut n = set_class(val);
                 let val = scan_math_fam_int(input);
-                n = n + set_family(val);
+                n += set_family(val);
                 let val = scan_usv_num(input);
-                n = n + val;
+                n += val;
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data, n.opt());
                 } else { eq_define(p as usize, Cmd::Data, n.opt()); }
@@ -1913,9 +1906,9 @@ pub(crate) unsafe fn prefixed_command(
                 scan_optional_equals(input);
                 let mut n = 0x40000000;
                 let val = scan_math_fam_int(input);
-                n = n + val * 0x200000;
+                n += val * 0x200000;
                 let val = scan_usv_num(input);
-                n = n + val;
+                n += val;
                 if a >= 4 {
                     geq_word_define(p as usize, n);
                 } else { eq_word_define(p as usize, n); }
@@ -2156,14 +2149,13 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
         cond_ptr = llist_link(cp);
         free_node(tmp_ptr, IF_NODE_SIZE);
     }
-    if history != TTHistory::SPOTLESS {
-        if history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop {
-            if selector == Selector::TERM_AND_LOG {
-                selector = Selector::TERM_ONLY;
-                t_print_nl!("(see the transcript file for additional information)");
-                selector = Selector::TERM_AND_LOG
-            }
-        }
+    if history != TTHistory::SPOTLESS
+        && (history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop)
+        && selector == Selector::TERM_AND_LOG
+    {
+        selector = Selector::TERM_ONLY;
+        t_print_nl!("(see the transcript file for additional information)");
+        selector = Selector::TERM_AND_LOG
     }
     if c == 1 {
         if in_initex_mode {
@@ -2319,8 +2311,8 @@ unsafe fn initialize_more_variables() {
     long_help_seen = false;
     format_ident = 0;
 
-    for k in 0..=17 {
-        write_open[k] = false;
+    for k in &mut write_open {
+        *k = false;
     }
 
     LR_ptr = None.tex_int();
@@ -2503,12 +2495,12 @@ unsafe fn initialize_more_initex_variables() {
     hash_used = FROZEN_CONTROL_SEQUENCE as i32;
     hash_high = 0;
     cs_count = 0;
-    EQTB[FROZEN_DONT_EXPAND as usize].cmd = Cmd::DontExpand as _;
-    (*hash.offset(FROZEN_DONT_EXPAND as isize)).s1 = maketexstring("notexpanded:");
-    EQTB[FROZEN_PRIMITIVE as usize].cmd = Cmd::IgnoreSpaces as u16;
-    EQTB[FROZEN_PRIMITIVE as usize].val = 1;
-    EQTB[FROZEN_PRIMITIVE as usize].lvl = LEVEL_ONE;
-    (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring("primitive");
+    EQTB[FROZEN_DONT_EXPAND].cmd = Cmd::DontExpand as _;
+    (*hash.add(FROZEN_DONT_EXPAND)).s1 = maketexstring("notexpanded:");
+    EQTB[FROZEN_PRIMITIVE].cmd = Cmd::IgnoreSpaces as u16;
+    EQTB[FROZEN_PRIMITIVE].val = 1;
+    EQTB[FROZEN_PRIMITIVE].lvl = LEVEL_ONE;
+    (*hash.add(FROZEN_PRIMITIVE)).s1 = maketexstring("primitive");
 
     for k in (-TRIE_OP_SIZE)..=TRIE_OP_SIZE {
         _trie_op_hash_array[(k as i64 - -35111) as usize] = 0;
@@ -2521,14 +2513,14 @@ unsafe fn initialize_more_initex_variables() {
     max_op_used = MIN_TRIE_OP;
     trie_op_ptr = 0;
     trie_not_ready = true;
-    (*hash.offset(FROZEN_PROTECTION as isize)).s1 = maketexstring("inaccessible");
+    (*hash.add(FROZEN_PROTECTION)).s1 = maketexstring("inaccessible");
 
     format_ident = maketexstring(" (INITEX)");
 
-    (*hash.offset(END_WRITE as isize)).s1 = maketexstring("endwrite");
-    EQTB[END_WRITE as usize].lvl = LEVEL_ONE;
-    EQTB[END_WRITE as usize].cmd = Cmd::OuterCall as u16;
-    EQTB[END_WRITE as usize].val = None.tex_int();
+    (*hash.add(END_WRITE)).s1 = maketexstring("endwrite");
+    EQTB[END_WRITE].lvl = LEVEL_ONE;
+    EQTB[END_WRITE].cmd = Cmd::OuterCall as u16;
+    EQTB[END_WRITE].val = None.tex_int();
 
     max_reg_num = 32767;
     max_reg_help_line = "A register number must be between 0 and 32767.";
@@ -3096,7 +3088,7 @@ unsafe fn initialize_primitives() {
     primitive("divide", Cmd::Divide, 0);
     primitive("endcsname", Cmd::EndCSName, 0);
     let val = primitive("endgroup", Cmd::EndGroup, 0);
-    (*hash.offset(FROZEN_END_GROUP as isize)).s1 = maketexstring("endgroup");
+    (*hash.add(FROZEN_END_GROUP)).s1 = maketexstring("endgroup");
     EQTB[FROZEN_END_GROUP] = EQTB[val as usize];
     primitive("expandafter", Cmd::ExpandAfter, 0);
     primitive("font", Cmd::DefFont, 0);
@@ -3134,7 +3126,7 @@ unsafe fn initialize_primitives() {
     primitive("Uradical", Cmd::Radical, 1);
     primitive("read", Cmd::ReadToCS, 0);
     let val = primitive("relax", Cmd::Relax, TOO_BIG_USV as i32);
-    (*hash.offset(FROZEN_RELAX as isize)).s1 = maketexstring("relax");
+    (*hash.add(FROZEN_RELAX)).s1 = maketexstring("relax");
     EQTB[FROZEN_RELAX] = EQTB[val as usize];
     primitive("setbox", Cmd::SetBox, 0);
     primitive("the", Cmd::The, 0);
@@ -3216,23 +3208,23 @@ unsafe fn initialize_primitives() {
     primitive("ifprimitive", Cmd::IfTest, IfTestCode::IfPrimitive);
 
     let val = primitive("fi", Cmd::FiOrElse, FiOrElseCode::Fi);
-    (*hash.offset(FROZEN_FI as isize)).s1 = maketexstring("fi");
+    (*hash.add(FROZEN_FI)).s1 = maketexstring("fi");
     EQTB[FROZEN_FI] = EQTB[val as usize];
     primitive("or", Cmd::FiOrElse, FiOrElseCode::Or);
     primitive("else", Cmd::FiOrElse, FiOrElseCode::Else);
 
     let val = primitive("nullfont", Cmd::SetFont, FONT_BASE);
-    (*hash.offset(FROZEN_NULL_FONT as isize)).s1 = maketexstring("nullfont");
+    (*hash.add(FROZEN_NULL_FONT)).s1 = maketexstring("nullfont");
     EQTB[FROZEN_NULL_FONT] = EQTB[val as usize];
 
     primitive("span", Cmd::TabMark, SPAN_CODE);
     let val = primitive("cr", Cmd::CarRet, CR_CODE);
-    (*hash.offset(FROZEN_CR as isize)).s1 = maketexstring("cr");
+    (*hash.add(FROZEN_CR)).s1 = maketexstring("cr");
     EQTB[FROZEN_CR] = EQTB[val as usize];
     primitive("crcr", Cmd::CarRet, CR_CR_CODE);
 
-    (*hash.offset(FROZEN_END_TEMPLATE as isize)).s1 = maketexstring("endtemplate");
-    (*hash.offset(FROZEN_ENDV as isize)).s1 = maketexstring("endtemplate");
+    (*hash.add(FROZEN_END_TEMPLATE)).s1 = maketexstring("endtemplate");
+    (*hash.add(FROZEN_ENDV)).s1 = maketexstring("endtemplate");
     EQTB[FROZEN_ENDV].cmd = Cmd::EndV as u16;
     EQTB[FROZEN_ENDV].val = NULL_LIST as i32;
     EQTB[FROZEN_ENDV].lvl = LEVEL_ONE;
@@ -3334,13 +3326,13 @@ unsafe fn initialize_primitives() {
     primitive("above", Cmd::Above, ABOVE_CODE);
     primitive("over", Cmd::Above, OVER_CODE);
     primitive("atop", Cmd::Above, ATOP_CODE);
-    primitive("abovewithdelims", Cmd::Above, DELIMITED_CODE + 0);
-    primitive("overwithdelims", Cmd::Above, DELIMITED_CODE + 1);
-    primitive("atopwithdelims", Cmd::Above, DELIMITED_CODE + 2);
+    primitive("abovewithdelims", Cmd::Above, DELIMITED_CODE + ABOVE_CODE);
+    primitive("overwithdelims", Cmd::Above, DELIMITED_CODE + OVER_CODE);
+    primitive("atopwithdelims", Cmd::Above, DELIMITED_CODE + ATOP_CODE);
 
     primitive("left", Cmd::LeftRight, MathNode::Left as i32);
     let val = primitive("right", Cmd::LeftRight, MathNode::Right as i32);
-    (*hash.offset(FROZEN_RIGHT as isize)).s1 = maketexstring("right");
+    (*hash.add(FROZEN_RIGHT)).s1 = maketexstring("right");
     EQTB[FROZEN_RIGHT] = EQTB[val as usize];
 
     primitive("long", Cmd::Prefix, 1);
@@ -3459,7 +3451,7 @@ unsafe fn initialize_primitives() {
     write_loc = val;
     primitive("closeout", Cmd::Extension, CloseFile::WHATS_IT as i32);
     let val = primitive("special", Cmd::Extension, Special::WHATS_IT as i32);
-    (*hash.offset(FROZEN_SPECIAL as isize)).s1 = maketexstring("special");
+    (*hash.add(FROZEN_SPECIAL)).s1 = maketexstring("special");
     EQTB[FROZEN_SPECIAL] = EQTB[val as usize];
     primitive("immediate", Cmd::Extension, IMMEDIATE_CODE as i32);
     primitive("setlanguage", Cmd::Extension, SET_LANGUAGE_CODE as i32);
@@ -3632,11 +3624,11 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         }
         yhash = xmalloc_array((1 + hash_top - hash_offset) as usize);
         hash = yhash.offset(-514);
-        (*hash.offset((HASH_BASE) as isize)).s0 = 0;
-        (*hash.offset((HASH_BASE) as isize)).s1 = 0;
+        (*hash.add(HASH_BASE)).s0 = 0;
+        (*hash.add(HASH_BASE)).s1 = 0;
         hash_used = HASH_BASE as i32 + 1;
         while hash_used <= hash_top {
-            *hash.offset(hash_used as isize) = *hash.offset(HASH_BASE as isize);
+            *hash.add(hash_used as usize) = *hash.add(HASH_BASE);
             hash_used += 1
         }
         EQTB = vec![EqtbWord::default(); EQTB_TOP + 1];
@@ -4201,10 +4193,8 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     }
     no_new_control_sequence = true;
 
-    if !in_initex_mode {
-        if !load_fmt_file() {
-            return history;
-        }
+    if !in_initex_mode && !load_fmt_file() {
+        return history;
     }
 
     if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) < TOO_BIG_CHAR {
@@ -4242,7 +4232,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         trie_ptr = 0;
         trie_r[0] = 0;
         hyph_start = 0;
-        FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
+        FONT_MAPPING = vec![ptr::null_mut(); FONT_MAX + 1];
         FONT_LAYOUT_ENGINE.clear();
         for _ in 0..FONT_MAX + 1 {
             FONT_LAYOUT_ENGINE.push(Font::None);
@@ -4295,11 +4285,11 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         EXTEN_BASE[0] = 0;
         FONT_GLUE[0] = None.tex_int();
         FONT_PARAMS[0] = 7;
-        FONT_MAPPING[0] = 0 as *mut libc::c_void;
+        FONT_MAPPING[0] = ptr::null_mut();
         PARAM_BASE[0] = -1;
 
-        for font_k in 0..7 {
-            FONT_INFO[font_k].b32.s1 = 0;
+        for k in FONT_INFO.iter_mut().take(7) {
+            k.b32.s1 = 0;
         }
     }
 

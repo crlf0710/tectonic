@@ -57,7 +57,7 @@ pub(crate) unsafe fn maketexstring(s: &str) -> i32 {
     pool_ptr += len;
     make_string()
 }
-pub(crate) unsafe fn gettexstring(s: str_number) -> String {
+pub(crate) fn gettexstring(s: str_number) -> String {
     if s >= TOO_BIG_CHAR {
         String::from_utf16(PoolString::from(s).as_slice()).unwrap()
     } else {
@@ -83,8 +83,8 @@ pub(crate) unsafe fn make_src_special(srcfilename: str_number, lineno: i32) -> S
 unsafe fn convertStringToHexString(in_0: &[u8; 16], out: &mut [u8; 33]) {
     const HEXCHARS: &[u8] = b"0123456789ABCDEF";
     let mut j = 0;
-    for i in 0..16 {
-        let c = in_0[i];
+    for &i in in_0 {
+        let c = i;
         out[j] = HEXCHARS[(c >> 4 & 0xf) as usize];
         j += 1;
         out[j] = HEXCHARS[(c & 0xf) as usize];

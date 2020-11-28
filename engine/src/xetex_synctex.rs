@@ -186,17 +186,15 @@ unsafe fn synctex_dot_open() -> bool {
         the_name += synctex_suffix;
         the_name += synctex_suffix_gz;
         synctex_ctxt.file = OutputHandleWrapper::open(&the_name, 1);
-        if synctex_ctxt.file.is_some() {
-            if !(synctex_record_preamble() != 0) {
-                synctex_ctxt.magnification = 1000i32;
-                synctex_ctxt.unit = 1i32;
-                if !synctex_ctxt.root_name.is_empty() {
-                    synctex_record_input(1i32, &synctex_ctxt.root_name);
-                    synctex_ctxt.root_name = String::new();
-                }
-                synctex_ctxt.count = 0i32;
-                return true;
+        if synctex_ctxt.file.is_some() && synctex_record_preamble() == 0 {
+            synctex_ctxt.magnification = 1000i32;
+            synctex_ctxt.unit = 1i32;
+            if !synctex_ctxt.root_name.is_empty() {
+                synctex_record_input(1i32, &synctex_ctxt.root_name);
+                synctex_ctxt.root_name = String::new();
             }
+            synctex_ctxt.count = 0i32;
+            return true;
         }
     }
     /*printf("\nSyncTeX warning: no synchronization, problem with %s\n", the_name);*/

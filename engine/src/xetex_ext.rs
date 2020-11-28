@@ -188,17 +188,11 @@ pub(crate) unsafe fn linebreak_start(f: usize, localeStrNum: i32, text: &[u16]) 
     }
     if localeStrNum != brkLocaleStrNum && !brkIter.is_null() {
         icu::ubrk_close(brkIter);
-        brkIter = 0 as *mut icu::UBreakIterator
+        brkIter = ptr::null_mut();
     }
     if brkIter.is_null() {
         let name = CString::new(locale.as_str()).unwrap();
-        brkIter = icu::ubrk_open(
-            icu::UBRK_LINE,
-            name.as_ptr(),
-            ptr::null(),
-            0i32,
-            &mut status,
-        );
+        brkIter = icu::ubrk_open(icu::UBRK_LINE, name.as_ptr(), ptr::null(), 0, &mut status);
         if status as i32 > icu::U_ZERO_ERROR as i32 {
             diagnostic(true, || {
                 t_print_nl!("Error {} creating linebreak iterator for locale `{}\'; trying default locale `en_us\'.", status as i32, locale);
@@ -261,7 +255,7 @@ pub(crate) unsafe fn get_encoding_mode_and_info(name: &str, info: *mut i32) -> U
     /* try for an ICU converter */
     let cname = CString::new(name).unwrap();
     let cnv = icu::ucnv_open(cname.as_ptr(), &mut err); /* ensure message starts on a new line */
-    let result = if cnv.is_null() {
+    if cnv.is_null() {
         diagnostic(true, || {
             t_print_nl!("Unknown encoding `{}\'; reading as raw bytes", name);
         });
@@ -270,8 +264,7 @@ pub(crate) unsafe fn get_encoding_mode_and_info(name: &str, info: *mut i32) -> U
         icu::ucnv_close(cnv);
         *info = maketexstring(name);
         UnicodeMode::ICUMapping
-    };
-    result
+    }
 }
 
 unsafe fn load_mapping_file(s: &str, byteMapping: i8) -> *mut libc::c_void {
@@ -324,7 +317,7 @@ pub(crate) unsafe fn check_for_tfm_font_mapping() {
     if let Some(cp) = cp {
         let (a, b) = name_of_font.split_at(cp);
         let mut cp = &b.as_bytes()[9..];
-        while !cp.is_empty() && cp[0] <= ' ' as u8 {
+        while !cp.is_empty() && cp[0] <= b' ' {
             cp = &cp[1..];
         }
         if !cp.is_empty() {
@@ -334,12 +327,13 @@ pub(crate) unsafe fn check_for_tfm_font_mapping() {
     }
 }
 pub(crate) unsafe fn load_tfm_font_mapping() -> *mut libc::c_void {
-    let mut rval: *mut libc::c_void = 0 as *mut libc::c_void;
     if !saved_mapping_name.is_empty() {
-        rval = load_mapping_file(&saved_mapping_name, 1_i8);
+        let rval = load_mapping_file(&saved_mapping_name, 1_i8);
         saved_mapping_name = String::new();
+        rval
+    } else {
+        ptr::null_mut()
     }
-    rval
 }
 pub(crate) unsafe fn apply_tfm_font_mapping(cnv: *mut libc::c_void, c: i32) -> i32 {
     let mut in_0: UniChar = c as UniChar;
@@ -385,9 +379,9 @@ pub(crate) fn read_double(s: &mut &[u8]) -> f64 {
         let mut dec = 10_f64;
         cp = &cp[1..];
         while (b'0'..=b'9').contains(&cp[0]) {
-            val = val + (cp[0] as i32 - '0' as i32) as f64 / dec;
+            val += (cp[0] as i32 - '0' as i32) as f64 / dec;
             cp = &cp[1..];
-            dec = dec * 10.;
+            dec *= 10.;
         }
     }
     *s = cp;
@@ -573,12 +567,8 @@ unsafe fn loadOTfont(
 ) -> Option<NativeFont> {
     let mut font = Some(font);
     let mut current_block: u64;
-    let mut engine = None;
-    let mut script: hb_tag_t = (0_u32 & 0xff_u32) << 24i32
-        | (0_u32 & 0xff_u32) << 16i32
-        | (0_u32 & 0xff_u32) << 8i32
-        | 0_u32 & 0xff_u32;
-    let mut shapers: *mut *mut i8 = 0 as *mut *mut i8;
+    let mut script = 0;
+    let mut shapers: *mut *mut i8 = ptr::null_mut();
     let mut nShapers: i32 = 0i32;
     let mut tag: hb_tag_t = 0;
     let mut rgbValue: u32 = 0xff_u32;
@@ -601,11 +591,11 @@ unsafe fn loadOTfont(
         }
         nShapers += 1
     }
-    if reqEngine as i32 == 'G' as i32 {
+    let engine = if reqEngine as i32 == 'G' as i32 {
         let mut tmpShapers: [*mut i8; 1] = [*shapers.offset(0)];
         /* create a default engine so we can query the font for Graphite features;
          * because of font caching, it's cheap to discard this and create the real one later */
-        engine = Some(XeTeXLayoutEngine::create(
+        Some(XeTeXLayoutEngine::create(
             fontRef,
             font.take().unwrap(),
             script,
@@ -616,11 +606,10 @@ unsafe fn loadOTfont(
             extend,
             slant,
             embolden,
-        ));
-        if engine.is_none() {
-            return None;
-        }
-    }
+        ))
+    } else {
+        None
+    };
     let mut language = String::new();
     let mut features = Vec::new();
     /* scan the feature string (if any) */
@@ -648,137 +637,127 @@ unsafe fn loadOTfont(
                     hb_tag_from_string(cp3.as_ptr() as *const i8, (cp3.len() - cp2.len()) as _);
                 current_block = 13857423536159756434;
             }
-        } else {
-            if let Some(mut cp3) = strstartswith(cp1, b"language") {
-                if cp3[0] != b'=' {
-                    current_block = 10622493848381539643;
-                } else {
-                    cp3 = &cp3[1..];
-                    language = std::str::from_utf8(&cp3[..cp3.len() - cp2.len()])
-                        .unwrap()
-                        .to_string();
-                    current_block = 13857423536159756434;
-                }
+        } else if let Some(mut cp3) = strstartswith(cp1, b"language") {
+            if cp3[0] != b'=' {
+                current_block = 10622493848381539643;
             } else {
-                if let Some(mut cp3) = strstartswith(cp1, b"shaper") {
-                    if cp3[0] != b'=' {
-                        current_block = 10622493848381539643;
-                    } else {
-                        cp3 = &cp3[1..];
-                        shapers = xrealloc(
-                            shapers as *mut libc::c_void,
-                            ((nShapers + 1i32) as u64)
-                                .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
-                                as _,
-                        ) as *mut *mut i8;
-                        /* some dumb systems have no strndup() */
-                        let len = cp3.len() - cp2.len();
-                        let ccp3 = CString::new(cp3).unwrap();
-                        *shapers.offset(nShapers as isize) = strdup(ccp3.as_ptr());
-                        *(*shapers.offset(nShapers as isize)).offset(len as _) =
-                            '\u{0}' as i32 as i8;
-                        nShapers += 1;
+                cp3 = &cp3[1..];
+                language = std::str::from_utf8(&cp3[..cp3.len() - cp2.len()])
+                    .unwrap()
+                    .to_string();
+                current_block = 13857423536159756434;
+            }
+        } else if let Some(mut cp3) = strstartswith(cp1, b"shaper") {
+            if cp3[0] != b'=' {
+                current_block = 10622493848381539643;
+            } else {
+                cp3 = &cp3[1..];
+                shapers = xrealloc(
+                    shapers as *mut libc::c_void,
+                    ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
+                        as _,
+                ) as *mut *mut i8;
+                /* some dumb systems have no strndup() */
+                let len = cp3.len() - cp2.len();
+                let ccp3 = CString::new(cp3).unwrap();
+                *shapers.offset(nShapers as isize) = strdup(ccp3.as_ptr());
+                *(*shapers.add(nShapers as usize)).add(len) = '\u{0}' as i32 as i8;
+                nShapers += 1;
+                current_block = 13857423536159756434;
+            }
+        } else {
+            let i = readCommonFeatures(
+                cp1,
+                cp1.len() - cp2.len(),
+                &mut extend,
+                &mut slant,
+                &mut embolden,
+                &mut letterspace,
+                &mut rgbValue,
+            );
+            if i == 1i32 {
+                current_block = 13857423536159756434;
+            } else if i == -1i32 {
+                current_block = 10622493848381539643;
+            } else {
+                if reqEngine as i32 == 'G' as i32 {
+                    let mut value: i32 = 0i32;
+                    if readFeatureNumber(&cp1[..cp1.len() - cp2.len()], &mut tag, &mut value)
+                        || findGraphiteFeature(
+                            engine.as_ref().unwrap(),
+                            &cp1[..cp1.len() - cp2.len()],
+                            &mut tag,
+                            &mut value,
+                        ) as i32
+                            != 0
+                    {
+                        features.push(hb_feature_t {
+                            tag,
+                            value: value as u32,
+                            start: 0,
+                            end: -1i32 as u32,
+                        });
                         current_block = 13857423536159756434;
+                    } else {
+                        current_block = 15669289850109000831;
                     }
                 } else {
-                    let i = readCommonFeatures(
-                        cp1,
-                        cp1.len() - cp2.len(),
-                        &mut extend,
-                        &mut slant,
-                        &mut embolden,
-                        &mut letterspace,
-                        &mut rgbValue,
-                    );
-                    if i == 1i32 {
-                        current_block = 13857423536159756434;
-                    } else if i == -1i32 {
-                        current_block = 10622493848381539643;
-                    } else {
-                        if reqEngine as i32 == 'G' as i32 {
-                            let mut value: i32 = 0i32;
-                            if readFeatureNumber(
-                                &cp1[..cp1.len() - cp2.len()],
-                                &mut tag,
-                                &mut value,
-                            ) || findGraphiteFeature(
-                                engine.as_ref().unwrap(),
-                                &cp1[..cp1.len() - cp2.len()],
-                                &mut tag,
-                                &mut value,
-                            ) as i32
-                                != 0
-                            {
-                                features.push(hb_feature_t {
-                                    tag,
-                                    value: value as u32,
-                                    start: 0,
-                                    end: -1i32 as u32,
-                                });
+                    current_block = 15669289850109000831;
+                }
+                match current_block {
+                    13857423536159756434 => {}
+                    _ => {
+                        if cp1[0] == b'+' {
+                            let mut param: i32 = 0i32;
+                            tag = read_tag_with_param(&cp1[1..], &mut param);
+                            let start = 0;
+                            let end = -1i32 as u32;
+                            // for backward compatibility with pre-0.9999 where feature
+                            // indices started from 0
+                            if param >= 0i32 {
+                                param += 1
+                            }
+                            let value = param as u32;
+                            features.push(hb_feature_t {
+                                tag,
+                                value,
+                                start,
+                                end,
+                            });
+                            current_block = 13857423536159756434;
+                        } else if cp1[0] == b'-' {
+                            cp1 = &cp1[1..];
+                            tag = hb_tag_from_string(
+                                cp1.as_ptr() as *const i8,
+                                (cp1.len() - cp2.len()) as _,
+                            );
+                            features.push(hb_feature_t {
+                                tag,
+                                start: 0,
+                                end: -1i32 as u32,
+                                value: 0,
+                            });
+                            current_block = 13857423536159756434;
+                        } else if cp1.starts_with(b"vertical") {
+                            let mut n = cp1.len() - cp2.len();
+                            if b";:".contains(&cp1[n]) {
+                                n -= 1;
+                            }
+                            while n != 0 || b" \t".contains(&cp1[n]) {
+                                n -= 1;
+                            }
+                            if n != 0 {
+                                // TODO: check
+                                n += 1;
+                            }
+                            if n == 8 {
+                                loaded_font_flags = (loaded_font_flags as i32 | 0x2i32) as i8;
                                 current_block = 13857423536159756434;
                             } else {
-                                current_block = 15669289850109000831;
+                                current_block = 10622493848381539643;
                             }
                         } else {
-                            current_block = 15669289850109000831;
-                        }
-                        match current_block {
-                            13857423536159756434 => {}
-                            _ => {
-                                if cp1[0] == b'+' {
-                                    let mut param: i32 = 0i32;
-                                    tag = read_tag_with_param(&cp1[1..], &mut param);
-                                    let start = 0;
-                                    let end = -1i32 as u32;
-                                    // for backward compatibility with pre-0.9999 where feature
-                                    // indices started from 0
-                                    if param >= 0i32 {
-                                        param += 1
-                                    }
-                                    let value = param as u32;
-                                    features.push(hb_feature_t {
-                                        tag,
-                                        value,
-                                        start,
-                                        end,
-                                    });
-                                    current_block = 13857423536159756434;
-                                } else if cp1[0] == b'-' {
-                                    cp1 = &cp1[1..];
-                                    tag = hb_tag_from_string(
-                                        cp1.as_ptr() as *const i8,
-                                        (cp1.len() - cp2.len()) as _,
-                                    );
-                                    features.push(hb_feature_t {
-                                        tag,
-                                        start: 0,
-                                        end: -1i32 as u32,
-                                        value: 0,
-                                    });
-                                    current_block = 13857423536159756434;
-                                } else if cp1.starts_with(b"vertical") {
-                                    let mut n = cp1.len() - cp2.len();
-                                    if b";:".contains(&cp1[n]) {
-                                        n -= 1;
-                                    }
-                                    while n != 0 || b" \t".contains(&cp1[n]) {
-                                        n -= 1;
-                                    }
-                                    if n != 0 {
-                                        // TODO: check
-                                        n += 1;
-                                    }
-                                    if n == 8 {
-                                        loaded_font_flags =
-                                            (loaded_font_flags as i32 | 0x2i32) as i8;
-                                        current_block = 13857423536159756434;
-                                    } else {
-                                        current_block = 10622493848381539643;
-                                    }
-                                } else {
-                                    current_block = 10622493848381539643;
-                                }
-                            }
+                            current_block = 10622493848381539643;
                         }
                     }
                 }
@@ -798,7 +777,7 @@ unsafe fn loadOTfont(
             shapers as *mut libc::c_void,
             ((nShapers + 1i32) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as _,
         ) as *mut *mut i8;
-        *shapers.offset(nShapers as isize) = 0 as *mut i8;
+        *shapers.offset(nShapers as isize) = ptr::null_mut();
     }
     if embolden as f64 != 0.0f64 {
         embolden = (embolden as f64 * Fix2D(scaled_size) / 100.0f64) as f32
@@ -891,7 +870,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
     /* scaled_size here is in TeX points, or is a negative integer for 'Scaled' */
     let mut rval = None;
     let name = uname;
-    loaded_font_mapping = 0 as *mut libc::c_void;
+    loaded_font_mapping = ptr::null_mut();
     loaded_font_flags = 0_i8;
     loaded_font_letter_space = Scaled::ZERO;
     let (nameString, mut varString, featString, index) = splitFontName(name);
@@ -1086,17 +1065,14 @@ pub(crate) unsafe fn ot_font_get_3(
 ) -> i32 {
     let fontInst = engine.get_font();
     match what {
-        21 => {
-            return getIndFeature(
-                fontInst,
-                param1 as hb_tag_t,
-                param2 as hb_tag_t,
-                param3 as u32,
-            ) as i32
-        }
-        _ => {}
+        21 => getIndFeature(
+            fontInst,
+            param1 as hb_tag_t,
+            param2 as hb_tag_t,
+            param3 as u32,
+        ) as i32,
+        _ => 0,
     }
-    0i32
 }
 pub(crate) unsafe fn gr_get_font_name(
     what: i32,
@@ -1104,7 +1080,7 @@ pub(crate) unsafe fn gr_get_font_name(
     param1: i32,
     param2: i32,
 ) -> String {
-    let mut name: *mut i8 = 0 as *mut i8;
+    let mut name = ptr::null_mut();
     match what {
         8 => name = getGraphiteFeatureLabel(engine, param1 as u32),
         9 => name = getGraphiteFeatureSettingLabel(engine, param1 as u32, param2 as u32),
@@ -1495,11 +1471,11 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
     let f = node.font() as usize;
     if let Font::Native(Otgr(engine)) = &mut FONT_LAYOUT_ENGINE[f] {
         /* using this font in OT Layout mode, so FONT_LAYOUT_ENGINE[f] is actually a *mut XeTeXLayoutEngine */
-        let mut locations: *mut FixedPoint = 0 as *mut FixedPoint;
-        let mut glyphAdvances: *mut Scaled = 0 as *mut Scaled;
+        let mut locations: *mut FixedPoint = ptr::null_mut();
+        let mut glyphAdvances: *mut Scaled = ptr::null_mut();
         let mut totalGlyphCount: i32 = 0i32;
         /* need to find direction runs within the text, and call layoutChars separately for each */
-        let mut glyph_info: *mut libc::c_void = 0 as *mut libc::c_void;
+        let mut glyph_info: *mut libc::c_void = ptr::null_mut();
         let pBiDi: *mut icu::UBiDi = icu::ubidi_open();
         let mut errorCode: icu::UErrorCode = icu::U_ZERO_ERROR;
         icu::ubidi_setPara(
@@ -1507,7 +1483,7 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
             txt.as_ptr() as *const icu::UChar,
             txt.len() as i32,
             engine.get_default_direction() as icu::UBiDiLevel,
-            0 as *mut icu::UBiDiLevel,
+            ptr::null_mut(),
             &mut errorCode,
         );
         let mut dir = icu::ubidi_getDirection(pBiDi);
@@ -1606,8 +1582,7 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
                 if *glyphAdvances.offset(i_1 as isize) == Scaled::ZERO && lsDelta != Scaled::ZERO {
                     lsDelta -= lsUnit
                 }
-                let ref mut fresh31 = (*locations.offset(i_1 as isize)).x;
-                *fresh31 += lsDelta;
+                (*locations.offset(i_1 as isize)).x += lsDelta;
                 lsDelta += lsUnit;
             }
             if lsDelta != Scaled::ZERO {
@@ -1652,7 +1627,7 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
                     }
                     _ => {}
                 }
-                cacheGlyphBBox(f as u16, *glyphIDs_0.offset(i_2 as isize), &mut bbox);
+                cacheGlyphBBox(f as u16, *glyphIDs_0.offset(i_2 as isize), &bbox);
             }
             let ht = bbox.yMax;
             let dp = -bbox.yMin;
@@ -1671,22 +1646,21 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
 pub(crate) unsafe fn real_get_native_italic_correction(node: &NativeWord) -> Scaled {
     let f = node.font() as usize;
     let n = node.glyph_count() as u32;
-    if n > 0_u32 {
+    if n > 0 {
         let locations: *mut FixedPoint = node.glyph_info_ptr() as *mut FixedPoint;
         let glyphIDs: *mut u16 = locations.offset(n as isize) as *mut u16;
         match &FONT_LAYOUT_ENGINE[f] {
             #[cfg(target_os = "macos")]
             Font::Native(Aat(engine)) => {
-                return D2Fix(aat::GetGlyphItalCorr_AAT(
+                D2Fix(aat::GetGlyphItalCorr_AAT(
                     *engine,
                     *glyphIDs.offset(n.wrapping_sub(1i32 as libc::c_uint) as isize),
-                )) + FONT_LETTER_SPACE[f];
+                )) + FONT_LETTER_SPACE[f]
             }
-            Font::Native(Otgr(engine)) => {
-                return D2Fix(engine.get_glyph_ital_corr(*glyphIDs.offset(n.wrapping_sub(1_u32) as isize) as u32,
-                ) as f64)
-                    + FONT_LETTER_SPACE[f];
-            }
+            Font::Native(Otgr(engine)) => D2Fix(
+                engine.get_glyph_ital_corr(*glyphIDs.offset(n.wrapping_sub(1_u32) as isize) as u32)
+                    as f64,
+            ) + FONT_LETTER_SPACE[f],
             _ => Scaled::ZERO,
         }
     } else {
