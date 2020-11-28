@@ -138,7 +138,7 @@ pub(crate) union memory_word {
 impl Default for memory_word {
     fn default() -> Self {
         Self {
-            ptr: 0 as *mut libc::c_void,
+            ptr: ptr::null_mut(),
         }
     }
 }
@@ -1078,13 +1078,12 @@ where
 
 unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
     if trie_not_ready {
-        if get_int_par(IntPar::language) <= 0 {
-            cur_lang = 0
-        } else if get_int_par(IntPar::language) > BIGGEST_LANG {
-            cur_lang = 0
+        let lang = get_int_par(IntPar::language);
+        cur_lang = if lang <= 0 || lang > BIGGEST_LANG {
+            0
         } else {
-            cur_lang = get_int_par(IntPar::language) as _;
-        }
+            lang as _
+        };
         scan_left_brace(input);
         let mut k = 0;
         hyf[0] = 0;
@@ -1277,12 +1276,11 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
 unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
     scan_left_brace(input);
 
-    cur_lang = if get_int_par(IntPar::language) <= 0 {
-        0
-    } else if get_int_par(IntPar::language) > BIGGEST_LANG {
+    let lang = get_int_par(IntPar::language);
+    cur_lang = if lang <= 0 || lang > BIGGEST_LANG {
         0
     } else {
-        get_int_par(IntPar::language) as _
+        lang as _
     };
 
     hyph_index = if trie_not_ready {
@@ -1430,7 +1428,7 @@ pub(crate) unsafe fn prefixed_command(
 ) {
     let mut a = 0 as i16;
     while ocmd == Cmd::Prefix {
-        if a as i32 / ochr & 1i32 == 0 {
+        if (a as i32 / ochr) & 1 == 0 {
             a = (a as i32 + ochr) as i16
         }
         let mut next;
@@ -1885,9 +1883,9 @@ pub(crate) unsafe fn prefixed_command(
                 let val = scan_math_class_int(input);
                 let mut n = set_class(val);
                 let val = scan_math_fam_int(input);
-                n = n + set_family(val);
+                n += set_family(val);
                 let val = scan_usv_num(input);
-                n = n + val;
+                n += val;
                 if a >= 4 {
                     geq_define(p as usize, Cmd::Data, n.opt());
                 } else { eq_define(p as usize, Cmd::Data, n.opt()); }
@@ -1907,9 +1905,9 @@ pub(crate) unsafe fn prefixed_command(
                 scan_optional_equals(input);
                 let mut n = 0x40000000;
                 let val = scan_math_fam_int(input);
-                n = n + val * 0x200000;
+                n += val * 0x200000;
                 let val = scan_usv_num(input);
-                n = n + val;
+                n += val;
                 if a >= 4 {
                     geq_word_define(p as usize, n);
                 } else { eq_word_define(p as usize, n); }
@@ -2312,8 +2310,8 @@ unsafe fn initialize_more_variables() {
     long_help_seen = false;
     format_ident = 0;
 
-    for k in 0..=17 {
-        write_open[k] = false;
+    for k in &mut write_open {
+        *k = false;
     }
 
     LR_ptr = None.tex_int();
@@ -3327,9 +3325,9 @@ unsafe fn initialize_primitives() {
     primitive("above", Cmd::Above, ABOVE_CODE);
     primitive("over", Cmd::Above, OVER_CODE);
     primitive("atop", Cmd::Above, ATOP_CODE);
-    primitive("abovewithdelims", Cmd::Above, DELIMITED_CODE + 0);
-    primitive("overwithdelims", Cmd::Above, DELIMITED_CODE + 1);
-    primitive("atopwithdelims", Cmd::Above, DELIMITED_CODE + 2);
+    primitive("abovewithdelims", Cmd::Above, DELIMITED_CODE + ABOVE_CODE);
+    primitive("overwithdelims", Cmd::Above, DELIMITED_CODE + OVER_CODE);
+    primitive("atopwithdelims", Cmd::Above, DELIMITED_CODE + ATOP_CODE);
 
     primitive("left", Cmd::LeftRight, MathNode::Left as i32);
     let val = primitive("right", Cmd::LeftRight, MathNode::Right as i32);
@@ -4233,7 +4231,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         trie_ptr = 0;
         trie_r[0] = 0;
         hyph_start = 0;
-        FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
+        FONT_MAPPING = vec![ptr::null_mut(); FONT_MAX + 1];
         FONT_LAYOUT_ENGINE.clear();
         for _ in 0..FONT_MAX + 1 {
             FONT_LAYOUT_ENGINE.push(Font::None);
@@ -4286,11 +4284,11 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         EXTEN_BASE[0] = 0;
         FONT_GLUE[0] = None.tex_int();
         FONT_PARAMS[0] = 7;
-        FONT_MAPPING[0] = 0 as *mut libc::c_void;
+        FONT_MAPPING[0] = ptr::null_mut();
         PARAM_BASE[0] = -1;
 
-        for font_k in 0..7 {
-            FONT_INFO[font_k].b32.s1 = 0;
+        for k in FONT_INFO.iter_mut().take(7) {
+            k.b32.s1 = 0;
         }
     }
 

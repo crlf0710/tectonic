@@ -198,30 +198,30 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
                             /*1056: "Wrap up the box specified by node r,
                              * splitting node p if called for; set wait = true if
                              * node p holds a remainder after splitting" */
-                            if r.subtype() == PageInsType::SplitUp {
-                                if r.broken_ins().opt() == Some(p) && r.broken_ptr().opt().is_some()
-                                {
-                                    while *LLIST_link(s) != r.broken_ptr() {
-                                        s = *LLIST_link(s) as usize;
-                                    }
-                                    *LLIST_link(s) = None.tex_int();
-                                    set_glue_par(
-                                        GluePar::split_top_skip,
-                                        GlueSpec(p_ins.split_top_ptr() as usize),
-                                    );
-                                    p_ins.set_ins_ptr(prune_page_top(r.broken_ptr().opt(), false));
+                            if r.subtype() == PageInsType::SplitUp
+                                && r.broken_ins().opt() == Some(p)
+                                && r.broken_ptr().opt().is_some()
+                            {
+                                while *LLIST_link(s) != r.broken_ptr() {
+                                    s = *LLIST_link(s) as usize;
+                                }
+                                *LLIST_link(s) = None.tex_int();
+                                set_glue_par(
+                                    GluePar::split_top_skip,
+                                    GlueSpec(p_ins.split_top_ptr() as usize),
+                                );
+                                p_ins.set_ins_ptr(prune_page_top(r.broken_ptr().opt(), false));
 
-                                    if p_ins.ins_ptr().opt().is_some() {
-                                        let tmp_ptr = vpackage(
-                                            p_ins.ins_ptr().opt(),
-                                            Scaled::ZERO,
-                                            PackMode::Additional as _,
-                                            Scaled::MAX_HALFWORD,
-                                        );
-                                        p_ins.set_height(tmp_ptr.height() + tmp_ptr.depth());
-                                        free_node(tmp_ptr.ptr(), BOX_NODE_SIZE);
-                                        wait = true
-                                    }
+                                if p_ins.ins_ptr().opt().is_some() {
+                                    let tmp_ptr = vpackage(
+                                        p_ins.ins_ptr().opt(),
+                                        Scaled::ZERO,
+                                        PackMode::Additional as _,
+                                        Scaled::MAX_HALFWORD,
+                                    );
+                                    p_ins.set_height(tmp_ptr.height() + tmp_ptr.depth());
+                                    free_node(tmp_ptr.ptr(), BOX_NODE_SIZE);
+                                    wait = true
                                 }
                             }
 
@@ -418,12 +418,10 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
     if let Some(p) = LLIST_link(PAGE_HEAD as usize).opt() {
         if let Some(ch) = llist_link(CONTRIB_HEAD) {
             *LLIST_link(page_tail) = Some(ch).tex_int();
+        } else if NEST_PTR == 0 {
+            cur_list.tail = page_tail;
         } else {
-            if NEST_PTR == 0 {
-                cur_list.tail = page_tail;
-            } else {
-                NEST[0].tail = page_tail;
-            }
+            NEST[0].tail = page_tail;
         }
 
         *LLIST_link(CONTRIB_HEAD) = Some(p).tex_int();
@@ -757,13 +755,11 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                 {
                     done1(p.ptr());
                     false
+                } else if let Some(res) = with_penalty(input, p.ptr(), p.penalty()) {
+                    res
                 } else {
-                    if let Some(res) = with_penalty(input, p.ptr(), p.penalty()) {
-                        res
-                    } else {
-                        contribute(p.ptr());
-                        false
-                    }
+                    contribute(p.ptr());
+                    false
                 }
             }
             TxtNode::Mark(m) => {

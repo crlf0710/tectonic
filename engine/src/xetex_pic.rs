@@ -2,6 +2,7 @@
 
 use crate::t_eprint;
 use std::ffi::CString;
+use std::ptr;
 
 use crate::help;
 use crate::node::Picture;
@@ -19,7 +20,7 @@ use dpx::{bmp_get_bbox, check_for_bmp};
 use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
-use dpx::{pdf_obj, pdf_open, pdf_release_obj};
+use dpx::{pdf_open, pdf_release_obj};
 
 use euclid::{point2, size2, Angle};
 type Transform = euclid::Transform2D<f64, (), ()>;
@@ -55,7 +56,7 @@ unsafe fn pdf_get_rect(
         page_num = pages
     }
     if page_num < 0 {
-        page_num = pages + 1 + page_num
+        page_num += pages + 1;
     }
     if page_num < 1 {
         page_num = 1
@@ -68,10 +69,10 @@ unsafe fn pdf_get_rect(
         3 => 5,
         4 => 4,
         5 => 3,
-        1 | _ => 1,
+        _ => 1,
     };
     if let Some((page, mut bbox, matrix)) =
-        pdf_doc_get_page(pf, page_num, dpx_options, 0 as *mut *mut pdf_obj)
+        pdf_doc_get_page(pf, page_num, dpx_options, ptr::null_mut())
     {
         pdf_release_obj(page);
         /* Image's attribute "bbox" here is affected by /Rotate entry of included

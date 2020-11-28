@@ -56,10 +56,11 @@ pub(crate) unsafe fn tt_xetex_open_input(filename: &str, filefmt: TTInputFormat)
         InFile::open(&filename, filefmt as TTInputFormat, 0)
     };
     if handle.is_none() {
-        return None;
+        None
+    } else {
+        name_of_input_file = filename.to_string();
+        handle
     }
-    name_of_input_file = filename.to_string();
-    handle
 }
 /* tables/values used in UTF-8 interpretation -
 code is based on ConvertUTF.[ch] sample code
@@ -86,7 +87,7 @@ pub(crate) unsafe fn set_input_file_encoding(f: &mut UFILE, mode: UnicodeMode, e
     if f.encodingMode as i32 == 5i32 && !f.conversionData.is_null() {
         icu::ucnv_close(f.conversionData as *mut icu::UConverter);
     }
-    f.conversionData = 0 as *mut libc::c_void;
+    f.conversionData = ptr::null_mut();
     match mode {
         UnicodeMode::Utf8 | UnicodeMode::Utf16be | UnicodeMode::Utf16le | UnicodeMode::Raw => {
             f.encodingMode = mode
@@ -120,16 +121,13 @@ pub(crate) unsafe fn u_open_in(
     mut mode: UnicodeMode,
     encodingData: i32,
 ) -> Option<Box<UFILE>> {
-    let handle = tt_xetex_open_input(filename, filefmt);
-    if handle.is_none() {
-        return None;
-    }
+    let handle = tt_xetex_open_input(filename, filefmt)?;
     let mut ufile = Box::new(UFILE {
         encodingMode: UnicodeMode::Auto,
-        conversionData: 0 as *mut libc::c_void,
+        conversionData: ptr::null_mut(),
         savedChar: -1,
         skipNextLF: 0,
-        handle,
+        handle: Some(handle),
     });
     if mode == UnicodeMode::Auto {
         /* sniff encoding form */
@@ -180,7 +178,7 @@ unsafe fn apply_normalization(buf: *mut u32, len: i32, norm: i32) {
         as *mut teckit::TECkit_Converter;
     if (*normPtr).is_null() {
         let status = teckit::TECkit_CreateConverter(
-            0 as *mut u8,
+            ptr::null_mut(),
             0i32 as u32,
             1i32 as u8,
             6i32 as u16,

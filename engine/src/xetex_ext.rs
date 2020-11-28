@@ -1594,8 +1594,7 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
                 if *glyphAdvances.offset(i_1 as isize) == Scaled::ZERO && lsDelta != Scaled::ZERO {
                     lsDelta -= lsUnit
                 }
-                let ref mut fresh31 = (*locations.offset(i_1 as isize)).x;
-                *fresh31 += lsDelta;
+                (*locations.offset(i_1 as isize)).x += lsDelta;
                 lsDelta += lsUnit;
             }
             if lsDelta != Scaled::ZERO {
@@ -1640,7 +1639,7 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
                     }
                     _ => {}
                 }
-                cacheGlyphBBox(f as u16, *glyphIDs_0.offset(i_2 as isize), &mut bbox);
+                cacheGlyphBBox(f as u16, *glyphIDs_0.offset(i_2 as isize), &bbox);
             }
             let ht = bbox.yMax;
             let dp = -bbox.yMin;
@@ -1659,22 +1658,21 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
 pub(crate) unsafe fn real_get_native_italic_correction(node: &NativeWord) -> Scaled {
     let f = node.font() as usize;
     let n = node.glyph_count() as u32;
-    if n > 0_u32 {
+    if n > 0 {
         let locations: *mut FixedPoint = node.glyph_info_ptr() as *mut FixedPoint;
         let glyphIDs: *mut u16 = locations.offset(n as isize) as *mut u16;
         match &FONT_LAYOUT_ENGINE[f] {
             #[cfg(target_os = "macos")]
             Font::Native(Aat(engine)) => {
-                return D2Fix(aat::GetGlyphItalCorr_AAT(
+                D2Fix(aat::GetGlyphItalCorr_AAT(
                     *engine,
                     *glyphIDs.offset(n.wrapping_sub(1i32 as libc::c_uint) as isize),
-                )) + FONT_LETTER_SPACE[f];
+                )) + FONT_LETTER_SPACE[f]
             }
-            Font::Native(Otgr(engine)) => {
-                return D2Fix(engine.get_glyph_ital_corr(*glyphIDs.offset(n.wrapping_sub(1_u32) as isize) as u32,
-                ) as f64)
-                    + FONT_LETTER_SPACE[f];
-            }
+            Font::Native(Otgr(engine)) => D2Fix(
+                engine.get_glyph_ital_corr(*glyphIDs.offset(n.wrapping_sub(1_u32) as isize) as u32)
+                    as f64,
+            ) + FONT_LETTER_SPACE[f],
             _ => Scaled::ZERO,
         }
     } else {

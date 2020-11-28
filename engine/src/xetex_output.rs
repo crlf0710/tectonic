@@ -147,15 +147,13 @@ unsafe fn print_term_char<W: io::Write>(stdout: &mut W, s: char, nl: i32) -> io:
 unsafe fn print_file_char<W: io::Write>(file: &mut W, s: char, nl: i32) -> io::Result<()> {
     if (s as i32) == nl {
         file.write_all(b"\n")?;
-    } else {
-        if s.is_control() {
-            let (buf, len) = replace_control(s);
-            for &c in &buf[..len] {
-                write!(file, "{}", char::from(c))?;
-            }
-        } else {
-            write!(file, "{}", s)?;
+    } else if s.is_control() {
+        let (buf, len) = replace_control(s);
+        for &c in &buf[..len] {
+            write!(file, "{}", char::from(c))?;
         }
+    } else {
+        write!(file, "{}", s)?;
     }
     Ok(())
 }
@@ -356,50 +354,48 @@ impl fmt::Display for Cs {
             if f.alternate() {
                 if p < HASH_BASE as i32 {
                     if p < SINGLE_BASE as i32 {
-                        std::char::from_u32((p - 1) as u32).unwrap().fmt(f)?;
+                        std::char::from_u32((p - 1) as u32).unwrap().fmt(f)
                     } else if p < NULL_CS as i32 {
-                        Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string()).fmt(f)?;
+                        Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string()).fmt(f)
                     } else {
                         Esc("csname").fmt(f)?;
+                        Esc("endcsname").fmt(f)
+                    }
+                } else {
+                    Esc(&PoolString::from((*hash.add(p as usize)).s1).to_string()).fmt(f)
+                }
+            } else if p < HASH_BASE as i32 {
+                if p >= SINGLE_BASE as i32 {
+                    if p == NULL_CS as i32 {
+                        Esc("csname").fmt(f)?;
                         Esc("endcsname").fmt(f)?;
-                    }
-                } else {
-                    Esc(&PoolString::from((*hash.add(p as usize)).s1).to_string()).fmt(f)?;
-                };
-            } else {
-                if p < HASH_BASE as i32 {
-                    if p >= SINGLE_BASE as i32 {
-                        if p == NULL_CS as i32 {
-                            Esc("csname").fmt(f)?;
-                            Esc("endcsname").fmt(f)?;
-                            ' '.fmt(f)?;
-                        } else {
-                            Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string()).fmt(f)?;
-                            if *CAT_CODE(p as usize - SINGLE_BASE) == Cmd::Letter as _ {
-                                ' '.fmt(f)?;
-                            }
-                        }
-                    } else if p < ACTIVE_BASE as i32 {
-                        Esc("IMPOSSIBLE").fmt(f)?;
-                        '.'.fmt(f)?;
+                        ' '.fmt(f)
                     } else {
-                        std::char::from_u32((p - 1) as u32).unwrap().fmt(f)?;
+                        Esc(&PoolString::from(p - SINGLE_BASE as i32).to_string()).fmt(f)?;
+                        if *CAT_CODE(p as usize - SINGLE_BASE) == Cmd::Letter as _ {
+                            ' '.fmt(f)?;
+                        }
+                        Ok(())
                     }
-                } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE as i32
-                    || p > EQTB_TOP as i32
-                {
+                } else if p < ACTIVE_BASE as i32 {
                     Esc("IMPOSSIBLE").fmt(f)?;
-                    '.'.fmt(f)?;
-                } else if (*hash.add(p as usize)).s1 >= str_ptr {
-                    Esc("NONEXISTENT").fmt(f)?;
-                    '.'.fmt(f)?;
+                    '.'.fmt(f)
                 } else {
-                    Esc(&PoolString::from((*hash.add(p as usize)).s1).to_string()).fmt(f)?;
-                    ' '.fmt(f)?;
-                };
+                    std::char::from_u32((p - 1) as u32).unwrap().fmt(f)
+                }
+            } else if p >= UNDEFINED_CONTROL_SEQUENCE as i32 && p <= EQTB_SIZE as i32
+                || p > EQTB_TOP as i32
+            {
+                Esc("IMPOSSIBLE").fmt(f)?;
+                '.'.fmt(f)
+            } else if (*hash.add(p as usize)).s1 >= str_ptr {
+                Esc("NONEXISTENT").fmt(f)?;
+                '.'.fmt(f)
+            } else {
+                Esc(&PoolString::from((*hash.add(p as usize)).s1).to_string()).fmt(f)?;
+                ' '.fmt(f)
             }
         }
-        Ok(())
     }
 }
 
@@ -580,9 +576,9 @@ impl fmt::Display for SaNum {
             } else {
                 n = MEM[q].b16.s1 as i32 % 64;
                 q = MEM[q].b32.s1 as usize;
-                n = n + 64 * MEM[q].b16.s1 as i32;
+                n += 64 * MEM[q].b16.s1 as i32;
                 q = MEM[q].b32.s1 as usize;
-                n = n + 64
+                n += 64
                     * 64
                     * (MEM[q].b16.s1 as i32 + 64 * MEM[MEM[q].b32.s1 as usize].b16.s1 as i32)
             }
@@ -620,7 +616,7 @@ impl fmt::Display for Roman {
         loop {
             while n >= v {
                 char::from(roman_data[j as usize]).fmt(f)?;
-                n = n - v
+                n -= v;
             }
             if n <= 0 {
                 return Ok(());
@@ -629,14 +625,14 @@ impl fmt::Display for Roman {
             let mut u = v / (roman_data[k as usize - 1] as i32 - '0' as i32);
             if roman_data[k as usize - 1] as i32 == '2' as i32 {
                 k += 2;
-                u = u / (roman_data[k as usize - 1] as i32 - '0' as i32)
+                u /= roman_data[k as usize - 1] as i32 - '0' as i32;
             }
             if n + u >= v {
                 char::from(roman_data[k as usize]).fmt(f)?;
-                n = n + u
+                n += u;
             } else {
                 j += 2;
-                v = v / (roman_data[j as usize - 1] as i32 - '0' as i32)
+                v /= roman_data[j as usize - 1] as i32 - '0' as i32;
             }
         }
     }
