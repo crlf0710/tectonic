@@ -724,7 +724,7 @@ pub(crate) unsafe fn getIndLanguage(
     use bridge::size_t;
     let mut rval: hb_tag_t = 0i32 as hb_tag_t;
     let face = hb_font_get_face(font.get_hb_font());
-    let mut scriptList: *mut hb_tag_t = 0 as *mut hb_tag_t;
+    let mut scriptList = ptr::null_mut();
     let scriptCount = getLargerScriptListTable(font, &mut scriptList);
     if !scriptList.is_null() {
         let mut i: libc::c_uint = 0i32 as libc::c_uint;

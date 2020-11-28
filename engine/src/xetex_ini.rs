@@ -1061,7 +1061,7 @@ where
         }
         val = id_lookup(first as usize, len);
         PoolString::flush();
-        (*hash.offset(val as isize)).s1 = s;
+        (*hash.add(val as usize)).s1 = s;
         prim_val = prim_lookup(s)
     } else {
         val = b_ident[0] as i32 + SINGLE_BASE as i32;
@@ -2496,12 +2496,12 @@ unsafe fn initialize_more_initex_variables() {
     hash_used = FROZEN_CONTROL_SEQUENCE as i32;
     hash_high = 0;
     cs_count = 0;
-    EQTB[FROZEN_DONT_EXPAND as usize].cmd = Cmd::DontExpand as _;
-    (*hash.offset(FROZEN_DONT_EXPAND as isize)).s1 = maketexstring("notexpanded:");
-    EQTB[FROZEN_PRIMITIVE as usize].cmd = Cmd::IgnoreSpaces as u16;
-    EQTB[FROZEN_PRIMITIVE as usize].val = 1;
-    EQTB[FROZEN_PRIMITIVE as usize].lvl = LEVEL_ONE;
-    (*hash.offset(FROZEN_PRIMITIVE as isize)).s1 = maketexstring("primitive");
+    EQTB[FROZEN_DONT_EXPAND].cmd = Cmd::DontExpand as _;
+    (*hash.add(FROZEN_DONT_EXPAND)).s1 = maketexstring("notexpanded:");
+    EQTB[FROZEN_PRIMITIVE].cmd = Cmd::IgnoreSpaces as u16;
+    EQTB[FROZEN_PRIMITIVE].val = 1;
+    EQTB[FROZEN_PRIMITIVE].lvl = LEVEL_ONE;
+    (*hash.add(FROZEN_PRIMITIVE)).s1 = maketexstring("primitive");
 
     for k in (-TRIE_OP_SIZE)..=TRIE_OP_SIZE {
         _trie_op_hash_array[(k as i64 - -35111) as usize] = 0;
@@ -2514,14 +2514,14 @@ unsafe fn initialize_more_initex_variables() {
     max_op_used = MIN_TRIE_OP;
     trie_op_ptr = 0;
     trie_not_ready = true;
-    (*hash.offset(FROZEN_PROTECTION as isize)).s1 = maketexstring("inaccessible");
+    (*hash.add(FROZEN_PROTECTION)).s1 = maketexstring("inaccessible");
 
     format_ident = maketexstring(" (INITEX)");
 
-    (*hash.offset(END_WRITE as isize)).s1 = maketexstring("endwrite");
-    EQTB[END_WRITE as usize].lvl = LEVEL_ONE;
-    EQTB[END_WRITE as usize].cmd = Cmd::OuterCall as u16;
-    EQTB[END_WRITE as usize].val = None.tex_int();
+    (*hash.add(END_WRITE)).s1 = maketexstring("endwrite");
+    EQTB[END_WRITE].lvl = LEVEL_ONE;
+    EQTB[END_WRITE].cmd = Cmd::OuterCall as u16;
+    EQTB[END_WRITE].val = None.tex_int();
 
     max_reg_num = 32767;
     max_reg_help_line = "A register number must be between 0 and 32767.";
@@ -3089,7 +3089,7 @@ unsafe fn initialize_primitives() {
     primitive("divide", Cmd::Divide, 0);
     primitive("endcsname", Cmd::EndCSName, 0);
     let val = primitive("endgroup", Cmd::EndGroup, 0);
-    (*hash.offset(FROZEN_END_GROUP as isize)).s1 = maketexstring("endgroup");
+    (*hash.add(FROZEN_END_GROUP)).s1 = maketexstring("endgroup");
     EQTB[FROZEN_END_GROUP] = EQTB[val as usize];
     primitive("expandafter", Cmd::ExpandAfter, 0);
     primitive("font", Cmd::DefFont, 0);
@@ -3127,7 +3127,7 @@ unsafe fn initialize_primitives() {
     primitive("Uradical", Cmd::Radical, 1);
     primitive("read", Cmd::ReadToCS, 0);
     let val = primitive("relax", Cmd::Relax, TOO_BIG_USV as i32);
-    (*hash.offset(FROZEN_RELAX as isize)).s1 = maketexstring("relax");
+    (*hash.add(FROZEN_RELAX)).s1 = maketexstring("relax");
     EQTB[FROZEN_RELAX] = EQTB[val as usize];
     primitive("setbox", Cmd::SetBox, 0);
     primitive("the", Cmd::The, 0);
@@ -3209,23 +3209,23 @@ unsafe fn initialize_primitives() {
     primitive("ifprimitive", Cmd::IfTest, IfTestCode::IfPrimitive);
 
     let val = primitive("fi", Cmd::FiOrElse, FiOrElseCode::Fi);
-    (*hash.offset(FROZEN_FI as isize)).s1 = maketexstring("fi");
+    (*hash.add(FROZEN_FI)).s1 = maketexstring("fi");
     EQTB[FROZEN_FI] = EQTB[val as usize];
     primitive("or", Cmd::FiOrElse, FiOrElseCode::Or);
     primitive("else", Cmd::FiOrElse, FiOrElseCode::Else);
 
     let val = primitive("nullfont", Cmd::SetFont, FONT_BASE);
-    (*hash.offset(FROZEN_NULL_FONT as isize)).s1 = maketexstring("nullfont");
+    (*hash.add(FROZEN_NULL_FONT)).s1 = maketexstring("nullfont");
     EQTB[FROZEN_NULL_FONT] = EQTB[val as usize];
 
     primitive("span", Cmd::TabMark, SPAN_CODE);
     let val = primitive("cr", Cmd::CarRet, CR_CODE);
-    (*hash.offset(FROZEN_CR as isize)).s1 = maketexstring("cr");
+    (*hash.add(FROZEN_CR)).s1 = maketexstring("cr");
     EQTB[FROZEN_CR] = EQTB[val as usize];
     primitive("crcr", Cmd::CarRet, CR_CR_CODE);
 
-    (*hash.offset(FROZEN_END_TEMPLATE as isize)).s1 = maketexstring("endtemplate");
-    (*hash.offset(FROZEN_ENDV as isize)).s1 = maketexstring("endtemplate");
+    (*hash.add(FROZEN_END_TEMPLATE)).s1 = maketexstring("endtemplate");
+    (*hash.add(FROZEN_ENDV)).s1 = maketexstring("endtemplate");
     EQTB[FROZEN_ENDV].cmd = Cmd::EndV as u16;
     EQTB[FROZEN_ENDV].val = NULL_LIST as i32;
     EQTB[FROZEN_ENDV].lvl = LEVEL_ONE;
@@ -3333,7 +3333,7 @@ unsafe fn initialize_primitives() {
 
     primitive("left", Cmd::LeftRight, MathNode::Left as i32);
     let val = primitive("right", Cmd::LeftRight, MathNode::Right as i32);
-    (*hash.offset(FROZEN_RIGHT as isize)).s1 = maketexstring("right");
+    (*hash.add(FROZEN_RIGHT)).s1 = maketexstring("right");
     EQTB[FROZEN_RIGHT] = EQTB[val as usize];
 
     primitive("long", Cmd::Prefix, 1);
@@ -3452,7 +3452,7 @@ unsafe fn initialize_primitives() {
     write_loc = val;
     primitive("closeout", Cmd::Extension, CloseFile::WHATS_IT as i32);
     let val = primitive("special", Cmd::Extension, Special::WHATS_IT as i32);
-    (*hash.offset(FROZEN_SPECIAL as isize)).s1 = maketexstring("special");
+    (*hash.add(FROZEN_SPECIAL)).s1 = maketexstring("special");
     EQTB[FROZEN_SPECIAL] = EQTB[val as usize];
     primitive("immediate", Cmd::Extension, IMMEDIATE_CODE as i32);
     primitive("setlanguage", Cmd::Extension, SET_LANGUAGE_CODE as i32);
@@ -3625,11 +3625,11 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         }
         yhash = xmalloc_array((1 + hash_top - hash_offset) as usize);
         hash = yhash.offset(-514);
-        (*hash.offset((HASH_BASE) as isize)).s0 = 0;
-        (*hash.offset((HASH_BASE) as isize)).s1 = 0;
+        (*hash.add(HASH_BASE)).s0 = 0;
+        (*hash.add(HASH_BASE)).s1 = 0;
         hash_used = HASH_BASE as i32 + 1;
         while hash_used <= hash_top {
-            *hash.offset(hash_used as isize) = *hash.offset(HASH_BASE as isize);
+            *hash.add(hash_used as usize) = *hash.add(HASH_BASE);
             hash_used += 1
         }
         EQTB = vec![EqtbWord::default(); EQTB_TOP + 1];

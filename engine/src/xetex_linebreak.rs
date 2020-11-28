@@ -2775,10 +2775,7 @@ unsafe fn find_protchar_left(mut l: usize, d: bool) -> usize {
     l
 }
 unsafe fn find_protchar_right(mut l: Option<usize>, r: Option<usize>) -> Option<usize> {
-    if r.is_none() {
-        return None;
-    }
-    let mut r = r.unwrap();
+    let mut r = r?;
     let mut hlist_stack: Vec<(Option<usize>, usize)> = Vec::new();
     let mut run = true;
     loop {

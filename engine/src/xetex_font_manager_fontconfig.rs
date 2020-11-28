@@ -34,6 +34,8 @@ authorization from the copyright holders.
 #![cfg(not(target_os = "macos"))]
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use std::ptr;
+
 use super::{
     XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList, XeTeXFontMgr_base_ctor,
     XeTeXFontMgr_base_getOpSizeRecAndStyleFlags, XeTeXFontMgr_prependToList,
@@ -441,7 +443,7 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
                 continue;
             }
 
-            let mut s: *mut libc::c_char = 0 as *mut libc::c_char;
+            let mut s: *mut libc::c_char = ptr::null_mut();
             let mut i = 0;
             while FcPatternGetString(
                 pat,
@@ -522,10 +524,10 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
 #[no_mangle]
 pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(self_0: *mut XeTeXFontMgr) {
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
-    if FcInit() == 0i32 {
+    if FcInit() == 0 {
         abort!("fontconfig initialization failed");
     }
-    if gFreeTypeLibrary.is_null() && FT_Init_FreeType(&mut gFreeTypeLibrary) != 0i32 {
+    if gFreeTypeLibrary.is_null() && FT_Init_FreeType(&mut gFreeTypeLibrary) != 0 {
         abort!("FreeType initialization failed");
     }
     let mut err: icu::UErrorCode = icu::U_ZERO_ERROR;
@@ -561,19 +563,19 @@ pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(self_0: *mut XeTeXFont
     let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
     if !(*real_self).allFonts.is_null() {
         FcFontSetDestroy((*real_self).allFonts);
-        (*real_self).allFonts = 0 as *mut FcFontSet;
+        (*real_self).allFonts = ptr::null_mut();
     }
     if !macRomanConv.is_null() {
         icu::ucnv_close(macRomanConv);
-        macRomanConv = 0 as *mut icu::UConverter
+        macRomanConv = ptr::null_mut();
     }
     if !utf16beConv.is_null() {
         icu::ucnv_close(utf16beConv);
-        utf16beConv = 0 as *mut icu::UConverter
+        utf16beConv = ptr::null_mut();
     }
     if !utf8Conv.is_null() {
         icu::ucnv_close(utf8Conv);
-        utf8Conv = 0 as *mut icu::UConverter
+        utf8Conv = ptr::null_mut();
     };
 }
 #[no_mangle]
@@ -581,7 +583,7 @@ pub(crate) unsafe fn XeTeXFontMgr_FC_getPlatformFontDesc(
     mut _self_0: *const XeTeXFontMgr,
     font: PlatformFontRef,
 ) -> String {
-    let mut s: *mut u8 = 0 as *mut u8;
+    let mut s: *mut u8 = ptr::null_mut();
     if FcPatternGetString(
         font,
         b"file\x00" as *const u8 as *const libc::c_char,
@@ -611,5 +613,5 @@ pub(crate) unsafe fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {
 pub(crate) unsafe fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {
     let self_0 = malloc(::std::mem::size_of::<XeTeXFontMgr_FC>()) as *mut XeTeXFontMgr_FC;
     XeTeXFontMgr_FC_ctor(self_0);
-    return self_0;
+    self_0
 }

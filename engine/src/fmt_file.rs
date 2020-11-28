@@ -341,22 +341,21 @@ pub(crate) unsafe fn store_fmt_file() {
     cs_count = (FROZEN_CONTROL_SEQUENCE as i32 - 1) - hash_used + hash_high;
 
     for p in (HASH_BASE as i32)..=hash_used {
-        if (*hash.offset(p as isize)).s1 != 0 {
+        if (*hash.add(p as usize)).s1 != 0 {
             fmt_out.dump_one(p as i32);
-            fmt_out.dump_one(*hash.offset(p as isize));
+            fmt_out.dump_one(*hash.add(p as usize));
             cs_count += 1;
         }
     }
 
     let dump_slice = std::slice::from_raw_parts(
-        hash.offset((hash_used + 1i32) as isize),
+        hash.add((hash_used + 1) as usize),
         ((UNDEFINED_CONTROL_SEQUENCE as i32 - 1) - hash_used) as _,
     );
     fmt_out.dump(dump_slice);
 
     if hash_high > 0 {
-        let dump_slice =
-            std::slice::from_raw_parts(hash.offset(EQTB_SIZE as isize + 1), hash_high as usize);
+        let dump_slice = std::slice::from_raw_parts(hash.add(EQTB_SIZE + 1), hash_high as usize);
         fmt_out.dump(dump_slice);
     }
 
@@ -397,10 +396,7 @@ pub(crate) unsafe fn store_fmt_file() {
     for k in FONT_BASE..=FONT_PTR {
         t_print_nl!(
             "\\font{}=",
-            Esc(
-                &PoolString::from((*hash.offset(FONT_ID_BASE as isize + k as isize)).s1)
-                    .to_string()
-            )
+            Esc(&PoolString::from((*hash.add(FONT_ID_BASE + k)).s1).to_string())
         );
 
         if matches!(&FONT_LAYOUT_ENGINE[k], crate::xetex_ext::Font::Native(_))
@@ -825,20 +821,20 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         } else {
             p = x;
         }
-        fmt_in.undump_one(&mut *hash.offset(p as isize));
+        fmt_in.undump_one(&mut *hash.add(p as usize));
         if !(p != hash_used) {
             break;
         }
     }
     let undump_slice = std::slice::from_raw_parts_mut(
-        hash.offset((hash_used + 1) as isize),
+        hash.add((hash_used + 1) as usize),
         (UNDEFINED_CONTROL_SEQUENCE - 1) - (hash_used as usize),
     );
 
     fmt_in.undump(undump_slice);
     if hash_high > 0 {
         let undump_slice =
-            std::slice::from_raw_parts_mut(hash.offset(EQTB_SIZE as isize + 1), hash_high as usize);
+            std::slice::from_raw_parts_mut(hash.add(EQTB_SIZE + 1), hash_high as usize);
         fmt_in.undump(undump_slice);
     }
 

@@ -280,7 +280,7 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
             rval = a as *mut libc::c_void
         }
     }
-    return rval;
+    rval
 }
 pub(crate) unsafe fn free_ot_assembly(a: *mut GlyphAssembly) {
     if a.is_null() {

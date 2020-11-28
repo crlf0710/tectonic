@@ -349,7 +349,7 @@ pub(crate) unsafe fn print_esc_cstr(s: &str) {
 }
 
 pub(crate) struct Cs(pub(crate) i32);
-impl<'a> fmt::Display for Cs {
+impl fmt::Display for Cs {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         unsafe {
             let p = self.0;
@@ -364,7 +364,7 @@ impl<'a> fmt::Display for Cs {
                         Esc("endcsname").fmt(f)?;
                     }
                 } else {
-                    Esc(&PoolString::from((*hash.offset(p as isize)).s1).to_string()).fmt(f)?;
+                    Esc(&PoolString::from((*hash.add(p as usize)).s1).to_string()).fmt(f)?;
                 };
             } else {
                 if p < HASH_BASE as i32 {
@@ -390,11 +390,11 @@ impl<'a> fmt::Display for Cs {
                 {
                     Esc("IMPOSSIBLE").fmt(f)?;
                     '.'.fmt(f)?;
-                } else if (*hash.offset(p as isize)).s1 >= str_ptr {
+                } else if (*hash.add(p as usize)).s1 >= str_ptr {
                     Esc("NONEXISTENT").fmt(f)?;
                     '.'.fmt(f)?;
                 } else {
-                    Esc(&PoolString::from((*hash.offset(p as isize)).s1).to_string()).fmt(f)?;
+                    Esc(&PoolString::from((*hash.add(p as usize)).s1).to_string()).fmt(f)?;
                     ' '.fmt(f)?;
                 };
             }
@@ -404,7 +404,7 @@ impl<'a> fmt::Display for Cs {
 }
 
 use crate::xetex_xetex0::FileName;
-impl<'a> fmt::Display for FileName {
+impl fmt::Display for FileName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // TODO: optimize
         let n = self.name;

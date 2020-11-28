@@ -653,24 +653,31 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
         popt = llist_link(p);
     }
 }
-pub(crate) unsafe fn print_font_and_char(p: usize) {
-    if p > mem_end as usize {
-        t_print!("{}", Esc("CLOBBERED."));
-    } else {
-        if MEM[p].b16.s1 as i32 > FONT_MAX as i32 {
-            t_print!("* ");
-        } else {
-            /*279: */
-            t_print!(
-                "{} ",
-                Esc(&PoolString::from(
-                    (*hash.offset((FONT_ID_BASE as i32 + MEM[p].b16.s1 as i32) as isize)).s1
-                )
-                .to_string())
-            );
+impl fmt::Display for Char {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unsafe {
+            if self.ptr() > mem_end as usize {
+                Esc("CLOBBERED").fmt(f)?;
+                '.'.fmt(f)?;
+            } else {
+                if self.font() as i32 > FONT_MAX as i32 {
+                    "* ".fmt(f)?;
+                } else {
+                    /*279: */
+                    Esc(
+                        &PoolString::from((*hash.add(FONT_ID_BASE + self.font() as usize)).s1)
+                            .to_string(),
+                    )
+                    .fmt(f)?;
+                    ' '.fmt(f)?;
+                }
+                std::char::from_u32(self.character() as u32)
+                    .unwrap()
+                    .fmt(f)?;
+            }
         }
-        t_print!("{}", std::char::from_u32(MEM[p].b16.s0 as u32).unwrap());
-    };
+        Ok(())
+    }
 }
 pub(crate) unsafe fn print_mark(p: i32) {
     print_chr('{');
@@ -737,7 +744,7 @@ pub(crate) unsafe fn print_fam_and_char(p: usize) {
     t_print!(
         "{}{} {}",
         Esc("fam"),
-        MEM[p].b16.s1 as i32 % 256 % 256,
+        MEM[p].b16.s1 as i32 % 256,
         std::char::from_u32(c as u32).unwrap()
     );
 }
@@ -831,7 +838,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
         }
         let p = p as usize;
         match Node::from(p) {
-            Node::Char(_) => print_font_and_char(p as _),
+            Node::Char(c) => t_print!("{}", c),
             Node::Text(n) => match n {
                 TxtNode::List(p) => {
                     t_print!(
@@ -954,8 +961,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!(
                             "{} {}",
                             Esc(&PoolString::from(
-                                (*hash.offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
-                                    .s1,
+                                (*hash.add(FONT_ID_BASE + nw.font() as usize)).s1,
                             )
                             .to_string()),
                             nw
@@ -965,7 +971,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!(
                             "{} glyph#{}",
                             Esc(&PoolString::from(
-                                (*hash.offset((FONT_ID_BASE as i32 + g.font() as i32) as isize)).s1,
+                                (*hash.add(FONT_ID_BASE + g.font() as usize)).s1,
                             )
                             .to_string()),
                             g.glyph() as i32
@@ -1071,7 +1077,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     }
                 },
                 TxtNode::Ligature(l) => {
-                    print_font_and_char(l.ptr() + 1);
+                    t_print!("{}", l.as_char());
                     t_print!(" (ligature ");
                     if l.left_hit() {
                         print_chr('|');
@@ -2688,27 +2694,27 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
     let mut p = h + HASH_BASE as i32;
     let mut ll = l;
     for d in 0..=l - 1 {
-        if BUFFER[(j + d) as usize] as i64 >= 65536 {
+        if BUFFER[j + d] as i64 >= 65536 {
             ll += 1
         }
     }
     loop {
-        if (*hash.offset(p as isize)).s1 > 0 {
-            let ps = PoolString::from((*hash.offset(p as isize)).s1);
+        if (*hash.add(p as usize)).s1 > 0 {
+            let ps = PoolString::from((*hash.add(p as usize)).s1);
             if ps.len() == ll {
                 if str_eq_buf(&ps, j) {
                     break;
                 }
             }
         }
-        if (*hash.offset(p as isize)).s0 == 0 {
+        if (*hash.add(p as usize)).s0 == 0 {
             if no_new_control_sequence {
                 p = UNDEFINED_CONTROL_SEQUENCE as i32;
             } else {
-                if (*hash.offset(p as isize)).s1 > 0 {
+                if (*hash.add(p as usize)).s1 > 0 {
                     if hash_high < hash_extra {
                         hash_high += 1;
-                        (*hash.offset(p as isize)).s0 = hash_high + EQTB_SIZE as i32;
+                        (*hash.add(p as usize)).s0 = hash_high + EQTB_SIZE as i32;
                         p = hash_high + EQTB_SIZE as i32;
                     } else {
                         loop {
@@ -2716,11 +2722,11 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
                                 overflow("hash size", HASH_SIZE + hash_extra as usize);
                             }
                             hash_used -= 1;
-                            if !((*hash.offset(hash_used as isize)).s1 != 0) {
+                            if !((*hash.add(hash_used as usize)).s1 != 0) {
                                 break;
                             }
                         }
-                        (*hash.offset(p as isize)).s0 = hash_used;
+                        (*hash.add(p as usize)).s0 = hash_used;
                         p = hash_used
                     }
                 }
@@ -2742,12 +2748,12 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
                         pool_ptr += 1
                     }
                 }
-                (*hash.offset(p as isize)).s1 = make_string();
+                (*hash.add(p as usize)).s1 = make_string();
                 pool_ptr += d
             }
             break;
         } else {
-            p = (*hash.offset(p as isize)).s0
+            p = (*hash.add(p as usize)).s0
         }
     }
     p
@@ -5123,7 +5129,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         cs = if cs < HASH_BASE as i32 {
                             prim_lookup(cs - SINGLE_BASE as i32) as i32
                         } else {
-                            prim_lookup((*hash.offset(cs as isize)).s1) as i32
+                            prim_lookup((*hash.add(cs as usize)).s1) as i32
                         };
                         if cs == UNDEFINED_PRIMITIVE {
                             break;
@@ -5866,7 +5872,7 @@ pub(crate) unsafe fn find_font_dimen(input: &mut input_state_t, writing: bool) -
     if val == fmem_ptr {
         t_eprint!(
             "Font {} has only {} fontdimen parameters",
-            Esc(&PoolString::from((*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1).to_string()),
+            Esc(&PoolString::from((*hash.add(FROZEN_NULL_FONT + f)).s1).to_string()),
             FONT_PARAMS[f]
         );
         help!(
@@ -7240,14 +7246,13 @@ pub(crate) unsafe fn scan_glue(input: &mut input_state_t, level: ValLevel) -> Gl
             }
         };
 
-        if tok == OTHER_TOKEN + "-" as i32 {
+        if tok == OTHER_TOKEN + '-' as i32 {
             negative = !negative;
-            tok = OTHER_TOKEN + "+" as i32
+            tok = OTHER_TOKEN + '+' as i32
         }
-        if !(tok == OTHER_TOKEN + 43) {
+        if tok != OTHER_TOKEN + '+' as i32 {
             break (tok, cmd, chr);
         }
-        /*"+"*/
     };
     let val = if cmd >= MIN_INTERNAL && cmd <= MAX_INTERNAL {
         let (val, val_level) = scan_something_internal(input, tok, cmd, chr, level, negative);
@@ -8826,7 +8831,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             let m = if cs < HASH_BASE as i32 {
                 prim_lookup(cs - SINGLE_BASE as i32)
             } else {
-                prim_lookup((*hash.offset(cs as isize)).s1)
+                prim_lookup((*hash.add(cs as usize)).s1)
             } as i32;
             b = cmd != Cmd::UndefinedCS
                 && m != UNDEFINED_PRIMITIVE
@@ -13223,7 +13228,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
     }
     let u = get_r_token(input).3 as usize;
     let t = if u >= HASH_BASE {
-        (*hash.offset(u as isize)).s1
+        (*hash.add(u)).s1
     } else if u >= SINGLE_BASE {
         if u == NULL_CS {
             maketexstring("FONT")
@@ -13322,8 +13327,8 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         } else {
             eq_define(u, Cmd::SetFont, Some(f));
         }
-        EQTB[(FROZEN_NULL_FONT + f) as usize] = EQTB[u];
-        (*hash.offset((FROZEN_NULL_FONT + f) as isize)).s1 = t;
+        EQTB[FROZEN_NULL_FONT + f] = EQTB[u];
+        (*hash.add(FROZEN_NULL_FONT + f)).s1 = t;
     }
 
     let f = crate::tfm::read_font_info(u as i32, &file, s, quoted_filename, file_name_quote_char)
@@ -14040,7 +14045,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             cur_cs = if cs < HASH_BASE as i32 {
                                 prim_lookup(cs - SINGLE_BASE as i32) as i32
                             } else {
-                                prim_lookup((*hash.offset(cs as isize)).s1) as i32
+                                prim_lookup((*hash.add(cs as usize)).s1) as i32
                             };
                             if cur_cs != UNDEFINED_PRIMITIVE {
                                 cur_cmd = Cmd::from(prim_eqtb[cur_cs as usize].cmd);
