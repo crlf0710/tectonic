@@ -141,7 +141,7 @@ pub(crate) unsafe fn first_fit(p: trie_pointer) {
         if !trie_taken[h as usize] {
             let mut q = trie_r[p as usize];
             loop {
-                if !(q > 0) {
+                if q <= 0 {
                     break 's_31;
                 }
                 if trie_trl[(h + trie_c[q as usize] as i32) as usize] == 0 {

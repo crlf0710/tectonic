@@ -328,7 +328,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
 
         tail_pic.path_mut().copy_from_slice(pic_path.as_bytes());
     } else {
-        t_eprint!("Unable to load picture or PDF file \'{}\'", file);
+        t_eprint!("Unable to load picture or PDF file \'{:#}\'", file);
         if result == -43i32 {
             help!(
                 "The requested image couldn\'t be read because",

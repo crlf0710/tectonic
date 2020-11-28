@@ -62,7 +62,7 @@ use freetype::freetype_sys::{
 };
 use freetype::freetype_sys::{
     FT_BBox, FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Glyph, FT_Int32, FT_Library, FT_Long,
-    FT_Parameter, FT_Pointer, FT_Sfnt_Tag, FT_String, FT_UInt, FT_ULong, FT_Vector,
+    FT_Pointer, FT_Sfnt_Tag, FT_UInt, FT_ULong, FT_Vector,
 };
 
 use bridge::{ttstub_input_get_size, InFile};
@@ -177,8 +177,8 @@ fn xbasename(name: &str) -> &str {
     let mut base = name;
     let mut p = base;
     while !p.is_empty() {
-        if p.chars().nth(0) == Some('/') {
-            base = &p[1..];
+        if let Some(stripped) = p.strip_prefix('/') {
+            base = stripped;
         }
         p = &p[1..];
     }
@@ -204,7 +204,7 @@ impl XeTeXFontInst {
             m_xHeight: 0i32 as f32,
             m_italicAngle: 0i32 as f32,
             m_vertical: false,
-            m_filename: 0 as *mut libc::c_char,
+            m_filename: ptr::null_mut(),
             m_index: 0,
             m_ftFace: 0 as FT_Face,
             m_backingData: Vec::new(),
@@ -478,7 +478,7 @@ unsafe extern "C" fn _get_font_funcs() -> *mut hb_font_funcs_t {
         ptr::null_mut(),
         None,
     );
-    hb_font_funcs_set_glyph_name_func(funcs, Some(_get_glyph_name), 0 as *mut libc::c_void, None);
+    hb_font_funcs_set_glyph_name_func(funcs, Some(_get_glyph_name), ptr::null_mut(), None);
     funcs
 }
 unsafe extern "C" fn _get_table(
@@ -488,12 +488,12 @@ unsafe extern "C" fn _get_table(
 ) -> *mut hb_blob_t {
     let face = user_data as FT_Face;
     let mut length: FT_ULong = 0i32 as FT_ULong;
-    let mut blob: *mut hb_blob_t = 0 as *mut hb_blob_t;
+    let mut blob = ptr::null_mut();
     let error = FT_Load_Sfnt_Table(
         face,
         tag as FT_ULong,
         0i32 as FT_Long,
-        0 as *mut FT_Byte,
+        ptr::null_mut(),
         &mut length,
     );
     if error == 0 {
@@ -570,12 +570,9 @@ impl XeTeXFontInst {
             // the Rust I/O layer.
             let mut afm = xbasename(pathname).to_string();
             if let Some(p) = afm.bytes().rposition(|b| b == b'.') {
-                match afm[p + 1..].to_lowercase().as_bytes() {
-                    [b'p', b'f', _] => {
-                        afm.truncate(p);
-                        afm += ".afm";
-                    }
-                    _ => {}
+                if let [b'p', b'f', _] = afm[p + 1..].to_lowercase().as_bytes() {
+                    afm.truncate(p);
+                    afm += ".afm";
                 }
             }
             let afm_handle = InFile::open(&afm, TTInputFormat::AFM, 0i32);
@@ -592,11 +589,11 @@ impl XeTeXFontInst {
                     flags: 0,
                     memory_base: ptr::null(),
                     memory_size: 0,
-                    pathname: 0 as *mut FT_String,
+                    pathname: ptr::null_mut(),
                     stream: ptr::null_mut(),
                     driver: ptr::null_mut(),
                     num_params: 0,
-                    params: 0 as *mut FT_Parameter,
+                    params: ptr::null_mut(),
                 };
                 open_args.flags = 0x1i32 as FT_UInt;
                 open_args.memory_base = self.m_backingData2.as_ptr();
@@ -808,7 +805,7 @@ impl XeTeXFontInst {
             prev = ch;
             ch = FT_Get_Next_Char(self.m_ftFace, ch as FT_ULong, &mut gindex) as UChar32
         }
-        return prev;
+        prev
     }
 
     pub(crate) fn get_hb_font(&self) -> *mut hb_font_t {

@@ -403,6 +403,7 @@ impl fmt::Display for Cs {
     }
 }
 
+use crate::xetex_texmfmp::gettexstring;
 use crate::xetex_xetex0::FileName;
 impl fmt::Display for FileName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -410,116 +411,122 @@ impl fmt::Display for FileName {
         let n = self.name;
         let a = self.area;
         let e = self.ext;
-        let mut must_quote: bool = false;
-        let mut quote_char = None;
-        if a != 0 {
-            for &j in PoolString::from(a).as_slice() {
-                if must_quote && quote_char.is_some() {
-                    break;
-                }
-                if j as i32 == ' ' as i32 {
-                    must_quote = true;
-                } else if j as i32 == '\"' as i32 {
-                    must_quote = true;
-                    quote_char = Some('\'');
-                } else if j as i32 == '\'' as i32 {
-                    must_quote = true;
-                    quote_char = Some('\"');
-                }
-            }
-        }
-        if n != 0 {
-            for &j in PoolString::from(n).as_slice() {
-                if must_quote && quote_char.is_some() {
-                    break;
-                }
-                if j as i32 == ' ' as i32 {
-                    must_quote = true;
-                } else if j as i32 == '\"' as i32 {
-                    must_quote = true;
-                    quote_char = Some('\'');
-                } else if j as i32 == '\'' as i32 {
-                    must_quote = true;
-                    quote_char = Some('\"');
+        if f.alternate() {
+            let mut must_quote: bool = false;
+            let mut quote_char = None;
+            if a != 0 {
+                for &j in PoolString::from(a).as_slice() {
+                    if must_quote && quote_char.is_some() {
+                        break;
+                    }
+                    if j as i32 == ' ' as i32 {
+                        must_quote = true;
+                    } else if j as i32 == '\"' as i32 {
+                        must_quote = true;
+                        quote_char = Some('\'');
+                    } else if j as i32 == '\'' as i32 {
+                        must_quote = true;
+                        quote_char = Some('\"');
+                    }
                 }
             }
-        }
-        if e != 0 {
-            for &j in PoolString::from(e).as_slice() {
-                if must_quote && quote_char.is_some() {
-                    break;
-                }
-                if j as i32 == ' ' as i32 {
-                    must_quote = true;
-                } else if j as i32 == '\"' as i32 {
-                    must_quote = true;
-                    quote_char = Some('\'');
-                } else if j as i32 == '\'' as i32 {
-                    must_quote = true;
-                    quote_char = Some('\"');
+            if n != 0 {
+                for &j in PoolString::from(n).as_slice() {
+                    if must_quote && quote_char.is_some() {
+                        break;
+                    }
+                    if j as i32 == ' ' as i32 {
+                        must_quote = true;
+                    } else if j as i32 == '\"' as i32 {
+                        must_quote = true;
+                        quote_char = Some('\'');
+                    } else if j as i32 == '\'' as i32 {
+                        must_quote = true;
+                        quote_char = Some('\"');
+                    }
                 }
             }
-        }
-        if must_quote {
+            if e != 0 {
+                for &j in PoolString::from(e).as_slice() {
+                    if must_quote && quote_char.is_some() {
+                        break;
+                    }
+                    if j as i32 == ' ' as i32 {
+                        must_quote = true;
+                    } else if j as i32 == '\"' as i32 {
+                        must_quote = true;
+                        quote_char = Some('\'');
+                    } else if j as i32 == '\'' as i32 {
+                        must_quote = true;
+                        quote_char = Some('\"');
+                    }
+                }
+            }
+            if must_quote {
+                if let Some(qc) = quote_char {
+                    qc.fmt(f)?;
+                } else {
+                    quote_char = Some('\"');
+                    '\"'.fmt(f)?;
+                }
+            }
+            if a != 0 {
+                for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
+                    let j = j.unwrap();
+                    if Some(j) == quote_char {
+                        j.fmt(f)?;
+                        let c = match j {
+                            '\"' => '\'',
+                            '\'' => '\"',
+                            _ => unreachable!(),
+                        };
+                        quote_char = Some(c);
+                        c.fmt(f)?;
+                    }
+                    j.fmt(f)?;
+                }
+            }
+            if n != 0 {
+                for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
+                    let j = j.unwrap();
+                    if Some(j) == quote_char {
+                        j.fmt(f)?;
+                        let c = match j {
+                            '\"' => '\'',
+                            '\'' => '\"',
+                            _ => unreachable!(),
+                        };
+                        quote_char = Some(c);
+                        c.fmt(f)?;
+                    }
+                    j.fmt(f)?;
+                }
+            }
+            if e != 0 {
+                for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
+                    let j = j.unwrap();
+                    if Some(j) == quote_char {
+                        j.fmt(f)?;
+                        let c = match j {
+                            '\"' => '\'',
+                            '\'' => '\"',
+                            _ => unreachable!(),
+                        };
+                        quote_char = Some(c);
+                        c.fmt(f)?;
+                    }
+                    j.fmt(f)?;
+                }
+            }
             if let Some(qc) = quote_char {
                 qc.fmt(f)?;
-            } else {
-                quote_char = Some('\"');
-                '\"'.fmt(f)?;
-            }
+            };
+            Ok(())
+        } else {
+            gettexstring(a).fmt(f)?;
+            gettexstring(n).fmt(f)?;
+            gettexstring(e).fmt(f)
         }
-        if a != 0 {
-            for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
-                let j = j.unwrap();
-                if Some(j) == quote_char {
-                    j.fmt(f)?;
-                    let c = match j {
-                        '\"' => '\'',
-                        '\'' => '\"',
-                        _ => unreachable!(),
-                    };
-                    quote_char = Some(c);
-                    c.fmt(f)?;
-                }
-                j.fmt(f)?;
-            }
-        }
-        if n != 0 {
-            for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
-                let j = j.unwrap();
-                if Some(j) == quote_char {
-                    j.fmt(f)?;
-                    let c = match j {
-                        '\"' => '\'',
-                        '\'' => '\"',
-                        _ => unreachable!(),
-                    };
-                    quote_char = Some(c);
-                    c.fmt(f)?;
-                }
-                j.fmt(f)?;
-            }
-        }
-        if e != 0 {
-            for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
-                let j = j.unwrap();
-                if Some(j) == quote_char {
-                    j.fmt(f)?;
-                    let c = match j {
-                        '\"' => '\'',
-                        '\'' => '\"',
-                        _ => unreachable!(),
-                    };
-                    quote_char = Some(c);
-                    c.fmt(f)?;
-                }
-                j.fmt(f)?;
-            }
-        }
-        if let Some(qc) = quote_char {
-            qc.fmt(f)?;
-        };
-        Ok(())
     }
 }
 

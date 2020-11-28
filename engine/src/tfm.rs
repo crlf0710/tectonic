@@ -559,7 +559,7 @@ pub(crate) unsafe fn bad_tfm(
         if let Some(qc) = file_name_quote_char {
             print_chr(qc);
         }
-        t_print!("{}", file);
+        t_print!("{:#}", file);
         if let Some(qc) = file_name_quote_char {
             print_chr(qc);
         }
@@ -725,7 +725,7 @@ unsafe fn nf_error(
             if let Some(qc) = file_name_quote_char {
                 print_chr(qc);
             }
-            t_print!("{}", file);
+            t_print!("{:#}", file);
             if let Some(qc) = file_name_quote_char {
                 print_chr(qc);
             }

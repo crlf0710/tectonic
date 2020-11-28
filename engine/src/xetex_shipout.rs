@@ -1763,7 +1763,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
                 } else {
                     selector = Selector::TERM_AND_LOG
                 }
-                t_print_nl!("\\openout{} = `{}\'.", j as i32, file);
+                t_print_nl!("\\openout{} = `{:#}\'.", j as i32, file);
                 t_print_nl!("");
                 print_ln();
                 selector = old_setting;

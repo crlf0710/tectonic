@@ -1,3 +1,5 @@
+use std::ptr;
+
 use crate::cmd::{Cmd, InteractionMode};
 use crate::help;
 use crate::xetex_consts::IntPar;
@@ -222,7 +224,7 @@ pub(crate) unsafe fn store_fmt_file() {
         var_used = var_used + q - p;
         p = q + MEM[q as usize].b32.s0;
         q = MEM[(q + 1) as usize].b32.s1;
-        if !(q != rover) {
+        if q == rover {
             break;
         }
     }
@@ -316,7 +318,7 @@ pub(crate) unsafe fn store_fmt_file() {
         fmt_out.dump(&EQTB[k..l]);
         k = j + 1;
         fmt_out.dump_one((k as i32) - (l as i32));
-        if !(k <= EQTB_SIZE) {
+        if k > EQTB_SIZE {
             break;
         }
     }
@@ -328,12 +330,12 @@ pub(crate) unsafe fn store_fmt_file() {
     fmt_out.dump_one(par_loc as i32);
     fmt_out.dump_one(write_loc as i32);
 
-    for p in 0..=PRIM_SIZE {
-        fmt_out.dump_one(prim[p]);
+    for &p in prim.iter().take(PRIM_SIZE + 1) {
+        fmt_out.dump_one(p);
     }
 
-    for p in 0..=PRIM_SIZE {
-        fmt_out.dump_one(prim_eqtb[p]);
+    for &p in prim_eqtb.iter().take(PRIM_SIZE + 1) {
+        fmt_out.dump_one(p);
     }
 
     /* control sequences */
@@ -403,7 +405,7 @@ pub(crate) unsafe fn store_fmt_file() {
             || !(FONT_MAPPING[k]).is_null()
         {
             t_print!(
-                "{}",
+                "{:#}",
                 FileName {
                     name: FONT_NAME[k],
                     area: EMPTY_STRING,
@@ -421,7 +423,7 @@ pub(crate) unsafe fn store_fmt_file() {
             error();
         } else {
             t_print!(
-                "{}",
+                "{:#}",
                 FileName {
                     name: FONT_NAME[k],
                     area: FONT_AREA[k],
@@ -700,7 +702,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             bad_fmt();
         }
         q = MEM[(q + 1) as usize].b32.s1;
-        if !(q != rover) {
+        if q == rover {
             break;
         }
     }
@@ -758,7 +760,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             j += 1
         }
         k += x;
-        if !(k <= EQTB_SIZE as i32) {
+        if k > EQTB_SIZE as i32 {
             break;
         }
     }
@@ -822,7 +824,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             p = x;
         }
         fmt_in.undump_one(&mut *hash.add(p as usize));
-        if !(p != hash_used) {
+        if p == hash_used {
             break;
         }
     }
@@ -866,7 +868,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     FONT_PTR = x as usize;
 
-    FONT_MAPPING = vec![0 as *mut libc::c_void; FONT_MAX + 1];
+    FONT_MAPPING = vec![ptr::null_mut(); FONT_MAX + 1];
     for _ in 0..FONT_MAX + 1 {
         FONT_LAYOUT_ENGINE.push(crate::xetex_ext::Font::None);
     }
@@ -897,19 +899,19 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     PARAM_BASE = vec![0; FONT_MAX + 1];
 
     for k in 0..=FONT_PTR {
-        FONT_MAPPING[k as usize] = 0 as *mut libc::c_void;
+        FONT_MAPPING[k as usize] = ptr::null_mut();
     }
 
     fmt_in.undump(&mut FONT_CHECK[..FONT_PTR + 1]);
     fmt_in.undump(&mut FONT_SIZE[..FONT_PTR + 1]);
     fmt_in.undump(&mut FONT_DSIZE[..FONT_PTR + 1]);
     fmt_in.undump(&mut FONT_PARAMS[..FONT_PTR + 1]);
-    for i_0 in 0..FONT_PTR + 1 {
-        if FONT_PARAMS[i_0] < MIN_HALFWORD || FONT_PARAMS[i_0] > 0x3fffffff {
+    for (i, &param) in FONT_PARAMS.iter().enumerate().take(FONT_PTR + 1) {
+        if param < MIN_HALFWORD || param > 0x3fffffff {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
-                i_0,
-                FONT_PARAMS[i_0],
+                i,
+                param,
                 FONT_PARAMS.as_ptr() as u64,
                 MIN_HALFWORD,
                 0x3fffffff
@@ -919,24 +921,24 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     fmt_in.undump(&mut HYPHEN_CHAR[..FONT_PTR + 1]);
     fmt_in.undump(&mut SKEW_CHAR[..FONT_PTR + 1]);
     fmt_in.undump(&mut FONT_NAME[..FONT_PTR + 1]);
-    for i_1 in 0..FONT_PTR + 1 {
-        if FONT_NAME[i_1] > str_ptr {
+    for (i, &name) in FONT_NAME.iter().enumerate().take(FONT_PTR + 1) {
+        if name > str_ptr {
             panic!(
                 "Item {} (={}) of .fmt array at {:x} >{}",
-                i_1,
-                FONT_NAME[i_1],
+                i,
+                name,
                 FONT_NAME.as_ptr() as u64,
                 str_ptr
             );
         }
     }
     fmt_in.undump(&mut FONT_AREA[..FONT_PTR + 1]);
-    for i_2 in 0..FONT_PTR + 1 {
-        if FONT_AREA[i_2] > str_ptr {
+    for (i, &area) in FONT_AREA.iter().enumerate().take(FONT_PTR + 1) {
+        if area > str_ptr {
             panic!(
                 "Item {} (={}) of .fmt array at {:x} >{}",
-                i_2,
-                FONT_AREA[i_2],
+                i,
+                area,
                 FONT_AREA.as_ptr() as u64,
                 str_ptr
             );
@@ -954,12 +956,12 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     fmt_in.undump(&mut EXTEN_BASE[..FONT_PTR + 1]);
     fmt_in.undump(&mut PARAM_BASE[..FONT_PTR + 1]);
     fmt_in.undump(&mut FONT_GLUE[..FONT_PTR + 1]);
-    for i_3 in 0..FONT_PTR + 1 {
-        if FONT_GLUE[i_3] < MIN_HALFWORD || FONT_GLUE[i_3] > lo_mem_max {
+    for (i, &glue) in FONT_GLUE.iter().enumerate().take(FONT_PTR + 1) {
+        if glue < MIN_HALFWORD || glue > lo_mem_max {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
-                i_3,
-                FONT_GLUE[i_3],
+                i,
+                glue,
                 FONT_GLUE.as_ptr() as u64,
                 MIN_HALFWORD,
                 lo_mem_max
@@ -967,12 +969,12 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         }
     }
     fmt_in.undump(&mut BCHAR_LABEL[..FONT_PTR + 1]);
-    for i_4 in 0..FONT_PTR + 1 {
-        if BCHAR_LABEL[i_4] < 0 || BCHAR_LABEL[i_4] > fmem_ptr - 1 {
+    for (i, &label) in BCHAR_LABEL.iter().enumerate().take(FONT_PTR + 1) {
+        if label < 0 || label > fmem_ptr - 1 {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
-                i_4,
-                BCHAR_LABEL[i_4],
+                i,
+                label,
                 BCHAR_LABEL.as_ptr() as u64,
                 0,
                 fmem_ptr - 1
@@ -980,12 +982,12 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         }
     }
     fmt_in.undump(&mut FONT_BCHAR[..FONT_PTR + 1]);
-    for i_5 in 0..FONT_PTR + 1 {
-        if FONT_BCHAR[i_5] < 0 || FONT_BCHAR[i_5] > 65536 {
+    for (i, &b_char) in FONT_BCHAR.iter().enumerate().take(FONT_PTR + 1) {
+        if b_char < 0 || b_char > 65536 {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
-                i_5,
-                FONT_BCHAR[i_5],
+                i,
+                b_char,
                 FONT_BCHAR.as_ptr() as u64,
                 0,
                 65536

@@ -57,7 +57,7 @@ pub(crate) unsafe fn maketexstring(s: &str) -> i32 {
     pool_ptr += len;
     make_string()
 }
-pub(crate) unsafe fn gettexstring(s: str_number) -> String {
+pub(crate) fn gettexstring(s: str_number) -> String {
     if s >= TOO_BIG_CHAR {
         String::from_utf16(PoolString::from(s).as_slice()).unwrap()
     } else {

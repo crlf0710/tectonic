@@ -2,6 +2,7 @@
 
 use crate::xetex_output::{Cs, Esc, Roman};
 use crate::{t_eprint, t_print, t_print_nl};
+use std::cmp::Ordering;
 use std::fmt;
 use std::io::Write;
 use std::ptr;
@@ -928,7 +929,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 TxtNode::WhatsIt(p) => match p {
                     WhatsIt::Open(p) => {
                         t_print!(
-                            "{}={}",
+                            "{}={:#}",
                             p,
                             FileName {
                                 name: p.name(),
@@ -1631,119 +1632,111 @@ pub(crate) unsafe fn show_activities() {
     NEST[NEST_PTR] = cur_list;
     t_print_nl!("");
     print_ln();
-    let mut p = NEST_PTR as usize;
-    let for_end = 0;
-    if p >= for_end {
-        loop {
-            let m = NEST[p].mode;
-            let a = NEST[p].aux;
-            t_print_nl!("### ");
-            print_mode(m);
-            t_print!(" entered at line {}", NEST[p].mode_line.abs());
-            if m == (false, ListMode::HMode) {
-                if NEST[p].prev_graf != 0x830000 {
-                    t_print!(
-                        " (language{}:hyphenmin{},{})",
-                        (NEST[p].prev_graf as i64 % 65536) as i32,
-                        NEST[p].prev_graf / 0x400000,
-                        (NEST[p].prev_graf as i64 / 65536 % 64) as i32
-                    );
-                }
+    for p in (0..=NEST_PTR as usize).rev() {
+        let m = NEST[p].mode;
+        let a = NEST[p].aux;
+        t_print_nl!("### ");
+        print_mode(m);
+        t_print!(" entered at line {}", NEST[p].mode_line.abs());
+        if m == (false, ListMode::HMode) {
+            if NEST[p].prev_graf != 0x830000 {
+                t_print!(
+                    " (language{}:hyphenmin{},{})",
+                    (NEST[p].prev_graf as i64 % 65536) as i32,
+                    NEST[p].prev_graf / 0x400000,
+                    (NEST[p].prev_graf as i64 / 65536 % 64) as i32
+                );
             }
-            if NEST[p].mode_line < 0 {
-                t_print!(" (\\output routine)");
-            }
-            if p == 0 {
-                if PAGE_HEAD != page_tail {
-                    t_print_nl!("### current page:");
-                    if output_active {
-                        t_print!(" (held over for next output)");
-                    }
-                    show_box(llist_link(PAGE_HEAD));
-                    if page_contents == PageContents::InsertsOnly
-                        || page_contents == PageContents::BoxThere
-                    {
-                        t_print_nl!("total height ");
-                        print_totals();
-                        t_print_nl!(" goal height {}", page_so_far[0]);
-                        let mut r = PageInsertion(*LLIST_link(PAGE_INS_HEAD) as usize);
-                        while r.ptr() != PAGE_INS_HEAD {
-                            print_ln();
-                            let t = r.box_reg() as i32;
-                            t_print!(
-                                "{}{} adds {}",
-                                Esc("insert"),
-                                t,
-                                if get_count_reg(t as usize) == 1000 {
-                                    r.height()
-                                } else {
-                                    x_over_n(r.height(), 1000).0 * get_count_reg(t as usize)
-                                }
-                            );
-                            if r.subtype() == PageInsType::SplitUp {
-                                let mut q = PAGE_HEAD;
-                                let mut t = 0;
-                                loop {
-                                    q = *LLIST_link(q as usize) as usize;
-                                    match Node::from(q as usize) {
-                                        Node::Text(TxtNode::Ins(ins))
-                                            if ins.box_reg() == r.box_reg() =>
-                                        {
-                                            t += 1;
-                                        }
-                                        _ => {}
-                                    }
-                                    if q == r.broken_ins() as usize {
-                                        break;
-                                    }
-                                }
-                                t_print!(", #{} might split", t);
-                            }
-                            r = PageInsertion(*LLIST_link(r.ptr()) as usize);
-                        }
-                    }
-                }
-                if llist_link(CONTRIB_HEAD).is_some() {
-                    t_print_nl!("### recent contributions:");
-                }
-            }
-            show_box(MEM[NEST[p].head as usize].b32.s1.opt());
-            match m.1 {
-                ListMode::VMode => {
-                    if a.b32.s1 <= IGNORE_DEPTH {
-                        t_print!("prevdepth ignored");
-                    } else {
-                        t_print!("prevdepth {}", Scaled(a.b32.s1));
-                    }
-                    let pg = NEST[p].prev_graf;
-                    if pg != 0 {
-                        if pg != 1 {
-                            t_print!(", prevgraf {} lines", pg);
-                        } else {
-                            t_print!(", prevgraf {} line", pg);
-                        }
-                    }
-                }
-                ListMode::HMode => {
-                    t_print_nl!("spacefactor {}", a.b32.s0);
-                    if m.0 == false && a.b32.s1 > 0 {
-                        t_print!(", current language {}", a.b32.s1);
-                    }
-                }
-                ListMode::MMode => {
-                    if let Some(o) = a.b32.s1.opt() {
-                        t_print!("this will be denominator of:");
-                        show_box(Some(o));
-                    }
-                }
-                ListMode::NoMode => {}
-            }
-            if !(p > for_end) {
-                break;
-            }
-            p -= 1;
         }
-    };
+        if NEST[p].mode_line < 0 {
+            t_print!(" (\\output routine)");
+        }
+        if p == 0 {
+            if PAGE_HEAD != page_tail {
+                t_print_nl!("### current page:");
+                if output_active {
+                    t_print!(" (held over for next output)");
+                }
+                show_box(llist_link(PAGE_HEAD));
+                if page_contents == PageContents::InsertsOnly
+                    || page_contents == PageContents::BoxThere
+                {
+                    t_print_nl!("total height ");
+                    print_totals();
+                    t_print_nl!(" goal height {}", page_so_far[0]);
+                    let mut r = PageInsertion(*LLIST_link(PAGE_INS_HEAD) as usize);
+                    while r.ptr() != PAGE_INS_HEAD {
+                        print_ln();
+                        let t = r.box_reg() as i32;
+                        t_print!(
+                            "{}{} adds {}",
+                            Esc("insert"),
+                            t,
+                            if get_count_reg(t as usize) == 1000 {
+                                r.height()
+                            } else {
+                                x_over_n(r.height(), 1000).0 * get_count_reg(t as usize)
+                            }
+                        );
+                        if r.subtype() == PageInsType::SplitUp {
+                            let mut q = PAGE_HEAD;
+                            let mut t = 0;
+                            loop {
+                                q = *LLIST_link(q as usize) as usize;
+                                match Node::from(q as usize) {
+                                    Node::Text(TxtNode::Ins(ins))
+                                        if ins.box_reg() == r.box_reg() =>
+                                    {
+                                        t += 1;
+                                    }
+                                    _ => {}
+                                }
+                                if q == r.broken_ins() as usize {
+                                    break;
+                                }
+                            }
+                            t_print!(", #{} might split", t);
+                        }
+                        r = PageInsertion(*LLIST_link(r.ptr()) as usize);
+                    }
+                }
+            }
+            if llist_link(CONTRIB_HEAD).is_some() {
+                t_print_nl!("### recent contributions:");
+            }
+        }
+        show_box(MEM[NEST[p].head as usize].b32.s1.opt());
+        match m.1 {
+            ListMode::VMode => {
+                if a.b32.s1 <= IGNORE_DEPTH {
+                    t_print!("prevdepth ignored");
+                } else {
+                    t_print!("prevdepth {}", Scaled(a.b32.s1));
+                }
+                let pg = NEST[p].prev_graf;
+                if pg != 0 {
+                    if pg != 1 {
+                        t_print!(", prevgraf {} lines", pg);
+                    } else {
+                        t_print!(", prevgraf {} line", pg);
+                    }
+                }
+            }
+            ListMode::HMode => {
+                t_print_nl!("spacefactor {}", a.b32.s0);
+                if !m.0 && a.b32.s1 > 0 {
+                    t_print!(", current language {}", a.b32.s1);
+                }
+            }
+            ListMode::MMode => {
+                if let Some(o) = a.b32.s1.opt() {
+                    t_print!("this will be denominator of:");
+                    show_box(Some(o));
+                }
+            }
+            ListMode::NoMode => {}
+        }
+    }
 }
 impl fmt::Display for IntPar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -2686,7 +2679,7 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
     for k in j..=j + l - 1 {
         h = h + h + BUFFER[k as usize];
         while h >= HASH_PRIME as i32 {
-            h = h - 8501;
+            h -= 8501;
         }
     }
     let mut p = h + HASH_BASE as i32;
@@ -2720,7 +2713,7 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
                                 overflow("hash size", HASH_SIZE + hash_extra as usize);
                             }
                             hash_used -= 1;
-                            if !((*hash.add(hash_used as usize)).s1 != 0) {
+                            if (*hash.add(hash_used as usize)).s1 == 0 {
                                 break;
                             }
                         }
@@ -2775,7 +2768,7 @@ pub(crate) unsafe fn prim_lookup(s: str_number) -> usize {
         for k in (j + 1)..(j + l) {
             h = h + h + str_pool[k] as usize;
             while h >= PRIM_PRIME {
-                h = h - 431;
+                h -= 431;
             }
         }
         h + 1
@@ -2889,7 +2882,7 @@ pub(crate) unsafe fn pseudo_input(input: &mut input_state_t) -> bool {
             BUFFER[(last + 1) as usize] = w.s2 as UnicodeScalar;
             BUFFER[(last + 2) as usize] = w.s1 as UnicodeScalar;
             BUFFER[(last + 3) as usize] = w.s0 as UnicodeScalar;
-            last = last + 4;
+            last += 4;
         }
         if last >= max_buf_stack {
             max_buf_stack = last + 1
@@ -3134,7 +3127,7 @@ pub(crate) unsafe fn sa_def(p: usize, e: Option<usize>) {
 }
 pub(crate) unsafe fn sa_w_def(p: usize, w: i32) {
     MEM[p + 1].b32.s0 += 1;
-    if !(MEM[p + 2].b32.s1 == w) {
+    if MEM[p + 2].b32.s1 != w {
         if MEM[p].b16.s0 as i32 != cur_level as i32 {
             sa_save(p);
         }
@@ -3968,13 +3961,13 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         chr = BUFFER[k as usize];
                                         cat = Cmd::from(*CAT_CODE(chr as usize) as u16);
                                         k += 1;
-                                        if cat == Cmd::Letter {
-                                            input.state = InputState::SkipBlanks;
+                                        input.state = if cat == Cmd::Letter {
+                                            InputState::SkipBlanks
                                         } else if cat == Cmd::Spacer {
-                                            input.state = InputState::SkipBlanks;
+                                            InputState::SkipBlanks
                                         } else {
-                                            input.state = InputState::MidLine;
-                                        }
+                                            InputState::MidLine
+                                        };
                                         if cat == Cmd::Letter && k <= input.limit {
                                             // Scan ahead in the buffer until finding a nonletter;
                                             // if an expanded code is encountered, reduce it
@@ -4021,7 +4014,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                                                 BUFFER[(k - 1) as usize] = c - 64
                                                             }
                                                             let d = 2;
-                                                            input.limit = input.limit - d as i32;
+                                                            input.limit -= d as i32;
                                                             while k <= input.limit {
                                                                 BUFFER[k as usize] =
                                                                     BUFFER[(k + d as i32) as usize];
@@ -4055,7 +4048,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                                         BUFFER[(k - 1) as usize] = chr;
                                                         let d = (2 * sup_count as i32 - 1) as i16;
                                                         // shift the rest of the buffer left by `d` chars
-                                                        input.limit = input.limit - d as i32;
+                                                        input.limit -= d as i32;
                                                         while k <= input.limit {
                                                             BUFFER[k as usize] =
                                                                 BUFFER[(k + d as i32) as usize];
@@ -4118,7 +4111,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                                                 BUFFER[(k - 1) as usize] = c - 64
                                                             }
                                                             let d = 2;
-                                                            input.limit = input.limit - d as i32;
+                                                            input.limit -= d as i32;
                                                             while k <= input.limit {
                                                                 BUFFER[k as usize] =
                                                                     BUFFER[(k + d as i32) as usize];
@@ -4148,7 +4141,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                                     } else {
                                                         BUFFER[(k - 1) as usize] = chr;
                                                         let d = (2 * sup_count as i32 - 1) as i16;
-                                                        input.limit = input.limit - d as i32;
+                                                        input.limit -= d as i32;
                                                         while k <= input.limit {
                                                             BUFFER[k as usize] =
                                                                 BUFFER[(k + d as i32) as usize];
@@ -4238,13 +4231,13 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                         ) {
                                             // found a non-hex char, so do single `^^X` style
                                             let c = BUFFER[(input.loc + 1) as usize];
-                                            if !(c < 128) {
+                                            if c >= 128 {
                                                 ochr = chr;
                                                 // not_exp: go here when `^^` turned out not to start an expanded code
                                                 input.state = InputState::MidLine;
                                                 break 'switch;
                                             }
-                                            input.loc = input.loc + 2;
+                                            input.loc += 2;
                                             chr = if c < 64 { c + 64 } else { c - 64 };
                                             continue 'reswitch;
                                         }
@@ -4717,10 +4710,10 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                         }
 
                         pstack[n as usize] = *LLIST_link(TEMP_HEAD);
-                        align_state = align_state - unbalance;
+                        align_state -= unbalance;
 
-                        for m in 0..=(n as usize) {
-                            flush_list(pstack[m].opt());
+                        for m in pstack.iter().take((n as usize) + 1) {
+                            flush_list(m.opt());
                         }
 
                         return exit(save_scanner_status, save_warning_index);
@@ -4754,10 +4747,10 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                                     }
 
                                     pstack[n as usize] = *LLIST_link(TEMP_HEAD);
-                                    align_state = align_state - unbalance;
+                                    align_state -= unbalance;
 
-                                    for m in 0..=(n as usize) {
-                                        flush_list(pstack[m].opt());
+                                    for m in pstack.iter().take((n as usize) + 1) {
+                                        flush_list(m.opt());
                                     }
 
                                     return exit(save_scanner_status, save_warning_index);
@@ -4852,7 +4845,7 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                     });
                 }
             }
-            if !(MEM[r].b32.s0 != END_MATCH_TOKEN) {
+            if MEM[r].b32.s0 == END_MATCH_TOKEN {
                 break;
             }
         }
@@ -5087,15 +5080,14 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                     } else {
                         let (tok, cmd, chr, cs) = get_token(input);
                         ocmd = cmd;
-                        ochr = chr;
                         ocs = cs;
-                        if ocmd == Cmd::IfTest && ochr != IfTestCode::IfCase as i32 {
-                            ochr = ochr + UNLESS_CODE
+                        if cmd == Cmd::IfTest && chr != IfTestCode::IfCase as i32 {
+                            ochr = chr + UNLESS_CODE
                         } else {
                             t_eprint!(
                                 "You can\'t use `{}\' before `{}\'",
                                 Esc("unless"),
-                                CmdChr(ocmd, ochr)
+                                CmdChr(cmd, chr)
                             );
                             help!("Continue, and I\'ll forget that it ever happened.");
                             back_error(input, tok);
@@ -5159,7 +5151,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         if cs == 0 {
                             store_new_token(&mut p, tok);
                         }
-                        if !(cs == 0) {
+                        if cs != 0 {
                             break (tok, cmd);
                         }
                     };
@@ -5452,12 +5444,10 @@ pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont
     if scan_keyword(input, "/") {
         let (file, ..) = scan_file_name(input);
         let fullname = file.to_string();
-        let val = map_glyph_to_index(f, &fullname);
-        val
+        map_glyph_to_index(f, &fullname)
     } else if scan_keyword(input, "u") {
         let val = scan_char_num(input);
-        let val = map_char_to_glyph(f, val);
-        val
+        map_char_to_glyph(f, val)
     } else {
         scan_int(input)
     }
@@ -5573,7 +5563,7 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
             match cmd {
                 Cmd::Letter | Cmd::OtherChar | Cmd::CharGiven => {
                     let c = *MATH_CODE(chr as usize);
-                    if !(math_char(c) == ACTIVE_MATH_CHAR as u32) {
+                    if math_char(c) != ACTIVE_MATH_CHAR as u32 {
                         break 'c_118470 c;
                     }
                     let mut cs = chr + 1;
@@ -5593,9 +5583,9 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
                         let val = scan_math_class_int(input);
                         c = set_class(val);
                         let val = scan_math_fam_int(input);
-                        c = c + set_family(val);
+                        c += set_family(val);
                         let val = scan_usv_num(input);
-                        c = c + val;
+                        c += val;
                     } else if chr == 1 {
                         let val = scan_xetex_math_char_int(input);
                         c = val
@@ -5618,9 +5608,9 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
                         let val = scan_math_class_int(input);
                         c = set_class(val);
                         let val = scan_math_fam_int(input);
-                        c = c + set_family(val);
+                        c += set_family(val);
                         let val = scan_usv_num(input);
-                        c = c + val;
+                        c += val;
                     } else {
                         let val = scan_delimiter_int(input);
                         c = val / 4096;
@@ -7363,11 +7353,13 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) 
         d = -d;
         true
     };
-    if x < 0 {
-        x = -x;
-        negative = !negative;
-    } else if x == 0 {
-        return a;
+    match x.cmp(&0) {
+        Ordering::Less => {
+            x = -x;
+            negative = !negative;
+        }
+        Ordering::Equal => return a,
+        _ => {}
     }
     if n < 0 {
         n = -n;
@@ -7417,7 +7409,7 @@ pub(crate) unsafe fn fract(mut x: i32, mut n: i32, mut d: i32, max_answer: i32) 
             let t = x - d;
             x += t;
             f += n;
-            if !(x < n) {
+            if x >= n {
                 continue;
             }
             if x == 0 {
@@ -8163,7 +8155,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
         }
         ConvertCode::JobName => format!(
-            "{}",
+            "{:#}",
             FileName {
                 name: job_name,
                 area: 0,
@@ -9016,12 +9008,6 @@ where
     )
 }
 
-impl FileName {
-    pub(crate) unsafe fn to_string(&self) -> String {
-        gettexstring(self.area) + &gettexstring(self.name) + &gettexstring(self.ext)
-    }
-}
-
 pub(crate) unsafe fn make_name_string(name: &str) -> str_number {
     if pool_ptr as usize + name.len() > pool_size as usize
         || str_ptr == max_strings as i32
@@ -9675,9 +9661,8 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
                         while llist_link(q) != Some(p) {
                             k -= 1;
                             q = *LLIST_link(q) as usize;
-                            match Node::from(q) {
-                                Node::Text(TxtNode::Disc(d)) => k = d.replace_count() as i32,
-                                _ => {}
+                            if let Node::Text(TxtNode::Disc(d)) = Node::from(q) {
+                                k = d.replace_count() as i32;
                             }
                         }
                         let mut pp_opt = llist_link(p);
@@ -9829,94 +9814,101 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
     }
     r.set_width(w);
     x = w - x;
-    if x == Scaled::ZERO {
-        r.set_glue_sign(GlueSign::Normal)
-            .set_glue_order(GlueOrder::Normal)
-            .set_glue_set(0.);
-        return exit(r, q);
-    } else if x > Scaled::ZERO {
-        /*683: */
-        let o = if total_stretch[GlueOrder::Filll as usize] != Scaled::ZERO {
-            GlueOrder::Filll
-        } else if total_stretch[GlueOrder::Fill as usize] != Scaled::ZERO {
-            GlueOrder::Fill
-        } else if total_stretch[GlueOrder::Fil as usize] != Scaled::ZERO {
-            GlueOrder::Fil
-        } else {
-            GlueOrder::Normal
-        }; /*normal *//*:684 */
-        r.set_glue_order(o).set_glue_sign(GlueSign::Stretching);
-        if total_stretch[o as usize] != Scaled::ZERO {
-            r.set_glue_set(x.0 as f64 / total_stretch[o as usize].0 as f64);
-        } else {
-            r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
+    match x.cmp(&Scaled::ZERO) {
+        Ordering::Equal => {
+            r.set_glue_sign(GlueSign::Normal)
+                .set_glue_order(GlueOrder::Normal)
+                .set_glue_set(0.);
+            return exit(r, q);
         }
-        if o == GlueOrder::Normal && r.list_ptr().opt().is_some() {
-            /*685: */
-            last_badness = badness(x, total_stretch[NORMAL as usize]); /*normal *//*:690 */
-            if last_badness > get_int_par(IntPar::hbadness) {
-                print_ln();
-                if last_badness > 100 {
-                    t_print_nl!("Underfull \\hbox (badness {}", last_badness);
-                } else {
-                    t_print_nl!("Loose \\hbox (badness {}", last_badness);
-                }
-                return common_ending(r, q);
+        Ordering::Greater => {
+            /*683: */
+            let o = if total_stretch[GlueOrder::Filll as usize] != Scaled::ZERO {
+                GlueOrder::Filll
+            } else if total_stretch[GlueOrder::Fill as usize] != Scaled::ZERO {
+                GlueOrder::Fill
+            } else if total_stretch[GlueOrder::Fil as usize] != Scaled::ZERO {
+                GlueOrder::Fil
+            } else {
+                GlueOrder::Normal
+            }; /*normal *//*:684 */
+            r.set_glue_order(o).set_glue_sign(GlueSign::Stretching);
+            if total_stretch[o as usize] != Scaled::ZERO {
+                r.set_glue_set(x.0 as f64 / total_stretch[o as usize].0 as f64);
+            } else {
+                r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
             }
-        }
-        return exit(r, q);
-    } else {
-        let o = if total_shrink[GlueOrder::Filll as usize] != Scaled::ZERO {
-            GlueOrder::Filll
-        } else if total_shrink[GlueOrder::Fill as usize] != Scaled::ZERO {
-            GlueOrder::Fill
-        } else if total_shrink[GlueOrder::Fil as usize] != Scaled::ZERO {
-            GlueOrder::Fil
-        } else {
-            GlueOrder::Normal
-        };
-        r.set_glue_order(o).set_glue_sign(GlueSign::Shrinking);
-        if total_shrink[o as usize] != Scaled::ZERO {
-            r.set_glue_set(-x.0 as f64 / total_shrink[o as usize].0 as f64);
-        } else {
-            r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
-        }
-        if total_shrink[o as usize] < -x && o == GlueOrder::Normal && r.list_ptr().opt().is_some() {
-            last_badness = 1000000;
-            r.set_glue_set(1.);
-            if -x - total_shrink[0] > get_dimen_par(DimenPar::hfuzz)
-                || get_int_par(IntPar::hbadness) < 100
-            {
-                if get_dimen_par(DimenPar::overfull_rule) > Scaled::ZERO
-                    && -x - total_shrink[0] > get_dimen_par(DimenPar::hfuzz)
-                {
-                    while let Some(next) = LLIST_link(q as usize).opt() {
-                        q = next;
-                    }
-                    *LLIST_link(q as usize) = Some(new_rule().ptr()).tex_int();
-                    MEM[(*LLIST_link(q as usize) + 1) as usize].b32.s1 =
-                        (get_dimen_par(DimenPar::overfull_rule)).0
-                }
-                print_ln();
-                t_print_nl!(
-                    "Overfull \\hbox ({}pt too wide",
-                    -x - total_shrink[NORMAL as usize]
-                );
-                return common_ending(r, q);
-            }
-        } else if o == GlueOrder::Normal {
-            if r.list_ptr().opt().is_some() {
-                /*692: */
-                last_badness = badness(-x, total_shrink[NORMAL as usize]);
+            if o == GlueOrder::Normal && r.list_ptr().opt().is_some() {
+                /*685: */
+                last_badness = badness(x, total_stretch[NORMAL as usize]); /*normal *//*:690 */
                 if last_badness > get_int_par(IntPar::hbadness) {
                     print_ln();
-                    t_print_nl!("Tight \\hbox (badness {}", last_badness);
+                    if last_badness > 100 {
+                        t_print_nl!("Underfull \\hbox (badness {}", last_badness);
+                    } else {
+                        t_print_nl!("Loose \\hbox (badness {}", last_badness);
+                    }
                     return common_ending(r, q);
                 }
             }
+            return exit(r, q);
         }
+        Ordering::Less => {
+            let o = if total_shrink[GlueOrder::Filll as usize] != Scaled::ZERO {
+                GlueOrder::Filll
+            } else if total_shrink[GlueOrder::Fill as usize] != Scaled::ZERO {
+                GlueOrder::Fill
+            } else if total_shrink[GlueOrder::Fil as usize] != Scaled::ZERO {
+                GlueOrder::Fil
+            } else {
+                GlueOrder::Normal
+            };
+            r.set_glue_order(o).set_glue_sign(GlueSign::Shrinking);
+            if total_shrink[o as usize] != Scaled::ZERO {
+                r.set_glue_set(-x.0 as f64 / total_shrink[o as usize].0 as f64);
+            } else {
+                r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
+            }
+            if total_shrink[o as usize] < -x
+                && o == GlueOrder::Normal
+                && r.list_ptr().opt().is_some()
+            {
+                last_badness = 1000000;
+                r.set_glue_set(1.);
+                if -x - total_shrink[0] > get_dimen_par(DimenPar::hfuzz)
+                    || get_int_par(IntPar::hbadness) < 100
+                {
+                    if get_dimen_par(DimenPar::overfull_rule) > Scaled::ZERO
+                        && -x - total_shrink[0] > get_dimen_par(DimenPar::hfuzz)
+                    {
+                        while let Some(next) = LLIST_link(q as usize).opt() {
+                            q = next;
+                        }
+                        *LLIST_link(q as usize) = Some(new_rule().ptr()).tex_int();
+                        MEM[(*LLIST_link(q as usize) + 1) as usize].b32.s1 =
+                            (get_dimen_par(DimenPar::overfull_rule)).0
+                    }
+                    print_ln();
+                    t_print_nl!(
+                        "Overfull \\hbox ({}pt too wide",
+                        -x - total_shrink[NORMAL as usize]
+                    );
+                    return common_ending(r, q);
+                }
+            } else if o == GlueOrder::Normal {
+                if r.list_ptr().opt().is_some() {
+                    /*692: */
+                    last_badness = badness(-x, total_shrink[NORMAL as usize]);
+                    if last_badness > get_int_par(IntPar::hbadness) {
+                        print_ln();
+                        t_print_nl!("Tight \\hbox (badness {}", last_badness);
+                        return common_ending(r, q);
+                    }
+                }
+            }
 
-        return exit(r, q);
+            return exit(r, q);
+        }
     }
 
     unsafe fn common_ending(r: List, q: usize) -> List {
@@ -9946,7 +9938,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
         short_display(r.list_ptr().opt());
         print_ln();
         diagnostic(true, || show_box(Some(r.ptr())));
-        return exit(r, q);
+        exit(r, q)
     }
 
     unsafe fn exit(r: List, mut q: usize) -> List {
@@ -9961,7 +9953,7 @@ pub(crate) unsafe fn hpack(mut popt: Option<usize>, mut w: Scaled, m: PackMode) 
                     let m = new_math(Scaled::ZERO, Math(LR_ptr as usize).subtype_i32());
                     q = m.ptr();
                     *LLIST_link(tmp_ptr) = Some(m.ptr()).tex_int();
-                    LR_problems = LR_problems + 10000;
+                    LR_problems += 10000;
                     let tmp_ptr = LR_ptr as usize;
                     LR_ptr = *LLIST_link(tmp_ptr);
                     *LLIST_link(tmp_ptr) = avail.tex_int();
@@ -10080,79 +10072,86 @@ pub(crate) unsafe fn vpackage(
     }
     r.set_height(h);
     x = h - x;
-    if x == Scaled::ZERO {
-        r.set_glue_sign(GlueSign::Normal)
-            .set_glue_order(GlueOrder::Normal)
-            .set_glue_set(0.);
-    } else if x > Scaled::ZERO {
-        /*698: */
-        let o = if total_stretch[FILLL as usize] != Scaled::ZERO {
-            GlueOrder::Filll
-        } else if total_stretch[FILL as usize] != Scaled::ZERO {
-            GlueOrder::Fill
-        } else if total_stretch[FIL as usize] != Scaled::ZERO {
-            GlueOrder::Fil
-        } else {
-            GlueOrder::Normal
-        }; /*normal *//*:684 */
-        r.set_glue_order(o).set_glue_sign(GlueSign::Stretching);
-        if total_stretch[o as usize] != Scaled::ZERO {
-            r.set_glue_set(x.0 as f64 / total_stretch[o as usize].0 as f64);
-        } else {
-            r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
+    match x.cmp(&Scaled::ZERO) {
+        Ordering::Equal => {
+            r.set_glue_sign(GlueSign::Normal)
+                .set_glue_order(GlueOrder::Normal)
+                .set_glue_set(0.);
         }
-        if o == GlueOrder::Normal {
-            if r.list_ptr().opt().is_some() {
-                /*699: */
-                last_badness = badness(x, total_stretch[GlueOrder::Normal as usize]); /*normal *//*:690 */
-                if last_badness > get_int_par(IntPar::vbadness) {
-                    print_ln();
-                    if last_badness > 100 {
-                        t_print_nl!("Underfull \\vbox (badness {}", last_badness);
-                    } else {
-                        t_print_nl!("Loose \\vbox (badness {}", last_badness);
+        Ordering::Greater => {
+            /*698: */
+            let o = if total_stretch[FILLL as usize] != Scaled::ZERO {
+                GlueOrder::Filll
+            } else if total_stretch[FILL as usize] != Scaled::ZERO {
+                GlueOrder::Fill
+            } else if total_stretch[FIL as usize] != Scaled::ZERO {
+                GlueOrder::Fil
+            } else {
+                GlueOrder::Normal
+            }; /*normal *//*:684 */
+            r.set_glue_order(o).set_glue_sign(GlueSign::Stretching);
+            if total_stretch[o as usize] != Scaled::ZERO {
+                r.set_glue_set(x.0 as f64 / total_stretch[o as usize].0 as f64);
+            } else {
+                r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
+            }
+            if o == GlueOrder::Normal {
+                if r.list_ptr().opt().is_some() {
+                    /*699: */
+                    last_badness = badness(x, total_stretch[GlueOrder::Normal as usize]); /*normal *//*:690 */
+                    if last_badness > get_int_par(IntPar::vbadness) {
+                        print_ln();
+                        if last_badness > 100 {
+                            t_print_nl!("Underfull \\vbox (badness {}", last_badness);
+                        } else {
+                            t_print_nl!("Loose \\vbox (badness {}", last_badness);
+                        }
+                        return common_ending(r);
                     }
-                    return common_ending(r);
                 }
             }
         }
-    } else {
-        let o = if total_shrink[FILLL as usize] != Scaled::ZERO {
-            GlueOrder::Filll
-        } else if total_shrink[FILL as usize] != Scaled::ZERO {
-            GlueOrder::Fill
-        } else if total_shrink[FIL as usize] != Scaled::ZERO {
-            GlueOrder::Fil
-        } else {
-            GlueOrder::Normal
-        };
-        r.set_glue_order(o).set_glue_sign(GlueSign::Shrinking);
-        if total_shrink[o as usize] != Scaled::ZERO {
-            r.set_glue_set(-x.0 as f64 / total_shrink[o as usize].0 as f64);
-        } else {
-            r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
-        }
-        if total_shrink[o as usize] < -x && o == GlueOrder::Normal && r.list_ptr().opt().is_some() {
-            last_badness = 1000000;
-            r.set_glue_set(1.);
-            if -x - total_shrink[GlueOrder::Normal as usize] > get_dimen_par(DimenPar::vfuzz)
-                || get_int_par(IntPar::vbadness) < 100
-            {
-                print_ln();
-                t_print_nl!(
-                    "Overfull \\vbox ({}pt too high",
-                    -x - total_shrink[NORMAL as usize]
-                );
-                return common_ending(r);
+        Ordering::Less => {
+            let o = if total_shrink[FILLL as usize] != Scaled::ZERO {
+                GlueOrder::Filll
+            } else if total_shrink[FILL as usize] != Scaled::ZERO {
+                GlueOrder::Fill
+            } else if total_shrink[FIL as usize] != Scaled::ZERO {
+                GlueOrder::Fil
+            } else {
+                GlueOrder::Normal
+            };
+            r.set_glue_order(o).set_glue_sign(GlueSign::Shrinking);
+            if total_shrink[o as usize] != Scaled::ZERO {
+                r.set_glue_set(-x.0 as f64 / total_shrink[o as usize].0 as f64);
+            } else {
+                r.set_glue_sign(GlueSign::Normal).set_glue_set(0.);
             }
-        } else if o == GlueOrder::Normal {
-            if r.list_ptr().opt().is_some() {
-                /*703: */
-                last_badness = badness(-x, total_shrink[NORMAL as usize]);
-                if last_badness > get_int_par(IntPar::vbadness) {
+            if total_shrink[o as usize] < -x
+                && o == GlueOrder::Normal
+                && r.list_ptr().opt().is_some()
+            {
+                last_badness = 1000000;
+                r.set_glue_set(1.);
+                if -x - total_shrink[GlueOrder::Normal as usize] > get_dimen_par(DimenPar::vfuzz)
+                    || get_int_par(IntPar::vbadness) < 100
+                {
                     print_ln();
-                    t_print_nl!("Tight \\vbox (badness {}", last_badness);
+                    t_print_nl!(
+                        "Overfull \\vbox ({}pt too high",
+                        -x - total_shrink[NORMAL as usize]
+                    );
                     return common_ending(r);
+                }
+            } else if o == GlueOrder::Normal {
+                if r.list_ptr().opt().is_some() {
+                    /*703: */
+                    last_badness = badness(-x, total_shrink[NORMAL as usize]);
+                    if last_badness > get_int_par(IntPar::vbadness) {
+                        print_ln();
+                        t_print_nl!("Tight \\vbox (badness {}", last_badness);
+                        return common_ending(r);
+                    }
                 }
             }
         }
@@ -10175,7 +10174,7 @@ pub(crate) unsafe fn vpackage(
             print_ln();
         }
         diagnostic(true, || show_box(Some(r.ptr())));
-        return r;
+        r
     }
 }
 pub(crate) unsafe fn append_to_vlist(b: List) {
@@ -10326,7 +10325,7 @@ pub(crate) unsafe fn init_align(input: &mut input_state_t, wcs: i32) {
     if cur_list.mode == (false, ListMode::MMode) {
         cur_list.mode = (true, ListMode::VMode);
         cur_list.aux.b32.s1 = NEST[NEST_PTR - 2].aux.b32.s1
-    } else if cur_list.mode.0 == false {
+    } else if !cur_list.mode.0 {
         cur_list.mode = (!cur_list.mode.0, cur_list.mode.1);
         /*:804*/
     }
@@ -10696,7 +10695,7 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
             MEM[s].b32.s0 = p.tex_int();
             let mut n = 1;
             loop {
-                MEM[r + 1].b32.s1 = MEM[r + 1].b32.s1 - t;
+                MEM[r + 1].b32.s1 -= t;
                 let u = MEM[r].b32.s0 as usize;
                 while MEM[r].b32.s1 > n {
                     s = Span(s).next().ptr();
@@ -10843,64 +10842,72 @@ pub(crate) unsafe fn fin_align(input: &mut input_state_t, group: GroupCode) {
                     if cur_list.mode == (true, ListMode::VMode) {
                         /*839: */
                         r_box.set_height(q.height()).set_depth(q.depth());
-                        if t == r_unset.width() {
-                            r_box
-                                .set_glue_sign(GlueSign::Normal)
-                                .set_glue_order(GlueOrder::Normal)
-                                .set_glue_set(0.);
-                        } else if t > r_unset.width() {
-                            r_box.set_glue_sign(GlueSign::Stretching).set_glue_set(
-                                if r_unset.stretch() == Scaled::ZERO {
+                        match t.cmp(&r_unset.width()) {
+                            Ordering::Equal => {
+                                r_box
+                                    .set_glue_sign(GlueSign::Normal)
+                                    .set_glue_order(GlueOrder::Normal)
+                                    .set_glue_set(0.);
+                            }
+                            Ordering::Greater => {
+                                r_box.set_glue_sign(GlueSign::Stretching).set_glue_set(
+                                    if r_unset.stretch() == Scaled::ZERO {
+                                        0.
+                                    } else {
+                                        (t - r_unset.width()).0 as f64 / r_unset.stretch().0 as f64
+                                    },
+                                );
+                            }
+                            Ordering::Less => {
+                                r_box
+                                    .set_glue_order(r_unset.shrink_order())
+                                    .set_glue_sign(GlueSign::Shrinking);
+                                r_box.set_glue_set(if r_unset.shrink() == Scaled::ZERO {
                                     0.
+                                } else if r_box.glue_order() == GlueOrder::Normal
+                                    && r_unset.width() - t > r_unset.shrink()
+                                {
+                                    1.
                                 } else {
-                                    (t - r_unset.width()).0 as f64 / r_unset.stretch().0 as f64
-                                },
-                            );
-                        } else {
-                            r_box
-                                .set_glue_order(r_unset.shrink_order())
-                                .set_glue_sign(GlueSign::Shrinking);
-                            r_box.set_glue_set(if r_unset.shrink() == Scaled::ZERO {
-                                0.
-                            } else if r_box.glue_order() == GlueOrder::Normal
-                                && r_unset.width() - t > r_unset.shrink()
-                            {
-                                1.
-                            } else {
-                                (r_unset.width() - t).0 as f64 / r_unset.shrink().0 as f64
-                                // BOX_glue
-                            });
+                                    (r_unset.width() - t).0 as f64 / r_unset.shrink().0 as f64
+                                    // BOX_glue
+                                });
+                            }
                         }
                         r_box.set_width(w);
                         r_box.set_horizontal();
                     } else {
                         r_box.set_width(q.width());
-                        if t == r_unset.height() {
-                            r_box
-                                .set_glue_sign(GlueSign::Normal)
-                                .set_glue_order(GlueOrder::Normal)
-                                .set_glue_set(0.);
-                        } else if t > r_unset.height() {
-                            r_box.set_glue_sign(GlueSign::Stretching).set_glue_set(
-                                if r_unset.stretch() == Scaled::ZERO {
+                        match t.cmp(&r_unset.height()) {
+                            Ordering::Equal => {
+                                r_box
+                                    .set_glue_sign(GlueSign::Normal)
+                                    .set_glue_order(GlueOrder::Normal)
+                                    .set_glue_set(0.);
+                            }
+                            Ordering::Greater => {
+                                r_box.set_glue_sign(GlueSign::Stretching).set_glue_set(
+                                    if r_unset.stretch() == Scaled::ZERO {
+                                        0.
+                                    } else {
+                                        (t - r_unset.height()).0 as f64 / r_unset.stretch().0 as f64
+                                    },
+                                );
+                            }
+                            Ordering::Less => {
+                                r_box
+                                    .set_glue_order(r_unset.shrink_order())
+                                    .set_glue_sign(GlueSign::Shrinking);
+                                r_box.set_glue_set(if r_unset.shrink() == Scaled::ZERO {
                                     0.
+                                } else if r_box.glue_order() == GlueOrder::Normal
+                                    && r_unset.height() - t > r_unset.shrink()
+                                {
+                                    1.
                                 } else {
-                                    (t - r_unset.height()).0 as f64 / r_unset.stretch().0 as f64
-                                },
-                            );
-                        } else {
-                            r_box
-                                .set_glue_order(r_unset.shrink_order())
-                                .set_glue_sign(GlueSign::Shrinking);
-                            r_box.set_glue_set(if r_unset.shrink() == Scaled::ZERO {
-                                0.
-                            } else if r_box.glue_order() == GlueOrder::Normal
-                                && r_unset.height() - t > r_unset.shrink()
-                            {
-                                1.
-                            } else {
-                                (r_unset.height() - t).0 as f64 / r_unset.shrink().0 as f64
-                            });
+                                    (r_unset.height() - t).0 as f64 / r_unset.shrink().0 as f64
+                                });
+                            }
                         }
                         r_box.set_height(w);
                         r_box.set_vertical();
@@ -11182,7 +11189,7 @@ pub(crate) unsafe fn show_save_groups(group: GroupCode, level: u16) {
             } else if i < SHIP_OUT_FLAG {
                 if i >= GLOBAL_BOX_FLAG {
                     print_esc_cstr("global");
-                    i = i - (GLOBAL_BOX_FLAG - BOX_FLAG)
+                    i -= GLOBAL_BOX_FLAG - BOX_FLAG;
                 }
                 t_print!("{}{}=", Esc("setbox"), i - BOX_FLAG);
             } else {
@@ -11310,14 +11317,10 @@ pub(crate) unsafe fn vert_break(mut p: i32, h: Scaled, d: Scaled) -> i32 {
                     prev_dp = Scaled::ZERO;
                 }
                 TxtNode::Kern(k) => {
-                    match llist_link(p).map(|next| Node::from(next)) {
-                        Some(Node::Text(TxtNode::Glue(_))) => {
-                            if with_penalty(p, 0, h, &mut prev_dp, &mut best_place, &mut least_cost)
-                            {
-                                return best_place.tex_int();
-                            }
+                    if let Some(Node::Text(TxtNode::Glue(_))) = llist_link(p).map(Node::from) {
+                        if with_penalty(p, 0, h, &mut prev_dp, &mut best_place, &mut least_cost) {
+                            return best_place.tex_int();
                         }
-                        _ => {}
                     }
                     active_width.width += prev_dp + k.width();
                     prev_dp = Scaled::ZERO;
@@ -11398,7 +11401,7 @@ pub(crate) unsafe fn vert_break(mut p: i32, h: Scaled, d: Scaled) -> i32 {
                 if pi <= EJECT_PENALTY {
                     b = pi
                 } else if b < INF_BAD {
-                    b = b + pi
+                    b += pi
                 } else {
                     b = 100000;
                 }
@@ -11561,7 +11564,7 @@ pub(crate) unsafe fn app_space() {
             /*1077: */
             FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize]
                 .opt()
-                .map(|g| GlueSpec(g))
+                .map(GlueSpec)
                 .unwrap_or_else(|| {
                     /*:1079 */
                     let mut main_p = new_spec(&ZERO_GLUE);
@@ -11619,7 +11622,7 @@ pub(crate) unsafe fn report_illegal_case(cmd: Cmd, chr: i32) {
     error();
 }
 pub(crate) unsafe fn privileged(cmd: Cmd, chr: i32) -> bool {
-    if cur_list.mode.0 == false {
+    if !cur_list.mode.0 {
         true
     } else {
         report_illegal_case(cmd, chr);
@@ -11790,7 +11793,7 @@ pub(crate) unsafe fn box_end(input: &mut input_state_t, box_context: i32) {
                     }
                     adjust_tail = None;
                 }
-                if cur_list.mode.0 == false {
+                if !cur_list.mode.0 {
                     build_page(input);
                 }
             } else {
@@ -11923,54 +11926,51 @@ pub(crate) unsafe fn begin_box(input: &mut input_state_t, cmd: Cmd, chr: i32, bo
                     }
                     _ => {}
                 }
-                match &mut CharOrText::from(tx as usize) {
-                    CharOrText::Text(TxtNode::List(b)) => {
-                        /*1116:*/
-                        let mut q = cur_list.head as i32;
-                        let mut p = None.tex_int();
-                        loop {
-                            let r = p;
-                            p = q;
-                            let mut fm = false;
-                            match CharOrText::from(q as usize) {
-                                CharOrText::Text(TxtNode::Disc(d)) => {
-                                    for _ in 0..d.replace_count() {
-                                        p = *LLIST_link(p as usize);
-                                    }
-                                    if p == tx {
-                                        break;
-                                    }
+                if let CharOrText::Text(TxtNode::List(b)) = &mut CharOrText::from(tx as usize) {
+                    /*1116:*/
+                    let mut q = cur_list.head as i32;
+                    let mut p = None.tex_int();
+                    loop {
+                        let r = p;
+                        p = q;
+                        let mut fm = false;
+                        match CharOrText::from(q as usize) {
+                            CharOrText::Text(TxtNode::Disc(d)) => {
+                                for _ in 0..d.replace_count() {
+                                    p = *LLIST_link(p as usize);
                                 }
-                                CharOrText::Text(TxtNode::Math(m))
-                                    if m.subtype() == MathType::Eq(BE::Begin, MathMode::Middle) =>
-                                {
-                                    fm = true;
+                                if p == tx {
+                                    break;
                                 }
-                                _ => {}
                             }
-                            q = *LLIST_link(p as usize);
-                            if q == tx {
-                                q = *LLIST_link(tx as usize);
-                                *LLIST_link(p as usize) = q;
-                                *LLIST_link(tx as usize) = None.tex_int();
-                                if q.opt().is_none() {
-                                    if fm {
-                                        confusion("tail1");
-                                    } else {
-                                        cur_list.tail = p as usize;
-                                    }
-                                } else if fm {
-                                    cur_list.tail = r as usize;
-                                    *LLIST_link(r as usize) = None.tex_int();
-                                    flush_node_list(p.opt());
-                                }
-                                cur_box = Some(tx as usize);
-                                b.set_shift_amount(Scaled::ZERO);
-                                break;
+                            CharOrText::Text(TxtNode::Math(m))
+                                if m.subtype() == MathType::Eq(BE::Begin, MathMode::Middle) =>
+                            {
+                                fm = true;
                             }
+                            _ => {}
+                        }
+                        q = *LLIST_link(p as usize);
+                        if q == tx {
+                            q = *LLIST_link(tx as usize);
+                            *LLIST_link(p as usize) = q;
+                            *LLIST_link(tx as usize) = None.tex_int();
+                            if q.opt().is_none() {
+                                if fm {
+                                    confusion("tail1");
+                                } else {
+                                    cur_list.tail = p as usize;
+                                }
+                            } else if fm {
+                                cur_list.tail = r as usize;
+                                *LLIST_link(r as usize) = None.tex_int();
+                                flush_node_list(p.opt());
+                            }
+                            cur_box = Some(tx as usize);
+                            b.set_shift_amount(Scaled::ZERO);
+                            break;
                         }
                     }
-                    _ => {}
                 }
             }
         }
@@ -12158,7 +12158,7 @@ pub(crate) unsafe fn indent_in_hmode(chr: i32) {
     };
 }
 pub(crate) unsafe fn head_for_vmode(input: &mut input_state_t, tok: i32, cmd: Cmd, chr: i32) {
-    if cur_list.mode.0 == true {
+    if cur_list.mode.0 {
         if cmd != Cmd::HRule {
             off_save(input, cur_group, tok, cmd, chr);
         } else {
@@ -12186,7 +12186,7 @@ pub(crate) unsafe fn end_graf() {
         } else {
             line_break(false);
         }
-        if let Some(_) = cur_list.eTeX_aux {
+        if cur_list.eTeX_aux.is_some() {
             flush_list(cur_list.eTeX_aux);
             cur_list.eTeX_aux = None;
         }
@@ -13598,13 +13598,7 @@ pub(crate) unsafe fn do_extension(
                 *LLIST_link(cur_list.tail) = Some(l.ptr()).tex_int();
                 cur_list.tail = l.ptr();
                 let val = scan_int(input);
-                cur_list.aux.b32.s1 = if val <= 0 {
-                    0
-                } else if val > 255 {
-                    0
-                } else {
-                    val
-                };
+                cur_list.aux.b32.s1 = if val <= 0 || val > 255 { 0 } else { val };
                 l.set_lang(cur_list.aux.b32.s1)
                     .set_lhm(norm_min(get_int_par(IntPar::left_hyphen_min)) as u16)
                     .set_rhm(norm_min(get_int_par(IntPar::right_hyphen_min)) as u16);
@@ -13694,12 +13688,11 @@ pub(crate) unsafe fn do_extension(
     };
 }
 pub(crate) unsafe fn fix_language() {
-    let l: UTF16_code = if get_int_par(IntPar::language) <= 0 {
-        0
-    } else if get_int_par(IntPar::language) > 255 {
+    let lang = get_int_par(IntPar::language);
+    let l: UTF16_code = if lang <= 0 || lang > 255 {
         0
     } else {
-        get_int_par(IntPar::language) as UTF16_code
+        lang as UTF16_code
     };
     if l as i32 != cur_list.aux.b32.s1 {
         let mut lang = Language::new_node();
@@ -14204,7 +14197,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     (VMode, Cmd::ActiveChar) => {
                         // 14
                         normal_paragraph();
-                        if cur_list.mode.0 == false {
+                        if !cur_list.mode.0 {
                             build_page(input);
                         }
                     }
@@ -14554,11 +14547,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         // 60 | 163 | 266
                         do_extension(input, cur_tok, cur_cmd, cur_chr, cur_cs);
                     }
-                    (_, Cmd::Relax)
-                    | (VMode, Cmd::Spacer)
-                    | (MMode, Cmd::Spacer)
-                    | (MMode, Cmd::NoBoundary)
-                    | _ => {
+                    //(_, Cmd::Relax)
+                    //| (VMode, Cmd::Spacer)
+                    //| (MMode, Cmd::Spacer)
+                    //| (MMode, Cmd::NoBoundary) |
+                    _ => {
                         // 1 | 104 | 207 | 11 | 217 | 272 | _
                     }
                 }
@@ -14567,14 +14560,14 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
         }
 
         /*main_loop *//*1069: */
-        if cur_list.head == cur_list.tail && cur_list.mode.0 == false {
+        if cur_list.head == cur_list.tail && !cur_list.mode.0 {
             if insert_src_special_auto {
                 append_src_special();
             }
         }
         prev_class = CHAR_CLASS_LIMIT - 1;
         if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
-            if cur_list.mode.0 == false {
+            if !cur_list.mode.0 {
                 if get_int_par(IntPar::language) != cur_list.aux.b32.s1 {
                     fix_language();
                 }
@@ -14705,12 +14698,12 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                 main_k = mapped_text.len() as _;
                 native_text.clear();
                 main_h = 0;
-                for main_p in 0..mapped_text.len() {
-                    native_text.push(mapped_text[main_p]);
+                for &mt in &mapped_text {
+                    native_text.push(mt);
                     if main_h == 0
-                        && (mapped_text[main_p] as i32 == HYPHEN_CHAR[main_f as usize]
+                        && (mt as i32 == HYPHEN_CHAR[main_f as usize]
                             || get_int_par(IntPar::xetex_dash_break) > 0
-                                && (mapped_text[main_p] == 8212 || mapped_text[main_p] == 8211))
+                                && (mt == 8212 || mt == 8211))
                     {
                         main_h = native_text.len() as _;
                     }
@@ -14781,7 +14774,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             while main_h < main_k
                                 && native_text[tmp_ptr + (main_h as usize)] as i32
                                     != HYPHEN_CHAR[main_f as usize]
-                                && (!(get_int_par(IntPar::xetex_dash_break) > 0)
+                                && (get_int_par(IntPar::xetex_dash_break) <= 0
                                     || native_text[tmp_ptr + (main_h as usize)] as i32 != 8212
                                         && native_text[tmp_ptr + (main_h as usize)] as i32 != 8211)
                             {
@@ -14802,13 +14795,13 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             do_locale_linebreaks(
                                 &native_text[tmp_ptr..tmp_ptr + (main_h as usize)],
                             );
-                            tmp_ptr = tmp_ptr + main_h as usize;
-                            main_k = main_k - main_h;
+                            tmp_ptr += main_h as usize;
+                            main_k -= main_h;
                             main_h = 0;
                             while main_h < main_k
                                 && native_text[tmp_ptr + (main_h as usize)] as i32
                                     != HYPHEN_CHAR[main_f as usize]
-                                && (!(get_int_par(IntPar::xetex_dash_break) > 0)
+                                && (get_int_par(IntPar::xetex_dash_break) <= 0
                                     || native_text[tmp_ptr + (main_h as usize)] as i32 != 8212
                                         && native_text[tmp_ptr + (main_h as usize)] as i32 != 8211)
                             {
@@ -14908,14 +14901,11 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 | TxtNode::Ins(_)
                                 | TxtNode::Mark(_)
                                 | TxtNode::Adjust(_) => true,
-                                TxtNode::WhatsIt(n) => match n {
-                                    WhatsIt::Open(_)
+                                TxtNode::WhatsIt(n) => matches!(n, WhatsIt::Open(_)
                                     | WhatsIt::Write(_)
                                     | WhatsIt::Close(_)
                                     | WhatsIt::Special(_)
-                                    | WhatsIt::Language(_) => true,
-                                    _ => false,
-                                },
+                                    | WhatsIt::Language(_)),
                                 _ => false,
                             },
                             _ => false,
@@ -15078,7 +15068,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         continue 'big_switch;
                     } else {
                         main_i = effective_char_info(main_f, cur_l as u16);
-                        if !(main_i.s3 > 0) {
+                        if main_i.s3 == 0 {
                             char_warning(main_f, cur_chr);
                             *LLIST_link(ls) = avail.tex_int();
                             avail = lig_stack;
@@ -15213,7 +15203,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                                 }
                                                 if ins_disc {
                                                     ins_disc = false;
-                                                    if cur_list.mode.0 == false {
+                                                    if !cur_list.mode.0 {
                                                         let d = new_disc();
                                                         *LLIST_link(cur_list.tail) =
                                                             Some(d).tex_int();
@@ -15284,7 +15274,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                     main_k += 1;
                                     current_block = 13962460947151495567;
                                     break;
-                                } else if !(main_j.s3 >= 128) {
+                                } else if main_j.s3 < 128 {
                                     main_k = main_k + main_j.s3 as i32 + 1;
                                     current_block = 13962460947151495567;
                                     break;
@@ -15436,7 +15426,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 }
                                 if ins_disc {
                                     ins_disc = false;
-                                    if cur_list.mode.0 == false {
+                                    if !cur_list.mode.0 {
                                         let d = new_disc();
                                         *LLIST_link(cur_list.tail) = Some(d).tex_int();
                                         cur_list.tail = d;
@@ -15551,7 +15541,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
         let tmp = if get_glue_par(GluePar::space_skip).ptr() == 0 {
             let main_p = FONT_GLUE[EQTB[CUR_FONT_LOC].val as usize]
                 .opt()
-                .map(|g| GlueSpec(g))
+                .map(GlueSpec)
                 .unwrap_or_else(|| {
                     let mut main_p = new_spec(&ZERO_GLUE);
                     main_k = PARAM_BASE[EQTB[CUR_FONT_LOC].val as usize] + 2;
@@ -15610,7 +15600,6 @@ pub(crate) unsafe fn compare_strings(input: &mut input_state_t, cs: i32) -> i32 
     scan_toks(input, cs, false, true);
     let s2 = format!("{}", TokenList(LLIST_link(def_ref).opt()));
     delete_token_ref(def_ref);
-    use std::cmp::Ordering;
     match s1.cmp(&s2) {
         Ordering::Equal => 0,
         Ordering::Greater => 1,
