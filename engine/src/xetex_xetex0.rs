@@ -739,14 +739,14 @@ impl fmt::Display for GlueSpecUnit {
     }
 }
 
-pub(crate) unsafe fn print_fam_and_char(p: usize) {
-    let c = (MEM[p].b16.s0 as i64 + (MEM[p].b16.s1 as i32 / 256) as i64 * 65536) as i32;
-    t_print!(
-        "{}{} {}",
-        Esc("fam"),
-        MEM[p].b16.s1 as i32 % 256,
-        std::char::from_u32(c as u32).unwrap()
-    );
+impl fmt::Display for MathChar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let c = (self.character1 as u32) + ((self.character2 as u32) << 16);
+        Esc("fam").fmt(f)?;
+        self.family.fmt(f)?;
+        ' '.fmt(f)?;
+        std::char::from_u32(c).unwrap().fmt(f)
+    }
 }
 pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
     let a = ((d.s3 as i32 % 256 * 256) as i64 + (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536))
@@ -759,28 +759,26 @@ pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
         t_print!("\"{:X}", a);
     };
 }
-pub(crate) unsafe fn print_subsidiary_data(p: usize, c: UTF16_code) {
+pub(crate) unsafe fn print_subsidiary_data(d: &MCell, c: UTF16_code) {
     if PoolString::current().len() as i32 >= depth_threshold {
-        if MEM[p].b32.s1 != 0 {
+        if d.typ != MathCell::Empty {
             t_print!(" []");
         }
     } else {
         str_pool[pool_ptr] = c;
         pool_ptr += 1;
-        let tmp_ptr = p;
-        match MathCell::n(MEM[p].b32.s1).unwrap() {
+        match d.typ {
             MathCell::MathChar => {
                 print_ln();
-                t_print!("{}", PoolString::current());
-                print_fam_and_char(p);
+                t_print!("{}{}", PoolString::current(), d.val.chr);
             }
-            MathCell::SubBox => show_info(tmp_ptr),
+            MathCell::SubBox => show_node_list(d.val.ptr.opt()),
             MathCell::SubMList => {
-                if MEM[p].b32.s0.opt().is_none() {
+                if d.val.ptr.opt().is_none() {
                     print_ln();
                     t_print!("{}{{}}", PoolString::current());
                 } else {
-                    show_info(tmp_ptr);
+                    show_node_list(d.val.ptr.opt());
                 }
             }
             _ => {}
@@ -1182,8 +1180,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_delimiter(r.delimeter());
                         }
                         MathNode::Accent => {
-                            print_esc_cstr("accent");
-                            print_fam_and_char(p + 4);
+                            t_print!("{}{}", Esc("accent"), Accent::from(p).fourth().val.chr);
                         }
                         MathNode::Left => {
                             let l = LeftRight(p);
@@ -1201,16 +1198,17 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         _ => {}
                     }
+                    let bm = BaseMath(p);
                     if n != MathNode::Left && n != MathNode::Right {
                         match Limit::from(MEM[p].b16.s0) {
                             Limit::Limits => print_esc_cstr("limits"),
                             Limit::NoLimits => print_esc_cstr("nolimits"),
                             Limit::Normal => {}
                         }
-                        print_subsidiary_data(p + 1, '.' as i32 as UTF16_code);
+                        print_subsidiary_data(bm.nucleus(), '.' as i32 as UTF16_code);
                     }
-                    print_subsidiary_data(p + 2, '^' as i32 as UTF16_code);
-                    print_subsidiary_data(p + 3, '_' as i32 as UTF16_code);
+                    print_subsidiary_data(bm.supscr(), '^' as i32 as UTF16_code);
+                    print_subsidiary_data(bm.subscr(), '_' as i32 as UTF16_code);
                 }
                 MathNode::Fraction => {
                     let f = Fraction(p);
@@ -1237,8 +1235,8 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!(", right-delimiter ");
                         print_delimiter(rd);
                     }
-                    print_subsidiary_data(p + 2, '\\' as i32 as UTF16_code);
-                    print_subsidiary_data(p + 3, '/' as i32 as UTF16_code);
+                    print_subsidiary_data(f.numerator(), '\\' as i32 as UTF16_code);
+                    print_subsidiary_data(f.denumerator(), '/' as i32 as UTF16_code);
                 }
             },
             Node::Unknown(_) => t_print!("Unknown node type!"),
@@ -5642,16 +5640,16 @@ pub(crate) unsafe fn scan_math(input: &mut input_state_t, m: &mut MCell, p: usiz
         }
     };
     m.typ = MathCell::MathChar;
-    m.val.chr.character = (c as i64 % 65536) as u16;
-    let font = if (math_class(c) == 7)
-        && (get_int_par(IntPar::cur_fam) >= 0
-            && get_int_par(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
-    {
-        get_int_par(IntPar::cur_fam) as u16
-    } else {
-        math_fam(c) as u16
-    };
-    m.val.chr.font = (font as i64 + ((math_char(c) as i64) / 65536) * 256) as u16;
+    m.val.chr.character1 = (c as i64 % 65536) as u16;
+    let cur_family = get_int_par(IntPar::cur_fam);
+    let font =
+        if (math_class(c) == 7) && (cur_family >= 0 && cur_family < NUMBER_MATH_FAMILIES as i32) {
+            cur_family as u16
+        } else {
+            math_fam(c) as u16
+        };
+    m.val.chr.character2 = ((math_char(c) as u32) >> 16) as u8;
+    m.val.chr.family = font as u8;
 }
 pub(crate) unsafe fn set_math_char(input: &mut input_state_t, chr: i32, c: i32) {
     if math_char(c) == ACTIVE_MATH_CHAR as u32 {
@@ -10229,9 +10227,6 @@ pub(crate) unsafe fn new_choice() -> usize {
     p.set_script(None);
     p.set_scriptscript(None);
     p.ptr()
-}
-pub(crate) unsafe fn show_info(tmp_ptr: usize) {
-    show_node_list(MEM[tmp_ptr].b32.s0.opt());
 }
 pub(crate) unsafe fn push_alignment() {
     let mut p = Alignment(get_node(ALIGN_STACK_NODE_SIZE));

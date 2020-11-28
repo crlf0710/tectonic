@@ -547,16 +547,16 @@ pub(crate) unsafe fn math_ac(input: &mut input_state_t, cmd: Cmd, chr: i32) {
         let val = scan_fifteen_bit_int(input);
         set_class(val / 4096) + set_family(val % 4096 / 256) + (val % 256)
     };
-    acc.fourth_mut().val.chr.character = (val as i64 % 65536) as u16;
-    let font = if math_class(val) == 7
-        && (get_int_par(IntPar::cur_fam) >= 0
-            && get_int_par(IntPar::cur_fam) < NUMBER_MATH_FAMILIES as i32)
-    {
-        get_int_par(IntPar::cur_fam) as u16
-    } else {
-        math_fam(val) as u16
-    };
-    acc.fourth_mut().val.chr.font = (font as i64 + math_char(val) as i64 / 65536 * 256) as u16;
+    acc.fourth_mut().val.chr.character1 = (val as i64 % 65536) as u16;
+    let cur_family = get_int_par(IntPar::cur_fam);
+    let font =
+        if math_class(val) == 7 && (cur_family >= 0 && cur_family < NUMBER_MATH_FAMILIES as i32) {
+            cur_family as u16
+        } else {
+            math_fam(val) as u16
+        };
+    acc.fourth_mut().val.chr.character2 = (math_char(val) as u32 >> 16) as u8;
+    acc.fourth_mut().val.chr.family = font as u8;
     let p = acc.ptr() + 1;
     scan_math(input, acc.nucleus_mut(), p);
 }
@@ -1471,15 +1471,14 @@ unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> List {
     found(q)
 }
 pub(crate) unsafe fn fetch(a: &mut MCell) {
-    cur_c = a.val.chr.character as i32;
-    cur_f = MATH_FONT(a.val.chr.font as usize % 256 + cur_size);
-    cur_c = (cur_c as i64 + (a.val.chr.font as i32 / 256) as i64 * 65536) as i32;
+    cur_f = MATH_FONT(a.val.chr.family as usize + cur_size);
+    cur_c = (a.val.chr.character1 as u32 + ((a.val.chr.character2 as u32) << 16)) as i32;
     if cur_f == FONT_BASE {
         // 749:
         t_eprint!(
             "{} {} is undefined (character {})",
             FontSize::from(cur_size),
-            a.val.chr.font as i32 % 256,
+            a.val.chr.family,
             std::char::from_u32(cur_c as u32).unwrap()
         );
 
@@ -1979,7 +1978,7 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                     if i.s3 as i32 > 0 {
                         cur_c = c as i32;
                         cur_i = i;
-                        q.nucleus_mut().val.chr.character = c
+                        q.nucleus_mut().val.chr.character1 = c
                     }
                 }
                 delta = *FONT_CHARINFO_ITALCORR(cur_f as usize, cur_i);
@@ -2158,7 +2157,7 @@ unsafe fn make_ord(q: &mut Ord) {
         if !(p.nucleus().typ == MathCell::MathChar) {
             break;
         }
-        if p.nucleus().val.chr.font % 256 != q.nucleus().val.chr.font % 256 {
+        if p.nucleus().val.chr.family != q.nucleus().val.chr.family {
             break;
         }
         q.nucleus_mut().typ = MathCell::MathTextChar;
@@ -2167,7 +2166,7 @@ unsafe fn make_ord(q: &mut Ord) {
             break;
         }
         let mut a = LIG_KERN_BASE[cur_f as usize] + cur_i.s0 as i32;
-        cur_c = p.nucleus().val.chr.character as i32;
+        cur_c = p.nucleus().val.chr.character1 as i32;
         cur_i = FONT_INFO[a as usize].b16;
         if cur_i.s3 as i32 > 128 {
             a = ((LIG_KERN_BASE[cur_f as usize] + 256 * cur_i.s1 as i32 + cur_i.s0 as i32) as i64
@@ -2191,13 +2190,13 @@ unsafe fn make_ord(q: &mut Ord) {
                         return;
                     } else {
                         match cur_i.s1 as i32 {
-                            1 | 5 => q.nucleus_mut().val.chr.character = cur_i.s0,
-                            2 | 6 => p.nucleus_mut().val.chr.character = cur_i.s0,
+                            1 | 5 => q.nucleus_mut().val.chr.character1 = cur_i.s0,
+                            2 | 6 => p.nucleus_mut().val.chr.character1 = cur_i.s0,
                             3 | 7 | 11 => {
                                 let mut r = BaseMath(new_noad());
-                                r.nucleus_mut().val.chr.character = cur_i.s0;
-                                r.nucleus_mut().val.chr.font =
-                                    (q.nucleus().val.chr.font as i32 % 256) as u16;
+                                r.nucleus_mut().val.chr.character1 = cur_i.s0;
+                                r.nucleus_mut().val.chr.character2 = 0;
+                                r.nucleus_mut().val.chr.family = q.nucleus().val.chr.family;
                                 *LLIST_link(q.ptr()) = Some(r.ptr()).tex_int();
                                 *LLIST_link(r.ptr()) = Some(p.ptr()).tex_int();
                                 r.nucleus_mut().typ = if (cur_i.s1 as i32) < 11 {
@@ -2208,7 +2207,7 @@ unsafe fn make_ord(q: &mut Ord) {
                             }
                             _ => {
                                 *LLIST_link(q.ptr()) = *LLIST_link(p.ptr());
-                                q.nucleus_mut().val.chr.character = cur_i.s0;
+                                q.nucleus_mut().val.chr.character1 = cur_i.s0;
                                 q.subscr_mut().set(p.subscr());
                                 q.supscr_mut().set(p.supscr());
                                 free_node(p.ptr(), NOAD_SIZE);

@@ -2127,9 +2127,9 @@ pub(crate) mod math {
             MEM[self.ptr()].b16.s0 = v as u16;
             self
         }
-        /*pub(crate) unsafe fn fourth(&self) -> &MCell {
+        pub(crate) unsafe fn fourth(&self) -> &MCell {
             &(*(&MEM[self.ptr() + 4] as *const memory_word as *const MCell))
-        }*/
+        }
         pub(crate) unsafe fn fourth_mut(&mut self) -> &mut MCell {
             &mut (*(&mut MEM[self.ptr() + 4] as *mut memory_word as *mut MCell))
         }
@@ -2196,9 +2196,10 @@ pub(crate) mod math {
 
     #[repr(C)]
     #[derive(Clone, Copy)]
-    pub(crate) struct Chr {
-        pub(crate) character: u16,
-        pub(crate) font: u16,
+    pub(crate) struct MathChar {
+        pub(crate) character1: u16,
+        pub(crate) family: u8,
+        pub(crate) character2: u8,
     }
 
     // --- TODO: replace this with Enum
@@ -2215,7 +2216,7 @@ pub(crate) mod math {
     #[derive(Clone, Copy)]
     pub(crate) union CellVal {
         pub(crate) ptr: i32,
-        pub(crate) chr: Chr,
+        pub(crate) chr: MathChar,
     }
 
     #[repr(C)]
