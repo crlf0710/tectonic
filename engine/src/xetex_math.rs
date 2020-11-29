@@ -74,10 +74,16 @@ authorization from the copyright holders.
 pub(crate) type UTF16_code = u16;
 use crate::node::Delimeter;
 pub(crate) const NULL_DELIMITER: Delimeter = Delimeter {
-    s0: 0,
-    s1: 0,
-    s2: 0,
-    s3: 0,
+    chr2: MathChar {
+        character1: 0,
+        family: 0,
+        character2: 0,
+    },
+    chr1: MathChar {
+        character1: 0,
+        family: 0,
+        character2: 0,
+    },
 };
 static mut cur_mlist: i32 = 0;
 static mut cur_style: (MathStyle, u8) = (MathStyle::Display, 0);
@@ -475,15 +481,27 @@ unsafe fn scan_delimiter(
         val = 0;
     }
     if val >= 0x40000000i32 {
-        d.s3 = (val % 0x200000 / 0x10000 * 0x100 + val / 0x200000i32 % 0x100i32) as u16;
-        d.s2 = (val % 0x10000) as u16;
-        d.s1 = 0_u16;
-        d.s0 = 0_u16
+        d.chr1 = MathChar {
+            family: (val / 0x200000 % 0x100) as u8,
+            character2: (val % 0x200000 / 0x10000) as u8,
+            character1: (val % 0x10000) as u16,
+        };
+        d.chr2 = MathChar {
+            family: 0,
+            character2: 0,
+            character1: 0,
+        };
     } else {
-        d.s3 = (val / 0x100000 % 16) as u16;
-        d.s2 = (val / 0x1000 % 0x100) as u16;
-        d.s1 = (val / 0x100 % 16) as u16;
-        d.s0 = (val % 0x100) as u16
+        d.chr1 = MathChar {
+            family: (val / 0x100000 % 16) as u8,
+            character2: 0,
+            character1: (val / 0x1000 % 0x100) as u16,
+        };
+        d.chr2 = MathChar {
+            family: (val / 0x100 % 16) as u8,
+            character2: 0,
+            character1: (val % 0x100) as u16,
+        };
     };
 }
 pub(crate) unsafe fn math_radical(input: &mut input_state_t, tok: i32, chr: i32) {
@@ -1464,7 +1482,7 @@ unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> List {
 }
 pub(crate) unsafe fn fetch(a: &mut MCell) {
     cur_f = MATH_FONT(a.val.chr.family as usize + cur_size);
-    cur_c = (a.val.chr.character1 as u32 + ((a.val.chr.character2 as u32) << 16)) as i32;
+    cur_c = a.val.chr.as_utf32() as i32;
     if cur_f == FONT_BASE {
         // 749:
         t_eprint!(
@@ -1534,7 +1552,7 @@ unsafe fn make_vcenter(q: usize) {
     }
 }
 unsafe fn make_radical(q: &mut Radical) {
-    let f = MATH_FONT(q.delimeter().s3 as usize % 256 + cur_size);
+    let f = MATH_FONT(q.delimeter().chr1.family as usize + cur_size);
     let rule_thickness = match &FONT_LAYOUT_ENGINE[f] {
         Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
             get_ot_math_constant(f, RADICALRULETHICKNESS)
@@ -2969,8 +2987,8 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
     let mut f = FONT_BASE;
     let mut w = Scaled::ZERO;
     let mut large_attempt = false;
-    let mut z = d.s3 as i32 % 256;
-    let mut x = (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536) as u16;
+    let mut z = d.chr1.family as i32;
+    let mut x = d.chr1.as_utf32() as u16; // TODO: check. Why u16?
     let mut ot_assembly_ptr = None;
     's_62: loop {
         if z != 0 || x != 0 {
@@ -3056,8 +3074,8 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
             break;
         }
         large_attempt = true;
-        z = d.s1 as i32 % 256;
-        x = (d.s0 as i64 + (d.s1 as i32 / 256) as i64 * 65536) as u16
+        z = d.chr2.family as i32;
+        x = d.chr2.as_utf32() as u16;
     }
     let mut b = if f != FONT_BASE {
         match &FONT_LAYOUT_ENGINE[f] {

@@ -738,7 +738,7 @@ impl fmt::Display for GlueSpecUnit {
 
 impl fmt::Display for MathChar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let c = (self.character1 as u32) + ((self.character2 as u32) << 16);
+        let c = self.as_utf32();
         Esc("fam").fmt(f)?;
         self.family.fmt(f)?;
         ' '.fmt(f)?;
@@ -746,10 +746,8 @@ impl fmt::Display for MathChar {
     }
 }
 pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
-    let a = ((d.s3 as i32 % 256 * 256) as i64 + (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536))
-        as i32;
-    let a = ((a * 4096 + d.s1 as i32 % 256 * 256) as i64
-        + (d.s0 as i64 + (d.s1 as i32 / 256) as i64 * 65536)) as i32;
+    let a = (d.chr1.family as u32 * 256) + d.chr1.as_utf32();
+    let a = ((a * 4096 + d.chr2.family as u32 * 256) as i64 + d.chr2.as_utf32() as i64) as i32;
     if a < 0 {
         t_print!("{}", a);
     } else {
@@ -1213,20 +1211,12 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!("{}, thickness {}", Esc("fraction"), f.thickness());
                     }
                     let ld = f.left_delimeter();
-                    if ld.s3 as i32 % 256 != 0
-                        || ld.s2 as i64 + (ld.s3 as i32 / 256) as i64 * 65536 != 0
-                        || ld.s1 as i32 % 256 != 0
-                        || ld.s0 as i64 + (ld.s1 as i32 / 256) as i64 * 65536 != 0
-                    {
+                    if !ld.is_empty() {
                         t_print!(", left-delimiter ");
                         print_delimiter(ld);
                     }
                     let rd = f.right_delimeter();
-                    if rd.s3 as i32 % 256 != 0
-                        || rd.s2 as i64 + (rd.s3 as i32 / 256) as i64 * 65536 != 0
-                        || rd.s1 as i32 % 256 != 0
-                        || rd.s0 as i64 + (rd.s1 as i32 / 256) as i64 * 65536 != 0
-                    {
+                    if !rd.is_empty() {
                         t_print!(", right-delimiter ");
                         print_delimiter(rd);
                     }

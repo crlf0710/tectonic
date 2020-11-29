@@ -2202,6 +2202,12 @@ pub(crate) mod math {
         pub(crate) character2: u8,
     }
 
+    impl MathChar {
+        pub fn as_utf32(&self) -> u32 {
+            (self.character1 as u32) + ((self.character2 as u32) << 16)
+        }
+    }
+
     // --- TODO: replace this with Enum
     #[repr(i32)]
     #[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
@@ -2259,10 +2265,17 @@ pub(crate) mod math {
     #[repr(C)]
     #[derive(Clone, Copy)]
     pub(crate) struct Delimeter {
-        pub s0: u16,
-        pub s1: u16,
-        pub s2: u16,
-        pub s3: u16,
+        pub chr2: MathChar,
+        pub chr1: MathChar,
+    }
+
+    impl Delimeter {
+        pub fn is_empty(&self) -> bool {
+            self.chr1.family == 0
+                && self.chr1.as_utf32() == 0
+                && self.chr2.family == 0
+                && self.chr2.as_utf32() == 0
+        }
     }
 }
 
