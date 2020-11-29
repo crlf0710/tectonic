@@ -86,8 +86,6 @@ use bridge::{ttstub_issue_warning, ttstub_output_close};
 
 use bridge::{OutputHandleWrapper, TTHistory, TTInputFormat};
 
-use libc::memcpy;
-
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
@@ -488,15 +486,12 @@ pub(crate) unsafe fn new_disc() -> usize {
 pub(crate) unsafe fn copy_native_glyph_info(src: &NativeWord, dest: &mut NativeWord) {
     if !src.glyph_info_ptr().is_null() {
         let glyph_count = src.glyph_count() as i32;
-        dest.set_glyph_info_ptr(xmalloc_array::<libc::c_char>(
-            glyph_count as usize * NATIVE_GLYPH_INFO_SIZE as usize,
-        ) as *mut _);
-        memcpy(
-            dest.glyph_info_ptr(),
-            src.glyph_info_ptr(),
-            (glyph_count * NATIVE_GLYPH_INFO_SIZE) as usize,
-        );
+        let bytesize =
+            glyph_count as usize * (std::mem::size_of::<FixedPoint>() + std::mem::size_of::<u16>());
+        dest.set_glyph_info_ptr(xmalloc_array::<libc::c_char>(bytesize) as *mut _);
         dest.set_glyph_count(glyph_count as u16);
+        dest.locations_mut().copy_from_slice(src.locations());
+        dest.glyph_ids_mut().copy_from_slice(src.glyph_ids());
     };
 }
 pub(crate) unsafe fn new_math(w: Scaled, s: MathType) -> Math {

@@ -1126,17 +1126,16 @@ pub(crate) unsafe fn makeXDVGlyphArrayData(p: &NativeWord) -> Vec<u8> {
     let i = glyphCount as usize * 10 + 8;
 
     let mut buf = Vec::with_capacity((i / 1024 + 1) * 1024);
-    let glyph_info = p.glyph_info_ptr();
-    let locations = glyph_info as *mut FixedPoint;
-    let glyphIDs = locations.offset(glyphCount as i32 as isize) as *mut u16;
+    let locations = p.locations();
+    let glyph_ids = p.glyph_ids();
     buf.extend_from_slice(&p.width().0.to_be_bytes()[..]);
     buf.extend_from_slice(&glyphCount.to_be_bytes()[..]);
-    for i in 0..glyphCount {
-        buf.extend_from_slice(&(*locations.offset(i as isize)).x.0.to_be_bytes()[..]);
-        buf.extend_from_slice(&(*locations.offset(i as isize)).y.0.to_be_bytes()[..]);
+    for i in 0..glyphCount as usize {
+        buf.extend_from_slice(&locations[i].x.0.to_be_bytes()[..]);
+        buf.extend_from_slice(&locations[i].y.0.to_be_bytes()[..]);
     }
-    for i in 0..glyphCount {
-        buf.extend_from_slice(&(*glyphIDs.offset(i as isize)).to_be_bytes()[..]);
+    for i in 0..glyphCount as usize {
+        buf.extend_from_slice(&glyph_ids[i].to_be_bytes()[..]);
     }
     buf
 }
@@ -1405,12 +1404,11 @@ pub(crate) unsafe fn getnativecharwd(f: usize, c: i32) -> Scaled {
     }
 }
 pub(crate) unsafe fn real_get_native_glyph(node: &NativeWord, index: u32) -> u16 {
-    let locations: *mut FixedPoint = node.glyph_info_ptr() as *mut FixedPoint;
-    let glyphIDs = locations.offset(node.glyph_count() as i32 as isize) as *const u16;
+    let glyph_ids = node.glyph_ids();
     if index >= node.glyph_count() as u32 {
         0_u16
     } else {
-        *glyphIDs.offset(index as isize)
+        glyph_ids[index as usize]
     }
 }
 pub(crate) unsafe fn store_justified_native_glyphs(node: &mut NativeWord) {
@@ -1431,34 +1429,30 @@ pub(crate) unsafe fn store_justified_native_glyphs(node: &mut NativeWord) {
                 /* see how much adjustment is needed overall */
                 let justAmount = Fix2D(savedWidth - node.width());
                 /* apply justification to spaces (or if there are none, distribute it to all glyphs as a last resort) */
-                let locations = node.glyph_info_ptr() as *mut FixedPoint;
-                let glyphIDs: *mut u16 =
-                    locations.offset(node.glyph_count() as i32 as isize) as *mut u16;
-                let glyphCount: i32 = node.glyph_count() as i32;
+                let glyph_count = node.glyph_count() as usize;
                 let mut spaceCount: i32 = 0i32;
                 let spaceGlyph: i32 = map_char_to_glyph(nf, ' ' as i32);
-                for i in 0..glyphCount {
-                    if *glyphIDs.offset(i as isize) as i32 == spaceGlyph {
+                for i in 0..glyph_count {
+                    if node.glyph_ids()[i] as i32 == spaceGlyph {
                         spaceCount += 1
                     }
                 }
                 if spaceCount > 0i32 {
                     let mut adjustment: f64 = 0i32 as f64;
                     let mut spaceIndex: i32 = 0i32;
-                    for i in 0..glyphCount {
-                        (*locations.offset(i as isize)).x =
-                            D2Fix(Fix2D((*locations.offset(i as isize)).x) + adjustment);
-                        if *glyphIDs.offset(i as isize) as i32 == spaceGlyph {
+                    for i in 0..glyph_count as usize {
+                        let loc = &mut node.locations_mut()[i];
+                        loc.x = D2Fix(Fix2D(loc.x) + adjustment);
+                        if node.glyph_ids()[i] as i32 == spaceGlyph {
                             spaceIndex += 1;
                             adjustment = justAmount * spaceIndex as f64 / spaceCount as f64
                         }
                     }
                 } else {
-                    for i in 1..glyphCount {
-                        (*locations.offset(i as isize)).x = D2Fix(
-                            Fix2D((*locations.offset(i as isize)).x)
-                                + justAmount * i as f64 / (glyphCount - 1i32) as f64,
-                        );
+                    for i in 1..glyph_count {
+                        let loc = &mut node.locations_mut()[i];
+                        loc.x =
+                            D2Fix(Fix2D(loc.x) + justAmount * i as f64 / (glyph_count - 1) as f64);
                     }
                 }
                 node.set_width(savedWidth);
@@ -1603,31 +1597,30 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
         node.set_depth(Scaled(DEPTH_BASE[f]));
     } else {
         /* this iterates over the glyph data whether it comes from AAT or OT layout */
-        let locations_0: *mut FixedPoint = node.glyph_info_ptr() as *mut FixedPoint; /* NB negative is upwards in locations[].y! */
-        let glyphIDs_0: *mut u16 = locations_0.offset(node.glyph_count() as isize) as *mut u16;
+        let locations = node.locations(); /* NB negative is upwards in locations[].y! */
+        let glyph_ids = node.glyph_ids();
         let mut yMin: f32 = 65536.0f64 as f32;
         let mut yMax: f32 = -65536.0f64 as f32;
-        let mut i_2 = 0;
-        while i_2 < node.glyph_count() {
-            let y_0: f32 = Fix2D(-(*locations_0.offset(i_2 as isize)).y) as f32;
+        for i in 0..node.glyph_count() as usize {
+            let y_0: f32 = Fix2D(-locations[i].y) as f32;
             let mut bbox: GlyphBBox = GlyphBBox {
                 xMin: 0.,
                 yMin: 0.,
                 xMax: 0.,
                 yMax: 0.,
             };
-            if getCachedGlyphBBox(f as u16, *glyphIDs_0.offset(i_2 as isize), &mut bbox) == 0i32 {
+            if getCachedGlyphBBox(f as u16, glyph_ids[i], &mut bbox) == 0i32 {
                 match &FONT_LAYOUT_ENGINE[f] {
                     #[cfg(target_os = "macos")]
                     Font::Native(Aat(engine)) => {
-                        aat::GetGlyphBBox_AAT(*engine, *glyphIDs_0.offset(i_2 as isize), &mut bbox);
+                        aat::GetGlyphBBox_AAT(*engine, glyph_ids[i], &mut bbox);
                     }
                     Font::Native(Otgr(engine)) => {
-                        engine.get_glyph_bounds(*glyphIDs_0.offset(i_2 as isize) as u32, &mut bbox);
+                        engine.get_glyph_bounds(glyph_ids[i] as u32, &mut bbox);
                     }
                     _ => {}
                 }
-                cacheGlyphBBox(f as u16, *glyphIDs_0.offset(i_2 as isize), &bbox);
+                cacheGlyphBBox(f as u16, glyph_ids[i], &bbox);
             }
             let ht = bbox.yMax;
             let dp = -bbox.yMin;
@@ -1637,7 +1630,6 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
             if y_0 - dp < yMin {
                 yMin = y_0 - dp
             }
-            i_2 += 1
         }
         node.set_height(D2Fix(yMax as f64));
         node.set_depth(-D2Fix(yMin as f64));
@@ -1645,22 +1637,18 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
 }
 pub(crate) unsafe fn real_get_native_italic_correction(node: &NativeWord) -> Scaled {
     let f = node.font() as usize;
-    let n = node.glyph_count() as u32;
+    let n = node.glyph_count() as usize;
     if n > 0 {
-        let locations: *mut FixedPoint = node.glyph_info_ptr() as *mut FixedPoint;
-        let glyphIDs: *mut u16 = locations.offset(n as isize) as *mut u16;
+        let glyph_ids = node.glyph_ids();
         match &FONT_LAYOUT_ENGINE[f] {
             #[cfg(target_os = "macos")]
             Font::Native(Aat(engine)) => {
-                D2Fix(aat::GetGlyphItalCorr_AAT(
-                    *engine,
-                    *glyphIDs.offset(n.wrapping_sub(1i32 as libc::c_uint) as isize),
-                )) + FONT_LETTER_SPACE[f]
+                D2Fix(aat::GetGlyphItalCorr_AAT(*engine, glyph_ids[n - 1])) + FONT_LETTER_SPACE[f]
             }
-            Font::Native(Otgr(engine)) => D2Fix(
-                engine.get_glyph_ital_corr(*glyphIDs.offset(n.wrapping_sub(1_u32) as isize) as u32)
-                    as f64,
-            ) + FONT_LETTER_SPACE[f],
+            Font::Native(Otgr(engine)) => {
+                D2Fix(engine.get_glyph_ital_corr(glyph_ids[n - 1] as u32) as f64)
+                    + FONT_LETTER_SPACE[f]
+            }
             _ => Scaled::ZERO,
         }
     } else {
@@ -1747,16 +1735,15 @@ pub(crate) unsafe fn Fix2D(f: Scaled) -> f64 {
 }
 
 pub(crate) unsafe fn real_get_native_word_cp(node: &NativeWord, side: Side) -> i32 {
-    let locations = node.glyph_info_ptr() as *mut FixedPoint;
-    let glyphIDs: *mut u16 = locations.offset(node.glyph_count() as isize) as *mut u16;
-    let glyphCount: u16 = node.glyph_count();
+    let glyph_ids = node.glyph_ids();
+    let glyph_count = node.glyph_count() as usize;
     let f = node.font() as usize;
-    if glyphCount == 0 {
+    if glyph_count == 0 {
         return 0;
     }
     let actual_glyph = match side {
-        Side::Left => *glyphIDs, // we should not reach this point
-        Side::Right => *glyphIDs.offset((glyphCount as i32 - 1i32) as isize),
+        Side::Left => glyph_ids[0], // we should not reach this point
+        Side::Right => glyph_ids[glyph_count - 1],
     };
     get_cp_code(f, actual_glyph as u32, side)
 }

@@ -135,7 +135,11 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
         let runCount = CFArrayGetCount(glyphRuns);
         totalGlyphCount = CTLineGetGlyphCount(line);
         if totalGlyphCount > 0 {
-            glyph_info = xmalloc((totalGlyphCount * 10) as _);
+            glyph_info = xmalloc(
+                ((totalGlyphCount as usize)
+                    * (std::mem::size_of::<FixedPoint>() + std::mem::size_of::<u16>()))
+                    as _,
+            );
             locations = glyph_info as *mut FixedPoint;
             let glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
             glyphAdvances = xmalloc(
