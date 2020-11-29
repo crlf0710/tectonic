@@ -16,9 +16,9 @@ use crate::xetex_stringpool::PoolString;
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
-    error_line, file_offset, hash, line, log_file, max_print_line, rust_stdout, selector, str_ptr,
-    tally, term_offset, trick_buf, trick_count, write_file, EQTB_TOP, FULL_SOURCE_FILENAME_STACK,
-    IN_OPEN, LINE_STACK, MEM,
+    error_line, file_offset, hash_offset, line, log_file, max_print_line, rust_stdout, selector,
+    str_ptr, tally, term_offset, trick_buf, trick_count, write_file, yhash, EQTB_TOP,
+    FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 
 /* Extra stuff used in various change files for various reasons.  */
@@ -362,7 +362,7 @@ impl fmt::Display for Cs {
                         Esc("endcsname").fmt(f)
                     }
                 } else {
-                    Esc(&PoolString::from((*hash.add(p as usize)).s1).to_string()).fmt(f)
+                    Esc(&PoolString::from(yhash[p as usize - hash_offset].s1).to_string()).fmt(f)
                 }
             } else if p < HASH_BASE as i32 {
                 if p >= SINGLE_BASE as i32 {
@@ -388,11 +388,11 @@ impl fmt::Display for Cs {
             {
                 Esc("IMPOSSIBLE").fmt(f)?;
                 '.'.fmt(f)
-            } else if (*hash.add(p as usize)).s1 >= str_ptr {
+            } else if yhash[p as usize - hash_offset].s1 >= str_ptr {
                 Esc("NONEXISTENT").fmt(f)?;
                 '.'.fmt(f)
             } else {
-                Esc(&PoolString::from((*hash.add(p as usize)).s1).to_string()).fmt(f)?;
+                Esc(&PoolString::from(yhash[p as usize - hash_offset].s1).to_string()).fmt(f)?;
                 ' '.fmt(f)
             }
         }

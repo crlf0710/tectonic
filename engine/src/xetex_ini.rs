@@ -5,7 +5,6 @@ use std::ptr;
 
 use super::xetex_texmfmp::get_date_and_time;
 use crate::cmd::*;
-use crate::core_memory::xmalloc_array;
 use crate::fmt_file::{load_fmt_file, store_fmt_file};
 use crate::help;
 use crate::node::*;
@@ -40,7 +39,6 @@ use crate::xetex_xetexd::{
 };
 use bridge::ttstub_output_open_stdout;
 use dpx::{pdf_files_close, pdf_files_init};
-use libc::free;
 
 /* tectonic/core-bridge.h: declarations of C/C++ => Rust bridge API
    Copyright 2016-2018 the Tectonic Project
@@ -78,7 +76,7 @@ pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
 pub(crate) type packed_UTF16_code = u16;
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct b32x2_le_t {
     pub(crate) s0: i32,
@@ -534,8 +532,6 @@ pub(crate) static mut cur_list: list_state_record = list_state_record {
 };
 #[no_mangle]
 pub(crate) static mut shown_mode: (bool, ListMode) = (false, ListMode::NoMode);
-#[no_mangle]
-pub(crate) static mut hash: *mut b32x2 = ptr::null_mut();
 #[no_mangle]
 pub(crate) static mut hash_used: i32 = 0;
 #[no_mangle]
@@ -1037,9 +1033,9 @@ pub(crate) static mut insert_penalties: i32 = 0;
 pub(crate) static mut output_active: bool = false;
 #[no_mangle]
 pub(crate) static mut _xeq_level_array: [u16; 1114732] = [0; 1114732];
-pub(crate) static mut yhash: *mut b32x2 = ptr::null_mut();
+pub(crate) static mut yhash: Vec<b32x2> = Vec::new();
 
-pub(crate) const hash_offset: i32 = 514;
+pub(crate) const hash_offset: usize = 514;
 
 unsafe fn primitive<I>(ident: &str, c: Cmd, o: I) -> i32
 where
@@ -1061,7 +1057,7 @@ where
         }
         val = id_lookup(first as usize, len);
         PoolString::flush();
-        (*hash.add(val as usize)).s1 = s;
+        yhash[val as usize - hash_offset].s1 = s;
         prim_val = prim_lookup(s)
     } else {
         val = b_ident[0] as i32 + SINGLE_BASE as i32;
@@ -2496,11 +2492,11 @@ unsafe fn initialize_more_initex_variables() {
     hash_high = 0;
     cs_count = 0;
     EQTB[FROZEN_DONT_EXPAND].cmd = Cmd::DontExpand as _;
-    (*hash.add(FROZEN_DONT_EXPAND)).s1 = maketexstring("notexpanded:");
+    yhash[FROZEN_DONT_EXPAND - hash_offset].s1 = maketexstring("notexpanded:");
     EQTB[FROZEN_PRIMITIVE].cmd = Cmd::IgnoreSpaces as u16;
     EQTB[FROZEN_PRIMITIVE].val = 1;
     EQTB[FROZEN_PRIMITIVE].lvl = LEVEL_ONE;
-    (*hash.add(FROZEN_PRIMITIVE)).s1 = maketexstring("primitive");
+    yhash[FROZEN_PRIMITIVE - hash_offset].s1 = maketexstring("primitive");
 
     for k in (-TRIE_OP_SIZE)..=TRIE_OP_SIZE {
         _trie_op_hash_array[(k as i64 - -35111) as usize] = 0;
@@ -2513,11 +2509,11 @@ unsafe fn initialize_more_initex_variables() {
     max_op_used = MIN_TRIE_OP;
     trie_op_ptr = 0;
     trie_not_ready = true;
-    (*hash.add(FROZEN_PROTECTION)).s1 = maketexstring("inaccessible");
+    yhash[FROZEN_PROTECTION - hash_offset].s1 = maketexstring("inaccessible");
 
     format_ident = maketexstring(" (INITEX)");
 
-    (*hash.add(END_WRITE)).s1 = maketexstring("endwrite");
+    yhash[END_WRITE - hash_offset].s1 = maketexstring("endwrite");
     EQTB[END_WRITE].lvl = LEVEL_ONE;
     EQTB[END_WRITE].cmd = Cmd::OuterCall as u16;
     EQTB[END_WRITE].val = None.tex_int();
@@ -3088,7 +3084,7 @@ unsafe fn initialize_primitives() {
     primitive("divide", Cmd::Divide, 0);
     primitive("endcsname", Cmd::EndCSName, 0);
     let val = primitive("endgroup", Cmd::EndGroup, 0);
-    (*hash.add(FROZEN_END_GROUP)).s1 = maketexstring("endgroup");
+    yhash[FROZEN_END_GROUP - hash_offset].s1 = maketexstring("endgroup");
     EQTB[FROZEN_END_GROUP] = EQTB[val as usize];
     primitive("expandafter", Cmd::ExpandAfter, 0);
     primitive("font", Cmd::DefFont, 0);
@@ -3126,7 +3122,7 @@ unsafe fn initialize_primitives() {
     primitive("Uradical", Cmd::Radical, 1);
     primitive("read", Cmd::ReadToCS, 0);
     let val = primitive("relax", Cmd::Relax, TOO_BIG_USV as i32);
-    (*hash.add(FROZEN_RELAX)).s1 = maketexstring("relax");
+    yhash[FROZEN_RELAX - hash_offset].s1 = maketexstring("relax");
     EQTB[FROZEN_RELAX] = EQTB[val as usize];
     primitive("setbox", Cmd::SetBox, 0);
     primitive("the", Cmd::The, 0);
@@ -3208,23 +3204,23 @@ unsafe fn initialize_primitives() {
     primitive("ifprimitive", Cmd::IfTest, IfTestCode::IfPrimitive);
 
     let val = primitive("fi", Cmd::FiOrElse, FiOrElseCode::Fi);
-    (*hash.add(FROZEN_FI)).s1 = maketexstring("fi");
+    yhash[FROZEN_FI - hash_offset].s1 = maketexstring("fi");
     EQTB[FROZEN_FI] = EQTB[val as usize];
     primitive("or", Cmd::FiOrElse, FiOrElseCode::Or);
     primitive("else", Cmd::FiOrElse, FiOrElseCode::Else);
 
     let val = primitive("nullfont", Cmd::SetFont, FONT_BASE);
-    (*hash.add(FROZEN_NULL_FONT)).s1 = maketexstring("nullfont");
+    yhash[FROZEN_NULL_FONT - hash_offset].s1 = maketexstring("nullfont");
     EQTB[FROZEN_NULL_FONT] = EQTB[val as usize];
 
     primitive("span", Cmd::TabMark, SPAN_CODE);
     let val = primitive("cr", Cmd::CarRet, CR_CODE);
-    (*hash.add(FROZEN_CR)).s1 = maketexstring("cr");
+    yhash[FROZEN_CR - hash_offset].s1 = maketexstring("cr");
     EQTB[FROZEN_CR] = EQTB[val as usize];
     primitive("crcr", Cmd::CarRet, CR_CR_CODE);
 
-    (*hash.add(FROZEN_END_TEMPLATE)).s1 = maketexstring("endtemplate");
-    (*hash.add(FROZEN_ENDV)).s1 = maketexstring("endtemplate");
+    yhash[FROZEN_END_TEMPLATE - hash_offset].s1 = maketexstring("endtemplate");
+    yhash[FROZEN_ENDV - hash_offset].s1 = maketexstring("endtemplate");
     EQTB[FROZEN_ENDV].cmd = Cmd::EndV as u16;
     EQTB[FROZEN_ENDV].val = NULL_LIST as i32;
     EQTB[FROZEN_ENDV].lvl = LEVEL_ONE;
@@ -3332,7 +3328,7 @@ unsafe fn initialize_primitives() {
 
     primitive("left", Cmd::LeftRight, MathNode::Left as i32);
     let val = primitive("right", Cmd::LeftRight, MathNode::Right as i32);
-    (*hash.add(FROZEN_RIGHT)).s1 = maketexstring("right");
+    yhash[FROZEN_RIGHT - hash_offset].s1 = maketexstring("right");
     EQTB[FROZEN_RIGHT] = EQTB[val as usize];
 
     primitive("long", Cmd::Prefix, 1);
@@ -3451,7 +3447,7 @@ unsafe fn initialize_primitives() {
     write_loc = val;
     primitive("closeout", Cmd::Extension, CloseFile::WHATS_IT as i32);
     let val = primitive("special", Cmd::Extension, Special::WHATS_IT as i32);
-    (*hash.add(FROZEN_SPECIAL)).s1 = maketexstring("special");
+    yhash[FROZEN_SPECIAL - hash_offset].s1 = maketexstring("special");
     EQTB[FROZEN_SPECIAL] = EQTB[val as usize];
     primitive("immediate", Cmd::Extension, IMMEDIATE_CODE as i32);
     primitive("setlanguage", Cmd::Extension, SET_LANGUAGE_CODE as i32);
@@ -3517,7 +3513,7 @@ pub(crate) unsafe fn tt_cleanup() {
     HYPH_LINK = Vec::new();
 
     // Free arrays allocated in load_fmt_file
-    free(yhash as *mut libc::c_void);
+    yhash = Vec::new();
     EQTB = Vec::new();
     MEM = Vec::new();
     str_start = Vec::new();
@@ -3622,13 +3618,12 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         } else {
             hash_top = EQTB_TOP as i32;
         }
-        yhash = xmalloc_array((1 + hash_top - hash_offset) as usize);
-        hash = yhash.offset(-514);
-        (*hash.add(HASH_BASE)).s0 = 0;
-        (*hash.add(HASH_BASE)).s1 = 0;
+        yhash = vec![b32x2::default(); (1 + hash_top) as usize - hash_offset + 1];
+        yhash[HASH_BASE - hash_offset].s0 = 0;
+        yhash[HASH_BASE - hash_offset].s1 = 0;
         hash_used = HASH_BASE as i32 + 1;
         while hash_used <= hash_top {
-            *hash.add(hash_used as usize) = *hash.add(HASH_BASE);
+            yhash[hash_used as usize - hash_offset] = yhash[HASH_BASE - hash_offset];
             hash_used += 1
         }
         EQTB = vec![EqtbWord::default(); EQTB_TOP + 1];

@@ -24,7 +24,6 @@ use crate::xetex_ext::{
     gr_get_font_name, linebreak_next, linebreak_start, map_char_to_glyph, map_glyph_to_index,
     ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3, Font, NativeFont, NativeFont::*,
 };
-use crate::xetex_ini::FONT_LETTER_SPACE;
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state, arith_error,
     avail, bchar, best_height_plus_depth, breadth_max, cancel_boundary, cond_ptr, cur_align,
@@ -33,7 +32,7 @@ use crate::xetex_ini::{
     cur_pre_head, cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail, cur_tok, dead_cycles,
     def_ref, deletions_allowed, depth_threshold, disc_ptr, error_count, error_line, expand_depth,
     expand_depth_count, false_bchar, file_offset, first, first_count, fmem_ptr,
-    font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash, hash_extra,
+    font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash_extra,
     hash_high, hash_used, hi_mem_min, history, if_limit, if_line, init_pool_ptr, init_str_ptr,
     ins_disc, insert_penalties, insert_src_special_auto, insert_src_special_every_par,
     insert_src_special_every_vbox, interaction, is_hyph, is_in_csname, job_name, last,
@@ -48,7 +47,7 @@ use crate::xetex_ini::{
     sa_root, scanner_status, selector, set_box_allowed, shown_mode, skip_line, space_class,
     stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, texmf_log_name, total_shrink,
     total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
-    write_file, write_open, xtx_ligature_present, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER,
+    write_file, write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER,
     BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC,
     FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
     FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
@@ -58,6 +57,7 @@ use crate::xetex_ini::{
     SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, memory_word, prefixed_command};
+use crate::xetex_ini::{hash_offset, FONT_LETTER_SPACE};
 use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding};
 use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
@@ -582,7 +582,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                         t_print!(
                             "{} ",
                             Esc(&PoolString::from(
-                                (*hash.offset((FONT_ID_BASE as i32 + p.font() as i32) as isize)).s1,
+                                yhash[FONT_ID_BASE + (p.font() as usize) - hash_offset].s1,
                             )
                             .to_string())
                         );
@@ -605,9 +605,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                             t_print!(
                                 "{} {}",
                                 Esc(&PoolString::from(
-                                    (*hash
-                                        .offset((FONT_ID_BASE as i32 + nw.font() as i32) as isize))
-                                    .s1
+                                    yhash[FONT_ID_BASE + (nw.font() as usize) - hash_offset].s1
                                 )
                                 .to_string()),
                                 nw
@@ -661,10 +659,10 @@ impl fmt::Display for Char {
                     "* ".fmt(f)?;
                 } else {
                     /*279: */
-                    Esc(
-                        &PoolString::from((*hash.add(FONT_ID_BASE + self.font() as usize)).s1)
-                            .to_string(),
+                    Esc(&PoolString::from(
+                        yhash[FONT_ID_BASE + self.font() as usize - hash_offset].s1,
                     )
+                    .to_string())
                     .fmt(f)?;
                     ' '.fmt(f)?;
                 }
@@ -954,7 +952,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!(
                             "{} {}",
                             Esc(&PoolString::from(
-                                (*hash.add(FONT_ID_BASE + nw.font() as usize)).s1,
+                                yhash[FONT_ID_BASE + nw.font() as usize - hash_offset].s1,
                             )
                             .to_string()),
                             nw
@@ -964,7 +962,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!(
                             "{} glyph#{}",
                             Esc(&PoolString::from(
-                                (*hash.add(FONT_ID_BASE + g.font() as usize)).s1,
+                                yhash[FONT_ID_BASE + g.font() as usize - hash_offset].s1,
                             )
                             .to_string()),
                             g.glyph() as i32
@@ -2672,20 +2670,20 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
         }
     }
     loop {
-        if (*hash.add(p as usize)).s1 > 0 {
-            let ps = PoolString::from((*hash.add(p as usize)).s1);
+        if yhash[p as usize - hash_offset].s1 > 0 {
+            let ps = PoolString::from(yhash[p as usize - hash_offset].s1);
             if ps.len() == ll && str_eq_buf(&ps, j) {
                 break;
             }
         }
-        if (*hash.add(p as usize)).s0 == 0 {
+        if yhash[p as usize - hash_offset].s0 == 0 {
             if no_new_control_sequence {
                 p = UNDEFINED_CONTROL_SEQUENCE as i32;
             } else {
-                if (*hash.add(p as usize)).s1 > 0 {
+                if yhash[p as usize - hash_offset].s1 > 0 {
                     if hash_high < hash_extra {
                         hash_high += 1;
-                        (*hash.add(p as usize)).s0 = hash_high + EQTB_SIZE as i32;
+                        yhash[p as usize - hash_offset].s0 = hash_high + EQTB_SIZE as i32;
                         p = hash_high + EQTB_SIZE as i32;
                     } else {
                         loop {
@@ -2693,11 +2691,11 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
                                 overflow("hash size", HASH_SIZE + hash_extra as usize);
                             }
                             hash_used -= 1;
-                            if (*hash.add(hash_used as usize)).s1 == 0 {
+                            if yhash[hash_used as usize - hash_offset].s1 == 0 {
                                 break;
                             }
                         }
-                        (*hash.add(p as usize)).s0 = hash_used;
+                        yhash[p as usize - hash_offset].s0 = hash_used;
                         p = hash_used
                     }
                 }
@@ -2719,12 +2717,12 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
                         pool_ptr += 1
                     }
                 }
-                (*hash.add(p as usize)).s1 = make_string();
+                yhash[p as usize - hash_offset].s1 = make_string();
                 pool_ptr += d
             }
             break;
         } else {
-            p = (*hash.add(p as usize)).s0
+            p = yhash[p as usize - hash_offset].s0
         }
     }
     p
@@ -5079,7 +5077,7 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         cs = if cs < HASH_BASE as i32 {
                             prim_lookup(cs - SINGLE_BASE as i32) as i32
                         } else {
-                            prim_lookup((*hash.add(cs as usize)).s1) as i32
+                            prim_lookup(yhash[cs as usize - hash_offset].s1) as i32
                         };
                         if cs == UNDEFINED_PRIMITIVE {
                             break;
@@ -5820,7 +5818,7 @@ pub(crate) unsafe fn find_font_dimen(input: &mut input_state_t, writing: bool) -
     if val == fmem_ptr {
         t_eprint!(
             "Font {} has only {} fontdimen parameters",
-            Esc(&PoolString::from((*hash.add(FROZEN_NULL_FONT + f)).s1).to_string()),
+            Esc(&PoolString::from(yhash[FROZEN_NULL_FONT + f - hash_offset].s1).to_string()),
             FONT_PARAMS[f]
         );
         help!(
@@ -8781,7 +8779,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             let m = if cs < HASH_BASE as i32 {
                 prim_lookup(cs - SINGLE_BASE as i32)
             } else {
-                prim_lookup((*hash.add(cs as usize)).s1)
+                prim_lookup(yhash[cs as usize - hash_offset].s1)
             } as i32;
             b = cmd != Cmd::UndefinedCS
                 && m != UNDEFINED_PRIMITIVE
@@ -13171,7 +13169,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
     }
     let u = get_r_token(input).3 as usize;
     let t = if u >= HASH_BASE {
-        (*hash.add(u)).s1
+        yhash[u - hash_offset].s1
     } else if u >= SINGLE_BASE {
         if u == NULL_CS {
             maketexstring("FONT")
@@ -13271,7 +13269,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
             eq_define(u, Cmd::SetFont, Some(f));
         }
         EQTB[FROZEN_NULL_FONT + f] = EQTB[u];
-        (*hash.add(FROZEN_NULL_FONT + f)).s1 = t;
+        yhash[FROZEN_NULL_FONT + f - hash_offset].s1 = t;
     }
 
     let f = crate::tfm::read_font_info(u as i32, &file, s, quoted_filename, file_name_quote_char)
@@ -13978,7 +13976,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             cur_cs = if cs < HASH_BASE as i32 {
                                 prim_lookup(cs - SINGLE_BASE as i32) as i32
                             } else {
-                                prim_lookup((*hash.add(cs as usize)).s1) as i32
+                                prim_lookup(yhash[cs as usize - hash_offset].s1) as i32
                             };
                             if cur_cs != UNDEFINED_PRIMITIVE {
                                 cur_cmd = Cmd::from(prim_eqtb[cur_cs as usize].cmd);
