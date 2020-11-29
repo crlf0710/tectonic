@@ -45,11 +45,9 @@ pub(crate) type PlatformFontRef = *mut FcPattern;
 #[cfg(target_os = "macos")]
 pub(crate) type PlatformFontRef = CTFontDescriptorRef;
 
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct GlyphAssembly {
-    pub(crate) count: u32,
-    pub(crate) parts: *mut hb_ot_math_glyph_part_t,
+    pub(crate) parts: Vec<hb_ot_math_glyph_part_t>,
 }
 
 pub(crate) use crate::xetex_font_info::GlyphBBox;

@@ -1,7 +1,6 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::{t_eprint, t_print};
-use core::ptr;
 
 use crate::cmd::*;
 use crate::help;
@@ -1608,7 +1607,6 @@ unsafe fn make_math_accent(q: &mut Accent) {
     let mut w: Scaled = Scaled::ZERO;
     let mut w2: Scaled = Scaled::ZERO;
     q.fourth_mut().fetch();
-    let mut ot_assembly_ptr = ptr::null_mut();
     let x = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[cur_f as usize] {
         c = cur_c;
         f = cur_f;
@@ -1735,11 +1733,10 @@ unsafe fn make_math_accent(q: &mut Accent) {
                         }
                     }
                     if w2 < Scaled::ZERO {
-                        ot_assembly_ptr = get_ot_assembly_ptr(f, c, 1);
-                        if !ot_assembly_ptr.is_null() {
+                        if let Some(ot_assembly) = get_ot_assembly_ptr(f, c, 1) {
                             free_node(p.ptr(), GLYPH_NODE_SIZE);
                             let b =
-                                build_opentype_assembly(f, ot_assembly_ptr, w, ListDir::Horizontal);
+                                build_opentype_assembly(f, &ot_assembly, w, ListDir::Horizontal);
                             y.set_list_ptr(Some(b.ptr()).tex_int());
                             (b.ptr(), (b.width(), b.height(), b.depth()))
                         } else {
@@ -1812,7 +1809,6 @@ unsafe fn make_math_accent(q: &mut Accent) {
         y.set_width(x.width());
         q.nucleus_mut().set_subbox(y);
     }
-    free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
 }
 unsafe fn make_fraction(q: &mut Fraction) {
     if q.thickness() == DEFAULT_CODE {
@@ -1957,7 +1953,6 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
         q.set_limits(Limit::Limits);
     }
     let mut delta = Scaled::ZERO;
-    let mut ot_assembly_ptr = ptr::null_mut();
     if q.nucleus().typ == MathCell::MathChar {
         q.nucleus_mut().fetch();
         match &FONT_LAYOUT_ENGINE[cur_f as usize] {
@@ -2007,12 +2002,11 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                                 }
                             }
                             if h2 < Scaled::ZERO {
-                                ot_assembly_ptr = get_ot_assembly_ptr(cur_f, c as i32, 0);
-                                if !ot_assembly_ptr.is_null() {
+                                if let Some(ot_assembly) = get_ot_assembly_ptr(cur_f, c as i32, 0) {
                                     free_node(p.ptr(), GLYPH_NODE_SIZE);
                                     let b = build_opentype_assembly(
                                         cur_f,
-                                        ot_assembly_ptr,
+                                        &ot_assembly,
                                         h1,
                                         ListDir::Vertical,
                                     );
@@ -2115,7 +2109,6 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
         }
         MEM[q.ptr() + 1].b32.s1 = Some(v.ptr()).tex_int() // TODO: strange
     }
-    free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
     delta
 }
 unsafe fn make_ord(q: &mut Ord) {
@@ -2978,7 +2971,7 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
     let mut large_attempt = false;
     let mut z = d.s3 as i32 % 256;
     let mut x = (d.s2 as i64 + (d.s3 as i32 / 256) as i64 * 65536) as u16;
-    let mut ot_assembly_ptr = ptr::null_mut();
+    let mut ot_assembly_ptr = None;
     's_62: loop {
         if z != 0 || x != 0 {
             z = z + s as i32 + 256;
@@ -3013,7 +3006,7 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
                                 }
                             }
                             ot_assembly_ptr = get_ot_assembly_ptr(g, x as i32, 0);
-                            if !ot_assembly_ptr.is_null() {
+                            if ot_assembly_ptr.is_some() {
                                 break 's_62;
                             }
                         }
@@ -3069,8 +3062,8 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
     let mut b = if f != FONT_BASE {
         match &FONT_LAYOUT_ENGINE[f] {
             Font::Native(Otgr(e)) if e.using_open_type() => {
-                if !ot_assembly_ptr.is_null() {
-                    build_opentype_assembly(f, ot_assembly_ptr, v, ListDir::Vertical)
+                if let Some(ot_assembly) = ot_assembly_ptr.as_ref() {
+                    build_opentype_assembly(f, ot_assembly, v, ListDir::Vertical)
                 } else {
                     let mut b = List::from(new_null_box());
                     b.set_vertical();
@@ -3153,7 +3146,6 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
         b
     };
     b.set_shift_amount((b.height() - b.depth()).half() - axis_height(s));
-    free_ot_assembly(ot_assembly_ptr as *mut GlyphAssembly);
     b.ptr()
 }
 unsafe fn char_box(f: usize, c: i32) -> List {
@@ -3237,7 +3229,7 @@ unsafe fn stack_glue_into_box(b: &mut List, min: Scaled, max: Scaled) {
 }
 unsafe fn build_opentype_assembly(
     f: internal_font_number,
-    a: *mut libc::c_void,
+    a: &GlyphAssembly,
     s: Scaled,
     dir: ListDir,
 ) -> List {
@@ -3250,24 +3242,20 @@ unsafe fn build_opentype_assembly(
         n += 1;
         let mut s_max = Scaled::ZERO;
         let mut prev_o = Scaled::ZERO;
-        for i in 0..ot_part_count(a as *const GlyphAssembly) {
-            if ot_part_is_extender(a as *const GlyphAssembly, i) {
+        for i in 0..ot_part_count(a) {
+            if ot_part_is_extender(a, i) {
                 no_extenders = false;
                 for _ in 0..n {
-                    let o = ot_part_start_connector(f, a as *const GlyphAssembly, i)
-                        .min(min_o)
-                        .min(prev_o);
+                    let o = ot_part_start_connector(f, a, i).min(min_o).min(prev_o);
 
-                    s_max = s_max - o + ot_part_full_advance(f, a as *const GlyphAssembly, i);
-                    prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i);
+                    s_max = s_max - o + ot_part_full_advance(f, a, i);
+                    prev_o = ot_part_end_connector(f, a, i);
                 }
             } else {
-                let o = ot_part_start_connector(f, a as *const GlyphAssembly, i)
-                    .min(min_o)
-                    .min(prev_o);
+                let o = ot_part_start_connector(f, a, i).min(min_o).min(prev_o);
 
-                s_max = s_max - o + ot_part_full_advance(f, a as *const GlyphAssembly, i);
-                prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i)
+                s_max = s_max - o + ot_part_full_advance(f, a, i);
+                prev_o = ot_part_end_connector(f, a, i)
             }
         }
         if s_max >= s || no_extenders {
@@ -3275,10 +3263,10 @@ unsafe fn build_opentype_assembly(
         }
     }
     let mut prev_o = Scaled::ZERO;
-    for i in 0..ot_part_count(a as *const GlyphAssembly) {
-        if ot_part_is_extender(a as *const GlyphAssembly, i) {
+    for i in 0..ot_part_count(a) {
+        if ot_part_is_extender(a, i) {
             for _ in 0..n {
-                let o = ot_part_start_connector(f, a as *const GlyphAssembly, i).min(prev_o);
+                let o = ot_part_start_connector(f, a, i).min(prev_o);
 
                 let oo = o;
 
@@ -3287,12 +3275,12 @@ unsafe fn build_opentype_assembly(
                 if oo > Scaled::ZERO {
                     stack_glue_into_box(&mut b, -oo, -o);
                 }
-                let g = ot_part_glyph(a as *const GlyphAssembly, i);
+                let g = ot_part_glyph(a, i);
                 stack_glyph_into_box(&mut b, f, g);
-                prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i);
+                prev_o = ot_part_end_connector(f, a, i);
             }
         } else {
-            let o = ot_part_start_connector(f, a as *const GlyphAssembly, i).min(prev_o);
+            let o = ot_part_start_connector(f, a, i).min(prev_o);
 
             let oo = o;
 
@@ -3301,9 +3289,9 @@ unsafe fn build_opentype_assembly(
             if oo > Scaled::ZERO {
                 stack_glue_into_box(&mut b, -oo, -o);
             }
-            let g = ot_part_glyph(a as *const GlyphAssembly, i);
+            let g = ot_part_glyph(a, i);
             stack_glyph_into_box(&mut b, f, g);
-            prev_o = ot_part_end_connector(f, a as *const GlyphAssembly, i)
+            prev_o = ot_part_end_connector(f, a, i)
         }
     }
     let mut popt = b.list_ptr().opt();
