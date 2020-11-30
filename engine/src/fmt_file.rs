@@ -55,8 +55,6 @@ use crate::xetex_output::print_ln;
 use crate::xetex_xetexd::llist_link;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
 
-use crate::core_memory::xmalloc_array;
-
 use crate::xetex_xetex0::get_node;
 use crate::xetex_xetex0::FileName;
 use crate::xetex_xetex0::{
@@ -72,8 +70,6 @@ const FORMAT_FOOTER_MAGIC: i32 = 0x0000029A;
 const sup_pool_size: usize = 40000000;
 /// magic constant, origin unclear
 const sup_font_mem_size: i32 = 147483647;
-
-use libc::free;
 
 unsafe fn pack_buffered_name(mut _n: i16, mut _a: i32, mut _b: i32) -> String {
     TEX_format_default.clone()
@@ -343,22 +339,21 @@ pub(crate) unsafe fn store_fmt_file() {
     cs_count = (FROZEN_CONTROL_SEQUENCE as i32 - 1) - hash_used + hash_high;
 
     for p in (HASH_BASE as i32)..=hash_used {
-        if (*hash.add(p as usize)).s1 != 0 {
+        if yhash[p as usize - hash_offset].s1 != 0 {
             fmt_out.dump_one(p as i32);
-            fmt_out.dump_one(*hash.add(p as usize));
+            fmt_out.dump_one(yhash[p as usize - hash_offset]);
             cs_count += 1;
         }
     }
 
-    let dump_slice = std::slice::from_raw_parts(
-        hash.add((hash_used + 1) as usize),
-        ((UNDEFINED_CONTROL_SEQUENCE as i32 - 1) - hash_used) as _,
+    fmt_out.dump(
+        &yhash[(hash_used + 1) as usize - hash_offset..UNDEFINED_CONTROL_SEQUENCE - hash_offset],
     );
-    fmt_out.dump(dump_slice);
 
     if hash_high > 0 {
-        let dump_slice = std::slice::from_raw_parts(hash.add(EQTB_SIZE + 1), hash_high as usize);
-        fmt_out.dump(dump_slice);
+        fmt_out.dump(
+            &yhash[EQTB_SIZE + 1 - hash_offset..EQTB_SIZE + 1 + hash_high as usize - hash_offset],
+        );
     }
 
     fmt_out.dump_one(cs_count);
@@ -398,7 +393,7 @@ pub(crate) unsafe fn store_fmt_file() {
     for k in FONT_BASE..=FONT_PTR {
         t_print_nl!(
             "\\font{}=",
-            Esc(&PoolString::from((*hash.add(FONT_ID_BASE + k)).s1).to_string())
+            Esc(&PoolString::from(yhash[FONT_ID_BASE + k - hash_offset].s1).to_string())
         );
 
         if matches!(&FONT_LAYOUT_ENGINE[k], crate::xetex_ext::Font::Native(_))
@@ -532,7 +527,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         FONT_INFO = Vec::new();
         str_pool = Vec::new();
         str_start = Vec::new();
-        free(yhash as *mut libc::c_void);
+        yhash = Vec::new();
         EQTB = Vec::new();
         MEM = Vec::new();
     }
@@ -575,11 +570,10 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         hash_top = EQTB_TOP as i32;
     }
 
-    yhash = xmalloc_array::<b32x2>((1 + hash_top - hash_offset) as usize);
-    hash = yhash.offset(-514);
+    yhash = vec![b32x2::default(); (1 + hash_top) as usize - hash_offset + 1];
 
     for x in HASH_BASE..=(hash_top as usize) {
-        *hash.add(x) = b32x2_le_t { s0: 0, s1: 0 };
+        yhash[x - hash_offset] = b32x2_le_t { s0: 0, s1: 0 };
     }
 
     EQTB = Vec::with_capacity(EQTB_TOP + 2);
@@ -823,21 +817,20 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         } else {
             p = x;
         }
-        fmt_in.undump_one(&mut *hash.add(p as usize));
+        fmt_in.undump_one(&mut yhash[p as usize - hash_offset]);
         if p == hash_used {
             break;
         }
     }
-    let undump_slice = std::slice::from_raw_parts_mut(
-        hash.add((hash_used + 1) as usize),
-        (UNDEFINED_CONTROL_SEQUENCE - 1) - (hash_used as usize),
+    fmt_in.undump(
+        &mut yhash
+            [(hash_used + 1) as usize - hash_offset..UNDEFINED_CONTROL_SEQUENCE - hash_offset],
     );
-
-    fmt_in.undump(undump_slice);
     if hash_high > 0 {
-        let undump_slice =
-            std::slice::from_raw_parts_mut(hash.add(EQTB_SIZE + 1), hash_high as usize);
-        fmt_in.undump(undump_slice);
+        fmt_in.undump(
+            &mut yhash
+                [EQTB_SIZE + 1 - hash_offset..EQTB_SIZE + 1 + hash_high as usize - hash_offset],
+        );
     }
 
     fmt_in.undump_one(&mut cs_count);

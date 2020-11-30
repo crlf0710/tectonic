@@ -583,6 +583,7 @@ impl Discretionary {
 pub(crate) use whatsit::*;
 pub(crate) mod whatsit {
     use super::{free_node, BaseBox, NodeSize, MEM};
+    use crate::xetex_layout_interface::FixedPoint;
     use crate::xetex_scaledmath::Scaled;
     use derive_more::{Deref, DerefMut};
 
@@ -873,6 +874,27 @@ pub(crate) mod whatsit {
             let len = self.length() as usize;
             let pp = &mut MEM[self.ptr() + super::NATIVE_NODE_SIZE as usize].b16.s0 as *mut u16;
             std::slice::from_raw_parts_mut(pp, len)
+        }
+        pub(crate) unsafe fn locations(&self) -> &[FixedPoint] {
+            let count = self.glyph_count() as usize;
+            let pp = self.glyph_info_ptr() as *const FixedPoint;
+            std::slice::from_raw_parts(pp, count)
+        }
+        pub(crate) unsafe fn locations_mut(&mut self) -> &mut [FixedPoint] {
+            let count = self.glyph_count() as usize;
+            let pp = self.glyph_info_ptr() as *mut FixedPoint;
+            std::slice::from_raw_parts_mut(pp, count)
+        }
+        pub(crate) unsafe fn glyph_ids(&self) -> &[u16] {
+            let count = self.glyph_count() as usize;
+            let pp =
+                (self.glyph_info_ptr() as *const FixedPoint).offset(count as isize) as *const u16;
+            std::slice::from_raw_parts(pp, count)
+        }
+        pub(crate) unsafe fn glyph_ids_mut(&mut self) -> &mut [u16] {
+            let count = self.glyph_count() as usize;
+            let pp = (self.glyph_info_ptr() as *mut FixedPoint).offset(count as isize) as *mut u16;
+            std::slice::from_raw_parts_mut(pp, count)
         }
         pub(crate) unsafe fn set_metrics(&mut self, use_glyph_metrics: bool) {
             crate::xetex_ext::measure_native_node(self, use_glyph_metrics)
@@ -2202,6 +2224,12 @@ pub(crate) mod math {
         pub(crate) character2: u8,
     }
 
+    impl MathChar {
+        pub fn as_utf32(&self) -> u32 {
+            (self.character1 as u32) + ((self.character2 as u32) << 16)
+        }
+    }
+
     // --- TODO: replace this with Enum
     #[repr(i32)]
     #[derive(Clone, Copy, Debug, Eq, PartialEq, enumn::N)]
@@ -2259,10 +2287,17 @@ pub(crate) mod math {
     #[repr(C)]
     #[derive(Clone, Copy)]
     pub(crate) struct Delimeter {
-        pub s0: u16,
-        pub s1: u16,
-        pub s2: u16,
-        pub s3: u16,
+        pub chr2: MathChar,
+        pub chr1: MathChar,
+    }
+
+    impl Delimeter {
+        pub fn is_empty(&self) -> bool {
+            self.chr1.family == 0
+                && self.chr1.as_utf32() == 0
+                && self.chr2.family == 0
+                && self.chr2.as_utf32() == 0
+        }
     }
 }
 

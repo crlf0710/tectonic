@@ -31,7 +31,6 @@ authorization from the copyright holders.
 \****************************************************************************/
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use crate::core_memory::xmalloc;
 use harfbuzz_sys::*;
 use std::ptr;
 
@@ -40,8 +39,6 @@ use crate::xetex_scaledmath::Scaled;
 
 use crate::xetex_layout_interface::GlyphAssembly;
 use crate::xetex_layout_interface::{D2Fix, Fix2D};
-
-use libc::free;
 
 use crate::xetex_ini::{FONT_LAYOUT_ENGINE, FONT_SIZE};
 
@@ -237,12 +234,12 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
     f: usize,
     g: libc::c_int,
     horiz: libc::c_int,
-) -> *mut libc::c_void {
-    let mut rval = ptr::null_mut();
+) -> Option<GlyphAssembly> {
+    let mut rval = None;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let hbFont = font.get_hb_font();
-        let count = hb_ot_math_get_glyph_assembly(
+        let mut count = hb_ot_math_get_glyph_assembly(
             hbFont,
             g as hb_codepoint_t,
             (if horiz != 0 {
@@ -256,14 +253,9 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
             ptr::null_mut(),
         );
         if count > 0 {
-            let mut a: *mut GlyphAssembly =
-                xmalloc(::std::mem::size_of::<GlyphAssembly>() as _) as *mut GlyphAssembly;
-            (*a).count = count;
-            (*a).parts = xmalloc(
-                (count as libc::c_ulong)
-                    .wrapping_mul(::std::mem::size_of::<hb_ot_math_glyph_part_t>() as libc::c_ulong)
-                    as _,
-            ) as *mut hb_ot_math_glyph_part_t;
+            let mut parts = Vec::with_capacity(count as _);
+            parts.set_len(count as _);
+            let mut a = GlyphAssembly { parts };
             hb_ot_math_get_glyph_assembly(
                 hbFont,
                 g as hb_codepoint_t,
@@ -273,21 +265,14 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
                     HB_DIRECTION_TTB as libc::c_int
                 }) as hb_direction_t,
                 0,
-                &mut (*a).count,
-                (*a).parts,
+                &mut count,
+                a.parts.as_mut_ptr(),
                 ptr::null_mut(),
             );
-            rval = a as *mut libc::c_void
+            rval = Some(a);
         }
     }
     rval
-}
-pub(crate) unsafe fn free_ot_assembly(a: *mut GlyphAssembly) {
-    if a.is_null() {
-        return;
-    }
-    free((*a).parts as *mut libc::c_void);
-    free(a as *mut libc::c_void);
 }
 pub(crate) unsafe fn get_ot_math_ital_corr(f: usize, g: libc::c_int) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
@@ -448,55 +433,35 @@ pub(crate) unsafe fn get_ot_math_kern(
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn ot_part_count(a: *const GlyphAssembly) -> libc::c_int {
-    (*a).count as libc::c_int
+pub(crate) fn ot_part_count(a: &GlyphAssembly) -> i32 {
+    a.parts.len() as i32
 }
-pub(crate) unsafe fn ot_part_glyph(a: *const GlyphAssembly, i: libc::c_int) -> libc::c_int {
-    (*(*a).parts.offset(i as isize)).glyph as libc::c_int
+pub(crate) unsafe fn ot_part_glyph(a: &GlyphAssembly, i: i32) -> i32 {
+    a.parts[i as usize].glyph as i32
 }
-pub(crate) unsafe fn ot_part_is_extender(a: *const GlyphAssembly, i: libc::c_int) -> bool {
-    (*(*a).parts.offset(i as isize)).flags as libc::c_uint
-        & HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER as libc::c_int as libc::c_uint
-        != 0
+pub(crate) unsafe fn ot_part_is_extender(a: &GlyphAssembly, i: i32) -> bool {
+    a.parts[i as usize].flags as u32 & HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER as u32 != 0
 }
-pub(crate) unsafe fn ot_part_start_connector(
-    f: usize,
-    a: *const GlyphAssembly,
-    i: libc::c_int,
-) -> Scaled {
+pub(crate) unsafe fn ot_part_start_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        D2Fix(
-            font.units_to_points((*(*a).parts.offset(i as isize)).start_connector_length as f32)
-                as f64,
-        )
+        D2Fix(font.units_to_points(a.parts[i as usize].start_connector_length as f32) as f64)
     } else {
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn ot_part_end_connector(
-    f: usize,
-    a: *const GlyphAssembly,
-    i: libc::c_int,
-) -> Scaled {
+pub(crate) unsafe fn ot_part_end_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
-        D2Fix(
-            font.units_to_points((*(*a).parts.offset(i as isize)).end_connector_length as f32)
-                as f64,
-        )
+        D2Fix(font.units_to_points(a.parts[i as usize].end_connector_length as f32) as f64)
     } else {
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn ot_part_full_advance(
-    f: usize,
-    a: *const GlyphAssembly,
-    i: libc::c_int,
-) -> Scaled {
+pub(crate) unsafe fn ot_part_full_advance(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f as usize] {
         let font = e.get_font();
-        D2Fix(font.units_to_points((*(*a).parts.offset(i as isize)).full_advance as f32) as f64)
+        D2Fix(font.units_to_points(a.parts[i as usize].full_advance as f32) as f64)
     } else {
         Scaled::ZERO
     }
