@@ -36,9 +36,11 @@ authorization from the copyright holders.
 
 use std::ptr;
 
+use crate::xetex_font_manager::FontMgrExt;
+
 use super::{
     XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList, XeTeXFontMgr_base_ctor,
-    XeTeXFontMgr_base_getOpSizeRecAndStyleFlags, XeTeXFontMgr_prependToList,
+    XeTeXFontMgr_prependToList,
 };
 use crate::stub_icu as icu;
 use crate::xetex_font_info::gFreeTypeLibrary;
@@ -62,13 +64,25 @@ pub(crate) type PlatformFontRef = *mut FcPattern;
 
 use super::{XeTeXFontMgr, XeTeXFontMgrFont, XeTeXFontMgrNameCollection};
 
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct XeTeXFontMgr_FC {
     pub(crate) super_: XeTeXFontMgr,
     pub(crate) allFonts: *mut FcFontSet,
     pub(crate) cachedAll: bool,
 }
+
+impl core::ops::Deref for XeTeXFontMgr_FC {
+    type Target = XeTeXFontMgr;
+    fn deref(&self) -> &Self::Target {
+        &self.super_
+    }
+}
+impl core::ops::DerefMut for XeTeXFontMgr_FC {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.super_
+    }
+}
+
 #[inline]
 unsafe fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
     let mut self_0: *mut XeTeXFontMgrNameCollection = malloc(::std::mem::size_of::<
@@ -92,22 +106,6 @@ unsafe fn XeTeXFontMgrNameCollection_delete(self_0: *mut XeTeXFontMgrNameCollect
     CppStdString_delete((*self_0).m_psName);
     CppStdString_delete((*self_0).m_subFamily);
     free(self_0 as *mut libc::c_void);
-}
-#[inline]
-unsafe fn XeTeXFontMgr_readNames(
-    self_0: *mut XeTeXFontMgr,
-    fontRef: PlatformFontRef,
-) -> *mut XeTeXFontMgrNameCollection {
-    (*self_0)
-        .m_memfnReadNames
-        .expect("non-null function pointer")(self_0, fontRef)
-}
-#[inline]
-unsafe fn XeTeXFontMgr_cacheFamilyMembers(
-    self_0: *mut XeTeXFontMgr,
-    familyNames: *const CppStdListOfString,
-) {
-    XeTeXFontMgr_FC_cacheFamilyMembers(self_0, familyNames);
 }
 static mut macRomanConv: *mut icu::UConverter = 0 as *mut icu::UConverter;
 static mut utf16beConv: *mut icu::UConverter = 0 as *mut icu::UConverter;
@@ -152,462 +150,445 @@ unsafe fn convertToUtf8(
     free(buffer1 as *mut libc::c_void);
     buffer2
 }
-#[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_readNames(
-    self_0: *mut XeTeXFontMgr,
-    pat: *mut FcPattern,
-) -> *mut XeTeXFontMgrNameCollection {
-    use crate::freetype_sys_patch::FT_SfntName;
-    let names = XeTeXFontMgrNameCollection_create();
-    let mut pathname = ptr::null_mut();
-    if FcPatternGetString(
-        pat,
-        b"file\x00" as *const u8 as *const libc::c_char,
-        0i32,
-        &mut pathname as *mut *mut libc::c_char as *mut *mut u8,
-    ) as libc::c_uint
-        != FcResultMatch as libc::c_int as libc::c_uint
-    {
-        return names;
-    }
-    let mut index = 0;
-    if FcPatternGetInteger(
-        pat,
-        b"index\x00" as *const u8 as *const libc::c_char,
-        0,
-        &mut index,
-    ) as libc::c_uint
-        != FcResultMatch as libc::c_int as libc::c_uint
-    {
-        return names;
-    }
-    let mut face = ptr::null_mut();
-    if FT_New_Face(gFreeTypeLibrary, pathname, index as FT_Long, &mut face) != 0i32 {
-        return names;
-    }
-    let mut name: *const libc::c_char = FT_Get_Postscript_Name(face);
-    if name.is_null() {
-        return names;
-    }
-    CppStdString_assign_from_const_char_ptr((*names).m_psName, name);
-    /* this string is *not* null-terminated! */
-    /* in bytes                              */
-    // for sfnt containers, we'll read the name table ourselves, not rely on Fontconfig
-    if (*face).face_flags & 1 << 3i32 != 0 {
-        let familyNames = CppStdListOfString_create();
-        let subFamilyNames = CppStdListOfString_create();
-        let mut nameRec: FT_SfntName = FT_SfntName {
-            platform_id: 0,
-            encoding_id: 0,
-            language_id: 0,
-            name_id: 0,
-            string: ptr::null_mut(),
-            string_len: 0,
-        };
-        for i in 0..FT_Get_Sfnt_Name_Count(face) {
-            let mut utf8name = ptr::null_mut();
-            if FT_Get_Sfnt_Name(face, i, &mut nameRec) == 0 {
-                match nameRec.name_id as libc::c_int {
-                    4 | 1 | 2 | 16 | 17 => {
-                        let mut preferredName = false;
-                        if nameRec.platform_id as libc::c_int == 1i32
-                            && nameRec.encoding_id as libc::c_int == 0i32
-                            && nameRec.language_id as libc::c_int == 0i32
-                        {
-                            utf8name = convertToUtf8(
-                                macRomanConv,
-                                nameRec.string,
-                                nameRec.string_len as libc::c_int,
-                            );
-                            preferredName = true
-                        } else if nameRec.platform_id as libc::c_int == 0i32
-                            || nameRec.platform_id as libc::c_int == 3i32
-                        {
-                            utf8name = convertToUtf8(
-                                utf16beConv,
-                                nameRec.string,
-                                nameRec.string_len as libc::c_int,
-                            )
-                        }
-                        if !utf8name.is_null() {
-                            let mut nameList = ptr::null_mut();
-                            match nameRec.name_id as libc::c_int {
-                                4 => nameList = (*names).m_fullNames,
-                                1 => nameList = (*names).m_familyNames,
-                                2 => nameList = (*names).m_styleNames,
-                                16 => nameList = familyNames,
-                                17 => nameList = subFamilyNames,
-                                _ => {}
-                            }
-                            if preferredName {
-                                XeTeXFontMgr_prependToList(self_0, nameList, utf8name);
-                            } else {
-                                XeTeXFontMgr_appendToList(self_0, nameList, utf8name);
-                            }
-                            free(utf8name as *mut libc::c_void);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        if !(*familyNames).is_empty() {
-            *(*names).m_familyNames = (*familyNames).clone();
-        }
-        if !(*subFamilyNames).is_empty() {
-            *(*names).m_styleNames = (*subFamilyNames).clone();
-        }
-        CppStdListOfString_delete(subFamilyNames);
-        CppStdListOfString_delete(familyNames);
-    } else {
-        let mut index = 0;
-        loop {
-            if FcPatternGetString(
-                pat,
-                b"fullname\x00" as *const u8 as *const libc::c_char,
-                index,
-                &mut name as *mut *const libc::c_char as *mut *mut u8,
-            ) as libc::c_uint
-                != FcResultMatch as libc::c_uint
-            {
-                break;
-            }
-            index += 1;
-            XeTeXFontMgr_appendToList(self_0, (*names).m_fullNames, name);
-        }
-        let mut index = 0;
-        loop {
-            if FcPatternGetString(
-                pat,
-                b"family\x00" as *const u8 as *const libc::c_char,
-                index,
-                &mut name as *mut *const libc::c_char as *mut *mut u8,
-            ) as libc::c_uint
-                != FcResultMatch as libc::c_uint
-            {
-                break;
-            }
-            index += 1;
-            XeTeXFontMgr_appendToList(self_0, (*names).m_familyNames, name);
-        }
-        let mut index = 0;
-        loop {
-            if FcPatternGetString(
-                pat,
-                b"style\x00" as *const u8 as *const libc::c_char,
-                index,
-                &mut name as *mut *const libc::c_char as *mut *mut u8,
-            ) as libc::c_uint
-                != FcResultMatch as libc::c_uint
-            {
-                break;
-            }
-            index += 1;
-            XeTeXFontMgr_appendToList(self_0, (*names).m_styleNames, name);
-        }
-        if (*(*names).m_fullNames).is_empty() {
-            let fullName = CppStdString_create();
-            CppStdString_append_const_char_ptr(fullName, (*(*names).m_familyNames)[0].as_ptr());
-            if !(*(*names).m_styleNames).is_empty() {
-                CppStdString_append_const_char_ptr(
-                    fullName,
-                    b" \x00" as *const u8 as *const libc::c_char,
-                );
-                CppStdString_append_const_char_ptr(fullName, (*(*names).m_styleNames)[0].as_ptr());
-            }
-            (*(*names).m_fullNames).push_back((*fullName).clone());
-            CppStdString_delete(fullName);
-        }
-    }
-    FT_Done_Face(face);
-    names
-}
-#[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags(
-    self_0: *mut XeTeXFontMgr,
-    mut theFont: *mut XeTeXFontMgrFont,
-) {
-    XeTeXFontMgr_base_getOpSizeRecAndStyleFlags(self_0, theFont);
-    if (*theFont).weight as libc::c_int == 0i32 && (*theFont).width as libc::c_int == 0i32 {
-        // try to get values from FontConfig, as it apparently wasn't an sfnt
-        let pat = (*theFont).fontRef;
-        let mut value: libc::c_int = 0;
-        if FcPatternGetInteger(
-            pat,
-            b"weight\x00" as *const u8 as *const libc::c_char,
-            0i32,
-            &mut value,
-        ) as libc::c_uint
-            == FcResultMatch as libc::c_int as libc::c_uint
-        {
-            (*theFont).weight = value as u16
-        }
-        if FcPatternGetInteger(
-            pat,
-            b"width\x00" as *const u8 as *const libc::c_char,
-            0i32,
-            &mut value,
-        ) as libc::c_uint
-            == FcResultMatch as libc::c_int as libc::c_uint
-        {
-            (*theFont).width = value as u16
-        }
-        if FcPatternGetInteger(
-            pat,
-            b"slant\x00" as *const u8 as *const libc::c_char,
-            0i32,
-            &mut value,
-        ) as libc::c_uint
-            == FcResultMatch as libc::c_int as libc::c_uint
-        {
-            (*theFont).slant = value as i16
-        }
-    };
-}
-#[no_mangle]
-pub(crate) unsafe fn XeTeXFontMgr_FC_cacheFamilyMembers(
-    self_0: *mut XeTeXFontMgr,
-    familyNames: *const CppStdListOfString,
-) {
-    use std::ffi::CStr;
-    let real_self = self_0 as *mut XeTeXFontMgr_FC;
-    if (*familyNames).is_empty() {
-        return;
-    }
-    for f in 0i32..(*(*real_self).allFonts).nfont {
-        let pat = *(*(*real_self).allFonts).fonts.offset(f as isize);
-        if (*(*self_0).m_platformRefToFont).contains_key(&pat) {
-            continue;
-        }
 
-        let mut s = ptr::null_mut();
-        for i in 0i32.. {
-            if FcPatternGetString(
-                pat,
-                b"family\x00" as *const u8 as *const libc::c_char,
-                i,
-                &mut s as *mut *mut libc::c_char as *mut *mut u8,
-            ) as libc::c_uint
-                != FcResultMatch as _
-            {
-                break;
-            }
-            let s = CStr::from_ptr(s);
-            if !(*familyNames).iter().any(|family_name| &**family_name == s) {
-                continue;
-            }
-            let names = XeTeXFontMgr_readNames(self_0, pat);
-            XeTeXFontMgr_addToMaps(self_0, pat, names);
-            XeTeXFontMgrNameCollection_delete(names);
-            break;
+impl XeTeXFontMgr_FC {
+    pub(crate) unsafe fn cache_family_members(&mut self, familyNames: *const CppStdListOfString) {
+        use std::ffi::CStr;
+        if (*familyNames).is_empty() {
+            return;
         }
-    }
-}
-#[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_searchForHostPlatformFonts(
-    self_0: *mut XeTeXFontMgr,
-    name: *const libc::c_char,
-) {
-    use std::ffi::CStr;
-    let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
-    if (*real_self).cachedAll {
-        // we've already loaded everything on an earlier search
-        return;
-    }
-    let famName = CppStdString_create();
-    let hyph_pos = strchr(name, '-' as i32);
-    let hyph;
-    if !hyph_pos.is_null() {
-        hyph = hyph_pos.offset_from(name) as libc::c_long as libc::c_int;
-        CppStdString_assign_n_chars(famName, name, hyph as libc::size_t);
-    } else {
-        hyph = 0;
-    }
-    let mut found = false;
-    loop {
-        'traverse_fonts: for f in 0..(*(*real_self).allFonts).nfont {
-            let pat = *(*(*real_self).allFonts).fonts.offset(f as isize);
-            if !(*(*self_0).m_platformRefToFont).contains_key(&pat) {
+        for f in 0i32..(*self.allFonts).nfont {
+            let pat = *(*self.allFonts).fonts.offset(f as isize);
+            if (*self.m_platformRefToFont).contains_key(&pat) {
                 continue;
             }
 
-            if (*real_self).cachedAll {
-                // failed to find it via FC; add everything to our maps (potentially slow) as a last resort
-                let names = XeTeXFontMgr_readNames(self_0, pat);
-                XeTeXFontMgr_addToMaps(self_0, pat, names);
-                XeTeXFontMgrNameCollection_delete(names);
-                continue;
-            }
-
-            let mut s: *mut libc::c_char = ptr::null_mut();
-            let mut i = 0;
-            while FcPatternGetString(
-                pat,
-                b"fullname\x00" as *const u8 as *const libc::c_char,
-                i,
-                &mut s as *mut *mut libc::c_char as *mut *mut u8,
-            ) == FcResultMatch
-            {
-                if CStr::from_ptr(name) == CStr::from_ptr(s) {
-                    let names_0 = XeTeXFontMgr_readNames(self_0, pat);
-                    XeTeXFontMgr_addToMaps(self_0, pat, names_0);
-                    XeTeXFontMgr_cacheFamilyMembers(self_0, (*names_0).m_familyNames);
-                    XeTeXFontMgrNameCollection_delete(names_0);
-                    found = true;
-                    continue 'traverse_fonts;
-                }
-                i += 1;
-            }
-
-            let mut i = 0;
-            while FcPatternGetString(
-                pat,
-                b"family\x00" as *const u8 as *const libc::c_char,
-                i,
-                &mut s as *mut *mut libc::c_char as *mut *mut u8,
-            ) == FcResultMatch
-            {
-                if CStr::from_ptr(name) == CStr::from_ptr(s)
-                    || hyph != 0 && (&**famName == CStr::from_ptr(s))
+            let mut s = ptr::null_mut();
+            for i in 0i32.. {
+                if FcPatternGetString(
+                    pat,
+                    b"family\x00" as *const u8 as *const libc::c_char,
+                    i,
+                    &mut s as *mut *mut libc::c_char as *mut *mut u8,
+                ) as libc::c_uint
+                    != FcResultMatch as _
                 {
-                    let names_1 = XeTeXFontMgr_readNames(self_0, pat);
-                    XeTeXFontMgr_addToMaps(self_0, pat, names_1);
-                    XeTeXFontMgr_cacheFamilyMembers(self_0, (*names_1).m_familyNames);
-                    XeTeXFontMgrNameCollection_delete(names_1);
-                    found = true;
-                    continue 'traverse_fonts;
+                    break;
+                }
+                let s = CStr::from_ptr(s);
+                if !(*familyNames).iter().any(|family_name| &**family_name == s) {
+                    continue;
+                }
+                let names = self.read_names(pat);
+                XeTeXFontMgr_addToMaps(self, pat, names);
+                XeTeXFontMgrNameCollection_delete(names);
+                break;
+            }
+        }
+    }
+
+    pub(crate) unsafe fn initialize(&mut self) {
+        if FcInit() == 0 {
+            abort!("fontconfig initialization failed");
+        }
+        if gFreeTypeLibrary.is_null() && FT_Init_FreeType(&mut gFreeTypeLibrary) != 0 {
+            abort!("FreeType initialization failed");
+        }
+        let mut err: icu::UErrorCode = icu::U_ZERO_ERROR;
+        macRomanConv = icu::ucnv_open(
+            b"macintosh\x00" as *const u8 as *const libc::c_char,
+            &mut err,
+        );
+        utf16beConv = icu::ucnv_open(b"UTF16BE\x00" as *const u8 as *const libc::c_char, &mut err);
+        utf8Conv = icu::ucnv_open(b"UTF8\x00" as *const u8 as *const libc::c_char, &mut err);
+        if err as u64 != 0 {
+            abort!("cannot read font names");
+        }
+        let pat =
+            FcNameParse(b":outline=true\x00" as *const u8 as *const libc::c_char as *const u8);
+        let os = FcObjectSetBuild(
+            b"family\x00" as *const u8 as *mut u8 as *mut i8,
+            b"style\x00" as *const u8 as *mut u8 as *mut i8,
+            b"file\x00" as *const u8 as *mut u8 as *mut i8,
+            b"index\x00" as *const u8 as *mut u8 as *mut i8,
+            b"fullname\x00" as *const u8 as *mut u8 as *mut i8,
+            b"weight\x00" as *const u8 as *mut u8 as *mut i8,
+            b"width\x00" as *const u8 as *mut u8 as *mut i8,
+            b"slant\x00" as *const u8 as *mut u8 as *mut i8,
+            b"fontformat\x00" as *const u8 as *mut u8 as *mut i8,
+            ptr::null_mut::<i8>(),
+        );
+        self.allFonts = FcFontList(FcConfigGetCurrent(), pat, os);
+        FcObjectSetDestroy(os);
+        FcPatternDestroy(pat);
+        self.cachedAll = false;
+    }
+}
+
+impl FontMgrExt for XeTeXFontMgr_FC {
+    type FontRef = PlatformFontRef;
+    unsafe fn terminate(&mut self) {
+        if !self.allFonts.is_null() {
+            FcFontSetDestroy(self.allFonts);
+            self.allFonts = ptr::null_mut();
+        }
+        if !macRomanConv.is_null() {
+            icu::ucnv_close(macRomanConv);
+            macRomanConv = ptr::null_mut();
+        }
+        if !utf16beConv.is_null() {
+            icu::ucnv_close(utf16beConv);
+            utf16beConv = ptr::null_mut();
+        }
+        if !utf8Conv.is_null() {
+            icu::ucnv_close(utf8Conv);
+            utf8Conv = ptr::null_mut();
+        };
+    }
+    unsafe fn get_platform_font_desc(&self, font: Self::FontRef) -> String {
+        let mut s: *mut u8 = ptr::null_mut();
+        if FcPatternGetString(
+            font,
+            b"file\x00" as *const u8 as *const libc::c_char,
+            0i32,
+            &mut s as *mut *mut u8,
+        ) as libc::c_uint
+            == FcResultMatch as libc::c_int as libc::c_uint
+        {
+            crate::c_pointer_to_str(s as *const libc::c_char).to_string()
+        } else {
+            "[unknown]".to_string()
+        }
+    }
+
+    unsafe fn search_for_host_platform_fonts(&mut self, name: *const libc::c_char) {
+        use std::ffi::CStr;
+        if self.cachedAll {
+            // we've already loaded everything on an earlier search
+            return;
+        }
+        let famName = CppStdString_create();
+        let hyph_pos = strchr(name, '-' as i32);
+        let hyph;
+        if !hyph_pos.is_null() {
+            hyph = hyph_pos.offset_from(name) as libc::c_long as libc::c_int;
+            CppStdString_assign_n_chars(famName, name, hyph as libc::size_t);
+        } else {
+            hyph = 0;
+        }
+        let mut found = false;
+        loop {
+            'traverse_fonts: for f in 0..(*self.allFonts).nfont {
+                let pat = *(*self.allFonts).fonts.offset(f as isize);
+                if !(*(*self).m_platformRefToFont).contains_key(&pat) {
+                    continue;
                 }
 
-                let mut t: *mut libc::c_char = 0 as _;
-                let mut j = 0;
+                if self.cachedAll {
+                    // failed to find it via FC; add everything to our maps (potentially slow) as a last resort
+                    let names = self.read_names(pat);
+                    XeTeXFontMgr_addToMaps(self, pat, names);
+                    XeTeXFontMgrNameCollection_delete(names);
+                    continue;
+                }
+
+                let mut s: *mut libc::c_char = ptr::null_mut();
+                let mut i = 0;
                 while FcPatternGetString(
                     pat,
-                    b"style\x00" as *const u8 as *const libc::c_char,
-                    j,
-                    &mut t as *mut *mut libc::c_char as *mut *mut u8,
+                    b"fullname\x00" as *const u8 as *const libc::c_char,
+                    i,
+                    &mut s as *mut *mut libc::c_char as *mut *mut u8,
                 ) == FcResultMatch
                 {
-                    let full = CppStdString_create();
-                    CppStdString_append_const_char_ptr(full, s);
-                    CppStdString_append_const_char_ptr(
-                        full,
-                        b" \x00" as *const u8 as *const libc::c_char,
-                    );
-                    CppStdString_append_const_char_ptr(full, t);
-                    let matched = &**full == CStr::from_ptr(name);
-                    CppStdString_delete(full);
-                    if matched {
-                        let names_2 = XeTeXFontMgr_readNames(self_0, pat);
-                        XeTeXFontMgr_addToMaps(self_0, pat, names_2);
-                        XeTeXFontMgr_cacheFamilyMembers(self_0, (*names_2).m_familyNames);
-                        XeTeXFontMgrNameCollection_delete(names_2);
+                    if CStr::from_ptr(name) == CStr::from_ptr(s) {
+                        let names_0 = self.read_names(pat);
+                        XeTeXFontMgr_addToMaps(self, pat, names_0);
+                        self.cache_family_members((*names_0).m_familyNames);
+                        XeTeXFontMgrNameCollection_delete(names_0);
                         found = true;
                         continue 'traverse_fonts;
                     }
-                    j += 1;
+                    i += 1;
                 }
-                i += 1;
+
+                let mut i = 0;
+                while FcPatternGetString(
+                    pat,
+                    b"family\x00" as *const u8 as *const libc::c_char,
+                    i,
+                    &mut s as *mut *mut libc::c_char as *mut *mut u8,
+                ) == FcResultMatch
+                {
+                    if CStr::from_ptr(name) == CStr::from_ptr(s)
+                        || hyph != 0 && (&**famName == CStr::from_ptr(s))
+                    {
+                        let names_1 = self.read_names(pat);
+                        XeTeXFontMgr_addToMaps(self, pat, names_1);
+                        self.cache_family_members((*names_1).m_familyNames);
+                        XeTeXFontMgrNameCollection_delete(names_1);
+                        found = true;
+                        continue 'traverse_fonts;
+                    }
+
+                    let mut t: *mut libc::c_char = 0 as _;
+                    let mut j = 0;
+                    while FcPatternGetString(
+                        pat,
+                        b"style\x00" as *const u8 as *const libc::c_char,
+                        j,
+                        &mut t as *mut *mut libc::c_char as *mut *mut u8,
+                    ) == FcResultMatch
+                    {
+                        let full = CppStdString_create();
+                        CppStdString_append_const_char_ptr(full, s);
+                        CppStdString_append_const_char_ptr(
+                            full,
+                            b" \x00" as *const u8 as *const libc::c_char,
+                        );
+                        CppStdString_append_const_char_ptr(full, t);
+                        let matched = &**full == CStr::from_ptr(name);
+                        CppStdString_delete(full);
+                        if matched {
+                            let names_2 = self.read_names(pat);
+                            XeTeXFontMgr_addToMaps(self, pat, names_2);
+                            self.cache_family_members((*names_2).m_familyNames);
+                            XeTeXFontMgrNameCollection_delete(names_2);
+                            found = true;
+                            continue 'traverse_fonts;
+                        }
+                        j += 1;
+                    }
+                    i += 1;
+                }
+            }
+
+            if found || self.cachedAll {
+                break;
+            }
+            self.cachedAll = true;
+        }
+        CppStdString_delete(famName);
+    }
+
+    unsafe fn read_names(&self, pat: Self::FontRef) -> *mut XeTeXFontMgrNameCollection {
+        use crate::freetype_sys_patch::FT_SfntName;
+        let names = XeTeXFontMgrNameCollection_create();
+        let mut pathname = ptr::null_mut();
+        if FcPatternGetString(
+            pat,
+            b"file\x00" as *const u8 as *const libc::c_char,
+            0i32,
+            &mut pathname as *mut *mut libc::c_char as *mut *mut u8,
+        ) as libc::c_uint
+            != FcResultMatch as libc::c_int as libc::c_uint
+        {
+            return names;
+        }
+        let mut index = 0;
+        if FcPatternGetInteger(
+            pat,
+            b"index\x00" as *const u8 as *const libc::c_char,
+            0,
+            &mut index,
+        ) as libc::c_uint
+            != FcResultMatch as libc::c_int as libc::c_uint
+        {
+            return names;
+        }
+        let mut face = ptr::null_mut();
+        if FT_New_Face(gFreeTypeLibrary, pathname, index as FT_Long, &mut face) != 0i32 {
+            return names;
+        }
+        let mut name: *const libc::c_char = FT_Get_Postscript_Name(face);
+        if name.is_null() {
+            return names;
+        }
+        CppStdString_assign_from_const_char_ptr((*names).m_psName, name);
+        /* this string is *not* null-terminated! */
+        /* in bytes                              */
+        // for sfnt containers, we'll read the name table ourselves, not rely on Fontconfig
+        if (*face).face_flags & 1 << 3i32 != 0 {
+            let familyNames = CppStdListOfString_create();
+            let subFamilyNames = CppStdListOfString_create();
+            let mut nameRec: FT_SfntName = FT_SfntName {
+                platform_id: 0,
+                encoding_id: 0,
+                language_id: 0,
+                name_id: 0,
+                string: ptr::null_mut(),
+                string_len: 0,
+            };
+            for i in 0..FT_Get_Sfnt_Name_Count(face) {
+                let mut utf8name = ptr::null_mut();
+                if FT_Get_Sfnt_Name(face, i, &mut nameRec) == 0 {
+                    match nameRec.name_id as libc::c_int {
+                        4 | 1 | 2 | 16 | 17 => {
+                            let mut preferredName = false;
+                            if nameRec.platform_id as libc::c_int == 1i32
+                                && nameRec.encoding_id as libc::c_int == 0i32
+                                && nameRec.language_id as libc::c_int == 0i32
+                            {
+                                utf8name = convertToUtf8(
+                                    macRomanConv,
+                                    nameRec.string,
+                                    nameRec.string_len as libc::c_int,
+                                );
+                                preferredName = true
+                            } else if nameRec.platform_id as libc::c_int == 0i32
+                                || nameRec.platform_id as libc::c_int == 3i32
+                            {
+                                utf8name = convertToUtf8(
+                                    utf16beConv,
+                                    nameRec.string,
+                                    nameRec.string_len as libc::c_int,
+                                )
+                            }
+                            if !utf8name.is_null() {
+                                let mut nameList = ptr::null_mut();
+                                match nameRec.name_id as libc::c_int {
+                                    4 => nameList = (*names).m_fullNames,
+                                    1 => nameList = (*names).m_familyNames,
+                                    2 => nameList = (*names).m_styleNames,
+                                    16 => nameList = familyNames,
+                                    17 => nameList = subFamilyNames,
+                                    _ => {}
+                                }
+                                if preferredName {
+                                    XeTeXFontMgr_prependToList(self, nameList, utf8name);
+                                } else {
+                                    XeTeXFontMgr_appendToList(self, nameList, utf8name);
+                                }
+                                free(utf8name as *mut libc::c_void);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            if !(*familyNames).is_empty() {
+                *(*names).m_familyNames = (*familyNames).clone();
+            }
+            if !(*subFamilyNames).is_empty() {
+                *(*names).m_styleNames = (*subFamilyNames).clone();
+            }
+            CppStdListOfString_delete(subFamilyNames);
+            CppStdListOfString_delete(familyNames);
+        } else {
+            let mut index = 0;
+            loop {
+                if FcPatternGetString(
+                    pat,
+                    b"fullname\x00" as *const u8 as *const libc::c_char,
+                    index,
+                    &mut name as *mut *const libc::c_char as *mut *mut u8,
+                ) as libc::c_uint
+                    != FcResultMatch as libc::c_uint
+                {
+                    break;
+                }
+                index += 1;
+                XeTeXFontMgr_appendToList(self, (*names).m_fullNames, name);
+            }
+            let mut index = 0;
+            loop {
+                if FcPatternGetString(
+                    pat,
+                    b"family\x00" as *const u8 as *const libc::c_char,
+                    index,
+                    &mut name as *mut *const libc::c_char as *mut *mut u8,
+                ) as libc::c_uint
+                    != FcResultMatch as libc::c_uint
+                {
+                    break;
+                }
+                index += 1;
+                XeTeXFontMgr_appendToList(self, (*names).m_familyNames, name);
+            }
+            let mut index = 0;
+            loop {
+                if FcPatternGetString(
+                    pat,
+                    b"style\x00" as *const u8 as *const libc::c_char,
+                    index,
+                    &mut name as *mut *const libc::c_char as *mut *mut u8,
+                ) as libc::c_uint
+                    != FcResultMatch as libc::c_uint
+                {
+                    break;
+                }
+                index += 1;
+                XeTeXFontMgr_appendToList(self, (*names).m_styleNames, name);
+            }
+            if (*(*names).m_fullNames).is_empty() {
+                let fullName = CppStdString_create();
+                CppStdString_append_const_char_ptr(fullName, (*(*names).m_familyNames)[0].as_ptr());
+                if !(*(*names).m_styleNames).is_empty() {
+                    CppStdString_append_const_char_ptr(
+                        fullName,
+                        b" \x00" as *const u8 as *const libc::c_char,
+                    );
+                    CppStdString_append_const_char_ptr(
+                        fullName,
+                        (*(*names).m_styleNames)[0].as_ptr(),
+                    );
+                }
+                (*(*names).m_fullNames).push_back((*fullName).clone());
+                CppStdString_delete(fullName);
             }
         }
+        FT_Done_Face(face);
+        names
+    }
+    unsafe fn get_op_size_rec_and_style_flags(&self, theFont: *mut XeTeXFontMgrFont) {
+        self.base_get_op_size_rec_and_style_flags(theFont);
+        if (*theFont).weight as libc::c_int == 0i32 && (*theFont).width as libc::c_int == 0i32 {
+            // try to get values from FontConfig, as it apparently wasn't an sfnt
+            let pat = (*theFont).fontRef;
+            let mut value: libc::c_int = 0;
+            if FcPatternGetInteger(
+                pat,
+                b"weight\x00" as *const u8 as *const libc::c_char,
+                0i32,
+                &mut value,
+            ) as libc::c_uint
+                == FcResultMatch as libc::c_int as libc::c_uint
+            {
+                (*theFont).weight = value as u16
+            }
+            if FcPatternGetInteger(
+                pat,
+                b"width\x00" as *const u8 as *const libc::c_char,
+                0i32,
+                &mut value,
+            ) as libc::c_uint
+                == FcResultMatch as libc::c_int as libc::c_uint
+            {
+                (*theFont).width = value as u16
+            }
+            if FcPatternGetInteger(
+                pat,
+                b"slant\x00" as *const u8 as *const libc::c_char,
+                0i32,
+                &mut value,
+            ) as libc::c_uint
+                == FcResultMatch as libc::c_int as libc::c_uint
+            {
+                (*theFont).slant = value as i16
+            }
+        };
+    }
+}
 
-        if found || (*real_self).cachedAll {
-            break;
-        }
-        (*real_self).cachedAll = true;
-    }
-    CppStdString_delete(famName);
-}
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_initialize(self_0: *mut XeTeXFontMgr) {
-    let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
-    if FcInit() == 0 {
-        abort!("fontconfig initialization failed");
-    }
-    if gFreeTypeLibrary.is_null() && FT_Init_FreeType(&mut gFreeTypeLibrary) != 0 {
-        abort!("FreeType initialization failed");
-    }
-    let mut err: icu::UErrorCode = icu::U_ZERO_ERROR;
-    macRomanConv = icu::ucnv_open(
-        b"macintosh\x00" as *const u8 as *const libc::c_char,
-        &mut err,
-    );
-    utf16beConv = icu::ucnv_open(b"UTF16BE\x00" as *const u8 as *const libc::c_char, &mut err);
-    utf8Conv = icu::ucnv_open(b"UTF8\x00" as *const u8 as *const libc::c_char, &mut err);
-    if err as u64 != 0 {
-        abort!("cannot read font names");
-    }
-    let pat = FcNameParse(b":outline=true\x00" as *const u8 as *const libc::c_char as *const u8);
-    let os = FcObjectSetBuild(
-        b"family\x00" as *const u8 as *mut u8 as *mut i8,
-        b"style\x00" as *const u8 as *mut u8 as *mut i8,
-        b"file\x00" as *const u8 as *mut u8 as *mut i8,
-        b"index\x00" as *const u8 as *mut u8 as *mut i8,
-        b"fullname\x00" as *const u8 as *mut u8 as *mut i8,
-        b"weight\x00" as *const u8 as *mut u8 as *mut i8,
-        b"width\x00" as *const u8 as *mut u8 as *mut i8,
-        b"slant\x00" as *const u8 as *mut u8 as *mut i8,
-        b"fontformat\x00" as *const u8 as *mut u8 as *mut i8,
-        ptr::null_mut::<i8>(),
-    );
-    (*real_self).allFonts = FcFontList(FcConfigGetCurrent(), pat, os);
-    FcObjectSetDestroy(os);
-    FcPatternDestroy(pat);
-    (*real_self).cachedAll = false;
-}
-#[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_FC_terminate(self_0: *mut XeTeXFontMgr) {
-    let mut real_self: *mut XeTeXFontMgr_FC = self_0 as *mut XeTeXFontMgr_FC;
-    if !(*real_self).allFonts.is_null() {
-        FcFontSetDestroy((*real_self).allFonts);
-        (*real_self).allFonts = ptr::null_mut();
-    }
-    if !macRomanConv.is_null() {
-        icu::ucnv_close(macRomanConv);
-        macRomanConv = ptr::null_mut();
-    }
-    if !utf16beConv.is_null() {
-        icu::ucnv_close(utf16beConv);
-        utf16beConv = ptr::null_mut();
-    }
-    if !utf8Conv.is_null() {
-        icu::ucnv_close(utf8Conv);
-        utf8Conv = ptr::null_mut();
-    };
-}
-#[no_mangle]
-pub(crate) unsafe fn XeTeXFontMgr_FC_getPlatformFontDesc(
-    mut _self_0: *const XeTeXFontMgr,
-    font: PlatformFontRef,
-) -> String {
-    let mut s: *mut u8 = ptr::null_mut();
-    if FcPatternGetString(
-        font,
-        b"file\x00" as *const u8 as *const libc::c_char,
-        0i32,
-        &mut s as *mut *mut u8,
-    ) as libc::c_uint
-        == FcResultMatch as libc::c_int as libc::c_uint
-    {
-        crate::c_pointer_to_str(s as *const libc::c_char).to_string()
-    } else {
-        "[unknown]".to_string()
+pub(crate) unsafe fn XeTeXFontMgr_FC_ctor() -> XeTeXFontMgr_FC {
+    XeTeXFontMgr_FC {
+        super_: XeTeXFontMgr_base_ctor(),
+        allFonts: ptr::null_mut(),
+        cachedAll: false,
     }
 }
 #[no_mangle]
-pub(crate) unsafe fn XeTeXFontMgr_FC_ctor(mut self_0: *mut XeTeXFontMgr_FC) {
-    XeTeXFontMgr_base_ctor(&mut (*self_0).super_);
-    (*self_0).super_.m_memfnInitialize = Some(XeTeXFontMgr_FC_initialize);
-    (*self_0).super_.m_memfnTerminate = Some(XeTeXFontMgr_FC_terminate);
-    (*self_0).super_.m_memfnGetOpSizeRecAndStyleFlags =
-        Some(XeTeXFontMgr_FC_getOpSizeRecAndStyleFlags);
-    (*self_0).super_.m_memfnGetPlatformFontDesc = Some(XeTeXFontMgr_FC_getPlatformFontDesc);
-    (*self_0).super_.m_memfnSearchForHostPlatformFonts =
-        Some(XeTeXFontMgr_FC_searchForHostPlatformFonts);
-    (*self_0).super_.m_memfnReadNames = Some(XeTeXFontMgr_FC_readNames);
-}
-#[no_mangle]
-pub(crate) unsafe fn XeTeXFontMgr_FC_create() -> *mut XeTeXFontMgr_FC {
-    let self_0 = malloc(::std::mem::size_of::<XeTeXFontMgr_FC>()) as *mut XeTeXFontMgr_FC;
-    XeTeXFontMgr_FC_ctor(self_0);
-    self_0
+pub(crate) unsafe fn XeTeXFontMgr_FC_create() -> Box<XeTeXFontMgr_FC> {
+    Box::new(XeTeXFontMgr_FC_ctor())
 }

@@ -3,6 +3,8 @@
 
 use crate::xetex_layout_interface::collection_types::*;
 
+use crate::xetex_font_manager::FontMgrExt;
+
 use std::ptr;
 
 use objc::rc::autoreleasepool;
@@ -15,8 +17,8 @@ objc_foundation::object_struct!(NSFont);
 type id = *mut Object;
 
 use super::{
-    XeTeXFontMgr, XeTeXFontMgrNameCollection, XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList,
-    XeTeXFontMgr_base_ctor,
+    XeTeXFontMgr, XeTeXFontMgrFont, XeTeXFontMgrNameCollection, XeTeXFontMgr_addToMaps,
+    XeTeXFontMgr_appendToList, XeTeXFontMgr_base_ctor,
 };
 
 use libc::{free, malloc, strchr, strdup, strlen};
@@ -59,10 +61,20 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 
-#[derive(Copy, Clone)]
-#[repr(C)]
+#[derive(Clone)]
 pub(crate) struct XeTeXFontMgr_Mac {
     pub(crate) super_: XeTeXFontMgr,
+}
+impl core::ops::Deref for XeTeXFontMgr_Mac {
+    type Target = XeTeXFontMgr;
+    fn deref(&self) -> &Self::Target {
+        &self.super_
+    }
+}
+impl core::ops::DerefMut for XeTeXFontMgr_Mac {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.super_
+    }
 }
 #[inline]
 unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNameCollection {
@@ -75,15 +87,6 @@ unsafe extern "C" fn XeTeXFontMgrNameCollection_create() -> *mut XeTeXFontMgrNam
     (*self_0).m_psName = CppStdString_create();
     (*self_0).m_subFamily = CppStdString_create();
     self_0
-}
-#[inline]
-unsafe extern "C" fn XeTeXFontMgr_readNames(
-    self_0: *mut XeTeXFontMgr,
-    fontRef: PlatformFontRef,
-) -> *mut XeTeXFontMgrNameCollection {
-    (*self_0)
-        .m_memfnReadNames
-        .expect("non-null function pointer")(self_0, fontRef)
 }
 #[inline]
 unsafe extern "C" fn XeTeXFontMgrNameCollection_delete(self_0: *mut XeTeXFontMgrNameCollection) {
@@ -133,7 +136,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFontWithName(
     return matched;
 }
 pub(crate) unsafe fn XeTeXFontMgr_Mac_appendNameToList(
-    self_0: *mut XeTeXFontMgr,
+    self_0: &XeTeXFontMgr_Mac,
     font: CTFontRef,
     nameList: *mut CppStdListOfString,
     nameKey: CFStringRef,
@@ -153,36 +156,8 @@ pub(crate) unsafe fn XeTeXFontMgr_Mac_appendNameToList(
     };
 }
 
-#[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_readNames(
-    self_0: *mut XeTeXFontMgr,
-    fontRef: CTFontDescriptorRef,
-) -> *mut XeTeXFontMgrNameCollection {
-    let names = XeTeXFontMgrNameCollection_create();
-    let psName = CTFontDescriptorCopyAttribute(fontRef, kCTFontNameAttribute) as CFStringRef;
-    if psName.is_null() {
-        return names;
-    }
-    autoreleasepool(|| {
-        let psName: *const NSString = psName.cast();
-        CppStdString_assign_from_const_char_ptr((*names).m_psName, msg_send![psName, UTF8String]);
-        CFRelease(psName as CFTypeRef);
-        let font = CTFontCreateWithFontDescriptor(fontRef, 0.0f64, ptr::null());
-        XeTeXFontMgr_Mac_appendNameToList(self_0, font, (*names).m_fullNames, kCTFontFullNameKey);
-        XeTeXFontMgr_Mac_appendNameToList(
-            self_0,
-            font,
-            (*names).m_familyNames,
-            kCTFontFamilyNameKey,
-        );
-        XeTeXFontMgr_Mac_appendNameToList(self_0, font, (*names).m_styleNames, kCTFontStyleNameKey);
-        CFRelease(font as CFTypeRef);
-    });
-    return names;
-}
-
 pub(crate) unsafe fn XeTeXFontMgr_Mac_addFontsToCaches(
-    self_0: *mut XeTeXFontMgr,
+    self_0: &mut XeTeXFontMgr_Mac,
     fonts: CFArrayRef,
 ) {
     let fonts: *const NSArray<NSFont, Shared> = fonts.cast();
@@ -190,14 +165,14 @@ pub(crate) unsafe fn XeTeXFontMgr_Mac_addFontsToCaches(
     for aFont in NSEnumerator::<NSFont>::from_ptr(enumerator) {
         let fontRef =
             XeTeXFontMgr_findFontWithName(msg_send![aFont, objectAtIndex: 0], kCTFontNameAttribute);
-        let names = XeTeXFontMgr_readNames(self_0, fontRef);
+        let names = self_0.read_names(fontRef);
         XeTeXFontMgr_addToMaps(self_0, fontRef, names);
         XeTeXFontMgrNameCollection_delete(names);
     }
 }
 
 pub(crate) unsafe fn XeTeXFontMgr_Mac_addFamilyToCaches(
-    self_0: *mut XeTeXFontMgr,
+    self_0: &mut XeTeXFontMgr_Mac,
     familyRef: CTFontDescriptorRef,
 ) {
     let nameStr =
@@ -213,7 +188,7 @@ pub(crate) unsafe fn XeTeXFontMgr_Mac_addFamilyToCaches(
 }
 
 pub(crate) unsafe fn XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(
-    self_0: *mut XeTeXFontMgr,
+    self_0: &mut XeTeXFontMgr_Mac,
     fontRef: CTFontDescriptorRef,
 ) {
     let name = CTFontDescriptorCopyAttribute(fontRef, kCTFontNameAttribute) as CFStringRef;
@@ -232,142 +207,164 @@ pub(crate) unsafe fn XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(
 }
 
 #[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_searchForHostPlatformFonts(
-    self_0: *mut XeTeXFontMgr,
-    name: *const libc::c_char,
-) {
-    // the name might be:
-    //  FullName
-    //  Family-Style (if there's a hyphen)
-    //  PSName
-    //  Family
-    // ...so we need to try it as each of these
-    let nameStr = CFStringCreateWithCString(
-        kCFAllocatorDefault,
-        name,
-        kCFStringEncodingUTF8 as libc::c_int as CFStringEncoding,
-    );
-    let mut matched: CTFontDescriptorRef =
-        XeTeXFontMgr_findFontWithName(nameStr, kCTFontDisplayNameAttribute);
-    if !matched.is_null() {
-        // found it, so locate the family, and add all members to the caches
-        XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(self_0, matched);
-        CFRelease(matched as CFTypeRef);
-        return;
+pub(crate) static mut pool: *mut NSAutoreleasePool = ptr::null_mut();
+
+impl XeTeXFontMgr_Mac {
+    pub(crate) unsafe fn initialize(&mut self) {
+        pool = msg_send![class!(NSAutoreleasePool), new];
     }
-    let hyph_pos = strchr(name, '-' as i32);
-    let hyph = (if !hyph_pos.is_null() {
-        hyph_pos.offset_from(name) as libc::c_long
-    } else {
-        -1i32 as libc::c_long
-    }) as libc::c_int;
-    if hyph > 0i32 && (hyph as usize) < strlen(name) - 1 {
-        let family = CppStdString_create();
-        CppStdString_assign_n_chars(family, name, hyph as usize);
-        let familyStr = CFStringCreateWithCString(
+}
+
+impl FontMgrExt for XeTeXFontMgr_Mac {
+    type FontRef = PlatformFontRef;
+    unsafe fn terminate(&mut self) {
+        if !pool.is_null() {
+            let _: () = msg_send![pool, drain];
+        }
+    }
+    unsafe fn get_platform_font_desc(&self, descriptor: Self::FontRef) -> String {
+        let mut path: *mut libc::c_char = ptr::null_mut();
+        let ctFont = CTFontCreateWithFontDescriptor(descriptor, 0.0f64, ptr::null());
+        if !ctFont.is_null() {
+            let url = CTFontCopyAttribute(ctFont, kCTFontURLAttribute) as CFURLRef;
+            if !url.is_null() {
+                let mut posixPath: [u8; 1024] = [0; 1024];
+                if CFURLGetFileSystemRepresentation(
+                    url,
+                    1i32 as Boolean,
+                    posixPath.as_mut_ptr(),
+                    1024i32 as CFIndex,
+                ) != 0
+                {
+                    path = strdup(posixPath.as_mut_ptr() as *mut libc::c_char)
+                }
+                CFRelease(url as CFTypeRef);
+            }
+            CFRelease(ctFont as CFTypeRef);
+        }
+        if strlen(path) == 0 {
+            free(path as *mut libc::c_void);
+            path = ptr::null_mut()
+        }
+        if path.is_null() {
+            "[unknown]".to_string()
+        } else {
+            crate::c_pointer_to_str(path).to_string()
+        }
+    }
+    unsafe fn search_for_host_platform_fonts(&mut self, name: *const libc::c_char) {
+        // the name might be:
+        //  FullName
+        //  Family-Style (if there's a hyphen)
+        //  PSName
+        //  Family
+        // ...so we need to try it as each of these
+        let nameStr = CFStringCreateWithCString(
             kCFAllocatorDefault,
-            CppStdString_cstr(family),
+            name,
             kCFStringEncodingUTF8 as libc::c_int as CFStringEncoding,
         );
-        CppStdString_delete(family);
-        let shared_font_manager: *const NSFontManager =
-            msg_send![class!(NSFontManager), sharedFontManager];
-        let familyMembers: *mut NSArray<NSFont, Shared> =
-            msg_send![shared_font_manager, availableMembersOfFontFamily: familyStr];
-        let count: i32 = msg_send![familyMembers, count];
-        if count > 0i32 {
-            XeTeXFontMgr_Mac_addFontsToCaches(self_0, familyMembers as CFArrayRef);
-            return;
-        }
-        matched = XeTeXFontMgr_findFontWithName(familyStr, kCTFontFamilyNameAttribute);
+        let mut matched: CTFontDescriptorRef =
+            XeTeXFontMgr_findFontWithName(nameStr, kCTFontDisplayNameAttribute);
         if !matched.is_null() {
-            XeTeXFontMgr_Mac_addFamilyToCaches(self_0, matched);
+            // found it, so locate the family, and add all members to the caches
+            XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(self, matched);
             CFRelease(matched as CFTypeRef);
             return;
         }
-    }
-    matched = XeTeXFontMgr_findFontWithName(nameStr, kCTFontNameAttribute);
-    if !matched.is_null() {
-        XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(self_0, matched);
-        CFRelease(matched as CFTypeRef);
-        return;
-    }
-    let shared_font_manager: *const NSFontManager =
-        msg_send![class!(NSFontManager), sharedFontManager];
-    let familyMembers_0: *mut NSArray<NSFont, Shared> =
-        msg_send![shared_font_manager, availableMembersOfFontFamily: nameStr];
-    let count: i32 = msg_send![familyMembers_0, count];
-    if count > 0 {
-        XeTeXFontMgr_Mac_addFontsToCaches(self_0, familyMembers_0 as CFArrayRef);
-        return;
-    }
-    matched = XeTeXFontMgr_findFontWithName(nameStr, kCTFontFamilyNameAttribute);
-    if !matched.is_null() {
-        XeTeXFontMgr_Mac_addFamilyToCaches(self_0, matched);
-        CFRelease(matched as CFTypeRef);
-        return;
-    };
-}
-#[no_mangle]
-pub(crate) static mut pool: *mut NSAutoreleasePool = ptr::null_mut();
-
-#[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_initialize(_self_0: *mut XeTeXFontMgr) {
-    pool = msg_send![class!(NSAutoreleasePool), new];
-}
-
-#[no_mangle]
-pub(crate) unsafe extern "C" fn XeTeXFontMgr_Mac_terminate(_self_0: *mut XeTeXFontMgr) {
-    if !pool.is_null() {
-        let _: () = msg_send![pool, drain];
-    }
-}
-
-#[no_mangle]
-pub(crate) unsafe fn XeTeXFontMgr_Mac_getPlatformFontDesc(
-    self_0: *const XeTeXFontMgr,
-    descriptor: PlatformFontRef,
-) -> String {
-    let mut path: *mut libc::c_char = ptr::null_mut();
-    let ctFont = CTFontCreateWithFontDescriptor(descriptor, 0.0f64, ptr::null());
-    if !ctFont.is_null() {
-        let url = CTFontCopyAttribute(ctFont, kCTFontURLAttribute) as CFURLRef;
-        if !url.is_null() {
-            let mut posixPath: [u8; 1024] = [0; 1024];
-            if CFURLGetFileSystemRepresentation(
-                url,
-                1i32 as Boolean,
-                posixPath.as_mut_ptr(),
-                1024i32 as CFIndex,
-            ) != 0
-            {
-                path = strdup(posixPath.as_mut_ptr() as *mut libc::c_char)
+        let hyph_pos = strchr(name, '-' as i32);
+        let hyph = (if !hyph_pos.is_null() {
+            hyph_pos.offset_from(name) as libc::c_long
+        } else {
+            -1i32 as libc::c_long
+        }) as libc::c_int;
+        if hyph > 0i32 && (hyph as usize) < strlen(name) - 1 {
+            let family = CppStdString_create();
+            CppStdString_assign_n_chars(family, name, hyph as usize);
+            let familyStr = CFStringCreateWithCString(
+                kCFAllocatorDefault,
+                CppStdString_cstr(family),
+                kCFStringEncodingUTF8 as libc::c_int as CFStringEncoding,
+            );
+            CppStdString_delete(family);
+            let shared_font_manager: *const NSFontManager =
+                msg_send![class!(NSFontManager), sharedFontManager];
+            let familyMembers: *mut NSArray<NSFont, Shared> =
+                msg_send![shared_font_manager, availableMembersOfFontFamily: familyStr];
+            let count: i32 = msg_send![familyMembers, count];
+            if count > 0i32 {
+                XeTeXFontMgr_Mac_addFontsToCaches(self, familyMembers as CFArrayRef);
+                return;
             }
-            CFRelease(url as CFTypeRef);
+            matched = XeTeXFontMgr_findFontWithName(familyStr, kCTFontFamilyNameAttribute);
+            if !matched.is_null() {
+                XeTeXFontMgr_Mac_addFamilyToCaches(self, matched);
+                CFRelease(matched as CFTypeRef);
+                return;
+            }
         }
-        CFRelease(ctFont as CFTypeRef);
+        matched = XeTeXFontMgr_findFontWithName(nameStr, kCTFontNameAttribute);
+        if !matched.is_null() {
+            XeTeXFontMgr_Mac_addFontAndSiblingsToCaches(self, matched);
+            CFRelease(matched as CFTypeRef);
+            return;
+        }
+        let shared_font_manager: *const NSFontManager =
+            msg_send![class!(NSFontManager), sharedFontManager];
+        let familyMembers_0: *mut NSArray<NSFont, Shared> =
+            msg_send![shared_font_manager, availableMembersOfFontFamily: nameStr];
+        let count: i32 = msg_send![familyMembers_0, count];
+        if count > 0 {
+            XeTeXFontMgr_Mac_addFontsToCaches(self, familyMembers_0 as CFArrayRef);
+            return;
+        }
+        matched = XeTeXFontMgr_findFontWithName(nameStr, kCTFontFamilyNameAttribute);
+        if !matched.is_null() {
+            XeTeXFontMgr_Mac_addFamilyToCaches(self, matched);
+            CFRelease(matched as CFTypeRef);
+            return;
+        };
     }
-    if strlen(path) == 0 {
-        free(path as *mut libc::c_void);
-        path = ptr::null_mut()
+
+    unsafe fn read_names(&self, fontRef: Self::FontRef) -> *mut XeTeXFontMgrNameCollection {
+        let names = XeTeXFontMgrNameCollection_create();
+        let psName = CTFontDescriptorCopyAttribute(fontRef, kCTFontNameAttribute) as CFStringRef;
+        if psName.is_null() {
+            return names;
+        }
+        autoreleasepool(|| {
+            let psName: *const NSString = psName.cast();
+            CppStdString_assign_from_const_char_ptr(
+                (*names).m_psName,
+                msg_send![psName, UTF8String],
+            );
+            CFRelease(psName as CFTypeRef);
+            let font = CTFontCreateWithFontDescriptor(fontRef, 0.0f64, ptr::null());
+            XeTeXFontMgr_Mac_appendNameToList(self, font, (*names).m_fullNames, kCTFontFullNameKey);
+            XeTeXFontMgr_Mac_appendNameToList(
+                self,
+                font,
+                (*names).m_familyNames,
+                kCTFontFamilyNameKey,
+            );
+            XeTeXFontMgr_Mac_appendNameToList(
+                self,
+                font,
+                (*names).m_styleNames,
+                kCTFontStyleNameKey,
+            );
+            CFRelease(font as CFTypeRef);
+        });
+        return names;
     }
-    if path.is_null() {
-        "[unknown]".to_string()
-    } else {
-        crate::c_pointer_to_str(path).to_string()
+    unsafe fn get_op_size_rec_and_style_flags(&self, theFont: *mut XeTeXFontMgrFont) {
+        self.base_get_op_size_rec_and_style_flags(theFont);
     }
 }
-pub(crate) unsafe fn XeTeXFontMgr_Mac_ctor(mut self_0: *mut XeTeXFontMgr_Mac) {
-    XeTeXFontMgr_base_ctor(&mut (*self_0).super_);
-    (*self_0).super_.m_memfnInitialize = Some(XeTeXFontMgr_Mac_initialize);
-    (*self_0).super_.m_memfnTerminate = Some(XeTeXFontMgr_Mac_terminate);
-    (*self_0).super_.m_memfnGetPlatformFontDesc = Some(XeTeXFontMgr_Mac_getPlatformFontDesc);
-    (*self_0).super_.m_memfnSearchForHostPlatformFonts =
-        Some(XeTeXFontMgr_Mac_searchForHostPlatformFonts);
-    (*self_0).super_.m_memfnReadNames = Some(XeTeXFontMgr_Mac_readNames);
+pub(crate) unsafe fn XeTeXFontMgr_Mac_ctor() -> XeTeXFontMgr_Mac {
+    let mut super_ = XeTeXFontMgr_base_ctor();
+    XeTeXFontMgr_Mac { super_ }
 }
-pub(crate) unsafe fn XeTeXFontMgr_Mac_create() -> *mut XeTeXFontMgr_Mac {
-    let self_0 = malloc(::std::mem::size_of::<XeTeXFontMgr_Mac>()) as *mut XeTeXFontMgr_Mac;
-    XeTeXFontMgr_Mac_ctor(self_0);
-    return self_0;
+pub(crate) unsafe fn XeTeXFontMgr_Mac_create() -> Box<XeTeXFontMgr_Mac> {
+    Box::new(XeTeXFontMgr_Mac_ctor())
 }
