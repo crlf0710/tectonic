@@ -302,6 +302,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
         (-(ymin as i32) * 72) as f64 / 72.27,
     );
     t = t.post_transform(&t2);
+dbg!(&name_of_file);
     if result == 0 {
         let len = pic_path.as_bytes().len();
         let mut tail_pic = if is_pdf {
