@@ -1431,7 +1431,7 @@ pub(crate) unsafe fn store_justified_native_glyphs(node: &mut NativeWord) {
                 /* apply justification to spaces (or if there are none, distribute it to all glyphs as a last resort) */
                 let glyph_count = node.glyph_count() as usize;
                 let mut spaceCount: i32 = 0i32;
-                let spaceGlyph: i32 = map_char_to_glyph(nf, ' ' as i32);
+                let spaceGlyph: i32 = map_char_to_glyph(nf, ' ');
                 for i in 0..glyph_count {
                     if node.glyph_ids()[i] as i32 == spaceGlyph {
                         spaceCount += 1
@@ -1701,10 +1701,7 @@ pub(crate) unsafe fn measure_native_glyph(node: &mut Glyph, use_glyph_metrics: b
         node.set_depth(Scaled(DEPTH_BASE[f]));
     };
 }
-pub(crate) unsafe fn map_char_to_glyph(font: &NativeFont, ch: i32) -> i32 {
-    if ch > 0x10ffff || ch >= 0xd800 && ch <= 0xdfff {
-        return 0i32;
-    }
+pub(crate) unsafe fn map_char_to_glyph(font: &NativeFont, ch: char) -> i32 {
     match font {
         #[cfg(target_os = "macos")]
         Aat(engine) => aat::MapCharToGlyph_AAT(*engine, ch as u32),

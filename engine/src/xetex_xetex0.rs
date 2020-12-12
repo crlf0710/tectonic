@@ -5400,7 +5400,7 @@ pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont
         map_glyph_to_index(f, &fullname)
     } else if scan_keyword(input, "u") {
         let val = scan_char_num(input);
-        map_char_to_glyph(f, val)
+        map_char_to_glyph(f, std::char::from_u32(val as u32).unwrap())
     } else {
         scan_int(input)
     }
@@ -6456,7 +6456,7 @@ pub(crate) unsafe fn scan_something_internal(
                                 &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize]
                             {
                                 let n = scan_int(input);
-                                map_char_to_glyph(nf, n)
+                                map_char_to_glyph(nf, std::char::from_u32(n as u32).unwrap())
                             } else {
                                 not_native_font_error(
                                     Cmd::LastItem,
@@ -8719,7 +8719,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             let n = scan_font_ident(input) as usize;
             let val = scan_usv_num(input);
             b = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[n] {
-                map_char_to_glyph(nf, val) > 0
+                map_char_to_glyph(nf, std::char::from_u32(val as u32).unwrap()) > 0
             } else if FONT_BC[n] as i32 <= val && FONT_EC[n] as i32 >= val {
                 FONT_CHARACTER_INFO(n, effective_char(true, n, val as u16) as usize).s3 > 0
             } else {
@@ -9182,7 +9182,7 @@ pub(crate) unsafe fn effective_char_info(f: internal_font_number, mut c: u16) ->
     xtx_ligature_present = false;
     FONT_CHARACTER_INFO(f, c as usize)
 }
-pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
+pub(crate) unsafe fn char_warning(f: internal_font_number, c: char) {
     if get_int_par(IntPar::tracing_lost_chars) > 0 {
         let old_setting = get_int_par(IntPar::tracing_online);
         if get_int_par(IntPar::tracing_lost_chars) > 1 {
@@ -9191,17 +9191,16 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: i32) {
         diagnostic(false, || {
             t_print_nl!(
                 "Missing character: There is no {} in font {}!",
-                std::char::from_u32(c as u32).unwrap(),
+                c,
                 PoolString::from(FONT_NAME[f])
             );
         });
         set_int_par(IntPar::tracing_online, old_setting);
     }
     let fn_0 = gettexstring(FONT_NAME[f]);
-    let chr = std::char::from_u32(c as u32).unwrap().to_string();
     ttstub_issue_warning(&format!(
         "could not represent character \"{}\" (0x{:x}) in font \"{}\"",
-        chr, c as u32, fn_0
+        c, c as u32, fn_0
     ));
     if !gave_char_warning_help {
         ttstub_issue_warning(
@@ -9230,17 +9229,12 @@ pub(crate) unsafe fn new_native_word_node(f: usize, n: i32) -> NativeWord {
         .set_glyph_info_ptr(ptr::null_mut());
     q
 }
-pub(crate) unsafe fn new_native_character(
-    f: internal_font_number,
-    mut c: UnicodeScalar,
-) -> NativeWord {
+pub(crate) unsafe fn new_native_character(f: internal_font_number, c: char) -> NativeWord {
     let mut p;
     let nf = FONT_LAYOUT_ENGINE[f].as_native();
     if !(FONT_MAPPING[f]).is_null() {
         let mut buf = [0; 2];
-        let b = std::char::from_u32(c as u32)
-            .unwrap()
-            .encode_utf16(&mut buf);
+        let b = c.encode_utf16(&mut buf);
         if pool_ptr + b.len() > pool_size {
             overflow("pool size", pool_size - init_pool_ptr);
         }
@@ -9252,20 +9246,10 @@ pub(crate) unsafe fn new_native_character(
         let mapped_text = apply_mapping(FONT_MAPPING[f], PoolString::current().as_slice());
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
 
-        let mut i = 0;
-
-        while i < mapped_text.len() {
-            if mapped_text[i] as i32 >= 0xd800 && (mapped_text[i] as i32) < 0xdc00 {
-                c = (mapped_text[i] as i32 - 0xd800) * 1024 + mapped_text[i + 1] as i32 + 9216;
-                if map_char_to_glyph(nf, c) == 0 {
-                    char_warning(f, c);
-                }
-                i += 2;
-            } else {
-                if map_char_to_glyph(nf, mapped_text[i] as i32) == 0 {
-                    char_warning(f, mapped_text[i] as i32);
-                }
-                i += 1;
+        for chr in std::char::decode_utf16(mapped_text.iter().cloned()) {
+            let chr = chr.unwrap();
+            if map_char_to_glyph(nf, chr) == 0 {
+                char_warning(f, chr);
             }
         }
 
@@ -9282,15 +9266,13 @@ pub(crate) unsafe fn new_native_character(
         p.set_glyph_count(0);
         p.set_glyph_info_ptr(ptr::null_mut());
         p.set_font(f as u16);
-        if c as i64 > 65535 {
-            p.set_length(2);
-            p.text_mut().copy_from_slice(&[
-                ((c as i64 - 65536) / 1024 as i64 + 0xd800) as u16,
-                ((c as i64 - 65536) % 1024 as i64 + 0xdc00) as u16,
-            ]);
-        } else {
-            p.set_length(1);
-            p.text_mut()[0] = c as u16;
+
+        let mut buf = [0; 2];
+        let s16 = c.encode_utf16(&mut buf);
+        p.set_length(s16.len() as _);
+        let text = p.text_mut();
+        for (i, c16) in s16.iter().enumerate() {
+            text[i] = *c16;
         }
     }
     p.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
@@ -9414,7 +9396,8 @@ pub(crate) unsafe fn get_tracing_fonts_state() -> i32 {
 
 pub(crate) unsafe fn new_character(f: internal_font_number, c: UTF16_code) -> Option<usize> {
     if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
-        return Some(new_native_character(f, c as UnicodeScalar).ptr());
+        let chr = std::char::from_u32(c as u32).unwrap();
+        return Some(new_native_character(f, chr).ptr());
     }
     let ec = effective_char(false, f, c) as u16;
     if FONT_BC[f] as i32 <= ec as i32
@@ -9426,7 +9409,8 @@ pub(crate) unsafe fn new_character(f: internal_font_number, c: UTF16_code) -> Op
         p.set_character(c);
         return Some(p.ptr());
     }
-    char_warning(f, c as i32);
+    let chr = std::char::from_u32(c as u32).unwrap();
+    char_warning(f, chr);
     None
 }
 pub(crate) unsafe fn scan_spec(input: &mut input_state_t, c: GroupCode, three_codes: bool) -> Cmd {
@@ -14569,15 +14553,16 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                     prev_class = space_class
                 }
-                if cur_chr as i64 > 65535 {
-                    native_text.push(((cur_chr as i64 - 65536) / 1024 + 0xd800) as UTF16_code);
-                    native_text.push(((cur_chr as i64 - 65536) % 1024 + 0xdc00) as UTF16_code);
-                } else {
-                    native_text.push(cur_chr as UTF16_code);
+                let mut buf = [0; 2];
+                for c16 in std::char::from_u32(cur_chr as u32)
+                    .unwrap()
+                    .encode_utf16(&mut buf)
+                {
+                    native_text.push(*c16);
                 }
                 is_hyph = cur_chr == HYPHEN_CHAR[main_f as usize]
                     || get_int_par(IntPar::xetex_dash_break) > 0
-                        && (cur_chr == 8212 || cur_chr == 8211);
+                        && (cur_chr == '—' as i32 || cur_chr == '–' as i32);
                 if main_h == 0 && is_hyph {
                     main_h = native_text.len() as _;
                 }
@@ -14637,30 +14622,23 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     if main_h == 0
                         && (mt as i32 == HYPHEN_CHAR[main_f as usize]
                             || get_int_par(IntPar::xetex_dash_break) > 0
-                                && (mt == 8212 || mt == 8211))
+                                && (mt == '—' as u16 || mt == '–' as u16))
                     {
                         main_h = native_text.len() as _;
                     }
                 }
             }
             if get_int_par(IntPar::tracing_lost_chars) > 0 {
-                let mut tmp_ptr = 0;
-                while tmp_ptr < native_text.len() {
-                    main_k = native_text[tmp_ptr] as font_index;
-                    tmp_ptr += 1;
-                    if main_k >= 0xd800 && main_k < 0xdc00 {
-                        main_k = (65536 + ((main_k - 0xd800) * 1024) as i64) as font_index;
-                        main_k = main_k + native_text[tmp_ptr] as i32 - 0xdc00;
-                        tmp_ptr += 1;
-                    }
-                    if map_char_to_glyph(nf, main_k) == 0 {
-                        char_warning(main_f, main_k);
+                for c in std::char::decode_utf16(native_text.iter().cloned()) {
+                    let c = c.unwrap();
+                    if map_char_to_glyph(nf, c) == 0 {
+                        char_warning(main_f, c);
                     }
                 }
             }
             main_k = native_text.len() as _;
-            let mut main_pp = cur_list.tail;
             if cur_list.mode == (false, ListMode::HMode) {
+                let mut main_pp = cur_list.tail;
                 let mut main_ppp = cur_list.head;
                 if main_ppp != main_pp {
                     while llist_link(main_ppp) != Some(main_pp) {
@@ -14757,6 +14735,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     }
                 }
             } else {
+                let main_pp = cur_list.tail;
                 let mut main_ppp = cur_list.head;
                 if main_ppp != main_pp {
                     while llist_link(main_ppp) != Some(main_pp) {
@@ -14989,19 +14968,18 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                 }
                 _ => {
                     let ls = lig_stack.unwrap();
-                    if effective_char(false, main_f, cur_chr as u16)
-                        > FONT_EC[main_f as usize] as i32
-                        || effective_char(false, main_f, cur_chr as u16)
-                            < FONT_BC[main_f as usize] as i32
+                    let c = std::char::from_u32(cur_chr as u32).unwrap();
+                    if effective_char(false, main_f, c as u16) > FONT_EC[main_f as usize] as i32
+                        || effective_char(false, main_f, c as u16) < FONT_BC[main_f as usize] as i32
                     {
-                        char_warning(main_f, cur_chr);
+                        char_warning(main_f, c);
                         *LLIST_link(ls) = avail.tex_int();
                         avail = lig_stack;
                         continue 'big_switch;
                     } else {
                         main_i = effective_char_info(main_f, cur_l as u16);
                         if main_i.s3 == 0 {
-                            char_warning(main_f, cur_chr);
+                            char_warning(main_f, c);
                             *LLIST_link(ls) = avail.tex_int();
                             avail = lig_stack;
                             continue 'big_switch;

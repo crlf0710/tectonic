@@ -454,17 +454,19 @@ pub(crate) unsafe fn GetFontCharRange_AAT(
     reqFirst: libc::c_int,
 ) -> libc::c_int {
     if reqFirst != 0 {
-        let mut ch: libc::c_int = 0i32;
-        while MapCharToGlyph_AAT(attributes, ch as u32) == 0i32 && ch < 0x10ffffi32 {
-            ch += 1
+        for ch in 0..=0x10ffff {
+            if MapCharToGlyph_AAT(attributes, ch as u32) != 0 {
+                return ch;
+            }
         }
-        return ch;
+        return 0x10ffff;
     } else {
-        let mut ch_0: libc::c_int = 0x10ffffi32;
-        while MapCharToGlyph_AAT(attributes, ch_0 as u32) == 0i32 && ch_0 > 0i32 {
-            ch_0 -= 1
+        for ch in (0..=0x10ffff).rev() {
+            if MapCharToGlyph_AAT(attributes, ch as u32) != 0 {
+                return ch;
+            }
         }
-        return ch_0;
+        return 0;
     };
 }
 

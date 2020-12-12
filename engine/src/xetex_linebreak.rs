@@ -2143,7 +2143,10 @@ unsafe fn hyphenate() {
                 *LLIST_link(s) = Some(q.ptr()).tex_int();
                 s = q.ptr();
                 let mut q = Discretionary(new_disc());
-                q.set_pre_break(new_native_character(hf, hyf_char).ptr() as i32);
+                q.set_pre_break(
+                    new_native_character(hf, std::char::from_u32(hyf_char as u32).unwrap()).ptr()
+                        as i32,
+                );
                 *LLIST_link(s) = Some(q.ptr()).tex_int();
                 s = q.ptr();
                 hyphen_passed = j as i16;

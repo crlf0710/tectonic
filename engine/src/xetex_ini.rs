@@ -828,8 +828,6 @@ pub(crate) static mut pack_begin_line: i32 = 0;
 #[no_mangle]
 pub(crate) static mut cur_f: internal_font_number = 0;
 #[no_mangle]
-pub(crate) static mut cur_c: i32 = 0;
-#[no_mangle]
 pub(crate) static mut cur_i: b16x4 = b16x4 {
     s0: 0,
     s1: 0,
