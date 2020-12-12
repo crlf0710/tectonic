@@ -12380,9 +12380,8 @@ pub(crate) unsafe fn append_discretionary(input: &mut input_state_t, chr: i32) {
 pub(crate) unsafe fn build_discretionary(input: &mut input_state_t) {
     unsave(input);
     let mut q = cur_list.head;
-    let mut popt = llist_link(q);
     let mut n = 0;
-    while let Some(p) = popt {
+    for p in &NodeList::from(LLIST_link(q)) {
         match CharOrText::from(p) {
             CharOrText::Char(_) => {}
             CharOrText::Text(n) => match n {
@@ -12407,7 +12406,6 @@ pub(crate) unsafe fn build_discretionary(input: &mut input_state_t) {
             },
         }
         q = p;
-        popt = llist_link(q);
         n += 1;
     }
     let p = MEM[cur_list.head].b32.s1;
@@ -12627,8 +12625,8 @@ pub(crate) unsafe fn push_math(c: GroupCode) {
     cur_list.aux.b32.s1 = None.tex_int();
     new_save_level(c);
 }
-pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, t: i32) {
-    while let Some(p) = popt {
+pub(crate) unsafe fn just_copy(nl: NodeList, mut h: usize, t: i32) {
+    for p in &nl {
         let mut r = 0;
         let mut words = 1;
 
@@ -12728,9 +12726,6 @@ pub(crate) unsafe fn just_copy(mut popt: Option<usize>, mut h: usize, t: i32) {
             *LLIST_link(h) = Some(r).tex_int();
             h = r;
         }
-
-        // not_found:
-        popt = llist_link(p);
     }
     *LLIST_link(h) = t;
 }
@@ -12743,7 +12738,7 @@ pub(crate) unsafe fn just_reverse(p: usize) {
         *LLIST_link(p) = None.tex_int();
         flush_node_list(Some(th));
     } else {
-        just_copy(llist_link(p), TEMP_HEAD, None.tex_int());
+        just_copy(NodeList::from(LLIST_link(p)), TEMP_HEAD, None.tex_int());
         q = llist_link(TEMP_HEAD);
     }
     let mut t = Edge(new_edge(cur_dir, Scaled::ZERO));

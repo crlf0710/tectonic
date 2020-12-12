@@ -157,7 +157,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
                 let p = new_math(Scaled::ZERO, MathType::Eq(BE::Begin, MathMode::Left));
                 *LLIST_link(TEMP_HEAD) = Some(p.ptr()).tex_int();
                 just_copy(
-                    jb.list_ptr().opt(),
+                    jb.list(),
                     p.ptr(),
                     Some(new_math(Scaled::ZERO, MathType::Eq(BE::End, MathMode::Left)).ptr())
                         .tex_int(),
@@ -328,8 +328,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
                 popt = llist_link(p);
             }
             if get_int_par(IntPar::texxet) > 0 {
-                while let Some(l) = LR_ptr.opt() {
-                    let tmp_ptr = l;
+                while let Some(tmp_ptr) = LR_ptr.opt() {
                     LR_ptr = *LLIST_link(tmp_ptr);
                     *LLIST_link(tmp_ptr) = avail.tex_int();
                     avail = Some(tmp_ptr);
@@ -1026,13 +1025,9 @@ pub(crate) unsafe fn after_math(input: &mut input_state_t) {
         cur_style = (MathStyle::Text, 0);
         mlist_penalties = !cur_list.mode.0;
         mlist_to_hlist();
-        *LLIST_link(cur_list.tail) = *LLIST_link(TEMP_HEAD);
-        while let Some(next) = LLIST_link(cur_list.tail).opt() {
-            cur_list.tail = next;
-        }
         let m = new_math(get_dimen_par(DimenPar::math_surround), MathType::After);
-        *LLIST_link(cur_list.tail) = Some(m.ptr()).tex_int();
-        cur_list.tail = m.ptr();
+        *LLIST_link(cur_list.tail) = *LLIST_link(TEMP_HEAD);
+        cur_list.tail = NodeList::from(LLIST_link(cur_list.tail)).push(m.ptr());
         cur_list.aux.b32.s0 = 1000;
         unsave(input);
     } else {
@@ -2234,14 +2229,7 @@ unsafe fn make_ord(q: &mut Ord) {
 }
 unsafe fn attach_hkern_to_new_hlist(q: &mut BaseMath, delta: Scaled) -> usize {
     let z = new_kern(delta);
-    if let Some(mut y) = MEM[q.ptr() + 1].b32.s1.opt() {
-        while let Some(next) = llist_link(y) {
-            y = next;
-        }
-        *LLIST_link(y) = Some(z.ptr()).tex_int();
-    } else {
-        MEM[q.ptr() + 1].b32.s1 = Some(z.ptr()).tex_int();
-    }
+    NodeList::from(&mut MEM[q.ptr() + 1].b32.s1).push(z.ptr());
     MEM[q.ptr() + 1].b32.s1 as usize
 }
 unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
@@ -2511,14 +2499,7 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
             x.set_shift_amount(shift_down);
         }
     }
-    if let Some(mut p) = MEM[q.ptr() + 1].b32.s1.opt() {
-        while let Some(next) = llist_link(p) {
-            p = next;
-        }
-        *LLIST_link(p) = Some(x.ptr()).tex_int();
-    } else {
-        MEM[q.ptr() + 1].b32.s1 = Some(x.ptr()).tex_int();
-    }
+    NodeList::from(&mut MEM[q.ptr() + 1].b32.s1).push(x.ptr());
 }
 unsafe fn make_left_right(
     q: &mut LeftRight,
@@ -3201,18 +3182,13 @@ unsafe fn stack_glyph_into_box(b: &mut List, f: internal_font_number, g: i32) {
     p.set_font(f as u16).set_glyph(g as u16);
     p.set_metrics(true);
     if b.is_horizontal() {
-        if let Some(mut q) = b.list_ptr().opt() {
-            while let Some(next) = llist_link(q) {
-                q = next;
-            }
-            *LLIST_link(q) = Some(p.ptr()).tex_int();
+        if !b.list().is_empty() {
             let h = b.height();
             b.set_height(h.max(p.height()));
             let d = b.depth();
             b.set_depth(d.max(p.depth()));
-        } else {
-            b.set_list_ptr(Some(p.ptr()).tex_int());
         }
+        b.list().push(p.ptr());
     } else {
         *LLIST_link(p.ptr()) = b.list_ptr();
         b.set_list_ptr(Some(p.ptr()).tex_int());
@@ -3226,14 +3202,7 @@ unsafe fn stack_glue_into_box(b: &mut List, min: Scaled, max: Scaled) {
     q.set_size(min).set_stretch(max - min);
     let p = new_glue(&q);
     if b.is_horizontal() {
-        if let Some(mut q) = b.list_ptr().opt() {
-            while let Some(next) = llist_link(q) {
-                q = next;
-            }
-            *LLIST_link(q) = Some(p.ptr()).tex_int();
-        } else {
-            b.set_list_ptr(Some(p.ptr()).tex_int());
-        }
+        b.list().push(p.ptr());
     } else {
         *LLIST_link(p.ptr()) = b.list_ptr();
         b.set_list_ptr(Some(p.ptr()).tex_int());

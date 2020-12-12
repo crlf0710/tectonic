@@ -2327,10 +2327,9 @@ unsafe fn hyphenate() {
                             /*952: */
                             j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1) as i16; /*:944*/
                             *LLIST_link(major_tail) = *LLIST_link(HOLD_HEAD);
-                            while let Some(next) = llist_link(major_tail) {
-                                major_tail = next;
-                                r_count += 1;
-                            }
+                            let nl = NodeList::from(LLIST_link(major_tail));
+                            r_count += nl.len() as i32;
+                            major_tail = nl.tail().unwrap_or(major_tail);
                         }
                     }
                     if r_count > 127 {
@@ -2386,30 +2385,31 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
     let mut k: font_index = 0;
 
     hyphen_passed = 0;
-    let mut t = HOLD_HEAD as i32;
+    let mut t = HOLD_HEAD;
     let mut w = Scaled::ZERO;
     *LLIST_link(HOLD_HEAD) = None.tex_int();
     cur_l = hu[j as usize];
-    cur_q = t;
+    cur_q = t as i32;
     if j == 0 {
         ligature_present = init_lig;
-        let mut popt = init_list.opt();
         if ligature_present {
             lft_hit = init_lft
         }
-        while let Some(p) = popt {
-            *LLIST_link(t as usize) = Some(get_avail()).tex_int();
-            t = *LLIST_link(t as usize);
-            MEM[t as usize].b16.s1 = hf as u16;
-            MEM[t as usize].b16.s0 = MEM[p].b16.s0;
-            popt = llist_link(p)
+        for p in &NodeList::from(&mut init_list) {
+            let a = get_avail();
+            MEM[a].b16.s1 = hf as u16;
+            MEM[a].b16.s0 = MEM[p].b16.s0;
+            *LLIST_link(t) = Some(a).tex_int();
+            t = a;
         }
     } else if cur_l < TOO_BIG_CHAR {
-        *LLIST_link(t as usize) = Some(get_avail()).tex_int();
-        t = *LLIST_link(t as usize);
-        MEM[t as usize].b16.s1 = hf as u16;
-        MEM[t as usize].b16.s0 = cur_l as u16
+        let a = get_avail();
+        MEM[a].b16.s1 = hf as u16;
+        MEM[a].b16.s0 = cur_l as u16;
+        *LLIST_link(t) = Some(a).tex_int();
+        t = a;
     }
+    let mut t = t as i32;
     lig_stack = None;
     cur_r = if (j as i32) < n as i32 {
         hu[(j + 1) as usize]
@@ -2659,11 +2659,8 @@ unsafe fn total_pw(q: &Active, p: Option<usize>) -> Scaled {
 
     match p.map(Node::from) {
         Some(Node::Text(TxtNode::Disc(d))) if d.pre_break().opt().is_some() => {
-            if let Some(mut m) = d.pre_break().opt() {
-                while let Some(next) = llist_link(m) {
-                    m = next;
-                }
-                r = Some(m);
+            if let Some(tail) = d.pre_break_nl().tail() {
+                r = Some(tail);
             }
         }
         _ => r = find_protchar_right(lopt, r),
