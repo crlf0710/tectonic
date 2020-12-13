@@ -1,7 +1,7 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::rc::Rc;
 
 use crate::t_print_nl;
@@ -15,12 +15,9 @@ pub(crate) mod imp;
 pub(crate) mod imp;
 
 use std::ffi::{CStr, CString};
-use std::ptr;
-use std::ptr::NonNull;
 
 use crate::xetex_ext::Fix2D;
 use crate::xetex_ini::loaded_font_design_size;
-use crate::xetex_layout_interface::collection_types::*;
 use crate::xetex_layout_interface::createFont;
 use crate::xetex_xetex0::{diagnostic, get_tracing_fonts_state};
 
@@ -31,7 +28,7 @@ use self::imp::XeTeXFontMgr_Mac_create;
 
 use harfbuzz_sys::{hb_font_get_face, hb_ot_layout_get_size_params};
 
-use libc::{malloc, strchr, strlen};
+use libc::{strchr, strlen};
 
 #[cfg(not(target_os = "macos"))]
 use imp::FcPattern;
@@ -83,10 +80,10 @@ pub(crate) struct XeTeXFontMgrOpSizeRec {
     pub(crate) minSize: u32,
     pub(crate) maxSize: u32,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgrFamily {
-    pub(crate) styles: *mut CppStdMap<CString, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) styles: BTreeMap<CString, Rc<RefCell<XeTeXFontMgrFont>>>,
     pub(crate) minWeight: u16,
     pub(crate) maxWeight: u16,
     pub(crate) minWidth: u16,
@@ -101,7 +98,7 @@ pub(crate) struct XeTeXFontMgrFont {
     pub(crate) m_psName: CString,
     pub(crate) m_familyName: Option<CString>,
     pub(crate) m_styleName: Option<CString>,
-    pub(crate) parent: *mut XeTeXFontMgrFamily,
+    pub(crate) parent: Option<Rc<RefCell<XeTeXFontMgrFamily>>>,
     pub(crate) fontRef: PlatformFontRef,
     pub(crate) opSizeInfo: XeTeXFontMgrOpSizeRec,
     pub(crate) weight: u16,
@@ -136,10 +133,10 @@ impl XeTeXFontMgrNameCollection {
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgr {
-    pub(crate) m_nameToFont: *mut CppStdMap<CString, Rc<RefCell<XeTeXFontMgrFont>>>,
-    pub(crate) m_nameToFamily: *mut CppStdMap<CString, NonNull<XeTeXFontMgrFamily>>,
-    pub(crate) m_platformRefToFont: *mut CppStdMap<PlatformFontRef, Rc<RefCell<XeTeXFontMgrFont>>>,
-    pub(crate) m_psNameToFont: *mut CppStdMap<CString, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) m_nameToFont: BTreeMap<CString, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) m_nameToFamily: BTreeMap<CString, Rc<RefCell<XeTeXFontMgrFamily>>>,
+    pub(crate) m_platformRefToFont: BTreeMap<PlatformFontRef, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) m_psNameToFont: BTreeMap<CString, Rc<RefCell<XeTeXFontMgrFont>>>,
     // maps PS name (as used in .xdv) to font record
 }
 
@@ -184,18 +181,19 @@ authorization from the copyright holders.
  */
 use crate::xetex_font_info::XeTeXFontInst;
 
-#[inline]
-unsafe fn XeTeXFontMgrFamily_create() -> *mut XeTeXFontMgrFamily {
-    let mut self_0: *mut XeTeXFontMgrFamily =
-        malloc(::std::mem::size_of::<XeTeXFontMgrFamily>()) as *mut XeTeXFontMgrFamily; /* default to 10bp */
-    (*self_0).minWeight = 0;
-    (*self_0).maxWeight = 0;
-    (*self_0).minWidth = 0;
-    (*self_0).maxWidth = 0;
-    (*self_0).minSlant = 0;
-    (*self_0).maxSlant = 0;
-    (*self_0).styles = CppStdMap_create();
-    self_0
+impl XeTeXFontMgrFamily {
+    unsafe fn new() -> Self {
+        /* default to 10bp */
+        Self {
+            minWeight: 0,
+            maxWeight: 0,
+            minWidth: 0,
+            maxWidth: 0,
+            minSlant: 0,
+            maxSlant: 0,
+            styles: BTreeMap::default(),
+        }
+    }
 }
 impl XeTeXFontMgrFont {
     unsafe fn new(ref_0: PlatformFontRef, ps_name: CString) -> Self {
@@ -204,7 +202,7 @@ impl XeTeXFontMgrFont {
             m_psName: ps_name,
             m_familyName: None,
             m_styleName: None,
-            parent: ptr::null_mut(),
+            parent: None,
             fontRef: ref_0,
             weight: 0i32 as u16,
             width: 0i32 as u16,
@@ -315,17 +313,7 @@ pub(crate) unsafe fn XeTeXFontMgr_setReqEngine(
     XeTeXFontMgr_sReqEngine = reqEngine;
 }
 // above are singleton operation.
-// /////////////
-impl Drop for XeTeXFontMgr {
-    fn drop(&mut self) {
-        unsafe {
-            CppStdMap_delete(self.m_nameToFont);
-            CppStdMap_delete(self.m_nameToFamily);
-            CppStdMap_delete(self.m_platformRefToFont);
-            CppStdMap_delete(self.m_psNameToFont);
-        }
-    }
-}
+
 pub(crate) unsafe fn XeTeXFontMgr_findFont(
     self_0: &mut FontMgr,
     name: &str,
@@ -352,7 +340,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     loaded_font_design_size = Scaled(655360);
     for pass in 0..2i32 {
         // try full name as given
-        if let Some(font) = (*self_0.m_nameToFont).get(&nameStr) {
+        if let Some(font) = self_0.m_nameToFont.get(&nameStr) {
             if font.borrow().opSizeInfo.designSize != 0i32 as libc::c_uint {
                 dsize = font.borrow().opSizeInfo.designSize as i32
             }
@@ -370,13 +358,12 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
         if hyph > 0i32 && hyph < nameStr_len - 1i32 {
             let family =
                 CString::new(&CStr::from_ptr(nameStr_cstr).to_bytes()[..hyph as usize]).unwrap();
-            if let Some(family_ptr) = (*self_0.m_nameToFamily).get(&family).cloned() {
+            if let Some(family_ptr) = self_0.m_nameToFamily.get(&family) {
                 let style =
                     CString::new(&CStr::from_ptr(nameStr_cstr).to_bytes()[(hyph as usize + 1)..])
                         .unwrap();
-                if let Some(style_FONT_PTR) = (*(*family_ptr.as_ptr()).styles).get(&style).cloned()
-                {
-                    if style_FONT_PTR.borrow().opSizeInfo.designSize != 0i32 as libc::c_uint {
+                if let Some(style_FONT_PTR) = family_ptr.borrow().styles.get(&style).cloned() {
+                    if style_FONT_PTR.borrow().opSizeInfo.designSize != 0 {
                         dsize = style_FONT_PTR.borrow().opSizeInfo.designSize as i32
                     }
                     font = Some(style_FONT_PTR.clone());
@@ -385,18 +372,17 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             }
         }
         // try as PostScript name
-        if let Some(font) = (*self_0.m_psNameToFont).get(&nameStr) {
+        if let Some(font) = self_0.m_psNameToFont.get(&nameStr) {
             if font.borrow().opSizeInfo.designSize != 0i32 as libc::c_uint {
                 dsize = font.borrow().opSizeInfo.designSize as i32
             }
             break;
         }
         // try for the name as a family name
-        if let Some(family_ptr) = (*self_0.m_nameToFamily).get(&nameStr).cloned() {
-            let family_ptr = family_ptr.as_ptr();
+        if let Some(family_ptr) = self_0.m_nameToFamily.get(&nameStr) {
             // look for a family member with the "regular" bit set in OS/2
             let mut regFonts: i32 = 0i32;
-            for (_k, v) in (*(*family_ptr).styles).iter() {
+            for (_k, v) in family_ptr.borrow().styles.iter() {
                 if v.borrow().isReg {
                     if regFonts == 0i32 {
                         font = Some(v.clone());
@@ -417,7 +403,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                 'style_name_loop: for style in &regular_style_names {
                     let style: &[u8] = *style;
                     let style = CStr::from_ptr(style.as_ptr() as *const i8);
-                    if let Some(style_FONT_PTR) = (*(*family_ptr).styles).get(style) {
+                    if let Some(style_FONT_PTR) = family_ptr.borrow().styles.get(style) {
                         font = Some(style_FONT_PTR.clone());
                         break 'style_name_loop;
                     }
@@ -425,7 +411,13 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             }
             if font.is_none() {
                 // look through the family for the (weight, width, slant) nearest to (80, 100, 0)
-                font = XeTeXFontMgr_bestMatchFromFamily(self_0, family_ptr, 80i32, 100i32, 0i32)
+                font = XeTeXFontMgr_bestMatchFromFamily(
+                    self_0,
+                    &family_ptr.borrow(),
+                    80i32,
+                    100i32,
+                    0i32,
+                )
             }
             if !font.is_none() {
                 break;
@@ -442,7 +434,8 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
         return 0 as PlatformFontRef;
     }
     let mut font = font.unwrap();
-    let parent = font.borrow().parent;
+    let parent_clone = font.borrow().parent.clone();
+    let parent = parent_clone.as_ref().unwrap().borrow();
     // if there are variant requests, try to apply them
     // and delete B, I, and S=... codes from the string, just retain /engine option
     XeTeXFontMgr_sReqEngine = 0i32 as libc::c_char;
@@ -531,35 +524,35 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
         *variant = varString;
         if reqItal {
             let mut bestMatch = Some(font.clone());
-            if (font.borrow().slant as i32) < (*parent).maxSlant as i32 {
+            if (font.borrow().slant as i32) < parent.maxSlant as i32 {
                 // try for a face with more slant
                 bestMatch = XeTeXFontMgr_bestMatchFromFamily(
                     self_0,
-                    parent,
+                    &parent,
                     font.borrow().weight as i32,
                     font.borrow().width as i32,
-                    (*parent).maxSlant as i32,
+                    parent.maxSlant as i32,
                 )
             }
             if bestMatch.is_some()
                 && Rc::ptr_eq(bestMatch.as_ref().unwrap(), &font)
-                && font.borrow().slant as i32 > (*parent).minSlant as i32
+                && font.borrow().slant as i32 > parent.minSlant as i32
             {
                 // maybe the slant is negated, or maybe this was something like "Times-Italic/I"
                 bestMatch = XeTeXFontMgr_bestMatchFromFamily(
                     self_0,
-                    parent,
+                    &parent,
                     font.borrow().weight as i32,
                     font.borrow().width as i32,
-                    (*parent).minSlant as i32,
+                    parent.minSlant as i32,
                 )
             }
-            if (*parent).minWeight as i32 == (*parent).maxWeight as i32
+            if parent.minWeight as i32 == parent.maxWeight as i32
                 && bestMatch.as_ref().unwrap().borrow().isBold as i32 != font.borrow().isBold as i32
             {
                 // try again using the bold flag, as we can't trust weight values
                 let mut newBest = None;
-                for (_, v) in (*(*parent).styles).iter() {
+                for (_, v) in parent.styles.iter() {
                     if v.borrow().isBold == font.borrow().isBold
                         && newBest.is_none()
                         && v.borrow().isItalic != font.borrow().isItalic
@@ -575,10 +568,10 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             if bestMatch.is_some() && Rc::ptr_eq(bestMatch.as_ref().unwrap(), &font) {
                 // maybe slant values weren't present; try the style bits as a fallback
                 bestMatch = None;
-                for (_, v) in (*(*parent).styles).iter() {
+                for (_, v) in parent.styles.iter() {
                     let style_FONT_PTR = v;
                     if style_FONT_PTR.borrow().isItalic != font.borrow().isItalic {
-                        if (*parent).minWeight != (*parent).maxWeight {
+                        if parent.minWeight != parent.maxWeight {
                             // weight info was available, so try to match that
                             if bestMatch.is_none()
                                 || XeTeXFontMgr_weightAndWidthDiff(
@@ -611,21 +604,21 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
         if reqBold {
             // try for more boldness, with the same width and slant
             let mut bestMatch_0 = Some(font.clone());
-            if (font.borrow().weight as i32) < (*parent).maxWeight as i32 {
+            if (font.borrow().weight as i32) < parent.maxWeight as i32 {
                 // try to increase weight by 1/2 x (max - min), rounding up
                 bestMatch_0 = XeTeXFontMgr_bestMatchFromFamily(
                     self_0,
-                    parent,
+                    &parent,
                     font.borrow().weight as i32
-                        + ((*parent).maxWeight as i32 - (*parent).minWeight as i32) / 2i32
+                        + (parent.maxWeight as i32 - parent.minWeight as i32) / 2i32
                         + 1i32,
                     font.borrow().width as i32,
                     font.borrow().slant as i32,
                 );
-                if (*parent).minSlant as i32 == (*parent).maxSlant as i32 {
+                if parent.minSlant as i32 == parent.maxSlant as i32 {
                     // double-check the italic flag, as we can't trust slant values
                     let mut newBest_0: Option<Rc<RefCell<_>>> = None;
-                    for (_, v) in (*(*parent).styles).iter() {
+                    for (_, v) in parent.styles.iter() {
                         let style_FONT_PTR = v;
                         if style_FONT_PTR.borrow().isItalic == font.borrow().isItalic
                             && (newBest_0.is_none()
@@ -651,7 +644,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                 && Rc::ptr_eq(&bestMatch_0.as_ref().unwrap(), &font)
                 && !font.borrow().isBold
             {
-                for (_, v) in (*(*parent).styles).iter() {
+                for (_, v) in parent.styles.iter() {
                     let style_FONT_PTR = v;
                     if style_FONT_PTR.borrow().isItalic == font.borrow().isItalic
                         && style_FONT_PTR.borrow().isBold
@@ -681,7 +674,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             );
             if bestMismatch > 0. {
                 let mut bestMatch_1 = fnt.clone();
-                for (_, v) in (*(*parent).styles).iter() {
+                for (_, v) in parent.styles.iter() {
                     let style_FONT_PTR = v;
                     if style_FONT_PTR.borrow().opSizeInfo.subFamilyID
                         == fnt.borrow().opSizeInfo.subFamilyID
@@ -727,7 +720,7 @@ pub(crate) unsafe fn XeTeXFontMgr_getFullName(
 ) -> *const libc::c_char {
     // return the full name of the font, suitable for use in XeTeX source
     // without requiring style qualifiers
-    let FONT_PTR = if let Some(FONT_PTR) = (*(*self_0).m_platformRefToFont).get(&font) {
+    let FONT_PTR = if let Some(FONT_PTR) = self_0.m_platformRefToFont.get(&font) {
         FONT_PTR
     } else {
         abort!("internal error {} in XeTeXFontMgr", 2);
@@ -774,13 +767,13 @@ pub(crate) unsafe fn XeTeXFontMgr_styleDiff(
 }
 pub(crate) unsafe fn XeTeXFontMgr_bestMatchFromFamily(
     self_0: &XeTeXFontMgr,
-    fam: *const XeTeXFontMgrFamily,
+    fam: &XeTeXFontMgrFamily,
     wt: i32,
     wd: i32,
     slant: i32,
 ) -> Option<Rc<RefCell<XeTeXFontMgrFont>>> {
     let mut bestMatch: Option<Rc<RefCell<_>>> = None;
-    for (_, v) in (*(*fam).styles).iter() {
+    for (_, v) in fam.styles.iter() {
         if bestMatch.is_none()
             || XeTeXFontMgr_styleDiff(self_0, &v.borrow(), wt, wd, slant)
                 < XeTeXFontMgr_styleDiff(
@@ -931,13 +924,13 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
     platformFont: PlatformFontRef,
     names: &XeTeXFontMgrNameCollection,
 ) {
-    if (*(*self_0).m_platformRefToFont).contains_key(&platformFont) {
+    if self_0.m_platformRefToFont.contains_key(&platformFont) {
         return;
     }
     if names.m_psName.to_bytes().is_empty() {
         return;
     }
-    if (*(*self_0).m_psNameToFont).contains_key(&*names.m_psName) {
+    if self_0.m_psNameToFont.contains_key(&names.m_psName) {
         return;
     }
     let thisFont = Rc::new(RefCell::new(XeTeXFontMgrFont::new(
@@ -945,16 +938,19 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
         names.m_psName.clone(),
     )));
     self_0.get_op_size_rec_and_style_flags(&mut thisFont.borrow_mut());
-    CppStdMap_put_with_string_key(
-        (*self_0).m_psNameToFont,
-        names.m_psName.as_ptr(),
-        thisFont.clone(),
-    );
-    CppStdMap_put(
-        (*self_0).m_platformRefToFont,
-        platformFont,
-        thisFont.clone(),
-    );
+    match self_0.m_psNameToFont.get_mut(&names.m_psName) {
+        Some(v) => {
+            *v = thisFont.clone();
+        }
+        None => {
+            self_0
+                .m_psNameToFont
+                .insert(names.m_psName.clone(), thisFont.clone());
+        }
+    }
+    self_0
+        .m_platformRefToFont
+        .insert(platformFont, thisFont.clone());
     if !names.m_fullNames.is_empty() {
         thisFont.borrow_mut().m_fullName = Some(names.m_fullNames[0].clone());
     }
@@ -969,9 +965,8 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
         Some(CString::default())
     };
     for familyName in names.m_familyNames.iter() {
-        let family: &mut XeTeXFontMgrFamily;
-        if let Some(family_mut) = (*(*self_0).m_nameToFamily).get_mut(familyName) {
-            family = family_mut.as_mut();
+        let family = if let Some(family_rc) = self_0.m_nameToFamily.get_mut(familyName) {
+            let family = &mut family_rc.borrow_mut();
             let thisFont = thisFont.borrow();
             family.minWeight = family.minWeight.min(thisFont.weight);
             family.maxWeight = family.maxWeight.max(thisFont.weight);
@@ -979,28 +974,34 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
             family.maxWidth = family.maxWidth.max(thisFont.width);
             family.minSlant = family.minSlant.min(thisFont.slant);
             family.maxSlant = family.maxSlant.max(thisFont.slant);
+            family_rc.clone()
         } else {
-            family = &mut *XeTeXFontMgrFamily_create();
-            CppStdMap_put(
-                (*self_0).m_nameToFamily,
-                familyName.clone(),
-                NonNull::new(family).expect("expect non-null pointer"),
-            );
-            let thisFont = thisFont.borrow();
-            family.minWeight = thisFont.weight;
-            family.maxWeight = thisFont.weight;
-            family.minWidth = thisFont.width;
-            family.maxWidth = thisFont.width;
-            family.minSlant = thisFont.slant;
-            family.maxSlant = thisFont.slant;
-        }
-        if thisFont.borrow().parent.is_null() {
-            thisFont.borrow_mut().parent = family;
+            let family_rc = Rc::new(RefCell::new(XeTeXFontMgrFamily::new()));
+            self_0
+                .m_nameToFamily
+                .insert(familyName.clone(), family_rc.clone());
+            {
+                let family = &mut family_rc.borrow_mut();
+                let thisFont = thisFont.borrow();
+                family.minWeight = thisFont.weight;
+                family.maxWeight = thisFont.weight;
+                family.minWidth = thisFont.width;
+                family.maxWidth = thisFont.width;
+                family.minSlant = thisFont.slant;
+                family.maxSlant = thisFont.slant;
+            }
+            family_rc
+        };
+        if thisFont.borrow().parent.is_none() {
+            thisFont.borrow_mut().parent = Some(family.clone());
         }
         // ensure all style names in the family point to thisFont
         for styleName in names.m_styleNames.iter() {
-            if !(*family.styles).contains_key(styleName) {
-                CppStdMap_put(family.styles, styleName.clone(), thisFont.clone());
+            if !family.borrow().styles.contains_key(styleName) {
+                family
+                    .borrow_mut()
+                    .styles
+                    .insert(styleName.clone(), thisFont.clone());
             }
             /*
                 else if (iFont->second != thisFont)
@@ -1010,8 +1011,10 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
         }
     }
     for fullName in names.m_fullNames.iter() {
-        if !(*(*self_0).m_nameToFont).contains_key(fullName) {
-            CppStdMap_put((*self_0).m_nameToFont, fullName.clone(), thisFont.clone());
+        if !self_0.m_nameToFont.contains_key(fullName) {
+            self_0
+                .m_nameToFont
+                .insert(fullName.clone(), thisFont.clone());
         }
         /*
                 else if (iFont->second != thisFont)
@@ -1023,10 +1026,10 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
 
 pub(crate) unsafe fn XeTeXFontMgr_base_ctor() -> XeTeXFontMgr {
     XeTeXFontMgr {
-        m_nameToFont: CppStdMap_create(),
-        m_nameToFamily: CppStdMap_create(),
-        m_platformRefToFont: CppStdMap_create(),
-        m_psNameToFont: CppStdMap_create(),
+        m_nameToFont: BTreeMap::default(),
+        m_nameToFamily: BTreeMap::default(),
+        m_platformRefToFont: BTreeMap::default(),
+        m_psNameToFont: BTreeMap::default(),
     }
 }
 

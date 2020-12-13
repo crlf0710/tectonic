@@ -135,7 +135,7 @@ impl XeTeXFontMgr_FC {
         }
         for f in 0i32..(*self.allFonts).nfont {
             let pat = *(*self.allFonts).fonts.offset(f as isize);
-            if (*self.m_platformRefToFont).contains_key(&pat) {
+            if self.m_platformRefToFont.contains_key(&pat) {
                 continue;
             }
 
@@ -254,7 +254,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         loop {
             'traverse_fonts: for f in 0..(*self.allFonts).nfont {
                 let pat = *(*self.allFonts).fonts.offset(f as isize);
-                if !(*(*self).m_platformRefToFont).contains_key(&pat) {
+                if !self.m_platformRefToFont.contains_key(&pat) {
                     continue;
                 }
 
