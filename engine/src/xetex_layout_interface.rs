@@ -351,7 +351,7 @@ impl XeTeXFontInst {
     #[inline]
     unsafe fn get_filename(&self, index: *mut u32) -> &str {
         *index = self.m_index;
-        c_pointer_to_str(self.m_filename)
+        &self.m_filename
     }
 }
 

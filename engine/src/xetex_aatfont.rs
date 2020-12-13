@@ -148,22 +148,16 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
             width = 0i32 as CGFloat;
             for i in 0..runCount {
                 let run = CFArrayGetValueAtIndex(glyphRuns, i) as CTRunRef;
-                let count = CTRunGetGlyphCount(run);
+                let count = CTRunGetGlyphCount(run) as usize;
                 let runAttributes = CTRunGetAttributes(run);
                 let vertical = CFDictionaryGetValue(
                     runAttributes,
                     kCTVerticalFormsAttributeName as *const libc::c_void,
                 ) as CFBooleanRef;
                 // TODO(jjgod): Avoid unnecessary allocation with CTRunGetFoosPtr().
-                let glyphs =
-                    xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGGlyph>()) as _)
-                        as *mut CGGlyph;
-                let positions =
-                    xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGPoint>()) as _)
-                        as *mut CGPoint;
-                let advances =
-                    xmalloc((count as usize).wrapping_mul(::std::mem::size_of::<CGSize>()) as _)
-                        as *mut CGSize;
+                let mut glyphs = vec![0 as CGGlyph; count];
+                let mut positions = vec![CGPoint::new(0., 0.); count];
+                let mut advances = vec![CGSize::new(0., 0.); count];
                 let runWidth = CTRunGetTypographicBounds(
                     run,
                     CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
@@ -171,13 +165,21 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
                     ptr::null_mut(),
                     ptr::null_mut(),
                 );
-                CTRunGetGlyphs(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), glyphs);
+                CTRunGetGlyphs(
+                    run,
+                    CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
+                    glyphs.as_mut_ptr(),
+                );
                 CTRunGetPositions(
                     run,
                     CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
-                    positions,
+                    positions.as_mut_ptr(),
                 );
-                CTRunGetAdvances(run, CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex), advances);
+                CTRunGetAdvances(
+                    run,
+                    CFRangeMake(0i32 as CFIndex, 0i32 as CFIndex),
+                    advances.as_mut_ptr(),
+                );
                 for j in 0..count {
                     // XXX Core Text has that font cascading thing that will do
                     // font substitution for missing glyphs, which we do not want
@@ -192,28 +194,25 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
                     {
                         *glyphIDs.offset(totalGlyphCount as isize) = 0i32 as u16
                     } else {
-                        *glyphIDs.offset(totalGlyphCount as isize) = *glyphs.offset(j as isize)
+                        *glyphIDs.offset(totalGlyphCount as isize) = glyphs[j]
                     }
                     // Swap X and Y when doing vertical layout
                     if vertical == kCFBooleanTrue {
                         (*locations.offset(totalGlyphCount as isize)).x =
-                            -FixedPStoTeXPoints((*positions.offset(j as isize)).y);
+                            -FixedPStoTeXPoints(positions[j].y);
                         (*locations.offset(totalGlyphCount as isize)).y =
-                            FixedPStoTeXPoints((*positions.offset(j as isize)).x)
+                            FixedPStoTeXPoints(positions[j].x)
                     } else {
                         (*locations.offset(totalGlyphCount as isize)).x =
-                            FixedPStoTeXPoints((*positions.offset(j as isize)).x);
+                            FixedPStoTeXPoints(positions[j].x);
                         (*locations.offset(totalGlyphCount as isize)).y =
-                            -FixedPStoTeXPoints((*positions.offset(j as isize)).y)
+                            -FixedPStoTeXPoints(positions[j].y)
                     }
                     *glyphAdvances.offset(totalGlyphCount as isize) =
-                        Scaled((*advances.offset(j as isize)).width as i32);
+                        Scaled(advances[j].width as i32);
                     totalGlyphCount += 1;
                 }
                 width += FixedPStoTeXPoints(runWidth).0 as f64;
-                free(glyphs as *mut libc::c_void);
-                free(positions as *mut libc::c_void);
-                free(advances as *mut libc::c_void);
             }
         }
     } else {
