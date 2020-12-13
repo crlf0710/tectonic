@@ -1,5 +1,7 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use std::collections::VecDeque;
+
 use crate::t_print_nl;
 
 #[cfg(not(target_os = "macos"))]
@@ -10,7 +12,7 @@ pub(crate) mod imp;
 #[path = "xetex_font_manager_coretext.rs"]
 pub(crate) mod imp;
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::ptr;
 use std::ptr::NonNull;
 
@@ -90,13 +92,13 @@ pub(crate) struct XeTeXFontMgrFamily {
     pub(crate) minSlant: i16,
     pub(crate) maxSlant: i16,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgrFont {
-    pub(crate) m_fullName: *mut CppStdString,
-    pub(crate) m_psName: *mut CppStdString,
-    pub(crate) m_familyName: *mut CppStdString,
-    pub(crate) m_styleName: *mut CppStdString,
+    pub(crate) m_fullName: Option<CString>,
+    pub(crate) m_psName: CString,
+    pub(crate) m_familyName: Option<CString>,
+    pub(crate) m_styleName: Option<CString>,
     pub(crate) parent: *mut XeTeXFontMgrFamily,
     pub(crate) fontRef: PlatformFontRef,
     pub(crate) opSizeInfo: XeTeXFontMgrOpSizeRec,
@@ -111,35 +113,24 @@ pub(crate) struct XeTeXFontMgrFont {
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgrNameCollection {
-    pub(crate) m_familyNames: *mut CppStdListOfString,
-    pub(crate) m_styleNames: *mut CppStdListOfString,
-    pub(crate) m_fullNames: *mut CppStdListOfString,
-    pub(crate) m_psName: *mut CppStdString,
-    pub(crate) m_subFamily: *mut CppStdString,
+    pub(crate) m_familyNames: VecDeque<CString>,
+    pub(crate) m_styleNames: VecDeque<CString>,
+    pub(crate) m_fullNames: VecDeque<CString>,
+    pub(crate) m_psName: CString,
+    pub(crate) m_subFamily: CString,
 }
 impl XeTeXFontMgrNameCollection {
     unsafe fn new() -> Self {
         Self {
-            m_familyNames: CppStdListOfString_create(),
-            m_styleNames: CppStdListOfString_create(),
-            m_fullNames: CppStdListOfString_create(),
-            m_psName: CppStdString_create(),
-            m_subFamily: CppStdString_create(),
+            m_familyNames: VecDeque::default(),
+            m_styleNames: VecDeque::default(),
+            m_fullNames: VecDeque::default(),
+            m_psName: CString::default(),
+            m_subFamily: CString::default(),
         }
     }
 }
 
-impl Drop for XeTeXFontMgrNameCollection {
-    fn drop(&mut self) {
-        unsafe {
-            CppStdListOfString_delete(self.m_familyNames);
-            CppStdListOfString_delete(self.m_styleNames);
-            CppStdListOfString_delete(self.m_fullNames);
-            CppStdString_delete(self.m_psName);
-            CppStdString_delete(self.m_subFamily);
-        }
-    }
-}
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgr {
@@ -205,13 +196,16 @@ unsafe fn XeTeXFontMgrFamily_create() -> *mut XeTeXFontMgrFamily {
     self_0
 }
 #[inline]
-unsafe fn XeTeXFontMgrFont_create(ref_0: PlatformFontRef) -> *mut XeTeXFontMgrFont {
+unsafe fn XeTeXFontMgrFont_create(
+    ref_0: PlatformFontRef,
+    ps_name: CString,
+) -> *mut XeTeXFontMgrFont {
     let mut self_0: *mut XeTeXFontMgrFont =
         malloc(::std::mem::size_of::<XeTeXFontMgrFont>()) as *mut XeTeXFontMgrFont;
-    (*self_0).m_fullName = ptr::null_mut();
-    (*self_0).m_psName = ptr::null_mut();
-    (*self_0).m_familyName = ptr::null_mut();
-    (*self_0).m_styleName = ptr::null_mut();
+    (*self_0).m_fullName = None;
+    (*self_0).m_psName = ps_name;
+    (*self_0).m_familyName = None;
+    (*self_0).m_styleName = None;
     (*self_0).parent = ptr::null_mut();
     (*self_0).fontRef = ref_0;
     (*self_0).weight = 0i32 as u16;
@@ -362,7 +356,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             break;
         }
         // if there's a hyphen, split there and try Family-Style
-        let nameStr_cstr = CppStdString_cstr(&nameStr);
+        let nameStr_cstr = nameStr.as_ptr();
         let nameStr_len = strlen(nameStr_cstr) as i32;
         let hyph_pos = strchr(nameStr_cstr, '-' as i32);
         let hyph = (if !hyph_pos.is_null() {
@@ -371,15 +365,12 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             -1i32 as i64
         }) as i32;
         if hyph > 0i32 && hyph < nameStr_len - 1i32 {
-            let mut family = CString::default();
-            CppStdString_assign_n_chars(&mut family, nameStr_cstr, hyph as usize);
+            let family =
+                CString::new(&CStr::from_ptr(nameStr_cstr).to_bytes()[..hyph as usize]).unwrap();
             if let Some(family_ptr) = (*self_0.m_nameToFamily).get(&family).cloned() {
-                let mut style = CString::default();
-                CppStdString_assign_n_chars(
-                    &mut style,
-                    nameStr_cstr.offset(hyph as isize).offset(1),
-                    (nameStr_len - hyph - 1i32) as usize,
-                );
+                let style =
+                    CString::new(&CStr::from_ptr(nameStr_cstr).to_bytes()[(hyph as usize + 1)..])
+                        .unwrap();
                 if let Some(style_FONT_PTR) = (*(*family_ptr.as_ptr()).styles).get(&style).cloned()
                 {
                     font = style_FONT_PTR.as_ptr();
@@ -422,7 +413,6 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
                     &b"Roman\x00"[..],
                 ];
                 'style_name_loop: for style in &regular_style_names {
-                    use std::ffi::CStr;
                     let style: &[u8] = *style;
                     let style = CStr::from_ptr(style.as_ptr() as *const i8);
                     if let Some(style_FONT_PTR) = (*(*family_ptr).styles).get(style) {
@@ -711,10 +701,10 @@ pub(crate) unsafe fn XeTeXFontMgr_getFullName(
     };
     let FONT_PTR = FONT_PTR.as_ptr();
 
-    if !(*FONT_PTR).m_fullName.is_null() {
-        CppStdString_cstr((*FONT_PTR).m_fullName)
+    if let Some(name) = (*FONT_PTR).m_fullName.as_ref() {
+        name.as_ptr()
     } else {
-        CppStdString_cstr((*FONT_PTR).m_psName)
+        (*FONT_PTR).m_psName.as_ptr()
     }
 }
 pub(crate) unsafe fn XeTeXFontMgr_weightAndWidthDiff(
@@ -858,11 +848,10 @@ impl XeTeXFontMgr {
 // append a name but only if it's not already in the list
 pub(crate) unsafe fn XeTeXFontMgr_appendToList(
     mut _self_0: &XeTeXFontMgr,
-    list: *mut CppStdListOfString,
+    list: &mut VecDeque<CString>,
     str: *const libc::c_char,
 ) {
-    use std::ffi::CStr;
-    fn has_occur(list: &CppStdListOfString, val: &CStr) -> bool {
+    fn has_occur(list: &VecDeque<CString>, val: &CStr) -> bool {
         for item in list.iter() {
             if &**item == val {
                 return true;
@@ -870,19 +859,18 @@ pub(crate) unsafe fn XeTeXFontMgr_appendToList(
         }
         false
     }
-    if has_occur(&*list, CStr::from_ptr(str)) {
+    if has_occur(list, CStr::from_ptr(str)) {
         return;
     }
-    (*list).push_back(CStr::from_ptr(str).to_owned());
+    list.push_back(CStr::from_ptr(str).to_owned());
 }
 // prepend a name, removing it from later in the list if present
 pub(crate) unsafe fn XeTeXFontMgr_prependToList(
     _self_0: &XeTeXFontMgr,
-    list: *mut CppStdListOfString,
+    list: &mut VecDeque<CString>,
     str: *const libc::c_char,
 ) {
-    use std::ffi::CStr;
-    fn remove_first_occur(list: &mut CppStdListOfString, val: &CStr) -> bool {
+    fn remove_first_occur(list: &mut VecDeque<CString>, val: &CStr) -> bool {
         let mut found_idx = None;
         for (idx, item) in list.iter().enumerate() {
             if &**item == val {
@@ -898,8 +886,8 @@ pub(crate) unsafe fn XeTeXFontMgr_prependToList(
         }
     }
 
-    remove_first_occur(&mut *list, CStr::from_ptr(str));
-    (*list).push_front(CStr::from_ptr(str).to_owned());
+    remove_first_occur(list, CStr::from_ptr(str));
+    list.push_front(CStr::from_ptr(str).to_owned());
 }
 pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
     self_0: &mut FontMgr,
@@ -909,20 +897,22 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
     if (*(*self_0).m_platformRefToFont).contains_key(&platformFont) {
         return;
     }
-    if CppStdString_length(names.m_psName) == 0 {
+    if names.m_psName.to_bytes().is_empty() {
         return;
     }
     if (*(*self_0).m_psNameToFont).contains_key(&*names.m_psName) {
         return;
     }
-    let thisFont_nonnull =
-        NonNull::new(XeTeXFontMgrFont_create(platformFont)).expect("should be non-null pointer");
+    let thisFont_nonnull = NonNull::new(XeTeXFontMgrFont_create(
+        platformFont,
+        names.m_psName.clone(),
+    ))
+    .expect("should be non-null pointer");
     let thisFont = thisFont_nonnull.as_ptr();
-    (*thisFont).m_psName = CppStdString_clone(names.m_psName);
     self_0.get_op_size_rec_and_style_flags(&mut *thisFont);
     CppStdMap_put_with_string_key(
         (*self_0).m_psNameToFont,
-        CppStdString_cstr(names.m_psName),
+        names.m_psName.as_ptr(),
         thisFont_nonnull,
     );
     CppStdMap_put(
@@ -930,20 +920,20 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
         platformFont,
         thisFont_nonnull,
     );
-    if !(*names.m_fullNames).is_empty() {
-        (*thisFont).m_fullName = CppStdString_clone(&(*names.m_fullNames)[0]);
+    if !names.m_fullNames.is_empty() {
+        (*thisFont).m_fullName = Some(names.m_fullNames[0].clone());
     }
-    if !(*names.m_familyNames).is_empty() {
-        (*thisFont).m_familyName = CppStdString_clone(&(*names.m_familyNames)[0]);
+    (*thisFont).m_familyName = if !names.m_familyNames.is_empty() {
+        Some(names.m_familyNames[0].clone())
     } else {
-        (*thisFont).m_familyName = CppStdString_clone(names.m_psName);
-    }
-    if !(*names.m_styleNames).is_empty() {
-        (*thisFont).m_styleName = CppStdString_clone(&(*names.m_styleNames)[0]);
+        Some(names.m_psName.clone())
+    };
+    (*thisFont).m_styleName = if !names.m_styleNames.is_empty() {
+        Some(names.m_styleNames[0].clone())
     } else {
-        (*thisFont).m_styleName = CppStdString_create()
-    }
-    for familyName in (*names.m_familyNames).iter() {
+        Some(CString::default())
+    };
+    for familyName in names.m_familyNames.iter() {
         let family: &mut XeTeXFontMgrFamily;
         if let Some(family_mut) = (*(*self_0).m_nameToFamily).get_mut(familyName) {
             family = family_mut.as_mut();
@@ -971,7 +961,7 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
             (*thisFont).parent = family;
         }
         // ensure all style names in the family point to thisFont
-        for styleName in (*names.m_styleNames).iter() {
+        for styleName in names.m_styleNames.iter() {
             if !(*family.styles).contains_key(styleName) {
                 CppStdMap_put(family.styles, styleName.clone(), thisFont_nonnull);
             }
@@ -982,7 +972,7 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
             */
         }
     }
-    for fullName in (*names.m_fullNames).iter() {
+    for fullName in names.m_fullNames.iter() {
         if !(*(*self_0).m_nameToFont).contains_key(fullName) {
             CppStdMap_put((*self_0).m_nameToFont, fullName.clone(), thisFont_nonnull);
         }

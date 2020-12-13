@@ -239,36 +239,11 @@ use crate::xetex_font_info::XeTeXFontInst;
 
 pub(crate) mod collection_types {
 
-    use std::collections::{BTreeMap, VecDeque};
+    use std::collections::BTreeMap;
     use std::ffi::CStr;
     use std::ffi::CString;
 
-    pub(crate) type CppStdString = CString;
-    pub(crate) type CppStdListOfString = VecDeque<CString>;
     pub(crate) type CppStdMap<K, V> = BTreeMap<K, V>;
-
-    pub(crate) fn CppStdString_create() -> *mut CppStdString {
-        Box::into_raw(Box::new(CString::default()))
-    }
-
-    pub(crate) unsafe fn CppStdString_delete(self_0: *mut CppStdString) {
-        let _: Box<CppStdString> = Box::from_raw(self_0);
-    }
-    pub(crate) unsafe fn CppStdString_length(self_0: *const CppStdString) -> libc::size_t {
-        self_0.as_ref().unwrap().to_bytes().len() as _
-    }
-    pub(crate) unsafe fn CppStdString_cstr(self_0: *const CppStdString) -> *const libc::c_char {
-        let v = self_0.as_ref().unwrap();
-        v.as_ptr()
-    }
-
-    pub(crate) fn CppStdListOfString_create() -> *mut CppStdListOfString {
-        Box::into_raw(Box::new(CppStdListOfString::default()))
-    }
-
-    pub(crate) unsafe fn CppStdListOfString_delete(self_0: *mut CppStdListOfString) {
-        let _: Box<CppStdListOfString> = Box::from_raw(self_0);
-    }
 
     pub(crate) fn CppStdMap_create<K: Ord, V>() -> *mut CppStdMap<K, V> {
         Box::into_raw(Box::new(CppStdMap::default()))
@@ -296,43 +271,6 @@ pub(crate) mod collection_types {
 
     pub(crate) unsafe fn CppStdMap_delete<K: Ord, V>(self_0: *mut CppStdMap<K, V>) {
         let _: Box<CppStdMap<K, V>> = Box::from_raw(self_0);
-    }
-
-    pub(crate) unsafe fn CppStdString_clone(self_0: *const CppStdString) -> *mut CppStdString {
-        let v: Box<CppStdString> = Box::new((*self_0).clone());
-        Box::into_raw(v)
-    }
-
-    pub(crate) unsafe fn CppStdString_append_const_char_ptr(
-        self_0: *mut CppStdString,
-        val: *const libc::c_char,
-    ) {
-        use std::mem::swap;
-        let o: &mut CppStdString = &mut *self_0;
-        let mut v: CppStdString = Default::default();
-        swap(o, &mut v);
-        let mut u = v.into_bytes();
-        u.extend(CStr::from_ptr(val).to_bytes());
-        v = CString::from_vec_unchecked(u);
-        swap(o, &mut v);
-    }
-
-    pub(crate) unsafe fn CppStdString_assign_from_const_char_ptr(
-        self_0: *mut CppStdString,
-        val: *const libc::c_char,
-    ) {
-        let o: &mut CppStdString = &mut *self_0;
-        *o = CStr::from_ptr(val).to_owned();
-    }
-
-    pub(crate) unsafe fn CppStdString_assign_n_chars(
-        self_0: *mut CppStdString,
-        val: *const libc::c_char,
-        count: usize,
-    ) {
-        let o: &mut CppStdString = &mut *self_0;
-        let slice = std::slice::from_raw_parts(val as *const u8, count);
-        *o = CString::from_vec_unchecked(slice.to_owned());
     }
 }
 

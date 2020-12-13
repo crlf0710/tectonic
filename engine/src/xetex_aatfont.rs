@@ -21,9 +21,8 @@ use crate::xetex_ini::{
     loaded_font_flags, loaded_font_letter_space, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
 };
 use crate::xetex_xetex0::font_feature_warning;
-use libc::{free, strlen};
+use libc::free;
 pub(crate) type Boolean = libc::c_uchar;
-use crate::xetex_output::print_chr;
 
 use crate::xetex_scaledmath::Scaled;
 type Fract = i32;
@@ -103,7 +102,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     let mut glyph_info: *mut libc::c_void = ptr::null_mut();
     let mut locations: *mut FixedPoint = ptr::null_mut();
     let mut width: CGFloat = 0.;
-    let mut typesetter;
+    let typesetter;
     let mut line;
     let f = node.font() as libc::c_uint;
     if let Font::Native(Aat(attributes)) = &FONT_LAYOUT_ENGINE[f as usize] {
