@@ -340,7 +340,6 @@ use self::collection_types::*;
 
 pub(crate) type size_t = usize;
 
-pub(crate) type UChar32 = i32;
 #[cfg(not(target_os = "macos"))]
 use crate::xetex_font_manager::imp::{FcPattern, FcResult};
 
@@ -1379,8 +1378,8 @@ impl XeTeXLayoutEngine {
     pub(crate) unsafe fn get_glyph_ital_corr(&self, glyphID: u32) -> f32 {
         self.extend * self.font.get_glyph_ital_corr(glyphID as GlyphID)
     }
-    pub(crate) unsafe fn map_char_to_glyph(&self, charCode: u32) -> u32 {
-        self.font.map_char_to_glyph(charCode as UChar32) as u32
+    pub(crate) unsafe fn map_char_to_glyph(&self, charCode: char) -> u32 {
+        self.font.map_char_to_glyph(charCode) as u32
     }
     pub(crate) unsafe fn get_font_char_range(&mut self, reqFirst: i32) -> i32 {
         if reqFirst != 0 {

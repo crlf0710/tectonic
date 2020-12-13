@@ -1977,22 +1977,22 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
     if q.nucleus().typ == MathCell::MathChar {
         let (f, _) = q.nucleus_mut().fetch();
         cur_f = f;
-        match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+        match &FONT_LAYOUT_ENGINE[f as usize] {
             Font::Native(Otgr(e)) if e.using_open_type() => {}
             _ => {
                 if cur_style.0 == MathStyle::Display && cur_i.s1 as i32 % 4 == LIST_TAG {
                     let c = cur_i.s0;
-                    let i = FONT_CHARACTER_INFO(cur_f as usize, c as usize);
+                    let i = FONT_CHARACTER_INFO(f as usize, c as usize);
                     if i.s3 as i32 > 0 {
                         cur_i = i;
                         q.nucleus_mut().val.chr.character1 = c
                     }
                 }
-                delta = *FONT_CHARINFO_ITALCORR(cur_f as usize, cur_i);
+                delta = *FONT_CHARINFO_ITALCORR(f as usize, cur_i);
             }
         }
         let mut x = clean_box(q.nucleus(), cur_style);
-        match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+        match &FONT_LAYOUT_ENGINE[f as usize] {
             Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                 if let Some(p) = x.list_ptr().opt() {
                     if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::Glyph(mut p))) =
@@ -2003,7 +2003,7 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                         let mut depth = p.depth();
                         let mut height = p.height();
                         if cur_style.0 == MathStyle::Display {
-                            let mut h1 = get_ot_math_constant(cur_f, DISPLAYOPERATORMINHEIGHT);
+                            let mut h1 = get_ot_math_constant(f, DISPLAYOPERATORMINHEIGHT);
                             if (h1.0 as f64) < ((p.height() + p.depth()) * 5).0 as f64 / 4_f64 {
                                 h1 =
                                     Scaled((((p.height() + p.depth()) * 5).0 as f64 / 4_f64) as i32)
@@ -2012,7 +2012,7 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                             let mut n = 0;
                             let mut h2 = Scaled::ZERO;
                             loop {
-                                let g = get_ot_math_variant(cur_f, c as i32, n, &mut h2, 0);
+                                let g = get_ot_math_variant(f, c as i32, n, &mut h2, 0);
                                 if h2 > Scaled::ZERO {
                                     p.set_glyph(g as u16);
                                     p.set_metrics(true);
@@ -2023,10 +2023,10 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                                 }
                             }
                             if h2 < Scaled::ZERO {
-                                if let Some(ot_assembly) = get_ot_assembly_ptr(cur_f, c as i32, 0) {
+                                if let Some(ot_assembly) = get_ot_assembly_ptr(f, c as i32, 0) {
                                     free_node(p.ptr(), GLYPH_NODE_SIZE);
                                     let b = build_opentype_assembly(
-                                        cur_f,
+                                        f,
                                         &ot_assembly,
                                         h1,
                                         ListDir::Vertical,
@@ -2043,7 +2043,7 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                             }
                         }
                         if ital_corr {
-                            delta = get_ot_math_ital_corr(cur_f, p.glyph() as i32);
+                            delta = get_ot_math_ital_corr(f, p.glyph() as i32);
                             width = p.width();
                             depth = p.depth();
                             height = p.height();
@@ -2998,7 +2998,7 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
                             x = if x >= 0xd800 && x <= 0xdfff {
                                 0
                             } else {
-                                e.map_char_to_glyph(x as u32) as u16
+                                e.map_char_to_glyph(std::char::from_u32(x as u32).unwrap()) as u16
                             };
                             f = g;
                             c = x;

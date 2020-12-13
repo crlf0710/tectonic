@@ -6213,6 +6213,7 @@ pub(crate) unsafe fn scan_something_internal(
                             let q = scan_font_ident(input) as usize;
                             let val = scan_usv_num(input);
                             (if let Font::Native(nq) = &FONT_LAYOUT_ENGINE[q] {
+                                let val = std::char::from_u32(val as u32).unwrap();
                                 match m {
                                     LastItemCode::FontCharWd => getnativecharwd(q, val),
                                     LastItemCode::FontCharHt => getnativecharht(q, val),
@@ -12463,6 +12464,7 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
         let a = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
             let a = NativeWord::from(p).width();
             if a == Scaled::ZERO {
+                let val = std::char::from_u32(val as u32).unwrap();
                 let (lsb_, rsb_) = get_native_char_sidebearings(nf, val);
                 lsb = lsb_;
                 rsb = rsb_;
@@ -12492,6 +12494,7 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
             let t = FONT_INFO[(SLANT_CODE + PARAM_BASE[f]) as usize].b32.s1 as f64 / 65536.;
             if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
                 w = NativeWord::from(q).width();
+                let val = std::char::from_u32(val as u32).unwrap();
                 h = get_native_char_height_depth(f, val).0;
             } else {
                 let i =

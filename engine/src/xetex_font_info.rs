@@ -717,7 +717,7 @@ impl XeTeXFontInst {
         };
     }
 
-    pub(crate) unsafe fn map_char_to_glyph(&self, ch: UChar32) -> GlyphID {
+    pub(crate) unsafe fn map_char_to_glyph(&self, ch: char) -> GlyphID {
         FT_Get_Char_Index(self.m_ftFace, ch as FT_ULong) as GlyphID
     }
 

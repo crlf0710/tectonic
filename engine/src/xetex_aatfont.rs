@@ -373,32 +373,22 @@ pub(crate) unsafe fn GetGlyphItalCorr_AAT(attributes: CFDictionaryRef, mut gid: 
     }
     return 0i32 as f64;
 }
-unsafe fn mapCharToGlyphFromCTFont(font: CTFontRef, mut ch: u32) -> libc::c_int {
+unsafe fn mapCharToGlyphFromCTFont(font: CTFontRef, ch: char) -> libc::c_int {
     let mut glyphs: [CGGlyph; 2] = [0i32 as CGGlyph, 0];
-    let mut txt: [UniChar; 2] = [0; 2];
-    let mut len: libc::c_int = 1i32;
-    if ch > 0xffffi32 as libc::c_uint {
-        ch = (ch as libc::c_uint).wrapping_sub(0x10000i32 as libc::c_uint) as u32;
-        txt[0] = (0xd800i32 as libc::c_uint).wrapping_add(ch.wrapping_div(1024i32 as libc::c_uint))
-            as UniChar;
-        txt[1] = (0xdc00i32 as libc::c_uint).wrapping_add(ch.wrapping_rem(1024i32 as libc::c_uint))
-            as UniChar;
-        len = 2i32
-    } else {
-        txt[0] = ch as UniChar
-    }
+    let mut txt = [0; 2];
+    let result = ch.encode_utf16(&mut txt);
     if CTFontGetGlyphsForCharacters(
         font,
-        txt.as_mut_ptr() as *const UniChar,
+        result.as_mut_ptr() as *const UniChar,
         glyphs.as_mut_ptr(),
-        len as CFIndex,
+        result.len() as CFIndex,
     ) {
         return glyphs[0] as libc::c_int;
     }
     return 0i32;
 }
 
-pub(crate) unsafe fn MapCharToGlyph_AAT(attributes: CFDictionaryRef, ch: u32) -> libc::c_int {
+pub(crate) unsafe fn MapCharToGlyph_AAT(attributes: CFDictionaryRef, ch: char) -> libc::c_int {
     let font = font_from_attributes(attributes);
     mapCharToGlyphFromCTFont(font, ch)
 }
@@ -455,15 +445,17 @@ pub(crate) unsafe fn GetFontCharRange_AAT(
 ) -> libc::c_int {
     if reqFirst != 0 {
         for ch in 0..=0x10ffff {
-            if MapCharToGlyph_AAT(attributes, ch as u32) != 0 {
-                return ch;
+            match std::char::from_u32(ch) {
+                Some(c) if MapCharToGlyph_AAT(attributes, c) != 0 => return ch as i32,
+                _ => {}
             }
         }
         return 0x10ffff;
     } else {
         for ch in (0..=0x10ffff).rev() {
-            if MapCharToGlyph_AAT(attributes, ch as u32) != 0 {
-                return ch;
+            match std::char::from_u32(ch) {
+                Some(c) if MapCharToGlyph_AAT(attributes, c) != 0 => return ch as i32,
+                _ => {}
             }
         }
         return 0;
