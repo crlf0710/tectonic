@@ -486,7 +486,7 @@ pub(crate) unsafe fn getReqEngine() -> libc::c_char {
 pub(crate) unsafe fn setReqEngine(reqEngine: libc::c_char) {
     XeTeXFontMgr_setReqEngine(XeTeXFontMgr_GetFontManager(), reqEngine);
 }
-pub(crate) unsafe fn getFullName(fontRef: PlatformFontRef) -> *const libc::c_char {
+pub(crate) unsafe fn getFullName(fontRef: PlatformFontRef) -> String {
     XeTeXFontMgr_getFullName(XeTeXFontMgr_GetFontManager(), fontRef)
 }
 pub(crate) unsafe fn getDesignSize(font: &XeTeXFontInst) -> f64 {

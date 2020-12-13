@@ -915,10 +915,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
         let fontRef = findFontByName(&nameString, &mut varString, Fix2D(scaled_size));
         if !fontRef.is_null() {
             /* update name_of_font to the full name of the font, for error messages during font loading */
-            let fullName: *const i8 = getFullName(fontRef);
-            name_of_font = std::ffi::CStr::from_ptr(fullName)
-                .to_string_lossy()
-                .to_string();
+            name_of_font = getFullName(fontRef);
             if scaled_size < Scaled::ZERO {
                 if let Some(font) = createFont(fontRef, scaled_size) {
                     let dsize_0 = D2Fix(getDesignSize(&font));

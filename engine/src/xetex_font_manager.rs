@@ -14,8 +14,6 @@ pub(crate) mod imp;
 #[path = "xetex_font_manager_coretext.rs"]
 pub(crate) mod imp;
 
-use std::ffi::{CStr, CString};
-
 use crate::xetex_ext::Fix2D;
 use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::createFont;
@@ -27,8 +25,6 @@ use self::imp::XeTeXFontMgr_FC_create;
 use self::imp::XeTeXFontMgr_Mac_create;
 
 use harfbuzz_sys::{hb_font_get_face, hb_ot_layout_get_size_params};
-
-use libc::{strchr, strlen};
 
 #[cfg(not(target_os = "macos"))]
 use imp::FcPattern;
@@ -83,7 +79,7 @@ pub(crate) struct XeTeXFontMgrOpSizeRec {
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgrFamily {
-    pub(crate) styles: BTreeMap<CString, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) styles: BTreeMap<String, Rc<RefCell<XeTeXFontMgrFont>>>,
     pub(crate) minWeight: u16,
     pub(crate) maxWeight: u16,
     pub(crate) minWidth: u16,
@@ -94,10 +90,10 @@ pub(crate) struct XeTeXFontMgrFamily {
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgrFont {
-    pub(crate) m_fullName: Option<CString>,
-    pub(crate) m_psName: CString,
-    pub(crate) m_familyName: Option<CString>,
-    pub(crate) m_styleName: Option<CString>,
+    pub(crate) m_fullName: Option<String>,
+    pub(crate) m_psName: String,
+    pub(crate) m_familyName: Option<String>,
+    pub(crate) m_styleName: Option<String>,
     pub(crate) parent: Option<Rc<RefCell<XeTeXFontMgrFamily>>>,
     pub(crate) fontRef: PlatformFontRef,
     pub(crate) opSizeInfo: XeTeXFontMgrOpSizeRec,
@@ -112,11 +108,11 @@ pub(crate) struct XeTeXFontMgrFont {
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgrNameCollection {
-    pub(crate) m_familyNames: VecDeque<CString>,
-    pub(crate) m_styleNames: VecDeque<CString>,
-    pub(crate) m_fullNames: VecDeque<CString>,
-    pub(crate) m_psName: CString,
-    pub(crate) m_subFamily: CString,
+    pub(crate) m_familyNames: VecDeque<String>,
+    pub(crate) m_styleNames: VecDeque<String>,
+    pub(crate) m_fullNames: VecDeque<String>,
+    pub(crate) m_psName: String,
+    pub(crate) m_subFamily: String,
 }
 impl XeTeXFontMgrNameCollection {
     unsafe fn new() -> Self {
@@ -124,8 +120,8 @@ impl XeTeXFontMgrNameCollection {
             m_familyNames: VecDeque::default(),
             m_styleNames: VecDeque::default(),
             m_fullNames: VecDeque::default(),
-            m_psName: CString::default(),
-            m_subFamily: CString::default(),
+            m_psName: String::new(),
+            m_subFamily: String::new(),
         }
     }
 }
@@ -133,10 +129,10 @@ impl XeTeXFontMgrNameCollection {
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgr {
-    pub(crate) m_nameToFont: BTreeMap<CString, Rc<RefCell<XeTeXFontMgrFont>>>,
-    pub(crate) m_nameToFamily: BTreeMap<CString, Rc<RefCell<XeTeXFontMgrFamily>>>,
+    pub(crate) m_nameToFont: BTreeMap<String, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) m_nameToFamily: BTreeMap<String, Rc<RefCell<XeTeXFontMgrFamily>>>,
     pub(crate) m_platformRefToFont: BTreeMap<PlatformFontRef, Rc<RefCell<XeTeXFontMgrFont>>>,
-    pub(crate) m_psNameToFont: BTreeMap<CString, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) m_psNameToFont: BTreeMap<String, Rc<RefCell<XeTeXFontMgrFont>>>,
     // maps PS name (as used in .xdv) to font record
 }
 
@@ -196,7 +192,7 @@ impl XeTeXFontMgrFamily {
     }
 }
 impl XeTeXFontMgrFont {
-    unsafe fn new(ref_0: PlatformFontRef, ps_name: CString) -> Self {
+    unsafe fn new(ref_0: PlatformFontRef, ps_name: String) -> Self {
         Self {
             m_fullName: None,
             m_psName: ps_name,
@@ -334,34 +330,22 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
     // SIDE EFFECT: edits /variant/ string in-place removing /B or /I
     // ptSize is in TeX points, or negative for 'scaled' factor
     // "variant" string will be shortened (in-place) by removal of /B and /I if present
-    let nameStr = CString::new(name).unwrap();
     let mut font: Option<Rc<RefCell<XeTeXFontMgrFont>>> = None;
     let mut dsize: i32 = 100i32;
     loaded_font_design_size = Scaled(655360);
-    for pass in 0..2i32 {
+    for pass in 0..2 {
         // try full name as given
-        if let Some(font) = self_0.m_nameToFont.get(&nameStr) {
-            if font.borrow().opSizeInfo.designSize != 0i32 as libc::c_uint {
+        if let Some(font) = self_0.m_nameToFont.get(name) {
+            if font.borrow().opSizeInfo.designSize != 0 {
                 dsize = font.borrow().opSizeInfo.designSize as i32
             }
             break;
         }
         // if there's a hyphen, split there and try Family-Style
-        let nameStr_cstr = nameStr.as_ptr();
-        let nameStr_len = strlen(nameStr_cstr) as i32;
-        let hyph_pos = strchr(nameStr_cstr, '-' as i32);
-        let hyph = (if !hyph_pos.is_null() {
-            hyph_pos.offset_from(nameStr_cstr) as i64
-        } else {
-            -1i32 as i64
-        }) as i32;
-        if hyph > 0i32 && hyph < nameStr_len - 1i32 {
-            let family =
-                CString::new(&CStr::from_ptr(nameStr_cstr).to_bytes()[..hyph as usize]).unwrap();
+        if let Some(hyph) = name[..name.len() - 1].find('-') {
+            let family = name[..hyph].to_string();
             if let Some(family_ptr) = self_0.m_nameToFamily.get(&family) {
-                let style =
-                    CString::new(&CStr::from_ptr(nameStr_cstr).to_bytes()[(hyph as usize + 1)..])
-                        .unwrap();
+                let style = name[hyph + 1..].to_string();
                 if let Some(style_FONT_PTR) = family_ptr.borrow().styles.get(&style).cloned() {
                     if style_FONT_PTR.borrow().opSizeInfo.designSize != 0 {
                         dsize = style_FONT_PTR.borrow().opSizeInfo.designSize as i32
@@ -372,14 +356,14 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             }
         }
         // try as PostScript name
-        if let Some(font) = self_0.m_psNameToFont.get(&nameStr) {
+        if let Some(font) = self_0.m_psNameToFont.get(name) {
             if font.borrow().opSizeInfo.designSize != 0i32 as libc::c_uint {
                 dsize = font.borrow().opSizeInfo.designSize as i32
             }
             break;
         }
         // try for the name as a family name
-        if let Some(family_ptr) = self_0.m_nameToFamily.get(&nameStr) {
+        if let Some(family_ptr) = self_0.m_nameToFamily.get(name) {
             // look for a family member with the "regular" bit set in OS/2
             let mut regFonts: i32 = 0i32;
             for (_k, v) in family_ptr.borrow().styles.iter() {
@@ -394,18 +378,11 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             // which confuses the search above... so try some known names
             if font.is_none() || regFonts > 1i32 {
                 // try for style "Regular", "Plain", "Normal", "Roman"
-                let regular_style_names = [
-                    &b"Regular\x00"[..],
-                    &b"Plain\x00"[..],
-                    &b"Normal\x00"[..],
-                    &b"Roman\x00"[..],
-                ];
-                'style_name_loop: for style in &regular_style_names {
-                    let style: &[u8] = *style;
-                    let style = CStr::from_ptr(style.as_ptr() as *const i8);
+                const regular_style_names: [&str; 4] = ["Regular", "Plain", "Normal", "Roman"];
+                for &style in regular_style_names.iter() {
                     if let Some(style_FONT_PTR) = family_ptr.borrow().styles.get(style) {
                         font = Some(style_FONT_PTR.clone());
-                        break 'style_name_loop;
+                        break;
                     }
                 }
             }
@@ -427,7 +404,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
             // didn't find it in our caches, so do a platform search (may be relatively expensive);
             // this will update the caches with any fonts that seem to match the name given,
             // so that the second pass might find it
-            self_0.search_for_host_platform_fonts(nameStr.as_ptr());
+            self_0.search_for_host_platform_fonts(name);
         }
     }
     if font.is_none() {
@@ -717,7 +694,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFont(
 pub(crate) unsafe fn XeTeXFontMgr_getFullName(
     self_0: &XeTeXFontMgr,
     font: PlatformFontRef,
-) -> *const libc::c_char {
+) -> String {
     // return the full name of the font, suitable for use in XeTeX source
     // without requiring style qualifiers
     let FONT_PTR = if let Some(FONT_PTR) = self_0.m_platformRefToFont.get(&font) {
@@ -726,9 +703,9 @@ pub(crate) unsafe fn XeTeXFontMgr_getFullName(
         abort!("internal error {} in XeTeXFontMgr", 2);
     };
     if let Some(name) = FONT_PTR.borrow().m_fullName.as_ref() {
-        name.as_ptr()
+        name.clone()
     } else {
-        FONT_PTR.borrow().m_psName.as_ptr()
+        FONT_PTR.borrow().m_psName.clone()
     }
 }
 pub(crate) unsafe fn XeTeXFontMgr_weightAndWidthDiff(
@@ -878,12 +855,12 @@ impl XeTeXFontMgr {
 // append a name but only if it's not already in the list
 pub(crate) unsafe fn XeTeXFontMgr_appendToList(
     mut _self_0: &XeTeXFontMgr,
-    list: &mut VecDeque<CString>,
-    cstr: &CStr,
+    list: &mut VecDeque<String>,
+    cstr: &str,
 ) {
-    fn has_occur(list: &VecDeque<CString>, val: &CStr) -> bool {
+    fn has_occur(list: &VecDeque<String>, val: &str) -> bool {
         for item in list.iter() {
-            if &**item == val {
+            if item == val {
                 return true;
             }
         }
@@ -892,18 +869,18 @@ pub(crate) unsafe fn XeTeXFontMgr_appendToList(
     if has_occur(list, cstr) {
         return;
     }
-    list.push_back(cstr.to_owned());
+    list.push_back(cstr.to_string());
 }
 // prepend a name, removing it from later in the list if present
 pub(crate) unsafe fn XeTeXFontMgr_prependToList(
     _self_0: &XeTeXFontMgr,
-    list: &mut VecDeque<CString>,
-    cstr: &CStr,
+    list: &mut VecDeque<String>,
+    cstr: &str,
 ) {
-    fn remove_first_occur(list: &mut VecDeque<CString>, val: &CStr) -> bool {
+    fn remove_first_occur(list: &mut VecDeque<String>, val: &str) -> bool {
         let mut found_idx = None;
         for (idx, item) in list.iter().enumerate() {
-            if &**item == val {
+            if item == val {
                 found_idx = Some(idx);
                 break;
             }
@@ -917,7 +894,7 @@ pub(crate) unsafe fn XeTeXFontMgr_prependToList(
     }
 
     remove_first_occur(list, cstr);
-    list.push_front(cstr.to_owned());
+    list.push_front(cstr.to_string());
 }
 pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
     self_0: &mut FontMgr,
@@ -927,7 +904,7 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
     if self_0.m_platformRefToFont.contains_key(&platformFont) {
         return;
     }
-    if names.m_psName.to_bytes().is_empty() {
+    if names.m_psName.is_empty() {
         return;
     }
     if self_0.m_psNameToFont.contains_key(&names.m_psName) {
@@ -962,7 +939,7 @@ pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
     thisFont.borrow_mut().m_styleName = if !names.m_styleNames.is_empty() {
         Some(names.m_styleNames[0].clone())
     } else {
-        Some(CString::default())
+        Some(String::new())
     };
     for familyName in names.m_familyNames.iter() {
         let family = if let Some(family_rc) = self_0.m_nameToFamily.get_mut(familyName) {
@@ -1037,7 +1014,7 @@ pub(crate) trait FontMgrExt {
     type FontRef;
     unsafe fn terminate(&mut self);
     unsafe fn get_platform_font_desc(&self, font: Self::FontRef) -> String;
-    unsafe fn search_for_host_platform_fonts(&mut self, _: *const libc::c_char);
+    unsafe fn search_for_host_platform_fonts(&mut self, name: &str);
 
     unsafe fn read_names(&self, _: Self::FontRef) -> XeTeXFontMgrNameCollection;
     unsafe fn get_op_size_rec_and_style_flags(&self, _: &mut XeTeXFontMgrFont);

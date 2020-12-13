@@ -115,7 +115,7 @@ pub(crate) unsafe fn XeTeXFontMgr_findFontWithName(
 pub(crate) unsafe fn XeTeXFontMgr_Mac_appendNameToList(
     self_0: &XeTeXFontMgr_Mac,
     font: CTFontRef,
-    nameList: &mut VecDeque<CString>,
+    nameList: &mut VecDeque<String>,
     nameKey: CFStringRef,
 ) {
     let name: CFStringRef = CTFontCopyName(font, nameKey);
@@ -228,16 +228,17 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
             crate::c_pointer_to_str(path).to_string()
         }
     }
-    unsafe fn search_for_host_platform_fonts(&mut self, name: *const libc::c_char) {
+    unsafe fn search_for_host_platform_fonts(&mut self, name: &str) {
         // the name might be:
         //  FullName
         //  Family-Style (if there's a hyphen)
         //  PSName
         //  Family
         // ...so we need to try it as each of these
+        let cname = CString::new(name).unwrap();
         let nameStr = CFStringCreateWithCString(
             kCFAllocatorDefault,
-            name,
+            cname.as_ptr(),
             kCFStringEncodingUTF8 as libc::c_int as CFStringEncoding,
         );
         let mut matched: CTFontDescriptorRef =
@@ -248,14 +249,8 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
             CFRelease(matched as CFTypeRef);
             return;
         }
-        let hyph_pos = strchr(name, '-' as i32);
-        let hyph = (if !hyph_pos.is_null() {
-            hyph_pos.offset_from(name) as libc::c_long
-        } else {
-            -1i32 as libc::c_long
-        }) as libc::c_int;
-        if hyph > 0i32 && (hyph as usize) < strlen(name) - 1 {
-            let family = CString::new(&CStr::from_ptr(name).to_bytes()[..hyph as usize]).unwrap();
+        if let Some(hyph) = name[..name.len() - 1].find('-') {
+            let family = CString::new(&name[..hyph]).unwrap();
             let familyStr = CFStringCreateWithCString(
                 kCFAllocatorDefault,
                 family.as_ptr(),
@@ -308,7 +303,10 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
         }
         autoreleasepool(|| {
             let psName: *const NSString = psName.cast();
-            names.m_psName = CStr::from_ptr(msg_send![psName, UTF8String]).to_owned();
+            names.m_psName = CStr::from_ptr(msg_send![psName, UTF8String])
+                .to_str()
+                .unwrap()
+                .to_string();
             CFRelease(psName as CFTypeRef);
             let font = CTFontCreateWithFontDescriptor(fontRef, 0.0f64, ptr::null());
             XeTeXFontMgr_Mac_appendNameToList(

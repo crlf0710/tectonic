@@ -34,7 +34,7 @@ authorization from the copyright holders.
 #![cfg(not(target_os = "macos"))]
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ptr;
 
 use std::collections::VecDeque;
@@ -51,8 +51,6 @@ use crate::xetex_font_info::gFreeTypeLibrary;
 use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
 use freetype::freetype_sys::FT_Long;
 use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
-
-use libc::strchr;
 
 pub(crate) use fontconfig_sys::fontconfig::{
     enum__FcResult as FcResult, struct__FcPattern as FcPattern,
@@ -91,7 +89,7 @@ unsafe fn convertToUtf8(
     conv: *mut icu::UConverter,
     name: *const libc::c_uchar,
     mut len: libc::c_int,
-) -> Vec<u8> {
+) -> String {
     let mut buffer1 = vec![0_u16; len as usize + 50];
     let bufSize = 2 * len + 100;
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
@@ -114,11 +112,11 @@ unsafe fn convertToUtf8(
     );
     buffer2[len as usize] = 0;
     buffer2.truncate(len as usize + 1);
-    buffer2
+    String::from_utf8(buffer2).unwrap()
 }
 
 impl XeTeXFontMgr_FC {
-    pub(crate) unsafe fn cache_family_members(&mut self, familyNames: &VecDeque<CString>) {
+    pub(crate) unsafe fn cache_family_members(&mut self, familyNames: &VecDeque<String>) {
         if familyNames.is_empty() {
             return;
         }
@@ -140,8 +138,11 @@ impl XeTeXFontMgr_FC {
                 {
                     break;
                 }
-                let s = CStr::from_ptr(s);
-                if !familyNames.iter().any(|family_name| &**family_name == s) {
+                let s = CStr::from_ptr(s).to_bytes();
+                if !familyNames
+                    .iter()
+                    .any(|family_name| family_name.as_bytes() == s)
+                {
                     continue;
                 }
                 let names = self.read_names(pat);
@@ -225,19 +226,14 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         }
     }
 
-    unsafe fn search_for_host_platform_fonts(&mut self, name: *const libc::c_char) {
+    unsafe fn search_for_host_platform_fonts(&mut self, name: &str) {
         if self.cachedAll {
             // we've already loaded everything on an earlier search
             return;
         }
-        let hyph_pos = strchr(name, '-' as i32);
-        let hyph;
-        let famName = if !hyph_pos.is_null() {
-            hyph = hyph_pos.offset_from(name) as libc::c_long as libc::c_int;
-            CString::new(&CStr::from_ptr(name).to_bytes()[..hyph as usize]).unwrap()
-        } else {
-            hyph = 0;
-            CString::default()
+        let (hyph, famName) = match name.find('-') {
+            Some(pos) => (pos, name[..pos].to_string()),
+            _ => (0, String::new()),
         };
         let mut found = false;
         loop {
@@ -263,7 +259,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                     &mut s as *mut *mut libc::c_char as *mut *mut u8,
                 ) == FcResultMatch
                 {
-                    if CStr::from_ptr(name) == CStr::from_ptr(s) {
+                    if name.as_bytes() == CStr::from_ptr(s).to_bytes() {
                         let names_0 = self.read_names(pat);
                         XeTeXFontMgr_addToMaps(self, pat, &names_0);
                         self.cache_family_members(&names_0.m_familyNames);
@@ -281,8 +277,8 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                     &mut s as *mut *mut libc::c_char as *mut *mut u8,
                 ) == FcResultMatch
                 {
-                    if CStr::from_ptr(name) == CStr::from_ptr(s)
-                        || hyph != 0 && (famName.as_c_str() == CStr::from_ptr(s))
+                    if name.as_bytes() == CStr::from_ptr(s).to_bytes()
+                        || hyph != 0 && (famName.as_bytes() == CStr::from_ptr(s).to_bytes())
                     {
                         let names_1 = self.read_names(pat);
                         XeTeXFontMgr_addToMaps(self, pat, &names_1);
@@ -304,7 +300,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                         full.extend(CStr::from_ptr(s).to_bytes());
                         full.push(b' ');
                         full.extend(CStr::from_ptr(t).to_bytes());
-                        let matched = full == CStr::from_ptr(name).to_bytes();
+                        let matched = full == name.as_bytes();
                         if matched {
                             let names_2 = self.read_names(pat);
                             XeTeXFontMgr_addToMaps(self, pat, &names_2);
@@ -358,7 +354,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         if name.is_null() {
             return names;
         }
-        names.m_psName = CStr::from_ptr(name).to_owned();
+        names.m_psName = CStr::from_ptr(name).to_str().unwrap().to_string();
         /* this string is *not* null-terminated! */
         /* in bytes                              */
         // for sfnt containers, we'll read the name table ourselves, not rely on Fontconfig
@@ -408,17 +404,9 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                                     _ => unreachable!(),
                                 };
                                 if preferredName {
-                                    XeTeXFontMgr_prependToList(
-                                        self,
-                                        nameList,
-                                        CStr::from_bytes_with_nul(&utf8name).unwrap(),
-                                    );
+                                    XeTeXFontMgr_prependToList(self, nameList, &utf8name);
                                 } else {
-                                    XeTeXFontMgr_appendToList(
-                                        self,
-                                        nameList,
-                                        CStr::from_bytes_with_nul(&utf8name).unwrap(),
-                                    );
+                                    XeTeXFontMgr_appendToList(self, nameList, &utf8name);
                                 }
                             }
                         }
@@ -446,7 +434,11 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                     break;
                 }
                 index += 1;
-                XeTeXFontMgr_appendToList(self, &mut names.m_fullNames, CStr::from_ptr(name));
+                XeTeXFontMgr_appendToList(
+                    self,
+                    &mut names.m_fullNames,
+                    CStr::from_ptr(name).to_str().unwrap(),
+                );
             }
             let mut index = 0;
             loop {
@@ -461,7 +453,11 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                     break;
                 }
                 index += 1;
-                XeTeXFontMgr_appendToList(self, &mut names.m_familyNames, CStr::from_ptr(name));
+                XeTeXFontMgr_appendToList(
+                    self,
+                    &mut names.m_familyNames,
+                    CStr::from_ptr(name).to_str().unwrap(),
+                );
             }
             let mut index = 0;
             loop {
@@ -476,16 +472,19 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                     break;
                 }
                 index += 1;
-                XeTeXFontMgr_appendToList(self, &mut names.m_styleNames, CStr::from_ptr(name));
+                XeTeXFontMgr_appendToList(
+                    self,
+                    &mut names.m_styleNames,
+                    CStr::from_ptr(name).to_str().unwrap(),
+                );
             }
             if names.m_fullNames.is_empty() {
-                let mut fullName = Vec::new();
-                fullName.extend(names.m_familyNames[0].to_bytes());
+                let mut fullName = names.m_familyNames[0].clone();
                 if !names.m_styleNames.is_empty() {
-                    fullName.push(b' ');
-                    fullName.extend(names.m_styleNames[0].to_bytes());
+                    fullName.push(' ');
+                    fullName.push_str(&names.m_styleNames[0]);
                 }
-                names.m_fullNames.push_back(CString::new(fullName).unwrap());
+                names.m_fullNames.push_back(fullName);
             }
         }
         FT_Done_Face(face);
