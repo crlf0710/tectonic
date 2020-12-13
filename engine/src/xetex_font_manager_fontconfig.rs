@@ -52,7 +52,7 @@ use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
 use freetype::freetype_sys::FT_Long;
 use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
 
-use libc::{free, malloc, strchr};
+use libc::strchr;
 
 pub(crate) use fontconfig_sys::fontconfig::{
     enum__FcResult as FcResult, struct__FcPattern as FcPattern,
@@ -91,40 +91,29 @@ unsafe fn convertToUtf8(
     conv: *mut icu::UConverter,
     name: *const libc::c_uchar,
     mut len: libc::c_int,
-) -> *mut libc::c_char {
-    let mut buffer1 = ptr::null_mut::<i8>();
-    let mut buffer2 = ptr::null_mut();
-    let mut bufSize: libc::c_int = -1i32;
-    if 2i32 * (len + 1i32) > bufSize {
-        if !buffer1.is_null() {
-            free(buffer1 as *mut libc::c_void);
-            free(buffer2 as *mut libc::c_void);
-        }
-        bufSize = 2i32 * len + 100i32;
-        buffer1 = malloc((::std::mem::size_of::<libc::c_char>()).wrapping_mul(bufSize as usize))
-            as *mut libc::c_char;
-        buffer2 = malloc((::std::mem::size_of::<libc::c_char>()).wrapping_mul(bufSize as usize))
-            as *mut libc::c_char
-    }
+) -> Vec<u8> {
+    let mut buffer1 = vec![0_u16; len as usize + 50];
+    let bufSize = 2 * len + 100;
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;
     len = icu::ucnv_toUChars(
         conv,
-        buffer1 as *mut icu::UChar,
+        buffer1.as_mut_ptr(),
         bufSize,
         name as *const libc::c_char,
         len,
         &mut status,
     );
+    let mut buffer2 = vec![0_u8; bufSize as usize];
     len = icu::ucnv_fromUChars(
         utf8Conv,
-        buffer2,
+        buffer2.as_mut_ptr() as *mut i8,
         bufSize,
-        buffer1 as *mut icu::UChar,
+        buffer1.as_ptr(),
         len,
         &mut status,
     );
-    *buffer2.offset(len as isize) = 0i32 as libc::c_char;
-    free(buffer1 as *mut libc::c_void);
+    buffer2[len as usize] = 0;
+    buffer2.truncate(len as usize + 1);
     buffer2
 }
 
@@ -385,31 +374,31 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                 string_len: 0,
             };
             for i in 0..FT_Get_Sfnt_Name_Count(face) {
-                let mut utf8name = ptr::null_mut();
                 if FT_Get_Sfnt_Name(face, i, &mut nameRec) == 0 {
                     match nameRec.name_id as libc::c_int {
                         4 | 1 | 2 | 16 | 17 => {
                             let mut preferredName = false;
-                            if nameRec.platform_id as libc::c_int == 1i32
-                                && nameRec.encoding_id as libc::c_int == 0i32
-                                && nameRec.language_id as libc::c_int == 0i32
+                            let utf8name = if nameRec.platform_id == 1
+                                && nameRec.encoding_id == 0
+                                && nameRec.language_id == 0
                             {
-                                utf8name = convertToUtf8(
+                                let utf8name = Some(convertToUtf8(
                                     macRomanConv,
                                     nameRec.string,
                                     nameRec.string_len as libc::c_int,
-                                );
-                                preferredName = true
-                            } else if nameRec.platform_id as libc::c_int == 0i32
-                                || nameRec.platform_id as libc::c_int == 3i32
-                            {
-                                utf8name = convertToUtf8(
+                                ));
+                                preferredName = true;
+                                utf8name
+                            } else if nameRec.platform_id == 0 || nameRec.platform_id == 3 {
+                                Some(convertToUtf8(
                                     utf16beConv,
                                     nameRec.string,
                                     nameRec.string_len as libc::c_int,
-                                )
-                            }
-                            if !utf8name.is_null() {
+                                ))
+                            } else {
+                                None
+                            };
+                            if let Some(utf8name) = utf8name {
                                 let nameList = match nameRec.name_id as libc::c_int {
                                     4 => &mut names.m_fullNames,
                                     1 => &mut names.m_familyNames,
@@ -419,11 +408,18 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                                     _ => unreachable!(),
                                 };
                                 if preferredName {
-                                    XeTeXFontMgr_prependToList(self, nameList, utf8name);
+                                    XeTeXFontMgr_prependToList(
+                                        self,
+                                        nameList,
+                                        CStr::from_bytes_with_nul(&utf8name).unwrap(),
+                                    );
                                 } else {
-                                    XeTeXFontMgr_appendToList(self, nameList, utf8name);
+                                    XeTeXFontMgr_appendToList(
+                                        self,
+                                        nameList,
+                                        CStr::from_bytes_with_nul(&utf8name).unwrap(),
+                                    );
                                 }
-                                free(utf8name as *mut libc::c_void);
                             }
                         }
                         _ => {}
@@ -450,7 +446,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                     break;
                 }
                 index += 1;
-                XeTeXFontMgr_appendToList(self, &mut names.m_fullNames, name);
+                XeTeXFontMgr_appendToList(self, &mut names.m_fullNames, CStr::from_ptr(name));
             }
             let mut index = 0;
             loop {
@@ -465,7 +461,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                     break;
                 }
                 index += 1;
-                XeTeXFontMgr_appendToList(self, &mut names.m_familyNames, name);
+                XeTeXFontMgr_appendToList(self, &mut names.m_familyNames, CStr::from_ptr(name));
             }
             let mut index = 0;
             loop {
@@ -480,7 +476,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                     break;
                 }
                 index += 1;
-                XeTeXFontMgr_appendToList(self, &mut names.m_styleNames, name);
+                XeTeXFontMgr_appendToList(self, &mut names.m_styleNames, CStr::from_ptr(name));
             }
             if names.m_fullNames.is_empty() {
                 let mut fullName = Vec::new();

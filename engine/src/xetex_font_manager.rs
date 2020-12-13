@@ -879,7 +879,7 @@ impl XeTeXFontMgr {
 pub(crate) unsafe fn XeTeXFontMgr_appendToList(
     mut _self_0: &XeTeXFontMgr,
     list: &mut VecDeque<CString>,
-    str: *const libc::c_char,
+    cstr: &CStr,
 ) {
     fn has_occur(list: &VecDeque<CString>, val: &CStr) -> bool {
         for item in list.iter() {
@@ -889,16 +889,16 @@ pub(crate) unsafe fn XeTeXFontMgr_appendToList(
         }
         false
     }
-    if has_occur(list, CStr::from_ptr(str)) {
+    if has_occur(list, cstr) {
         return;
     }
-    list.push_back(CStr::from_ptr(str).to_owned());
+    list.push_back(cstr.to_owned());
 }
 // prepend a name, removing it from later in the list if present
 pub(crate) unsafe fn XeTeXFontMgr_prependToList(
     _self_0: &XeTeXFontMgr,
     list: &mut VecDeque<CString>,
-    str: *const libc::c_char,
+    cstr: &CStr,
 ) {
     fn remove_first_occur(list: &mut VecDeque<CString>, val: &CStr) -> bool {
         let mut found_idx = None;
@@ -916,8 +916,8 @@ pub(crate) unsafe fn XeTeXFontMgr_prependToList(
         }
     }
 
-    remove_first_occur(list, CStr::from_ptr(str));
-    list.push_front(CStr::from_ptr(str).to_owned());
+    remove_first_occur(list, cstr);
+    list.push_front(cstr.to_owned());
 }
 pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
     self_0: &mut FontMgr,
