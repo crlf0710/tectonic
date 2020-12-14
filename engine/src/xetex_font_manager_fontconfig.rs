@@ -41,10 +41,7 @@ use std::collections::VecDeque;
 
 use crate::xetex_font_manager::FontMgrExt;
 
-use super::{
-    XeTeXFontMgr_addToMaps, XeTeXFontMgr_appendToList, XeTeXFontMgr_base_ctor,
-    XeTeXFontMgr_prependToList,
-};
+use super::{AddToList, AddToMaps};
 use crate::stub_icu as icu;
 use crate::xetex_font_info::gFreeTypeLibrary;
 
@@ -116,6 +113,18 @@ unsafe fn convertToUtf8(
 }
 
 impl XeTeXFontMgr_FC {
+    pub(crate) fn ctor() -> Self {
+        Self {
+            super_: XeTeXFontMgr::base_ctor(),
+            allFonts: ptr::null_mut(),
+            cachedAll: false,
+        }
+    }
+
+    pub(crate) fn create() -> Box<Self> {
+        Box::new(Self::ctor())
+    }
+
     pub(crate) unsafe fn cache_family_members(&mut self, familyNames: &VecDeque<String>) {
         if familyNames.is_empty() {
             return;
@@ -146,7 +155,7 @@ impl XeTeXFontMgr_FC {
                     continue;
                 }
                 let names = self.read_names(pat);
-                XeTeXFontMgr_addToMaps(self, pat, &names);
+                self.add_to_maps(pat, &names);
                 break;
             }
         }
@@ -246,7 +255,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                 if self.cachedAll {
                     // failed to find it via FC; add everything to our maps (potentially slow) as a last resort
                     let names = self.read_names(pat);
-                    XeTeXFontMgr_addToMaps(self, pat, &names);
+                    self.add_to_maps(pat, &names);
                     continue;
                 }
 
@@ -261,7 +270,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                 {
                     if name.as_bytes() == CStr::from_ptr(s).to_bytes() {
                         let names_0 = self.read_names(pat);
-                        XeTeXFontMgr_addToMaps(self, pat, &names_0);
+                        self.add_to_maps(pat, &names_0);
                         self.cache_family_members(&names_0.m_familyNames);
                         found = true;
                         continue 'traverse_fonts;
@@ -281,7 +290,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                         || hyph != 0 && (famName.as_bytes() == CStr::from_ptr(s).to_bytes())
                     {
                         let names_1 = self.read_names(pat);
-                        XeTeXFontMgr_addToMaps(self, pat, &names_1);
+                        self.add_to_maps(pat, &names_1);
                         self.cache_family_members(&names_1.m_familyNames);
                         found = true;
                         continue 'traverse_fonts;
@@ -303,7 +312,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                         let matched = full == name.as_bytes();
                         if matched {
                             let names_2 = self.read_names(pat);
-                            XeTeXFontMgr_addToMaps(self, pat, &names_2);
+                            self.add_to_maps(pat, &names_2);
                             self.cache_family_members(&names_2.m_familyNames);
                             found = true;
                             continue 'traverse_fonts;
@@ -404,9 +413,11 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                                     _ => unreachable!(),
                                 };
                                 if preferredName {
-                                    XeTeXFontMgr_prependToList(self, nameList, &utf8name);
+                                    nameList.prepend_to_list(&utf8name);
                                 } else {
-                                    XeTeXFontMgr_appendToList(self, nameList, &utf8name);
+                                    if !nameList.contains(&utf8name) {
+                                        nameList.push_back(utf8name);
+                                    }
                                 }
                             }
                         }
@@ -422,61 +433,43 @@ impl FontMgrExt for XeTeXFontMgr_FC {
             }
         } else {
             let mut index = 0;
-            loop {
-                if FcPatternGetString(
-                    pat,
-                    b"fullname\x00" as *const u8 as *const libc::c_char,
-                    index,
-                    &mut name as *mut *const libc::c_char as *mut *mut u8,
-                ) as libc::c_uint
-                    != FcResultMatch as libc::c_uint
-                {
-                    break;
-                }
+            while FcPatternGetString(
+                pat,
+                b"fullname\x00" as *const u8 as *const libc::c_char,
+                index,
+                &mut name as *mut *const libc::c_char as *mut *mut u8,
+            ) == FcResultMatch
+            {
                 index += 1;
-                XeTeXFontMgr_appendToList(
-                    self,
-                    &mut names.m_fullNames,
-                    CStr::from_ptr(name).to_str().unwrap(),
-                );
+                names
+                    .m_fullNames
+                    .append_to_list(CStr::from_ptr(name).to_str().unwrap());
             }
             let mut index = 0;
-            loop {
-                if FcPatternGetString(
-                    pat,
-                    b"family\x00" as *const u8 as *const libc::c_char,
-                    index,
-                    &mut name as *mut *const libc::c_char as *mut *mut u8,
-                ) as libc::c_uint
-                    != FcResultMatch as libc::c_uint
-                {
-                    break;
-                }
+            while FcPatternGetString(
+                pat,
+                b"family\x00" as *const u8 as *const libc::c_char,
+                index,
+                &mut name as *mut *const libc::c_char as *mut *mut u8,
+            ) == FcResultMatch
+            {
                 index += 1;
-                XeTeXFontMgr_appendToList(
-                    self,
-                    &mut names.m_familyNames,
-                    CStr::from_ptr(name).to_str().unwrap(),
-                );
+                names
+                    .m_familyNames
+                    .append_to_list(CStr::from_ptr(name).to_str().unwrap());
             }
             let mut index = 0;
-            loop {
-                if FcPatternGetString(
-                    pat,
-                    b"style\x00" as *const u8 as *const libc::c_char,
-                    index,
-                    &mut name as *mut *const libc::c_char as *mut *mut u8,
-                ) as libc::c_uint
-                    != FcResultMatch as libc::c_uint
-                {
-                    break;
-                }
+            while FcPatternGetString(
+                pat,
+                b"style\x00" as *const u8 as *const libc::c_char,
+                index,
+                &mut name as *mut *const libc::c_char as *mut *mut u8,
+            ) == FcResultMatch
+            {
                 index += 1;
-                XeTeXFontMgr_appendToList(
-                    self,
-                    &mut names.m_styleNames,
-                    CStr::from_ptr(name).to_str().unwrap(),
-                );
+                names
+                    .m_styleNames
+                    .append_to_list(CStr::from_ptr(name).to_str().unwrap());
             }
             if names.m_fullNames.is_empty() {
                 let mut fullName = names.m_familyNames[0].clone();
@@ -491,54 +484,41 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         names
     }
     unsafe fn get_op_size_rec_and_style_flags(&self, theFont: &mut XeTeXFontMgrFont) {
-        self.base_get_op_size_rec_and_style_flags(theFont);
-        if theFont.weight as libc::c_int == 0i32 && theFont.width as libc::c_int == 0i32 {
+        theFont.base_get_op_size_rec_and_style_flags();
+        if theFont.weight == 0 && theFont.width == 0 {
             // try to get values from FontConfig, as it apparently wasn't an sfnt
             let pat = theFont.fontRef;
-            let mut value: libc::c_int = 0;
+            let mut value = 0;
             if FcPatternGetInteger(
                 pat,
                 b"weight\x00" as *const u8 as *const libc::c_char,
-                0i32,
+                0,
                 &mut value,
-            ) as libc::c_uint
-                == FcResultMatch as libc::c_int as libc::c_uint
+            ) == FcResultMatch
             {
                 theFont.weight = value as u16
             }
             if FcPatternGetInteger(
                 pat,
                 b"width\x00" as *const u8 as *const libc::c_char,
-                0i32,
+                0,
                 &mut value,
-            ) as libc::c_uint
-                == FcResultMatch as libc::c_int as libc::c_uint
+            ) == FcResultMatch
             {
                 theFont.width = value as u16
             }
             if FcPatternGetInteger(
                 pat,
                 b"slant\x00" as *const u8 as *const libc::c_char,
-                0i32,
+                0,
                 &mut value,
-            ) as libc::c_uint
-                == FcResultMatch as libc::c_int as libc::c_uint
+            ) == FcResultMatch
             {
                 theFont.slant = value as i16
             }
         };
     }
-}
-
-#[no_mangle]
-pub(crate) unsafe fn XeTeXFontMgr_FC_ctor() -> XeTeXFontMgr_FC {
-    XeTeXFontMgr_FC {
-        super_: XeTeXFontMgr_base_ctor(),
-        allFonts: ptr::null_mut(),
-        cachedAll: false,
+    fn font_ref(font: &XeTeXFontMgrFont) -> Self::FontRef {
+        font.fontRef
     }
-}
-#[no_mangle]
-pub(crate) unsafe fn XeTeXFontMgr_FC_create() -> Box<XeTeXFontMgr_FC> {
-    Box::new(XeTeXFontMgr_FC_ctor())
 }

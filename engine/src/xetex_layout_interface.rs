@@ -32,10 +32,13 @@ authorization from the copyright holders.
 \****************************************************************************/
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::xetex_font_manager::FindFont;
 use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
 
+#[cfg(not(target_os = "macos"))]
 use crate::c_pointer_to_str;
+
 use crate::xetex_consts::Side;
 use harfbuzz_sys::{hb_feature_t, hb_ot_math_glyph_part_t, hb_tag_t};
 use std::ffi::CStr;
@@ -120,7 +123,6 @@ pub struct gr_slot {
 }
 
 extern "C" {
-    //#[no_mangle]
     #[cfg(not(target_os = "macos"))]
     fn FcPatternGetInteger(
         p: *const FcPattern,
@@ -128,7 +130,6 @@ extern "C" {
         n: i32,
         i: *mut i32,
     ) -> FcResult;
-    //#[no_mangle]
     #[cfg(not(target_os = "macos"))]
     fn FcPatternGetString(
         p: *const FcPattern,
@@ -136,14 +137,12 @@ extern "C" {
         n: i32,
         s: *mut *mut u8,
     ) -> FcResult;
-    //#[no_mangle]
     fn hb_unicode_funcs_set_decompose_compatibility_func(
         ufuncs: *mut hb_unicode_funcs_t,
         func: hb_unicode_decompose_compatibility_func_t,
         user_data: *mut libc::c_void,
         destroy: hb_destroy_func_t,
     );
-    //#[no_mangle]
     fn hb_ot_layout_script_find_language(
         face: *mut hb_face_t,
         table_tag: hb_tag_t,
@@ -152,42 +151,31 @@ extern "C" {
         language_index: *mut libc::c_uint,
     ) -> hb_bool_t;
 
-    //#[no_mangle]
     fn gr_face_featureval_for_lang(
         pFace: *const gr_face,
         langname: gr_uint32,
     ) -> *mut gr_feature_val;
-    //#[no_mangle]
     fn gr_face_find_fref(pFace: *const gr_face, featId: gr_uint32) -> *const gr_feature_ref;
-    //#[no_mangle]
     fn gr_face_n_fref(pFace: *const gr_face) -> gr_uint16;
-    //#[no_mangle]
     fn gr_face_fref(pFace: *const gr_face, i: gr_uint16) -> *const gr_feature_ref;
-    //#[no_mangle]
     fn gr_fref_feature_value(
         pfeatureref: *const gr_feature_ref,
         feats: *const gr_feature_val,
     ) -> gr_uint16;
-    //#[no_mangle]
     fn gr_fref_set_feature_value(
         pfeatureref: *const gr_feature_ref,
         val: gr_uint16,
         pDest: *mut gr_feature_val,
     ) -> i32;
-    //#[no_mangle]
     fn gr_fref_id(pfeatureref: *const gr_feature_ref) -> gr_uint32;
-    //#[no_mangle]
     fn gr_fref_n_values(pfeatureref: *const gr_feature_ref) -> gr_uint16;
-    //#[no_mangle]
     fn gr_fref_value(pfeatureref: *const gr_feature_ref, settingno: gr_uint16) -> gr_int16;
-    //#[no_mangle]
     fn gr_fref_label(
         pfeatureref: *const gr_feature_ref,
         langId: *mut gr_uint16,
         utf: gr_encform,
         length: *mut gr_uint32,
     ) -> *mut libc::c_void;
-    //#[no_mangle]
     fn gr_fref_value_label(
         pfeatureref: *const gr_feature_ref,
         settingno: gr_uint16,
@@ -195,13 +183,9 @@ extern "C" {
         utf: gr_encform,
         length: *mut gr_uint32,
     ) -> *mut libc::c_void;
-    //#[no_mangle]
     pub(crate) fn gr_label_destroy(label: *mut libc::c_void);
-    //#[no_mangle]
     fn gr_cinfo_break_weight(p: *const gr_char_info) -> i32;
-    //#[no_mangle]
     fn gr_cinfo_base(p: *const gr_char_info) -> size_t;
-    //#[no_mangle]
     fn gr_make_seg(
         font: *const gr_font,
         face: *const gr_face,
@@ -212,29 +196,19 @@ extern "C" {
         nChars: size_t,
         dir: i32,
     ) -> *mut gr_segment;
-    //#[no_mangle]
     fn gr_seg_destroy(p: *mut gr_segment);
-    //#[no_mangle]
     fn gr_seg_cinfo(pSeg: *const gr_segment, index: libc::c_uint) -> *const gr_char_info;
-    //#[no_mangle]
     fn gr_seg_first_slot(pSeg: *mut gr_segment) -> *const gr_slot;
-    //#[no_mangle]
     fn gr_seg_last_slot(pSeg: *mut gr_segment) -> *const gr_slot;
-    //#[no_mangle]
     fn gr_slot_next_in_segment(p: *const gr_slot) -> *const gr_slot;
-    //#[no_mangle]
     fn gr_slot_index(p: *const gr_slot) -> libc::c_uint;
-    //#[no_mangle]
     fn hb_graphite2_face_get_gr_face(face: *mut hb_face_t) -> *mut gr_face;
-    //#[no_mangle]
     fn hb_graphite2_font_get_gr_font(font: *mut hb_font_t) -> *mut gr_font;
-    //#[no_mangle]
     fn hb_icu_get_unicode_funcs() -> *mut hb_unicode_funcs_t;
 }
 
 use crate::xetex_font_manager::{
     XeTeXFontMgr_Destroy, XeTeXFontMgr_GetFontManager, XeTeXFontMgr_Terminate,
-    XeTeXFontMgr_findFont, XeTeXFontMgr_getDesignSize, XeTeXFontMgr_getFullName,
     XeTeXFontMgr_getReqEngine, XeTeXFontMgr_setReqEngine,
 };
 
@@ -349,7 +323,7 @@ impl XeTeXFontInst {
         self.m_italicAngle
     }
     #[inline]
-    unsafe fn get_filename(&self, index: *mut u32) -> &str {
+    unsafe fn get_filename(&self, index: &mut u32) -> &str {
         *index = self.m_index;
         &self.m_filename
     }
@@ -478,7 +452,7 @@ pub(crate) unsafe fn setFontLayoutDir(font: &mut XeTeXFontInst, vertical: i32) {
     font.set_layout_dir_vertical(vertical != 0);
 }
 pub(crate) unsafe fn findFontByName(name: &str, var: &mut String, size: f64) -> PlatformFontRef {
-    XeTeXFontMgr_findFont(XeTeXFontMgr_GetFontManager(), name, var, size)
+    XeTeXFontMgr_GetFontManager().find_font(name, var, size)
 }
 pub(crate) unsafe fn getReqEngine() -> libc::c_char {
     XeTeXFontMgr_getReqEngine(XeTeXFontMgr_GetFontManager())
@@ -487,13 +461,12 @@ pub(crate) unsafe fn setReqEngine(reqEngine: libc::c_char) {
     XeTeXFontMgr_setReqEngine(XeTeXFontMgr_GetFontManager(), reqEngine);
 }
 pub(crate) unsafe fn getFullName(fontRef: PlatformFontRef) -> String {
-    XeTeXFontMgr_getFullName(XeTeXFontMgr_GetFontManager(), fontRef)
+    XeTeXFontMgr_GetFontManager().get_full_name(fontRef)
 }
-pub(crate) unsafe fn getDesignSize(font: &XeTeXFontInst) -> f64 {
-    XeTeXFontMgr_getDesignSize(XeTeXFontMgr_GetFontManager(), font)
-}
-pub(crate) unsafe fn getFontFilename(engine: &XeTeXLayoutEngine, index: *mut u32) -> String {
-    engine.font.get_filename(index).to_string()
+impl XeTeXLayoutEngine {
+    pub(crate) unsafe fn get_font_filename(&self, index: &mut u32) -> String {
+        self.font.get_filename(index).to_string()
+    }
 }
 pub(crate) unsafe fn getFontRef(engine: &XeTeXLayoutEngine) -> PlatformFontRef {
     engine.fontRef

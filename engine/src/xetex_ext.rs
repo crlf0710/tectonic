@@ -878,7 +878,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
     if nameString.as_bytes()[0] == b'[' {
         if scaled_size < Scaled::ZERO {
             if let Some(font) = createFontFromFile(&nameString[1..], index, Scaled(655360)) {
-                let dsize = D2Fix(getDesignSize(&font));
+                let dsize = D2Fix(font.get_design_size());
                 if scaled_size == Scaled(-1000) {
                     scaled_size = dsize
                 } else {
@@ -887,7 +887,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
             }
         }
         if let Some(font) = createFontFromFile(&nameString[1..], index, scaled_size) {
-            loaded_font_design_size = D2Fix(getDesignSize(&font));
+            loaded_font_design_size = D2Fix(font.get_design_size());
             /* This is duplicated in XeTeXFontMgr::findFont! */
             setReqEngine(0_i8);
             if !varString.is_empty() {
@@ -918,7 +918,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
             name_of_font = getFullName(fontRef);
             if scaled_size < Scaled::ZERO {
                 if let Some(font) = createFont(fontRef, scaled_size) {
-                    let dsize_0 = D2Fix(getDesignSize(&font));
+                    let dsize_0 = D2Fix(font.get_design_size());
                     if scaled_size == Scaled(-1000) {
                         scaled_size = dsize_0
                     } else {
@@ -1192,7 +1192,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
         Otgr(engine) => {
             /* fontRef = */
             getFontRef(engine);
-            filename = getFontFilename(engine, &mut index);
+            filename = engine.get_font_filename(&mut index);
             assert!(!filename.is_empty());
             rgba = engine.get_rgb_value();
             if FONT_FLAGS[f] as i32 & 0x2i32 != 0i32 {
