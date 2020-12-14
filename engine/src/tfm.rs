@@ -673,7 +673,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
     FONT_MAPPING[FONT_PTR] = ptr::null_mut();
     FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
     /* "measure the width of the space character and set up font parameters" */
-    let p = new_native_character(FONT_PTR, ' ' as i32);
+    let p = new_native_character(FONT_PTR, ' ');
     let s = p.width() + loaded_font_letter_space;
     p.free();
 

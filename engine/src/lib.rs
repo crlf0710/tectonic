@@ -126,11 +126,6 @@ mod core_memory {
         }
         new_mem
     }
-    pub(crate) unsafe fn strdup(s: &str) -> *mut i8 {
-        let new_string = xmalloc((s.len() + 1) as size_t) as *mut i8;
-        let s = std::ffi::CString::new(s).unwrap();
-        libc::strcpy(new_string, s.as_ptr())
-    }
 
     #[inline]
     pub(crate) unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {

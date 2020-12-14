@@ -9,7 +9,7 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, Confuse};
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_ini::{
-    adjust_tail, avail, cur_c, cur_dir, cur_f, cur_group, cur_i, cur_lang, cur_list, input_state_t,
+    adjust_tail, avail, cur_dir, cur_f, cur_group, cur_i, cur_lang, cur_list, input_state_t,
     insert_src_special_every_math, just_box, memory_word, pre_adjust_tail, total_shrink,
     xtx_ligature_present, LR_problems, LR_ptr, EQTB, EXTEN_BASE, FONT_BC, FONT_EC, FONT_INFO,
     FONT_LAYOUT_ENGINE, FONT_PARAMS, KERN_BASE, LIG_KERN_BASE, MEM, NEST_PTR, NULL_CHARACTER,
@@ -1480,16 +1480,16 @@ unsafe fn clean_box(p: &MCell, s: (MathStyle, u8)) -> List {
     }
     found(q)
 }
-pub(crate) unsafe fn fetch(a: &mut MCell) {
-    cur_f = MATH_FONT(a.val.chr.family as usize + cur_size);
-    cur_c = a.val.chr.as_utf32() as i32;
-    if cur_f == FONT_BASE {
+pub(crate) unsafe fn fetch(a: &mut MCell) -> (usize, char) {
+    let f = MATH_FONT(a.val.chr.family as usize + cur_size);
+    let c = std::char::from_u32(a.val.chr.as_utf32()).unwrap();
+    if f == FONT_BASE {
         // 749:
         t_eprint!(
             "{} {} is undefined (character {})",
             FontSize::from(cur_size),
             a.val.chr.family,
-            std::char::from_u32(cur_c as u32).unwrap()
+            c
         );
 
         help!(
@@ -1501,19 +1501,20 @@ pub(crate) unsafe fn fetch(a: &mut MCell) {
         error();
         cur_i = NULL_CHARACTER;
         a.typ = MathCell::Empty;
-    } else if let Font::Native(_) = &FONT_LAYOUT_ENGINE[cur_f as usize] {
+    } else if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f as usize] {
         cur_i = NULL_CHARACTER
     } else {
-        if cur_c >= FONT_BC[cur_f as usize] as i32 && cur_c <= FONT_EC[cur_f as usize] as i32 {
-            cur_i = FONT_CHARACTER_INFO(cur_f as usize, cur_c as usize);
+        if c as i32 >= FONT_BC[f as usize] as i32 && c as i32 <= FONT_EC[f as usize] as i32 {
+            cur_i = FONT_CHARACTER_INFO(f as usize, c as usize);
         } else {
             cur_i = NULL_CHARACTER
         }
         if cur_i.s3 as i32 <= 0 {
-            char_warning(cur_f, cur_c);
+            char_warning(f, c);
             a.typ = MathCell::Empty;
         }
     };
+    (f, c)
 }
 unsafe fn make_over(q: &mut Over) {
     let subbox = overbar(
@@ -1603,10 +1604,11 @@ unsafe fn make_radical(q: &mut Radical) {
 unsafe fn compute_ot_math_accent_pos(p: &mut Accent) -> Scaled {
     match p.nucleus().typ {
         MathCell::MathChar => {
-            p.nucleus_mut().fetch();
-            let q = new_native_character(cur_f, cur_c);
+            let (f, c) = p.nucleus_mut().fetch();
+            cur_f = f;
+            let q = new_native_character(f, c);
             let g = q.native_glyph(0) as i32;
-            get_ot_math_accent_pos(cur_f, g)
+            get_ot_math_accent_pos(f, g)
         }
         MathCell::SubMList => match p.nucleus().val.ptr.opt() {
             Some(r) if math_NODE_type(r).unwrap() == MathNode::Accent => {
@@ -1618,16 +1620,17 @@ unsafe fn compute_ot_math_accent_pos(p: &mut Accent) -> Scaled {
     }
 }
 unsafe fn make_math_accent(q: &mut Accent) {
-    let mut c: i32 = 0;
-    let mut f: internal_font_number = 0;
     let mut s = Scaled::ZERO;
     let mut h: Scaled = Scaled::ZERO;
     let mut w: Scaled = Scaled::ZERO;
     let mut w2: Scaled = Scaled::ZERO;
-    q.fourth_mut().fetch();
-    let x = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[cur_f as usize] {
-        c = cur_c;
-        f = cur_f;
+    let (fnt, chr) = q.fourth_mut().fetch();
+    cur_f = fnt;
+    let mut c;
+    let f;
+    let x = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[fnt as usize] {
+        c = chr as i32;
+        f = fnt;
         s = match q.accent_type() {
             AccentType::Bottom | AccentType::BottomFixed => Scaled::ZERO,
             _ => compute_ot_math_accent_pos(q),
@@ -1638,28 +1641,26 @@ unsafe fn make_math_accent(q: &mut Accent) {
         Some(x)
     } else if cur_i.s3 as i32 > 0 {
         let mut i = cur_i;
-        c = cur_c;
-        f = cur_f;
+        c = chr as i32;
+        f = fnt;
         s = Scaled::ZERO;
         if q.nucleus().typ == MathCell::MathChar {
-            q.nucleus_mut().fetch();
+            let (f, _) = q.nucleus_mut().fetch();
+            cur_f = f;
             if cur_i.s1 as i32 % 4 == LIG_TAG {
-                let mut a = LIG_KERN_BASE[cur_f as usize] + cur_i.s0 as i32;
+                let mut a = LIG_KERN_BASE[f] + cur_i.s0 as i32;
                 cur_i = FONT_INFO[a as usize].b16;
                 if cur_i.s3 as i32 > 128 {
-                    a = ((LIG_KERN_BASE[cur_f as usize] + 256 * cur_i.s1 as i32 + cur_i.s0 as i32)
-                        as i64
+                    a = ((LIG_KERN_BASE[f] + 256 * cur_i.s1 as i32 + cur_i.s0 as i32) as i64
                         + 32768
                         - (256 * 128) as i64) as i32;
                     cur_i = FONT_INFO[a as usize].b16
                 }
                 loop {
-                    if cur_i.s2 as i32 == SKEW_CHAR[cur_f as usize] {
+                    if cur_i.s2 as i32 == SKEW_CHAR[f] {
                         if cur_i.s1 as i32 >= 128 && cur_i.s3 as i32 <= 128 {
                             s = Scaled(
-                                FONT_INFO[(KERN_BASE[cur_f as usize]
-                                    + 256 * cur_i.s1 as i32
-                                    + cur_i.s0 as i32)
+                                FONT_INFO[(KERN_BASE[f] + 256 * cur_i.s1 as i32 + cur_i.s0 as i32)
                                     as usize]
                                     .b32
                                     .s1,
@@ -1693,6 +1694,8 @@ unsafe fn make_math_accent(q: &mut Accent) {
         }
         Some(x)
     } else {
+        c = 0;
+        f = 0;
         None
     };
     // :767
@@ -1972,24 +1975,24 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
     }
     let mut delta = Scaled::ZERO;
     if q.nucleus().typ == MathCell::MathChar {
-        q.nucleus_mut().fetch();
-        match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+        let (f, _) = q.nucleus_mut().fetch();
+        cur_f = f;
+        match &FONT_LAYOUT_ENGINE[f as usize] {
             Font::Native(Otgr(e)) if e.using_open_type() => {}
             _ => {
                 if cur_style.0 == MathStyle::Display && cur_i.s1 as i32 % 4 == LIST_TAG {
                     let c = cur_i.s0;
-                    let i = FONT_CHARACTER_INFO(cur_f as usize, c as usize);
+                    let i = FONT_CHARACTER_INFO(f as usize, c as usize);
                     if i.s3 as i32 > 0 {
-                        cur_c = c as i32;
                         cur_i = i;
                         q.nucleus_mut().val.chr.character1 = c
                     }
                 }
-                delta = *FONT_CHARINFO_ITALCORR(cur_f as usize, cur_i);
+                delta = *FONT_CHARINFO_ITALCORR(f as usize, cur_i);
             }
         }
         let mut x = clean_box(q.nucleus(), cur_style);
-        match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+        match &FONT_LAYOUT_ENGINE[f as usize] {
             Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
                 if let Some(p) = x.list_ptr().opt() {
                     if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::Glyph(mut p))) =
@@ -2000,7 +2003,7 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                         let mut depth = p.depth();
                         let mut height = p.height();
                         if cur_style.0 == MathStyle::Display {
-                            let mut h1 = get_ot_math_constant(cur_f, DISPLAYOPERATORMINHEIGHT);
+                            let mut h1 = get_ot_math_constant(f, DISPLAYOPERATORMINHEIGHT);
                             if (h1.0 as f64) < ((p.height() + p.depth()) * 5).0 as f64 / 4_f64 {
                                 h1 =
                                     Scaled((((p.height() + p.depth()) * 5).0 as f64 / 4_f64) as i32)
@@ -2009,7 +2012,7 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                             let mut n = 0;
                             let mut h2 = Scaled::ZERO;
                             loop {
-                                let g = get_ot_math_variant(cur_f, c as i32, n, &mut h2, 0);
+                                let g = get_ot_math_variant(f, c as i32, n, &mut h2, 0);
                                 if h2 > Scaled::ZERO {
                                     p.set_glyph(g as u16);
                                     p.set_metrics(true);
@@ -2020,10 +2023,10 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                                 }
                             }
                             if h2 < Scaled::ZERO {
-                                if let Some(ot_assembly) = get_ot_assembly_ptr(cur_f, c as i32, 0) {
+                                if let Some(ot_assembly) = get_ot_assembly_ptr(f, c as i32, 0) {
                                     free_node(p.ptr(), GLYPH_NODE_SIZE);
                                     let b = build_opentype_assembly(
-                                        cur_f,
+                                        f,
                                         &ot_assembly,
                                         h1,
                                         ListDir::Vertical,
@@ -2040,7 +2043,7 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                             }
                         }
                         if ital_corr {
-                            delta = get_ot_math_ital_corr(cur_f, p.glyph() as i32);
+                            delta = get_ot_math_ital_corr(f, p.glyph() as i32);
                             width = p.width();
                             depth = p.depth();
                             height = p.height();
@@ -2163,26 +2166,26 @@ unsafe fn make_ord(q: &mut Ord) {
             break;
         }
         q.nucleus_mut().typ = MathCell::MathTextChar;
-        q.nucleus_mut().fetch();
+        let (f, _) = q.nucleus_mut().fetch();
+        cur_f = f;
         if cur_i.s1 as i32 % 4 != LIG_TAG {
             break;
         }
-        let mut a = LIG_KERN_BASE[cur_f as usize] + cur_i.s0 as i32;
-        cur_c = p.nucleus().val.chr.character1 as i32;
+        let mut a = LIG_KERN_BASE[f as usize] + cur_i.s0 as i32;
+        let c = p.nucleus().val.chr.character1 as i32;
         cur_i = FONT_INFO[a as usize].b16;
         if cur_i.s3 as i32 > 128 {
-            a = ((LIG_KERN_BASE[cur_f as usize] + 256 * cur_i.s1 as i32 + cur_i.s0 as i32) as i64
+            a = ((LIG_KERN_BASE[f as usize] + 256 * cur_i.s1 as i32 + cur_i.s0 as i32) as i64
                 + 32768
                 - (256 * 128) as i64) as i32;
             cur_i = FONT_INFO[a as usize].b16
         }
         loop {
-            if cur_i.s2 as i32 == cur_c && cur_i.s3 as i32 <= 128 {
+            if cur_i.s2 as i32 == c && cur_i.s3 as i32 <= 128 {
                 if cur_i.s1 as i32 >= 128 {
                     let p = new_kern(Scaled(
-                        FONT_INFO[(KERN_BASE[cur_f as usize]
-                            + 256 * cur_i.s1 as i32
-                            + cur_i.s0 as i32) as usize]
+                        FONT_INFO[(KERN_BASE[f as usize] + 256 * cur_i.s1 as i32 + cur_i.s0 as i32)
+                            as usize]
                             .b32
                             .s1,
                     ));
@@ -2297,20 +2300,18 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
         {
             /*787: */
             if q.subscr().typ == MathCell::MathChar {
-                let save_f = cur_f;
-                q.subscr_mut().fetch();
-                match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+                let (f, c) = q.subscr_mut().fetch();
+                match &FONT_LAYOUT_ENGINE[f as usize] {
                     Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
-                        let script_c = new_native_character(cur_f, cur_c);
+                        let script_c = new_native_character(f, c);
                         script_g = script_c.native_glyph(0);
-                        script_f = cur_f;
+                        script_f = f;
                     }
                     _ => {
                         script_g = 0;
                         script_f = 0;
                     }
                 }
-                cur_f = save_f
             }
             if let Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(p)))) = p.opt().map(Node::from) {
                 sub_kern = get_ot_math_kern(
@@ -2364,20 +2365,18 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
         {
             // 788:
             if q.supscr().typ == MathCell::MathChar {
-                let save_f = cur_f;
-                q.supscr_mut().fetch();
-                match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+                let (f, c) = q.supscr_mut().fetch();
+                match &FONT_LAYOUT_ENGINE[f as usize] {
                     Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
-                        let script_c = new_native_character(cur_f, cur_c);
+                        let script_c = new_native_character(f, c);
                         script_g = script_c.native_glyph(0);
-                        script_f = cur_f
+                        script_f = f
                     }
                     _ => {
                         script_g = 0;
                         script_f = 0;
                     }
                 }
-                cur_f = save_f
             }
             if let Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(p)))) = p.opt().map(Node::from) {
                 sup_kern = get_ot_math_kern(
@@ -2441,20 +2440,18 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
             if matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], Font::Native(Otgr(eng)) if eng.is_open_type_math_font())
             {
                 if q.subscr().typ == MathCell::MathChar {
-                    let save_f = cur_f;
-                    q.subscr_mut().fetch();
-                    match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+                    let (f, c) = q.subscr_mut().fetch();
+                    match &FONT_LAYOUT_ENGINE[f] {
                         Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
-                            let script_c = new_native_character(cur_f, cur_c);
+                            let script_c = new_native_character(f, c);
                             script_g = script_c.native_glyph(0);
-                            script_f = cur_f
+                            script_f = f
                         }
                         _ => {
                             script_g = 0;
                             script_f = 0;
                         }
                     }
-                    cur_f = save_f
                 }
                 if let Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(p)))) =
                     p.opt().map(Node::from)
@@ -2472,20 +2469,18 @@ unsafe fn make_scripts(q: &mut BaseMath, delta: Scaled) {
                     p = attach_hkern_to_new_hlist(q, sub_kern) as i32;
                 }
                 if q.supscr().typ == MathCell::MathChar {
-                    let save_f = cur_f;
-                    q.supscr_mut().fetch();
-                    match &FONT_LAYOUT_ENGINE[cur_f as usize] {
+                    let (f, c) = q.supscr_mut().fetch();
+                    match &FONT_LAYOUT_ENGINE[f] {
                         Font::Native(Otgr(e)) if e.is_open_type_math_font() => {
-                            let script_c = new_native_character(cur_f, cur_c);
+                            let script_c = new_native_character(f, c);
                             script_g = script_c.native_glyph(0);
-                            script_f = cur_f
+                            script_f = f
                         }
                         _ => {
                             script_g = 0;
                             script_f = 0;
                         }
                     }
-                    cur_f = save_f
                 }
                 if let Some(Node::Text(TxtNode::WhatsIt(WhatsIt::Glyph(p)))) =
                     p.opt().map(Node::from)
@@ -2640,17 +2635,18 @@ unsafe fn mlist_to_hlist() {
                     let mut q = BaseMath(q);
                     let p = match q.nucleus().typ {
                         MathCell::MathChar | MathCell::MathTextChar => {
-                            q.nucleus_mut().fetch();
-                            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[cur_f as usize] {
-                                let z = new_native_character(cur_f, cur_c);
+                            let (f, c) = q.nucleus_mut().fetch();
+                            cur_f = f;
+                            if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
+                                let z = new_native_character(f, c);
                                 let mut p = Glyph::new_node();
-                                p.set_font(cur_f as u16);
+                                p.set_font(f as u16);
                                 p.set_glyph(z.native_glyph(0));
                                 p.set_metrics(true);
                                 z.free();
-                                delta = get_ot_math_ital_corr(cur_f, p.glyph() as i32);
+                                delta = get_ot_math_ital_corr(f, p.glyph() as i32);
                                 if q.nucleus().typ == MathCell::MathTextChar
-                                    && !matches!(&FONT_LAYOUT_ENGINE[cur_f as usize], Font::Native(Otgr(e)) if e.is_open_type_math_font())
+                                    && !matches!(&FONT_LAYOUT_ENGINE[f], Font::Native(Otgr(e)) if e.is_open_type_math_font())
                                 {
                                     delta = Scaled::ZERO;
                                 }
@@ -2660,11 +2656,10 @@ unsafe fn mlist_to_hlist() {
                                 }
                                 Some(p.ptr())
                             } else if cur_i.s3 as i32 > 0 {
-                                delta = *FONT_CHARINFO_ITALCORR(cur_f, cur_i);
-                                let p = new_character(cur_f, cur_c as UTF16_code);
+                                delta = *FONT_CHARINFO_ITALCORR(f, cur_i);
+                                let p = new_character(f, c as UTF16_code);
                                 if q.nucleus().typ == MathCell::MathTextChar
-                                    && FONT_INFO[(2 + PARAM_BASE[cur_f as usize]) as usize].b32.s1
-                                        != 0
+                                    && FONT_INFO[(2 + PARAM_BASE[f]) as usize].b32.s1 != 0
                                 {
                                     delta = Scaled::ZERO;
                                 }
@@ -3003,7 +2998,7 @@ unsafe fn var_delimiter(d: &Delimeter, s: usize, v: Scaled) -> usize {
                             x = if x >= 0xd800 && x <= 0xdfff {
                                 0
                             } else {
-                                e.map_char_to_glyph(x as u32) as u16
+                                e.map_char_to_glyph(std::char::from_u32(x as u32).unwrap()) as u16
                             };
                             f = g;
                             c = x;
@@ -3170,7 +3165,8 @@ unsafe fn char_box(f: usize, c: i32) -> List {
     let mut b;
     let p = if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
         b = List::from(new_null_box());
-        let p = new_native_character(f, c);
+        let chr = std::char::from_u32(c as u32).unwrap();
+        let p = new_native_character(f, chr);
         b.set_list_ptr(Some(p.ptr()).tex_int());
         b.set_height(p.height())
             .set_width(p.width())

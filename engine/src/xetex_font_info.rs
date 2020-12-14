@@ -162,7 +162,7 @@ pub(crate) struct XeTeXFontInst {
     pub(crate) m_xHeight: f32,
     pub(crate) m_italicAngle: f32,
     pub(crate) m_vertical: bool,
-    pub(crate) m_filename: *mut libc::c_char,
+    pub(crate) m_filename: String,
     pub(crate) m_index: uint32_t,
     pub(crate) m_ftFace: FT_Face,
     pub(crate) m_backingData: Vec<u8>,
@@ -204,7 +204,7 @@ impl XeTeXFontInst {
             m_xHeight: 0i32 as f32,
             m_italicAngle: 0i32 as f32,
             m_vertical: false,
-            m_filename: ptr::null_mut(),
+            m_filename: String::new(),
             m_index: 0,
             m_ftFace: 0 as FT_Face,
             m_backingData: Vec::new(),
@@ -234,7 +234,6 @@ impl Drop for XeTeXFontInst {
                 self.m_ftFace = 0 as FT_Face
             }
             hb_font_destroy(self.m_hbFont);
-            free(self.m_filename as *mut libc::c_void);
         }
     }
 }
@@ -596,7 +595,7 @@ impl XeTeXFontInst {
                 FT_Attach_Stream(self.m_ftFace, &mut open_args);
             }
         }
-        self.m_filename = crate::core_memory::strdup(pathname);
+        self.m_filename = pathname.to_string();
         self.m_index = index as uint32_t;
         self.m_unitsPerEM = (*self.m_ftFace).units_per_EM;
         self.m_ascent = self.units_to_points((*self.m_ftFace).ascender as f32);
@@ -717,7 +716,7 @@ impl XeTeXFontInst {
         };
     }
 
-    pub(crate) unsafe fn map_char_to_glyph(&self, ch: UChar32) -> GlyphID {
+    pub(crate) unsafe fn map_char_to_glyph(&self, ch: char) -> GlyphID {
         FT_Get_Char_Index(self.m_ftFace, ch as FT_ULong) as GlyphID
     }
 

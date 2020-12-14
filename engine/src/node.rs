@@ -2277,8 +2277,8 @@ pub(crate) mod math {
             self.val.chr = c;
             self.typ = MathCell::MathTextChar;
         }*/
-        pub(crate) unsafe fn fetch(&mut self) {
-            crate::xetex_math::fetch(self);
+        pub(crate) unsafe fn fetch(&mut self) -> (usize, char) {
+            crate::xetex_math::fetch(self)
         }
     }
     // ---------------

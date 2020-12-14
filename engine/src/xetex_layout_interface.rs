@@ -32,6 +32,9 @@ authorization from the copyright holders.
 \****************************************************************************/
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use once_cell::sync::Lazy;
+use std::collections::BTreeMap;
+
 use crate::c_pointer_to_str;
 use crate::xetex_consts::Side;
 use harfbuzz_sys::{hb_feature_t, hb_ot_math_glyph_part_t, hb_tag_t};
@@ -237,110 +240,8 @@ use crate::xetex_font_manager::{
 
 use crate::xetex_font_info::XeTeXFontInst;
 
-pub(crate) mod collection_types {
-
-    use std::collections::{BTreeMap, VecDeque};
-    use std::ffi::CStr;
-    use std::ffi::CString;
-
-    pub(crate) type CppStdString = CString;
-    pub(crate) type CppStdListOfString = VecDeque<CString>;
-    pub(crate) type CppStdMap<K, V> = BTreeMap<K, V>;
-
-    pub(crate) fn CppStdString_create() -> *mut CppStdString {
-        Box::into_raw(Box::new(CString::default()))
-    }
-
-    pub(crate) unsafe fn CppStdString_delete(self_0: *mut CppStdString) {
-        let _: Box<CppStdString> = Box::from_raw(self_0);
-    }
-    pub(crate) unsafe fn CppStdString_length(self_0: *const CppStdString) -> libc::size_t {
-        self_0.as_ref().unwrap().to_bytes().len() as _
-    }
-    pub(crate) unsafe fn CppStdString_cstr(self_0: *const CppStdString) -> *const libc::c_char {
-        let v = self_0.as_ref().unwrap();
-        v.as_ptr()
-    }
-
-    pub(crate) fn CppStdListOfString_create() -> *mut CppStdListOfString {
-        Box::into_raw(Box::new(CppStdListOfString::default()))
-    }
-
-    pub(crate) unsafe fn CppStdListOfString_delete(self_0: *mut CppStdListOfString) {
-        let _: Box<CppStdListOfString> = Box::from_raw(self_0);
-    }
-
-    pub(crate) fn CppStdMap_create<K: Ord, V>() -> *mut CppStdMap<K, V> {
-        Box::into_raw(Box::new(CppStdMap::default()))
-    }
-
-    pub(crate) unsafe fn CppStdMap_put<K: Ord, V>(self_0: *mut CppStdMap<K, V>, key: K, val: V) {
-        (*self_0).insert(key, val);
-    }
-
-    pub(crate) unsafe fn CppStdMap_put_with_string_key<V>(
-        self_0: *mut CppStdMap<CString, V>,
-        key: *const libc::c_char,
-        val: V,
-    ) {
-        let key = CStr::from_ptr(key);
-        match (*self_0).get_mut(key) {
-            Some(v) => {
-                *v = val;
-            }
-            None => {
-                (*self_0).insert(key.to_owned(), val);
-            }
-        }
-    }
-
-    pub(crate) unsafe fn CppStdMap_delete<K: Ord, V>(self_0: *mut CppStdMap<K, V>) {
-        let _: Box<CppStdMap<K, V>> = Box::from_raw(self_0);
-    }
-
-    pub(crate) unsafe fn CppStdString_clone(self_0: *const CppStdString) -> *mut CppStdString {
-        let v: Box<CppStdString> = Box::new((*self_0).clone());
-        Box::into_raw(v)
-    }
-
-    pub(crate) unsafe fn CppStdString_append_const_char_ptr(
-        self_0: *mut CppStdString,
-        val: *const libc::c_char,
-    ) {
-        use std::mem::swap;
-        let o: &mut CppStdString = &mut *self_0;
-        let mut v: CppStdString = Default::default();
-        swap(o, &mut v);
-        let mut u = v.into_bytes();
-        u.extend(CStr::from_ptr(val).to_bytes());
-        v = CString::from_vec_unchecked(u);
-        swap(o, &mut v);
-    }
-
-    pub(crate) unsafe fn CppStdString_assign_from_const_char_ptr(
-        self_0: *mut CppStdString,
-        val: *const libc::c_char,
-    ) {
-        let o: &mut CppStdString = &mut *self_0;
-        *o = CStr::from_ptr(val).to_owned();
-    }
-
-    pub(crate) unsafe fn CppStdString_assign_n_chars(
-        self_0: *mut CppStdString,
-        val: *const libc::c_char,
-        count: usize,
-    ) {
-        let o: &mut CppStdString = &mut *self_0;
-        let slice = std::slice::from_raw_parts(val as *const u8, count);
-        *o = CString::from_vec_unchecked(slice.to_owned());
-    }
-}
-
-use self::collection_types::*;
-
 pub(crate) type size_t = usize;
 
-pub(crate) type UChar32 = i32;
 #[cfg(not(target_os = "macos"))]
 use crate::xetex_font_manager::imp::{FcPattern, FcResult};
 
@@ -405,7 +306,7 @@ pub(crate) const gr_breakWord: gr_break_weight = 15;
 //pub(crate) const gr_breakWhitespace: gr_break_weight = 10;
 pub(crate) const gr_breakNone: gr_break_weight = 0;
 
-pub(crate) type ProtrusionFactor = CppStdMap<GlyphId, i32>;
+pub(crate) type ProtrusionFactor = BTreeMap<GlyphId, i32>;
 
 /* The following code used to be in a file called "hz.cpp" and there's no
  * particular reason for it to be here, but it was a tiny file with a weird
@@ -450,16 +351,13 @@ impl XeTeXFontInst {
     #[inline]
     unsafe fn get_filename(&self, index: *mut u32) -> &str {
         *index = self.m_index;
-        c_pointer_to_str(self.m_filename)
+        &self.m_filename
     }
 }
 
-pub(crate) unsafe fn getGlyphBBoxCache() -> *mut CppStdMap<u32, GlyphBBox> {
-    static mut cache: *mut CppStdMap<u32, GlyphBBox> = ptr::null_mut();
-    if cache.is_null() {
-        cache = CppStdMap_create()
-    }
-    cache
+pub(crate) unsafe fn getGlyphBBoxCache() -> &'static mut BTreeMap<u32, GlyphBBox> {
+    static mut cache: Lazy<BTreeMap<u32, GlyphBBox>> = Lazy::new(|| BTreeMap::new());
+    &mut cache
 }
 pub(crate) unsafe fn getCachedGlyphBBox(fontID: u16, glyphID: u16, bbox: *mut GlyphBBox) -> i32 {
     let sGlyphBoxes = getGlyphBBoxCache();
@@ -474,7 +372,7 @@ pub(crate) unsafe fn getCachedGlyphBBox(fontID: u16, glyphID: u16, bbox: *mut Gl
 pub(crate) unsafe fn cacheGlyphBBox(fontID: u16, glyphID: u16, bbox: *const GlyphBBox) {
     let sGlyphBoxes = getGlyphBBoxCache();
     let key: u32 = ((fontID as u32) << 16i32).wrapping_add(glyphID as libc::c_uint);
-    CppStdMap_put(sGlyphBoxes, key, *bbox);
+    sGlyphBoxes.insert(key, *bbox);
 }
 #[inline]
 fn GlyphId_create(fontNum: usize, code: libc::c_uint) -> GlyphId {
@@ -483,33 +381,25 @@ fn GlyphId_create(fontNum: usize, code: libc::c_uint) -> GlyphId {
         code,
     }
 }
-pub(crate) unsafe fn getProtrusionFactor(side: Side) -> *mut ProtrusionFactor {
-    static mut leftProt: *mut ProtrusionFactor = ptr::null_mut();
-    static mut rightProt: *mut ProtrusionFactor = ptr::null_mut();
+pub(crate) unsafe fn getProtrusionFactor(side: Side) -> &'static mut ProtrusionFactor {
+    static mut leftProt: Lazy<ProtrusionFactor> = Lazy::new(|| ProtrusionFactor::new());
+    static mut rightProt: Lazy<ProtrusionFactor> = Lazy::new(|| ProtrusionFactor::new());
     match side {
         Side::Left => {
-            if leftProt.is_null() {
-                leftProt = CppStdMap_create()
-            }
-            leftProt // we should not reach here
+            &mut leftProt // we should not reach here
         }
-        Side::Right => {
-            if rightProt.is_null() {
-                rightProt = CppStdMap_create()
-            }
-            rightProt
-        }
+        Side::Right => &mut rightProt,
     }
 }
 pub(crate) unsafe fn set_cp_code(fontNum: usize, code: libc::c_uint, side: Side, value: i32) {
     let id = GlyphId_create(fontNum, code);
     let container = getProtrusionFactor(side);
-    CppStdMap_put(container, id, value);
+    container.insert(id, value);
 }
 pub(crate) unsafe fn get_cp_code(fontNum: usize, code: libc::c_uint, side: Side) -> i32 {
     let id = GlyphId_create(fontNum, code);
     let container = getProtrusionFactor(side);
-    (*container).get(&id).cloned().unwrap_or(0)
+    container.get(&id).cloned().unwrap_or(0)
 }
 /* ******************************************************************/
 pub(crate) unsafe fn terminate_font_manager() {
@@ -596,7 +486,7 @@ pub(crate) unsafe fn getReqEngine() -> libc::c_char {
 pub(crate) unsafe fn setReqEngine(reqEngine: libc::c_char) {
     XeTeXFontMgr_setReqEngine(XeTeXFontMgr_GetFontManager(), reqEngine);
 }
-pub(crate) unsafe fn getFullName(fontRef: PlatformFontRef) -> *const libc::c_char {
+pub(crate) unsafe fn getFullName(fontRef: PlatformFontRef) -> String {
     XeTeXFontMgr_getFullName(XeTeXFontMgr_GetFontManager(), fontRef)
 }
 pub(crate) unsafe fn getDesignSize(font: &XeTeXFontInst) -> f64 {
@@ -1379,8 +1269,8 @@ impl XeTeXLayoutEngine {
     pub(crate) unsafe fn get_glyph_ital_corr(&self, glyphID: u32) -> f32 {
         self.extend * self.font.get_glyph_ital_corr(glyphID as GlyphID)
     }
-    pub(crate) unsafe fn map_char_to_glyph(&self, charCode: u32) -> u32 {
-        self.font.map_char_to_glyph(charCode as UChar32) as u32
+    pub(crate) unsafe fn map_char_to_glyph(&self, charCode: char) -> u32 {
+        self.font.map_char_to_glyph(charCode) as u32
     }
     pub(crate) unsafe fn get_font_char_range(&mut self, reqFirst: i32) -> i32 {
         if reqFirst != 0 {

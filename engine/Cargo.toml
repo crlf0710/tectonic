@@ -43,6 +43,7 @@ enumn = "0.1.2"
 derive_more = "0.99.7"
 md5 = "0.7"
 fontconfig_sys = { package = "yeslogic-fontconfig-sys", version = "2.11.1" }
+once_cell = "1.5.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.9.1"
