@@ -1457,131 +1457,147 @@ pub(crate) unsafe fn store_justified_native_glyphs(node: &mut NativeWord) {
 pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metrics: bool) {
     let txt = node.text();
     let f = node.font() as usize;
-    if let Font::Native(Otgr(engine)) = &mut FONT_LAYOUT_ENGINE[f] {
-        /* using this font in OT Layout mode, so FONT_LAYOUT_ENGINE[f] is actually a *mut XeTeXLayoutEngine */
-        let mut locations: *mut FixedPoint = ptr::null_mut();
-        let mut glyphAdvances: *mut Scaled = ptr::null_mut();
-        let mut totalGlyphCount: i32 = 0i32;
-        /* need to find direction runs within the text, and call layoutChars separately for each */
-        let mut glyph_info: *mut libc::c_void = ptr::null_mut();
-        let pBiDi: *mut icu::UBiDi = icu::ubidi_open();
-        let mut errorCode: icu::UErrorCode = icu::U_ZERO_ERROR;
-        icu::ubidi_setPara(
-            pBiDi,
-            txt.as_ptr() as *const icu::UChar,
-            txt.len() as i32,
-            engine.get_default_direction() as icu::UBiDiLevel,
-            ptr::null_mut(),
-            &mut errorCode,
-        );
-        let mut dir = icu::ubidi_getDirection(pBiDi);
-        if dir as u32 == icu::UBIDI_MIXED as i32 as u32 {
-            /* we actually do the layout twice here, once to count glyphs and then again to get them;
-               which is inefficient, but i figure that MIXED is a relatively rare occurrence, so i can't be
-               bothered to deal with the memory reallocation headache of doing it differently
-            */
-            let nRuns: i32 = icu::ubidi_countRuns(pBiDi, &mut errorCode);
-            let mut width: f64 = 0i32 as f64;
-            let mut logicalStart: i32 = 0;
-            let mut length: i32 = 0;
-            for runIndex in 0..nRuns {
-                dir = icu::ubidi_getVisualRun(pBiDi, runIndex, &mut logicalStart, &mut length);
-                totalGlyphCount += engine.layout_chars(
-                    txt,
-                    logicalStart,
-                    length,
-                    dir as u32 == icu::UBIDI_RTL as i32 as u32,
-                );
-            }
-            if totalGlyphCount > 0 {
-                glyph_info = xcalloc(totalGlyphCount as size_t, 10i32 as size_t);
-                locations = glyph_info as *mut FixedPoint;
-                let glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
-                glyphAdvances = xcalloc(
-                    totalGlyphCount as size_t,
-                    ::std::mem::size_of::<Scaled>() as _,
-                ) as *mut Scaled;
-                totalGlyphCount = 0i32;
-                let mut y = 0.0f64;
-                let mut x = y;
+    match &mut FONT_LAYOUT_ENGINE[f] {
+        #[cfg(target_os = "macos")]
+        Font::Native(Aat(_)) => {
+            /* we're using this font in AAT mode, so font_layout_engine[f] is actually a CFDictionaryRef */
+            aat::do_aat_layout(node, false);
+        }
+        Font::Native(Otgr(engine)) => {
+            /* using this font in OT Layout mode, so FONT_LAYOUT_ENGINE[f] is actually a *mut XeTeXLayoutEngine */
+            let mut locations: *mut FixedPoint = ptr::null_mut();
+            let mut glyphAdvances: *mut Scaled = ptr::null_mut();
+            let mut totalGlyphCount: i32 = 0i32;
+            /* need to find direction runs within the text, and call layoutChars separately for each */
+            let mut glyph_info: *mut libc::c_void = ptr::null_mut();
+            let pBiDi: *mut icu::UBiDi = icu::ubidi_open();
+            let mut errorCode: icu::UErrorCode = icu::U_ZERO_ERROR;
+            icu::ubidi_setPara(
+                pBiDi,
+                txt.as_ptr() as *const icu::UChar,
+                txt.len() as i32,
+                engine.get_default_direction() as icu::UBiDiLevel,
+                ptr::null_mut(),
+                &mut errorCode,
+            );
+            let mut dir = icu::ubidi_getDirection(pBiDi);
+            if dir as u32 == icu::UBIDI_MIXED as i32 as u32 {
+                /* we actually do the layout twice here, once to count glyphs and then again to get them;
+                   which is inefficient, but i figure that MIXED is a relatively rare occurrence, so i can't be
+                   bothered to deal with the memory reallocation headache of doing it differently
+                */
+                let nRuns: i32 = icu::ubidi_countRuns(pBiDi, &mut errorCode);
+                let mut width: f64 = 0i32 as f64;
+                let mut logicalStart: i32 = 0;
+                let mut length: i32 = 0;
                 for runIndex in 0..nRuns {
                     dir = icu::ubidi_getVisualRun(pBiDi, runIndex, &mut logicalStart, &mut length);
-                    let nGlyphs = engine.layout_chars(
+                    totalGlyphCount += engine.layout_chars(
                         txt,
                         logicalStart,
                         length,
                         dir as u32 == icu::UBIDI_RTL as i32 as u32,
                     );
-                    let glyphs = engine.get_glyphs();
-                    let advances = engine.get_glyph_advances();
-                    let positions = engine.get_glyph_positions();
-                    for i in 0..nGlyphs {
-                        *glyphIDs.offset(totalGlyphCount as isize) = glyphs[i as usize] as u16;
-                        (*locations.offset(totalGlyphCount as isize)).x =
-                            D2Fix(positions[i as usize].x as f64 + x);
-                        (*locations.offset(totalGlyphCount as isize)).y =
-                            D2Fix(positions[i as usize].y as f64 + y);
-                        *glyphAdvances.offset(totalGlyphCount as isize) =
-                            D2Fix(advances[i as usize] as f64);
-                        totalGlyphCount += 1;
+                }
+                if totalGlyphCount > 0 {
+                    glyph_info = xcalloc(totalGlyphCount as size_t, 10i32 as size_t);
+                    locations = glyph_info as *mut FixedPoint;
+                    let glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
+                    glyphAdvances = xcalloc(
+                        totalGlyphCount as size_t,
+                        ::std::mem::size_of::<Scaled>() as _,
+                    ) as *mut Scaled;
+                    totalGlyphCount = 0i32;
+                    let mut y = 0.0f64;
+                    let mut x = y;
+                    for runIndex in 0..nRuns {
+                        dir = icu::ubidi_getVisualRun(
+                            pBiDi,
+                            runIndex,
+                            &mut logicalStart,
+                            &mut length,
+                        );
+                        let nGlyphs = engine.layout_chars(
+                            txt,
+                            logicalStart,
+                            length,
+                            dir as u32 == icu::UBIDI_RTL as i32 as u32,
+                        );
+                        let glyphs = engine.get_glyphs();
+                        let advances = engine.get_glyph_advances();
+                        let positions = engine.get_glyph_positions();
+                        for i in 0..nGlyphs {
+                            *glyphIDs.offset(totalGlyphCount as isize) = glyphs[i as usize] as u16;
+                            (*locations.offset(totalGlyphCount as isize)).x =
+                                D2Fix(positions[i as usize].x as f64 + x);
+                            (*locations.offset(totalGlyphCount as isize)).y =
+                                D2Fix(positions[i as usize].y as f64 + y);
+                            *glyphAdvances.offset(totalGlyphCount as isize) =
+                                D2Fix(advances[i as usize] as f64);
+                            totalGlyphCount += 1;
+                        }
+                        x += positions[nGlyphs as usize].x as f64;
+                        y += positions[nGlyphs as usize].y as f64;
                     }
-                    x += positions[nGlyphs as usize].x as f64;
-                    y += positions[nGlyphs as usize].y as f64;
+                    width = x
                 }
-                width = x
-            }
-            node.set_width(D2Fix(width));
-            node.set_glyph_count(totalGlyphCount as u16);
-            node.set_glyph_info_ptr(glyph_info);
-        } else {
-            let mut width_0: f64 = 0i32 as f64;
-            totalGlyphCount = engine.layout_chars(
-                txt,
-                0i32,
-                txt.len() as i32,
-                dir as u32 == icu::UBIDI_RTL as i32 as u32,
-            );
-            let glyphs = engine.get_glyphs();
-            let advances = engine.get_glyph_advances();
-            let positions = engine.get_glyph_positions();
-            if totalGlyphCount > 0 {
-                glyph_info = xcalloc(totalGlyphCount as size_t, 10i32 as size_t);
-                locations = glyph_info as *mut FixedPoint;
-                let glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
-                glyphAdvances = xcalloc(totalGlyphCount as size_t, ::std::mem::size_of::<Scaled>())
-                    as *mut Scaled;
-                for i_0 in 0..totalGlyphCount {
-                    *glyphIDs.offset(i_0 as isize) = glyphs[i_0 as usize] as u16;
-                    *glyphAdvances.offset(i_0 as isize) = D2Fix(advances[i_0 as usize] as f64);
-                    (*locations.offset(i_0 as isize)).x = D2Fix(positions[i_0 as usize].x as f64);
-                    (*locations.offset(i_0 as isize)).y = D2Fix(positions[i_0 as usize].y as f64);
+                node.set_width(D2Fix(width));
+                node.set_glyph_count(totalGlyphCount as u16);
+                node.set_glyph_info_ptr(glyph_info);
+            } else {
+                let mut width_0: f64 = 0i32 as f64;
+                totalGlyphCount = engine.layout_chars(
+                    txt,
+                    0i32,
+                    txt.len() as i32,
+                    dir as u32 == icu::UBIDI_RTL as i32 as u32,
+                );
+                let glyphs = engine.get_glyphs();
+                let advances = engine.get_glyph_advances();
+                let positions = engine.get_glyph_positions();
+                if totalGlyphCount > 0 {
+                    glyph_info = xcalloc(totalGlyphCount as size_t, 10i32 as size_t);
+                    locations = glyph_info as *mut FixedPoint;
+                    let glyphIDs = locations.offset(totalGlyphCount as isize) as *mut u16;
+                    glyphAdvances =
+                        xcalloc(totalGlyphCount as size_t, ::std::mem::size_of::<Scaled>())
+                            as *mut Scaled;
+                    for i_0 in 0..totalGlyphCount {
+                        *glyphIDs.offset(i_0 as isize) = glyphs[i_0 as usize] as u16;
+                        *glyphAdvances.offset(i_0 as isize) = D2Fix(advances[i_0 as usize] as f64);
+                        (*locations.offset(i_0 as isize)).x =
+                            D2Fix(positions[i_0 as usize].x as f64);
+                        (*locations.offset(i_0 as isize)).y =
+                            D2Fix(positions[i_0 as usize].y as f64);
+                    }
+                    width_0 = positions[totalGlyphCount as usize].x as f64
                 }
-                width_0 = positions[totalGlyphCount as usize].x as f64
+                node.set_width(D2Fix(width_0));
+                node.set_glyph_count(totalGlyphCount as u16);
+                node.set_glyph_info_ptr(glyph_info);
             }
-            node.set_width(D2Fix(width_0));
-            node.set_glyph_count(totalGlyphCount as u16);
-            node.set_glyph_info_ptr(glyph_info);
+            icu::ubidi_close(pBiDi);
+            if FONT_LETTER_SPACE[f] != Scaled::ZERO {
+                let mut lsDelta = Scaled::ZERO;
+                let lsUnit = FONT_LETTER_SPACE[f];
+                for i_1 in 0..totalGlyphCount {
+                    if *glyphAdvances.offset(i_1 as isize) == Scaled::ZERO
+                        && lsDelta != Scaled::ZERO
+                    {
+                        lsDelta -= lsUnit
+                    }
+                    (*locations.offset(i_1 as isize)).x += lsDelta;
+                    lsDelta += lsUnit;
+                }
+                if lsDelta != Scaled::ZERO {
+                    lsDelta -= lsUnit;
+                    let w = node.width();
+                    node.set_width(w + lsDelta);
+                }
+            }
+            free(glyphAdvances as *mut libc::c_void);
         }
-        icu::ubidi_close(pBiDi);
-        if FONT_LETTER_SPACE[f] != Scaled::ZERO {
-            let mut lsDelta = Scaled::ZERO;
-            let lsUnit = FONT_LETTER_SPACE[f];
-            for i_1 in 0..totalGlyphCount {
-                if *glyphAdvances.offset(i_1 as isize) == Scaled::ZERO && lsDelta != Scaled::ZERO {
-                    lsDelta -= lsUnit
-                }
-                (*locations.offset(i_1 as isize)).x += lsDelta;
-                lsDelta += lsUnit;
-            }
-            if lsDelta != Scaled::ZERO {
-                lsDelta -= lsUnit;
-                let w = node.width();
-                node.set_width(w + lsDelta);
-            }
-        }
-        free(glyphAdvances as *mut libc::c_void);
-    } else {
-        panic!("bad native font flag in `measure_native_node`");
+        _ => panic!("bad native font flag in `measure_native_node`"),
     }
     if !use_glyph_metrics || node.glyph_count() == 0 {
         /* for efficiency, height and depth are the font's ascent/descent,
