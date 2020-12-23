@@ -539,11 +539,8 @@ where
                             if parent.minWeight != parent.maxWeight {
                                 // weight info was available, so try to match that
                                 if bestMatch.is_none()
-                                    || self.weight_and_width_diff(&style_FONT_PTR, &font)
-                                        < self.weight_and_width_diff(
-                                            &bestMatch.as_ref().unwrap(),
-                                            &font,
-                                        )
+                                    || style_FONT_PTR.weight_and_width_diff(&font)
+                                        < bestMatch.as_ref().unwrap().weight_and_width_diff(&font)
                                 {
                                     bestMatch = Some(style_FONT_PTR.clone());
                                 }
@@ -575,18 +572,17 @@ where
                     );
                     if parent.minSlant as i32 == parent.maxSlant as i32 {
                         // double-check the italic flag, as we can't trust slant values
-                        let mut newBest_0: Option<Rc<_>> = None;
+                        let mut newBest_0: Option<Rc<XeTeXFontMgrFont>> = None;
                         for (_, v) in parent.styles.iter() {
                             let style_FONT_PTR = v;
                             if style_FONT_PTR.isItalic == font.isItalic
                                 && (newBest_0.is_none()
-                                    || self.weight_and_width_diff(
-                                        &style_FONT_PTR,
-                                        &bestMatch_0.as_ref().unwrap(),
-                                    ) < self.weight_and_width_diff(
-                                        &newBest_0.as_ref().unwrap(),
-                                        &bestMatch_0.as_ref().unwrap(),
-                                    ))
+                                    || style_FONT_PTR
+                                        .weight_and_width_diff(&bestMatch_0.as_ref().unwrap())
+                                        < newBest_0
+                                            .as_ref()
+                                            .unwrap()
+                                            .weight_and_width_diff(&bestMatch_0.as_ref().unwrap()))
                             {
                                 newBest_0 = Some(style_FONT_PTR.clone());
                             }
@@ -665,7 +661,7 @@ where
     }
 }
 impl XeTeXFontMgr {
-    pub(crate) unsafe fn get_full_name(&self, font: PlatformFontRef) -> String {
+    pub(crate) fn get_full_name(&self, font: PlatformFontRef) -> String {
         // return the full name of the font, suitable for use in XeTeX source
         // without requiring style qualifiers
         let FONT_PTR = if let Some(FONT_PTR) = self.m_platformRefToFont.get(&font) {
@@ -679,40 +675,6 @@ impl XeTeXFontMgr {
             FONT_PTR.m_psName.clone()
         }
     }
-    pub(crate) unsafe fn weight_and_width_diff(
-        &self,
-        a: &XeTeXFontMgrFont,
-        b: &XeTeXFontMgrFont,
-    ) -> i32 {
-        if a.weight as i32 == 0i32 && a.width as i32 == 0i32 {
-            // assume there was no OS/2 info
-            if a.isBold as i32 == b.isBold as i32 {
-                return 0i32;
-            } else {
-                return 10000i32;
-            }
-        }
-        let mut widDiff: i32 = ((a.width as i32 - b.width as i32) as i64).abs() as i32;
-        if widDiff < 10i32 {
-            widDiff *= 50i32
-        }
-        (((a.weight as i32 - b.weight as i32) as i64).abs() + widDiff as i64) as i32
-    }
-    pub(crate) unsafe fn style_diff(
-        &self,
-        a: &XeTeXFontMgrFont,
-        wt: i32,
-        wd: i32,
-        slant: i32,
-    ) -> i32 {
-        let mut widDiff: i32 = ((a.width as i32 - wd) as i64).abs() as i32;
-        if widDiff < 10i32 {
-            widDiff *= 200i32
-        }
-        (((a.slant as i64).abs() - (slant as i64).abs()).abs() * 2i32 as i64
-            + ((a.weight as i32 - wt) as i64).abs()
-            + widDiff as i64) as i32
-    }
     pub(crate) unsafe fn best_match_from_family(
         &self,
         fam: &XeTeXFontMgrFamily,
@@ -720,16 +682,38 @@ impl XeTeXFontMgr {
         wd: i32,
         slant: i32,
     ) -> Option<Rc<XeTeXFontMgrFont>> {
-        let mut bestMatch: Option<Rc<_>> = None;
+        let mut bestMatch: Option<Rc<XeTeXFontMgrFont>> = None;
         for (_, v) in fam.styles.iter() {
             if bestMatch.is_none()
-                || self.style_diff(&v, wt, wd, slant)
-                    < self.style_diff(&bestMatch.as_ref().unwrap(), wt, wd, slant)
+                || v.style_diff(wt, wd, slant)
+                    < bestMatch.as_ref().unwrap().style_diff(wt, wd, slant)
             {
                 bestMatch = Some(v.clone());
             }
         }
         bestMatch
+    }
+}
+impl XeTeXFontMgrFont {
+    pub(crate) fn weight_and_width_diff(&self, b: &XeTeXFontMgrFont) -> i32 {
+        if self.weight == 0 && self.width == 0 {
+            // assume there was no OS/2 info
+            return if self.isBold == b.isBold { 0 } else { 10000 };
+        }
+        let mut widDiff: i32 = ((self.width as i32 - b.width as i32) as i64).abs() as i32;
+        if widDiff < 10 {
+            widDiff *= 50
+        }
+        (((self.weight as i32 - b.weight as i32) as i64).abs() + widDiff as i64) as i32
+    }
+    pub(crate) fn style_diff(&self, wt: i32, wd: i32, slant: i32) -> i32 {
+        let mut widDiff: i32 = ((self.width as i32 - wd) as i64).abs() as i32;
+        if widDiff < 10 {
+            widDiff *= 200
+        }
+        (((self.slant as i64).abs() - (slant as i64).abs()).abs() * 2 as i64
+            + ((self.weight as i32 - wt) as i64).abs()
+            + widDiff as i64) as i32
     }
 }
 impl XeTeXFontInst {
@@ -787,17 +771,17 @@ impl XeTeXFontMgrFont {
                 self.weight = (*os2Table).usWeightClass;
                 self.width = (*os2Table).usWidthClass;
                 let sel = (*os2Table).fsSelection;
-                self.isReg = sel as i32 & 1i32 << 6i32 != 0i32;
-                self.isBold = sel as i32 & 1i32 << 5i32 != 0i32;
-                self.isItalic = sel as i32 & 1i32 << 0i32 != 0i32
+                self.isReg = sel as i32 & 1 << 6 != 0;
+                self.isBold = sel as i32 & 1 << 5 != 0;
+                self.isItalic = sel as i32 & 1 << 0 != 0
             }
             let headTable = font.get_font_table_ft(FT_SFNT_HEAD) as *mut TT_Header;
             if !headTable.is_null() {
                 let ms = (*headTable).Mac_Style;
-                if ms as i32 & 1i32 << 0i32 != 0i32 {
+                if ms as i32 & 1 << 0 != 0 {
                     self.isBold = true
                 }
-                if ms as i32 & 1i32 << 1i32 != 0i32 {
+                if ms as i32 & 1 << 1 != 0 {
                     self.isItalic = true
                 }
             }

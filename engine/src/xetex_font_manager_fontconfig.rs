@@ -129,20 +129,20 @@ impl XeTeXFontMgr_FC {
         if familyNames.is_empty() {
             return;
         }
-        for f in 0i32..(*self.allFonts).nfont {
+        for f in 0..(*self.allFonts).nfont {
             let pat = *(*self.allFonts).fonts.offset(f as isize);
             if self.m_platformRefToFont.contains_key(&pat) {
                 continue;
             }
 
             let mut s = ptr::null_mut();
-            for i in 0i32.. {
+            for i in 0.. {
                 if FcPatternGetString(
                     pat,
                     b"family\x00" as *const u8 as *const libc::c_char,
                     i,
                     &mut s as *mut *mut libc::c_char as *mut *mut u8,
-                ) as libc::c_uint
+                ) as u32
                     != FcResultMatch as _
                 {
                     break;
@@ -224,10 +224,10 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         if FcPatternGetString(
             font,
             b"file\x00" as *const u8 as *const libc::c_char,
-            0i32,
+            0,
             &mut s as *mut *mut u8,
-        ) as libc::c_uint
-            == FcResultMatch as libc::c_int as libc::c_uint
+        ) as u32
+            == FcResultMatch as u32
         {
             crate::c_pointer_to_str(s as *const libc::c_char).to_string()
         } else {
@@ -337,10 +337,10 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         if FcPatternGetString(
             pat,
             b"file\x00" as *const u8 as *const libc::c_char,
-            0i32,
+            0,
             &mut pathname as *mut *mut libc::c_char as *mut *mut u8,
-        ) as libc::c_uint
-            != FcResultMatch as libc::c_int as libc::c_uint
+        ) as u32
+            != FcResultMatch as u32
         {
             return names;
         }
@@ -350,8 +350,8 @@ impl FontMgrExt for XeTeXFontMgr_FC {
             b"index\x00" as *const u8 as *const libc::c_char,
             0,
             &mut index,
-        ) as libc::c_uint
-            != FcResultMatch as libc::c_int as libc::c_uint
+        ) as u32
+            != FcResultMatch as u32
         {
             return names;
         }

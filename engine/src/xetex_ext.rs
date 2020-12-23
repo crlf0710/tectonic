@@ -523,15 +523,15 @@ pub(crate) unsafe fn readCommonFeatures(
     }
     0i32
 }
-unsafe fn readFeatureNumber(mut s: &[u8], f: *mut hb_tag_t, v: *mut i32) -> bool
+unsafe fn readFeatureNumber(mut s: &[u8]) -> Option<(hb_tag_t, i32)>
 /* s...e is a "id=setting" string; */ {
-    *f = 0i32 as hb_tag_t;
-    *v = 0i32;
+    let mut f = 0;
+    let mut v = 0;
     if !(b'0'..=b'9').contains(&s[0]) {
-        return false;
+        return None;
     }
     while (b'0'..=b'9').contains(&s[0]) {
-        *f = (*f) * 10 + (s[0] as u32) - ('0' as u32);
+        f = f * 10 + (s[0] as u32) - ('0' as u32);
         s = &s[1..];
     }
     while b" \t".contains(&s[0]) {
@@ -539,23 +539,23 @@ unsafe fn readFeatureNumber(mut s: &[u8], f: *mut hb_tag_t, v: *mut i32) -> bool
     }
     if s[0] != b'=' {
         /* no setting was specified */
-        return false;
+        return None;
     } /* NULL-terminated array */
     s = &s[1..];
     if !(b'0'..=b'9').contains(&s[0]) {
-        return false;
+        return None;
     }
     while (b'0'..=b'9').contains(&s[0]) {
-        *v = *v * 10 + (s[0] as i32) - ('0' as i32);
+        v = v * 10 + (s[0] as i32) - ('0' as i32);
         s = &s[1..];
     }
     while b" \t".contains(&s[0]) {
         s = &s[1..];
     }
     if !s.is_empty() {
-        return false;
+        return None;
     }
-    true
+    Some((f, v))
 }
 
 use crate::xetex_layout_interface::XeTeXFont;
@@ -570,7 +570,6 @@ unsafe fn loadOTfont(
     let mut script = 0;
     let mut shapers: *mut *mut i8 = ptr::null_mut();
     let mut nShapers: i32 = 0i32;
-    let mut tag: hb_tag_t = 0;
     let mut rgbValue: u32 = 0xff_u32;
     let mut extend: f32 = 1.;
     let mut slant: f32 = 0.;
@@ -681,15 +680,13 @@ unsafe fn loadOTfont(
                 current_block = 10622493848381539643;
             } else {
                 if reqEngine as i32 == 'G' as i32 {
-                    let mut value: i32 = 0i32;
-                    if readFeatureNumber(&cp1[..cp1.len() - cp2.len()], &mut tag, &mut value)
-                        || findGraphiteFeature(
-                            engine.as_ref().unwrap(),
-                            &cp1[..cp1.len() - cp2.len()],
-                            &mut tag,
-                            &mut value,
-                        ) as i32
-                            != 0
+                    if let Some((tag, value)) = readFeatureNumber(&cp1[..cp1.len() - cp2.len()])
+                        .or_else(|| {
+                            findGraphiteFeature(
+                                engine.as_ref().unwrap(),
+                                &cp1[..cp1.len() - cp2.len()],
+                            )
+                        })
                     {
                         features.push(hb_feature_t {
                             tag,
@@ -709,7 +706,7 @@ unsafe fn loadOTfont(
                     _ => {
                         if cp1[0] == b'+' {
                             let mut param: i32 = 0i32;
-                            tag = read_tag_with_param(&cp1[1..], &mut param);
+                            let tag = read_tag_with_param(&cp1[1..], &mut param);
                             let start = 0;
                             let end = -1i32 as u32;
                             // for backward compatibility with pre-0.9999 where feature
@@ -727,7 +724,7 @@ unsafe fn loadOTfont(
                             current_block = 13857423536159756434;
                         } else if cp1[0] == b'-' {
                             cp1 = &cp1[1..];
-                            tag = hb_tag_from_string(
+                            let tag = hb_tag_from_string(
                                 cp1.as_ptr() as *const i8,
                                 (cp1.len() - cp2.len()) as _,
                             );
@@ -1600,25 +1597,16 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
         let mut yMax: f32 = -65536.0f64 as f32;
         for i in 0..node.glyph_count() as usize {
             let y_0: f32 = Fix2D(-locations[i].y) as f32;
-            let mut bbox: GlyphBBox = GlyphBBox {
-                xMin: 0.,
-                yMin: 0.,
-                xMax: 0.,
-                yMax: 0.,
-            };
-            if getCachedGlyphBBox(f as u16, glyph_ids[i], &mut bbox) == 0i32 {
-                match &FONT_LAYOUT_ENGINE[f] {
+            let bbox = getCachedGlyphBBox(f as u16, glyph_ids[i]).unwrap_or_else(|| {
+                let bbox = match &FONT_LAYOUT_ENGINE[f] {
                     #[cfg(target_os = "macos")]
-                    Font::Native(Aat(engine)) => {
-                        aat::GetGlyphBBox_AAT(*engine, glyph_ids[i], &mut bbox);
-                    }
-                    Font::Native(Otgr(engine)) => {
-                        engine.get_glyph_bounds(glyph_ids[i] as u32, &mut bbox);
-                    }
-                    _ => {}
-                }
+                    Font::Native(Aat(engine)) => aat::GetGlyphBBox_AAT(*engine, glyph_ids[i]),
+                    Font::Native(Otgr(engine)) => engine.get_glyph_bounds(glyph_ids[i] as u32),
+                    _ => GlyphBBox::default(),
+                };
                 cacheGlyphBBox(f as u16, glyph_ids[i], &bbox);
-            }
+                bbox
+            });
             let ht = bbox.yMax;
             let dp = -bbox.yMin;
             if y_0 + ht > yMax {
