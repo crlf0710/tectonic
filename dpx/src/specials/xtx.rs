@@ -278,13 +278,13 @@ unsafe fn spc_handler_xtx_clipoverlay(_spe: &mut SpcEnv, args: &mut SpcArg) -> i
 }
 unsafe fn spc_handler_xtx_renderingmode(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let values: ArrayVec<[_; 1]> = super::util::read_numbers(args);
-    if values.len() < 1 {
-        return -1i32;
+    if values.is_empty() {
+        return -1;
     }
     let value = values[0];
-    if (value as i32) < 0i32 || value as i32 > 7i32 {
+    if (value as i32) < 0 || value as i32 > 7 {
         spc_warn!(spe, "Invalid text rendering mode {}.\n", value as i32);
-        return -1i32;
+        return -1;
     }
     let content = format!(" {} Tr", value as i32);
     pdf_doc_add_page_content(content.as_bytes());
@@ -294,7 +294,7 @@ unsafe fn spc_handler_xtx_renderingmode(spe: &mut SpcEnv, args: &mut SpcArg) -> 
         pdf_doc_add_page_content(args.cur);
     }
     args.cur = &[];
-    0i32
+    0
 }
 unsafe fn spc_handler_xtx_unsupportedcolor(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     spc_warn!(

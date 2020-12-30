@@ -458,7 +458,7 @@ unsafe fn create_pk_CharProc_stream(
      */
     let mut buf = Vec::new();
     pdf_sprint_number(&mut buf, chrwid);
-    write!(buf, " 0 {} {} {} {} d1\n", llx, lly, urx, ury,).unwrap();
+    writeln!(buf, " 0 {} {} {} {} d1", llx, lly, urx, ury,).unwrap();
     stream.add_slice(&buf);
     /*
      * Acrobat dislike transformation [0 0 0 0 dx dy].
@@ -469,7 +469,7 @@ unsafe fn create_pk_CharProc_stream(
      *
      * but it does not forbid use of such transformation.
      */
-    if (*pkh).bm_wd != 0_u32 && (*pkh).bm_ht != 0_u32 && pkt_len > 0_u32 {
+    if (*pkh).bm_wd != 0 && (*pkh).bm_ht != 0 && pkt_len > 0 {
         /* Otherwise we embed an empty stream :-( */
         /* Scale and translate origin to lower left corner for raster data */
         let slice = format!(

@@ -7,6 +7,8 @@
     unused_assignments,
     unused_mut
 )]
+#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::type_complexity)]
 
 use std::ffi::CString;
 use std::io::SeekFrom;
@@ -25,7 +27,7 @@ pub struct OutputHandleWrapper(NonNull<libc::c_void>);
 
 impl OutputHandleWrapper {
     pub(crate) fn new(ptr: rust_output_handle_t) -> Option<Self> {
-        NonNull::new(ptr).map(|nnp| Self(nnp))
+        NonNull::new(ptr).map(Self)
     }
     pub fn as_ptr(&self) -> rust_output_handle_t {
         self.0.as_ptr()
@@ -89,7 +91,7 @@ impl Drop for InFile {
 
 impl InFile {
     pub unsafe fn from_raw(ptr: rust_input_handle_t) -> Option<Self> {
-        NonNull::new(ptr).map(|nnp| Self(nnp))
+        NonNull::new(ptr).map(Self)
     }
 
     pub fn as_ptr(&self) -> rust_input_handle_t {

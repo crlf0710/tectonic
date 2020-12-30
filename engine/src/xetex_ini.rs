@@ -373,11 +373,11 @@ pub(crate) static mut name_of_font: String = String::new();
 #[no_mangle]
 pub(crate) static mut BUFFER: Vec<UnicodeScalar> = Vec::new();
 #[no_mangle]
-pub(crate) static mut first: i32 = 0;
+pub(crate) static mut first: usize = 0;
 #[no_mangle]
-pub(crate) static mut last: i32 = 0;
+pub(crate) static mut last: usize = 0;
 #[no_mangle]
-pub(crate) static mut max_buf_stack: i32 = 0;
+pub(crate) static mut max_buf_stack: usize = 0;
 #[no_mangle]
 pub(crate) static mut in_initex_mode: bool = false;
 #[no_mangle]
@@ -533,15 +533,15 @@ pub(crate) static mut cur_list: list_state_record = list_state_record {
 #[no_mangle]
 pub(crate) static mut shown_mode: (bool, ListMode) = (false, ListMode::NoMode);
 #[no_mangle]
-pub(crate) static mut hash_used: i32 = 0;
+pub(crate) static mut hash_used: usize = 0;
 #[no_mangle]
-pub(crate) static mut hash_extra: i32 = 0;
+pub(crate) static mut hash_extra: usize = 0;
 #[no_mangle]
-pub(crate) static mut hash_top: i32 = 0;
+pub(crate) static mut hash_top: usize = 0;
 #[no_mangle]
 pub(crate) static mut EQTB_TOP: usize = 0;
 #[no_mangle]
-pub(crate) static mut hash_high: i32 = 0;
+pub(crate) static mut hash_high: usize = 0;
 #[no_mangle]
 pub(crate) static mut no_new_control_sequence: bool = false;
 #[no_mangle]
@@ -2189,8 +2189,8 @@ unsafe fn init_io(input: &mut input_state_t) {
 
     BUFFER[first as usize] = 0;
     last = first;
-    input.loc = first;
-    input.limit = last;
+    input.loc = first as i32;
+    input.limit = last as i32;
     first = last + 1;
 }
 unsafe fn initialize_more_variables() {
@@ -2223,19 +2223,20 @@ unsafe fn initialize_more_variables() {
     }
 
     no_new_control_sequence = true;
-    prim[0].s0 = 0;
-    prim[0].s1 = 0;
+    let zero_prim = b32x2::default();
 
-    for k in 1..=PRIM_SIZE {
-        prim[k] = prim[0];
+    for k in prim.iter_mut().take(PRIM_SIZE + 1) {
+        *k = zero_prim;
     }
 
-    prim_eqtb[0].lvl = LEVEL_ZERO;
-    prim_eqtb[0].cmd = Cmd::UndefinedCS as u16;
-    prim_eqtb[0].val = None.tex_int();
+    let ucs = EqtbWord {
+        lvl: LEVEL_ZERO,
+        cmd: Cmd::UndefinedCS as u16,
+        val: None.tex_int(),
+    };
 
-    for k in 1..=PRIM_SIZE {
-        prim_eqtb[k] = prim_eqtb[0];
+    for k in prim_eqtb.iter_mut().take(PRIM_SIZE + 1) {
+        *k = ucs;
     }
 
     SAVE_PTR = 0;
@@ -2327,9 +2328,11 @@ unsafe fn initialize_more_initex_variables() {
     }
 
     for k in (0..=19).step_by(4) {
-        MEM[k].b32.s1 = None.tex_int() + 1;
-        MEM[k].b16.s1 = NORMAL;
-        MEM[k].b16.s0 = NORMAL;
+        let mut g = GlueSpec(k);
+        g.rc_set_none();
+        g.rc_inc();
+        g.set_shrink_order(GlueOrder::Normal)
+            .set_stretch_order(GlueOrder::Normal);
     }
 
     let mut glue = FIL_GLUE;
@@ -2380,12 +2383,16 @@ unsafe fn initialize_more_initex_variables() {
     hi_mem_min = PRE_ADJUST_HEAD as i32;
     var_used = 20;
     dyn_used = HI_MEM_STAT_USAGE;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE].cmd = Cmd::UndefinedCS as u16;
-    EQTB[UNDEFINED_CONTROL_SEQUENCE].val = None.tex_int();
-    EQTB[UNDEFINED_CONTROL_SEQUENCE].lvl = LEVEL_ZERO;
+
+    let ucs = EqtbWord {
+        cmd: Cmd::UndefinedCS as u16,
+        val: None.tex_int(),
+        lvl: LEVEL_ZERO,
+    };
+    EQTB[UNDEFINED_CONTROL_SEQUENCE] = ucs;
 
     for k in ACTIVE_BASE..=EQTB_TOP {
-        EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE];
+        EQTB[k] = ucs;
     }
 
     EQTB[GLUE_BASE].val = 0;
@@ -2397,46 +2404,58 @@ unsafe fn initialize_more_initex_variables() {
     }
 
     MEM[0].b32.s1 += 531;
-    *LOCAL(Local::par_shape) = None.tex_int();
-    EQTB[LOCAL_BASE + Local::par_shape as usize].cmd = Cmd::ShapeRef as _;
-    EQTB[LOCAL_BASE + Local::par_shape as usize].lvl = LEVEL_ONE as _;
 
-    for k in ETEX_PEN_BASE..=(ETEX_PENS - 1) {
-        EQTB[k] = EQTB[LOCAL_BASE + Local::par_shape as usize];
+    let par_shape = EqtbWord {
+        val: None.tex_int(),
+        cmd: Cmd::ShapeRef as _,
+        lvl: LEVEL_ONE as _,
+    };
+
+    EQTB[LOCAL_BASE + Local::par_shape as usize] = par_shape;
+
+    for k in ETEX_PEN_BASE..ETEX_PENS {
+        EQTB[k] = par_shape;
     }
 
-    for k in (LOCAL_BASE + Local::output_routine as usize)..=(TOKS_BASE + NUMBER_REGS - 1) {
-        EQTB[k] = EQTB[UNDEFINED_CONTROL_SEQUENCE];
+    for k in (LOCAL_BASE + Local::output_routine as usize)..(TOKS_BASE + NUMBER_REGS) {
+        EQTB[k] = ucs;
     }
 
-    EQTB[BOX_BASE].val = None.tex_int();
-    EQTB[BOX_BASE].cmd = Cmd::BoxRef as u16;
-    EQTB[BOX_BASE].lvl = LEVEL_ONE;
+    let bx = EqtbWord {
+        val: None.tex_int(),
+        cmd: Cmd::BoxRef as u16,
+        lvl: LEVEL_ONE,
+    };
 
-    for k in (BOX_BASE + 1)..=(BOX_BASE + NUMBER_REGS - 1) {
-        EQTB[k] = EQTB[BOX_BASE];
+    for k in EQTB.iter_mut().skip(BOX_BASE).take(NUMBER_REGS) {
+        *k = bx;
     }
 
-    EQTB[CUR_FONT_LOC].val = FONT_BASE as i32;
-    EQTB[CUR_FONT_LOC].cmd = Cmd::Data as u16;
-    EQTB[CUR_FONT_LOC].lvl = LEVEL_ONE;
+    let cur_font = EqtbWord {
+        val: FONT_BASE as i32,
+        cmd: Cmd::Data as u16,
+        lvl: LEVEL_ONE,
+    };
+    EQTB[CUR_FONT_LOC] = cur_font;
 
-    for k in MATH_FONT_BASE..=(MATH_FONT_BASE + NUMBER_MATH_FONTS - 1) {
-        EQTB[k] = EQTB[CUR_FONT_LOC];
+    for k in EQTB.iter_mut().skip(MATH_FONT_BASE).take(NUMBER_MATH_FONTS) {
+        *k = cur_font;
     }
 
-    EQTB[CAT_CODE_BASE].val = 0;
-    EQTB[CAT_CODE_BASE].cmd = Cmd::Data as u16;
-    EQTB[CAT_CODE_BASE].lvl = LEVEL_ONE;
+    let zero_data = EqtbWord {
+        val: 0,
+        cmd: Cmd::Data as u16,
+        lvl: LEVEL_ONE,
+    };
 
-    for k in (CAT_CODE_BASE + 1)..=(INT_BASE as usize - 1) {
-        EQTB[k] = EQTB[CAT_CODE_BASE];
+    for k in CAT_CODE_BASE..INT_BASE as usize {
+        EQTB[k] = zero_data;
     }
 
-    for k in 0..=(NUMBER_USVS as i32 - 1) {
-        *CAT_CODE(k as usize) = Cmd::OtherChar as _;
-        *MATH_CODE(k as usize) = k;
-        *SF_CODE(k as usize) = 1000;
+    for k in 0..NUMBER_USVS {
+        *CAT_CODE(k) = Cmd::OtherChar as _;
+        *MATH_CODE(k) = k as i32;
+        *SF_CODE(k) = 1000;
     }
 
     *CAT_CODE('\r' as usize) = Cmd::CarRet as _;
@@ -2462,7 +2481,7 @@ unsafe fn initialize_more_initex_variables() {
         *SF_CODE(k as usize) = 999;
     }
 
-    for k in INT_BASE..=(DEL_CODE_BASE - 1) {
+    for k in INT_BASE..DEL_CODE_BASE {
         EQTB[k].val = 0;
     }
 
@@ -2475,25 +2494,27 @@ unsafe fn initialize_more_initex_variables() {
     set_int_par(IntPar::escape_char, '\\' as i32);
     set_int_par(IntPar::end_line_char, '\r' as i32);
 
-    for k in 0..=(NUMBER_USVS - 1) {
+    for k in 0..NUMBER_USVS {
         *DEL_CODE(k) = -1;
     }
 
-    *DEL_CODE(46) = 0;
+    *DEL_CODE('.' as usize) = 0;
 
     for k in DIMEN_BASE..=EQTB_SIZE {
         EQTB[k].val = 0;
     }
 
     prim_used = PRIM_SIZE;
-    hash_used = FROZEN_CONTROL_SEQUENCE as i32;
+    hash_used = FROZEN_CONTROL_SEQUENCE;
     hash_high = 0;
     cs_count = 0;
     EQTB[FROZEN_DONT_EXPAND].cmd = Cmd::DontExpand as _;
     yhash[FROZEN_DONT_EXPAND - hash_offset].s1 = maketexstring("notexpanded:");
-    EQTB[FROZEN_PRIMITIVE].cmd = Cmd::IgnoreSpaces as u16;
-    EQTB[FROZEN_PRIMITIVE].val = 1;
-    EQTB[FROZEN_PRIMITIVE].lvl = LEVEL_ONE;
+    EQTB[FROZEN_PRIMITIVE] = EqtbWord {
+        cmd: Cmd::IgnoreSpaces as u16,
+        val: 1,
+        lvl: LEVEL_ONE,
+    };
     yhash[FROZEN_PRIMITIVE - hash_offset].s1 = maketexstring("primitive");
 
     for k in (-TRIE_OP_SIZE)..=TRIE_OP_SIZE {
@@ -2512,9 +2533,11 @@ unsafe fn initialize_more_initex_variables() {
     format_ident = maketexstring(" (INITEX)");
 
     yhash[END_WRITE - hash_offset].s1 = maketexstring("endwrite");
-    EQTB[END_WRITE].lvl = LEVEL_ONE;
-    EQTB[END_WRITE].cmd = Cmd::OuterCall as u16;
-    EQTB[END_WRITE].val = None.tex_int();
+    EQTB[END_WRITE] = EqtbWord {
+        lvl: LEVEL_ONE,
+        cmd: Cmd::OuterCall as u16,
+        val: None.tex_int(),
+    };
 
     max_reg_num = 32767;
     max_reg_help_line = "A register number must be between 0 and 32767.";
@@ -2529,7 +2552,7 @@ unsafe fn initialize_more_initex_variables() {
 /*1371: */
 unsafe fn initialize_primitives() {
     no_new_control_sequence = false;
-    first = 0i32;
+    first = 0;
     primitive(
         "lineskip",
         Cmd::AssignGlue,
@@ -3609,17 +3632,17 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     /* First bit of initex handling: more allocations. */
 
     if in_initex_mode {
-        MEM = vec![memory_word::default(); MEM_TOP as usize + 2];
-        EQTB_TOP = EQTB_SIZE + hash_extra as usize;
+        MEM = vec![memory_word::default(); MEM_TOP + 2];
+        EQTB_TOP = EQTB_SIZE + hash_extra;
         if hash_extra == 0 {
-            hash_top = UNDEFINED_CONTROL_SEQUENCE as i32;
+            hash_top = UNDEFINED_CONTROL_SEQUENCE;
         } else {
-            hash_top = EQTB_TOP as i32;
+            hash_top = EQTB_TOP;
         }
         yhash = vec![b32x2::default(); (1 + hash_top) as usize - hash_offset + 1];
         yhash[HASH_BASE - hash_offset].s0 = 0;
         yhash[HASH_BASE - hash_offset].s1 = 0;
-        hash_used = HASH_BASE as i32 + 1;
+        hash_used = HASH_BASE + 1;
         while hash_used <= hash_top {
             yhash[hash_used as usize - hash_offset] = yhash[HASH_BASE - hash_offset];
             hash_used += 1
@@ -3631,7 +3654,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     }
     /* Sanity-check various invariants. */
     history = TTHistory::FATAL_ERROR;
-    bad = 0i32;
+    bad = 0;
     if half_error_line < 30 || half_error_line > error_line - 15 {
         bad = 1
     }
@@ -3665,7 +3688,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     if BUF_SIZE > MAX_HALFWORD as usize {
         bad = 18
     }
-    if CS_TOKEN_FLAG as i32 + EQTB_SIZE as i32 + hash_extra > MAX_HALFWORD {
+    if CS_TOKEN_FLAG as i32 + EQTB_SIZE as i32 + hash_extra as i32 > MAX_HALFWORD {
         bad = 21
     }
     if 514 < 0 || 514 > HASH_BASE {
@@ -3698,10 +3721,10 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     initialize_shipout_variables();
 
     selector = Selector::TERM_ONLY;
-    tally = 0i32;
-    term_offset = 0i32;
-    file_offset = 0i32;
-    job_name = 0i32;
+    tally = 0;
+    term_offset = 0;
+    file_offset = 0;
+    job_name = 0;
     name_in_progress = false;
     log_opened = false;
 
@@ -3717,7 +3740,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     FULL_SOURCE_FILENAME_STACK[0] = 0;
     IN_OPEN = 0;
     open_parens = 0i32;
-    max_buf_stack = 0i32;
+    max_buf_stack = 0;
     GRP_STACK[0] = 0;
     IF_STACK[0] = None;
     PARAM_PTR = 0;

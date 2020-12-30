@@ -2657,7 +2657,7 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
             h -= 8501;
         }
     }
-    let mut p = h + HASH_BASE as i32;
+    let mut p = (h + HASH_BASE as i32) as usize;
     let mut ll = l;
     for d in 0..=l - 1 {
         if BUFFER[j + d] as i64 >= 65536 {
@@ -2671,26 +2671,26 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
                 break;
             }
         }
-        if yhash[p as usize - hash_offset].s0 == 0 {
+        if yhash[p - hash_offset].s0 == 0 {
             if no_new_control_sequence {
-                p = UNDEFINED_CONTROL_SEQUENCE as i32;
+                p = UNDEFINED_CONTROL_SEQUENCE;
             } else {
-                if yhash[p as usize - hash_offset].s1 > 0 {
+                if yhash[p - hash_offset].s1 > 0 {
                     if hash_high < hash_extra {
                         hash_high += 1;
-                        yhash[p as usize - hash_offset].s0 = hash_high + EQTB_SIZE as i32;
-                        p = hash_high + EQTB_SIZE as i32;
+                        yhash[p - hash_offset].s0 = (hash_high + EQTB_SIZE) as i32;
+                        p = hash_high + EQTB_SIZE;
                     } else {
                         loop {
-                            if hash_used == HASH_BASE as i32 {
-                                overflow("hash size", HASH_SIZE + hash_extra as usize);
+                            if hash_used == HASH_BASE {
+                                overflow("hash size", HASH_SIZE + hash_extra);
                             }
                             hash_used -= 1;
-                            if yhash[hash_used as usize - hash_offset].s1 == 0 {
+                            if yhash[hash_used - hash_offset].s1 == 0 {
                                 break;
                             }
                         }
-                        yhash[p as usize - hash_offset].s0 = hash_used;
+                        yhash[p - hash_offset].s0 = hash_used as i32;
                         p = hash_used
                     }
                 }
@@ -2712,15 +2712,15 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
                         pool_ptr += 1
                     }
                 }
-                yhash[p as usize - hash_offset].s1 = make_string();
-                pool_ptr += d
+                yhash[p - hash_offset].s1 = make_string();
+                pool_ptr += d;
             }
             break;
         } else {
-            p = yhash[p as usize - hash_offset].s0
+            p = yhash[p - hash_offset].s0 as usize;
         }
     }
-    p
+    p as i32
 }
 pub(crate) unsafe fn prim_lookup(s: str_number) -> usize {
     let mut l = 0;
@@ -2844,8 +2844,8 @@ pub(crate) unsafe fn pseudo_input(input: &mut input_state_t) -> bool {
         let sz = MEM[p].b32.s0 as usize;
         if 4 * sz - 3 >= BUF_SIZE - last as usize {
             /*35: */
-            input.loc = first;
-            input.limit = last - 1;
+            input.loc = first as i32;
+            input.limit = (last - 1) as i32;
             overflow("buffer size", BUF_SIZE);
         }
         last = first;
@@ -3733,13 +3733,13 @@ pub(crate) unsafe fn begin_file_reading(input: &mut input_state_t) {
     GRP_STACK[input.index as usize] = cur_boundary;
     IF_STACK[input.index as usize] = cond_ptr;
     LINE_STACK[input.index as usize] = line;
-    input.start = first;
+    input.start = first as i32;
     input.state = InputState::MidLine;
     input.name = 0;
     input.synctex_tag = 0;
 }
 pub(crate) unsafe fn end_file_reading(input: &mut input_state_t) {
-    first = input.start;
+    first = input.start as usize;
     line = LINE_STACK[input.index as usize];
     if input.name == 18 || input.name == 19 {
         pseudo_close();
@@ -4318,18 +4318,18 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                         /*374:*/
                         // Read next line of file into `buffer`, or goto `'restart` if the file has ended
                         line += 1; /*367:*/
-                        first = input.start;
+                        first = input.start as usize;
                         if !force_eof {
                             if input.name <= 19 {
                                 if pseudo_input(input) {
                                     // not end of file
-                                    input.limit = last;
+                                    input.limit = last as i32;
                                 // this sets `limit`
                                 } else if let Some(l) = LOCAL(Local::every_eof)
                                     .opt()
                                     .filter(|_| !EOF_SEEN[input.index as usize])
                                 {
-                                    input.limit = first - 1;
+                                    input.limit = (first - 1) as i32;
                                     EOF_SEEN[input.index as usize] = true; // fake one empty line
                                     begin_token_list(input, l, Btl::EveryEOFText);
                                     continue 'restart;
@@ -4339,13 +4339,13 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             } else if input_line(INPUT_FILE[input.index as usize].as_mut().unwrap())
                             {
                                 // not end of file
-                                input.limit = last;
+                                input.limit = last as i32;
                             // this sets `limit`
                             } else if let Some(l) = LOCAL(Local::every_eof)
                                 .opt()
                                 .filter(|_| !EOF_SEEN[input.index as usize])
                             {
-                                input.limit = first - 1;
+                                input.limit = (first - 1) as i32;
                                 EOF_SEEN[input.index as usize] = true; // fake one empty line
                                 begin_token_list(input, l, Btl::EveryEOFText);
                                 continue 'restart;
@@ -4383,7 +4383,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                             } else {
                                 BUFFER[input.limit as usize] = get_int_par(IntPar::end_line_char)
                             }
-                            first = input.limit + 1;
+                            first = (input.limit + 1) as usize;
                             input.loc = input.start
                         }
                     } else {
@@ -4961,7 +4961,7 @@ pub(crate) unsafe fn find_sa_element(t: ValLevel, n: i32, w: bool) {
             }
             ValLevel::Glue | ValLevel::Mu => {
                 let p = get_node(POINTER_NODE_SIZE);
-                MEM[p + 1].b32.s1 = 0;
+                MEM[p + 1].b32.s1 = ZERO_GLUE.ptr() as _;
                 ZERO_GLUE.rc_inc();
                 MEM[p + 1].b32.s0 = None.tex_int();
                 p
@@ -8357,13 +8357,13 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
                 error();
             }
         }
-        input.limit = last;
+        input.limit = last as i32;
         if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) > 255 {
             input.limit -= 1
         } else {
             BUFFER[input.limit as usize] = get_int_par(IntPar::end_line_char)
         }
-        first = input.limit + 1;
+        first = (input.limit + 1) as usize;
         input.loc = input.start;
         input.state = InputState::NewLine;
         // Handle `\readline` and goto `'done`
@@ -8687,7 +8687,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
             while let Some(p) = popt {
                 if m >= max_buf_stack {
-                    max_buf_stack = m + 1i32;
+                    max_buf_stack = m + 1;
                     if max_buf_stack as usize == BUF_SIZE {
                         overflow("buffer size", BUF_SIZE);
                     }
@@ -8700,7 +8700,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
             let cs = if m == first {
                 NULL_CS as i32
-            } else if m == first + 1i32 {
+            } else if m == first + 1 {
                 SINGLE_BASE as i32 + BUFFER[first as usize]
             } else {
                 id_lookup(first as usize, (m - first) as usize)
@@ -9163,13 +9163,13 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
     // Read the first line of the new file
     line = 1;
     input_line(INPUT_FILE[input.index as usize].as_mut().unwrap());
-    input.limit = last;
+    input.limit = last as i32;
     if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) > 255 {
         input.limit -= 1
     } else {
         BUFFER[input.limit as usize] = get_int_par(IntPar::end_line_char)
     }
-    first = input.limit + 1;
+    first = (input.limit + 1) as usize;
     input.loc = input.start;
 
     // Here we have to remember to tell the |input_ln| routine not to

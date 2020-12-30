@@ -174,7 +174,7 @@ pub(crate) unsafe fn store_fmt_file() {
     /* TODO: can we move this farther up in this function? */
     fmt_out.dump_one(FORMAT_HEADER_MAGIC);
     fmt_out.dump_one(FORMAT_SERIAL);
-    fmt_out.dump_one(hash_high);
+    fmt_out.dump_one(hash_high as i32);
 
     while pseudo_files.opt().is_some() {
         pseudo_close();
@@ -336,12 +336,12 @@ pub(crate) unsafe fn store_fmt_file() {
 
     /* control sequences */
     fmt_out.dump_one(hash_used as i32);
-    cs_count = (FROZEN_CONTROL_SEQUENCE as i32 - 1) - hash_used + hash_high;
+    cs_count = (hash_high + FROZEN_CONTROL_SEQUENCE - 1 - hash_used) as i32;
 
-    for p in (HASH_BASE as i32)..=hash_used {
-        if yhash[p as usize - hash_offset].s1 != 0 {
+    for p in HASH_BASE..=hash_used {
+        if yhash[p - hash_offset].s1 != 0 {
             fmt_out.dump_one(p as i32);
-            fmt_out.dump_one(yhash[p as usize - hash_offset]);
+            fmt_out.dump_one(yhash[p - hash_offset]);
             cs_count += 1;
         }
     }
@@ -555,35 +555,38 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     /* hash table parameters */
 
-    fmt_in.undump_one(&mut hash_high);
-    if hash_high < 0 || hash_high > sup_hash_extra {
+    fmt_in.undump_one(&mut x);
+    if x < 0 || x > sup_hash_extra {
         bad_fmt();
+    } else {
+        hash_high = x as usize;
     }
     if hash_extra < hash_high {
         hash_extra = hash_high
     }
 
     EQTB_TOP = EQTB_SIZE + hash_extra as usize;
-    if hash_extra == 0 {
-        hash_top = UNDEFINED_CONTROL_SEQUENCE as i32;
+    hash_top = if hash_extra == 0 {
+        UNDEFINED_CONTROL_SEQUENCE
     } else {
-        hash_top = EQTB_TOP as i32;
-    }
+        EQTB_TOP
+    };
 
-    yhash = vec![b32x2::default(); (1 + hash_top) as usize - hash_offset + 1];
+    yhash = vec![b32x2::default(); 1 + hash_top - hash_offset + 1];
 
-    for x in HASH_BASE..=(hash_top as usize) {
+    for x in HASH_BASE..=hash_top {
         yhash[x - hash_offset] = b32x2_le_t { s0: 0, s1: 0 };
     }
 
     EQTB = Vec::with_capacity(EQTB_TOP + 2);
     EQTB.set_len(EQTB_TOP + 2);
-    for x in EQTB_SIZE..=EQTB_TOP {
-        EQTB[x] = EqtbWord {
-            cmd: Cmd::UndefinedCS as _,
-            val: None.tex_int() as _,
-            lvl: LEVEL_ZERO as _,
-        };
+    let ucs = EqtbWord {
+        cmd: Cmd::UndefinedCS as _,
+        val: None.tex_int() as _,
+        lvl: LEVEL_ZERO as _,
+    };
+    for eqtb in EQTB.iter_mut().take(EQTB_TOP + 1).skip(EQTB_SIZE) {
+        *eqtb = ucs;
     }
 
     max_reg_num = 32767;
@@ -765,7 +768,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     }
 
     fmt_in.undump_one(&mut x);
-    if x < HASH_BASE as i32 || x > hash_top {
+    if x < HASH_BASE as i32 || x > hash_top as i32 {
         bad_fmt();
     } else {
         par_loc = x;
@@ -774,7 +777,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     par_token = CS_TOKEN_FLAG + par_loc;
 
     fmt_in.undump_one(&mut x);
-    if x < HASH_BASE as i32 || x > hash_top {
+    if x < HASH_BASE as i32 || x > hash_top as i32 {
         bad_fmt();
     } else {
         write_loc = x;
@@ -789,42 +792,37 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
      * output in a block."
      */
 
-    p = 0i32;
-    while p <= 500i32 {
-        fmt_in.undump_one(&mut prim[p as usize]);
-        p += 1
+    for p in 0..=PRIM_SIZE {
+        fmt_in.undump_one(&mut prim[p]);
     }
 
-    p = 0i32;
-    while p <= 500i32 {
-        fmt_in.undump_one(&mut prim_eqtb[p as usize]);
-        p += 1
+    for p in 0..=PRIM_SIZE {
+        fmt_in.undump_one(&mut prim_eqtb[p]);
     }
 
     fmt_in.undump_one(&mut x);
     if x < HASH_BASE as i32 || x > FROZEN_CONTROL_SEQUENCE as i32 {
         bad_fmt();
     } else {
-        hash_used = x;
+        hash_used = x as usize;
     }
 
-    p = HASH_BASE as i32 - 1;
+    let mut p = HASH_BASE - 1;
 
     loop {
         fmt_in.undump_one(&mut x);
-        if x < p + 1 || x > hash_used {
+        if x < (p as i32) + 1 || x > hash_used as i32 {
             bad_fmt();
         } else {
-            p = x;
+            p = x as usize;
         }
-        fmt_in.undump_one(&mut yhash[p as usize - hash_offset]);
+        fmt_in.undump_one(&mut yhash[p - hash_offset]);
         if p == hash_used {
             break;
         }
     }
     fmt_in.undump(
-        &mut yhash
-            [(hash_used + 1) as usize - hash_offset..UNDEFINED_CONTROL_SEQUENCE - hash_offset],
+        &mut yhash[(hash_used + 1) - hash_offset..UNDEFINED_CONTROL_SEQUENCE - hash_offset],
     );
     if hash_high > 0 {
         fmt_in.undump(
@@ -900,14 +898,14 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     fmt_in.undump(&mut FONT_DSIZE[..FONT_PTR + 1]);
     fmt_in.undump(&mut FONT_PARAMS[..FONT_PTR + 1]);
     for (i, &param) in FONT_PARAMS.iter().enumerate().take(FONT_PTR + 1) {
-        if param < MIN_HALFWORD || param > 0x3fffffff {
+        if param < MIN_HALFWORD || param > MAX_HALFWORD {
             panic!(
                 "item {} (={}) of .fmt array at {:x} <{} or >{}",
                 i,
                 param,
                 FONT_PARAMS.as_ptr() as u64,
                 MIN_HALFWORD,
-                0x3fffffff
+                MAX_HALFWORD
             );
         }
     }

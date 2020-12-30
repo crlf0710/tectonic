@@ -324,7 +324,7 @@ impl XeTeXFontInst {
 }
 
 pub(crate) unsafe fn getGlyphBBoxCache() -> &'static mut BTreeMap<u32, GlyphBBox> {
-    static mut cache: Lazy<BTreeMap<u32, GlyphBBox>> = Lazy::new(|| BTreeMap::new());
+    static mut cache: Lazy<BTreeMap<u32, GlyphBBox>> = Lazy::new(BTreeMap::new);
     &mut cache
 }
 pub(crate) unsafe fn getCachedGlyphBBox(fontID: u16, glyphID: u16) -> Option<GlyphBBox> {
@@ -345,8 +345,8 @@ fn GlyphId_create(fontNum: usize, code: u32) -> GlyphId {
     }
 }
 pub(crate) unsafe fn getProtrusionFactor(side: Side) -> &'static mut ProtrusionFactor {
-    static mut leftProt: Lazy<ProtrusionFactor> = Lazy::new(|| ProtrusionFactor::new());
-    static mut rightProt: Lazy<ProtrusionFactor> = Lazy::new(|| ProtrusionFactor::new());
+    static mut leftProt: Lazy<ProtrusionFactor> = Lazy::new(ProtrusionFactor::new);
+    static mut rightProt: Lazy<ProtrusionFactor> = Lazy::new(ProtrusionFactor::new);
     match side {
         Side::Left => {
             &mut leftProt // we should not reach here
@@ -409,7 +409,7 @@ pub(crate) unsafe fn createFont(
     {
         font = XeTeXFont::create(fontRef, Fix2D(pointSize) as f32, &mut status);
     }
-    if status != false {
+    if status {
         None
     } else {
         Some(font)
@@ -431,7 +431,7 @@ pub(crate) unsafe fn createFontFromFile(
             XeTeXFont::wrapper(filename, index as _, Fix2D(pointSize) as f32, &mut status)
         }
     };
-    if status != false {
+    if status {
         None
     } else {
         Some(font)
@@ -915,6 +915,7 @@ impl XeTeXLayoutEngine {
 }
 
 impl XeTeXLayoutEngine {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) unsafe fn create(
         fontRef: PlatformFontRef,
         font: Box<XeTeXFont>,

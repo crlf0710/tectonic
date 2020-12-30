@@ -315,7 +315,7 @@ pub(crate) unsafe fn GetGlyphSidebearings_AAT(
     rsb: *mut libc::c_float,
 ) {
     let font = font_from_attributes(attributes);
-    let mut advances: [CGSize; 1] = [CGSizeMake(0i32 as CGFloat, 0i32 as CGFloat)];
+    let mut advances: [CGSize; 1] = [CGSizeMake(0., 0.)];
     let advance = CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationDefault,
@@ -334,7 +334,7 @@ unsafe fn CGSizeMake(width: CGFloat, height: CGFloat) -> CGSize {
 
 pub(crate) unsafe fn GetGlyphItalCorr_AAT(attributes: CFDictionaryRef, mut gid: u16) -> f64 {
     let font = font_from_attributes(attributes);
-    let mut advances: [CGSize; 1] = [CGSizeMake(0i32 as CGFloat, 0i32 as CGFloat)];
+    let mut advances: [CGSize; 1] = [CGSizeMake(0., 0.)];
     let advance = CTFontGetAdvancesForGlyphs(
         font,
         kCTFontOrientationDefault,
@@ -870,10 +870,11 @@ pub(crate) unsafe fn loadAATfont(
         CFRelease(featureSettings as CFTypeRef);
     }
     if loaded_font_flags as i32 & 0x1 != 0 {
-        let red: CGFloat = ((rgbValue & 0xff000000) >> 24) as f64 / 255.;
-        let green: CGFloat = ((rgbValue & 0xff0000) >> 16) as f64 / 255.;
-        let blue: CGFloat = ((rgbValue & 0xff00) >> 8) as f64 / 255.;
-        let alpha: CGFloat = (rgbValue & 0xff) as f64 / 255.;
+        let rgba = rgbValue.to_be_bytes();
+        let red = rgba.0 as f64 / 255.;
+        let green = rgba.1 as f64 / 255.;
+        let blue = rgba.2 as f64 / 255.;
+        let alpha = rgba.3 as f64 / 255.;
         // this wrapper CGColor is already at retain count zero
         let color = CGColor::rgb(red, green, blue, alpha);
         CFDictionaryAddValue(
@@ -883,18 +884,11 @@ pub(crate) unsafe fn loadAATfont(
         );
     }
     let mut matrix = CGAffineTransformIdentity;
-    if extend as f64 != 1.0f64 || slant as f64 != 0.0f64 {
-        matrix = CGAffineTransform::new(
-            extend as CGFloat,
-            0i32 as CGFloat,
-            slant as CGFloat,
-            1.0f64,
-            0i32 as CGFloat,
-            0i32 as CGFloat,
-        )
+    if extend as f64 != 1. || slant as f64 != 0. {
+        matrix = CGAffineTransform::new(extend as CGFloat, 0., slant as CGFloat, 1., 0., 0.)
     }
-    if embolden as f64 != 0.0f64 {
-        embolden = (embolden as f64 * Fix2D(scaled_size) / 100.0f64) as libc::c_float;
+    if embolden as f64 != 0. {
+        embolden = (embolden as f64 * Fix2D(scaled_size) / 100.) as f32;
         let emboldenNumber = CFNumberCreate(
             0 as CFAllocatorRef,
             kCFNumberFloatType as libc::c_int as CFNumberType,
@@ -907,9 +901,8 @@ pub(crate) unsafe fn loadAATfont(
         );
         CFRelease(emboldenNumber as CFTypeRef);
     }
-    if letterspace as f64 != 0.0f64 {
-        loaded_font_letter_space =
-            Scaled((letterspace as f64 / 100.0f64 * scaled_size.0 as f64) as i32)
+    if letterspace as f64 != 0. {
+        loaded_font_letter_space = Scaled((letterspace as f64 / 100. * scaled_size.0 as f64) as i32)
     }
     // Disable Core Text font fallback (cascading) with only the last resort font
     // in the cascade list.

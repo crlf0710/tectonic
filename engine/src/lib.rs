@@ -2,6 +2,7 @@
 #![allow(clippy::many_single_char_names)]
 #![allow(clippy::float_cmp)]
 #![allow(clippy::match_single_binding)]
+#![allow(clippy::missing_safety_doc)]
 #[macro_use]
 extern crate bridge;
 

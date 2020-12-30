@@ -301,15 +301,15 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
         + 16;
     /* Start CMap */
     stream.add_str("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n");
-    write!(wbuf, "/CMapName /{} def\n", (*cmap).name).unwrap();
-    write!(wbuf, "/CMapType {} def\n", (*cmap).type_0).unwrap();
+    writeln!(wbuf, "/CMapName /{} def", (*cmap).name).unwrap();
+    writeln!(wbuf, "/CMapType {} def", (*cmap).type_0).unwrap();
 
     if (*cmap).wmode != 0 && (*cmap).type_0 != 2 {
-        write!(wbuf, "/WMode {} def\n", (*cmap).wmode).unwrap();
+        writeln!(wbuf, "/WMode {} def", (*cmap).wmode).unwrap();
     }
-    write!(
+    writeln!(
         wbuf,
-        "/CIDSystemInfo <<\n  /Registry ({})\n  /Ordering ({})\n  /Supplement {}\n>> def\n",
+        "/CIDSystemInfo <<\n  /Registry ({})\n  /Ordering ({})\n  /Supplement {}\n>> def",
         (*csi).registry,
         (*csi).ordering,
         (*csi).supplement,
@@ -320,7 +320,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
     wbuf.clear();
     /* codespacerange */
     let ranges = (*cmap).codespace.ranges;
-    write!(wbuf, "{} begincodespacerange\n", (*cmap).codespace.num).unwrap();
+    writeln!(wbuf, "{} begincodespacerange", (*cmap).codespace.num).unwrap();
     for i in 0..(*cmap).codespace.num as u64 {
         wbuf.push(b'<');
         for j in 0..(*ranges.offset(i as isize)).dim {

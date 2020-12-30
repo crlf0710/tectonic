@@ -198,17 +198,14 @@ unsafe fn apply_normalization(buf: *mut u32, len: i32, norm: i32) {
         (len as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as u32,
         &mut inUsed,
         &mut BUFFER[first as usize] as *mut UnicodeScalar as *mut u8,
-        (::std::mem::size_of::<UnicodeScalar>() as u64)
-            .wrapping_mul((BUF_SIZE as i32 - first) as u64) as u32,
+        (std::mem::size_of::<UnicodeScalar>() * (BUF_SIZE - first)) as u32,
         &mut outUsed,
         1i32 as u8,
     );
     if status != 0i32 as i64 {
         buffer_overflow();
     }
-    last = (first as u64)
-        .wrapping_add((outUsed as u64).wrapping_div(::std::mem::size_of::<UnicodeScalar>() as u64))
-        as i32;
+    last = first + (outUsed as usize) / std::mem::size_of::<UnicodeScalar>();
 }
 pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
     static mut byteBuffer: Vec<i8> = Vec::new();
@@ -290,18 +287,16 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                     icu::UCNV_UTF32_LittleEndian,
                     cnv,
                     &mut BUFFER[first as usize] as *mut UnicodeScalar as *mut i8,
-                    (::std::mem::size_of::<UnicodeScalar>() as u64)
-                        .wrapping_mul((BUF_SIZE as i32 - first) as u64) as i32,
+                    (std::mem::size_of::<UnicodeScalar>() * (BUF_SIZE - first)) as i32,
                     byteBuffer.as_ptr(),
                     byteBuffer.len() as i32,
                     &mut errorCode,
-                );
+                ) as usize;
                 if errorCode != 0 {
                     conversion_error(errorCode as i32);
                     return false;
                 }
-                outLen = (outLen as u64).wrapping_div(::std::mem::size_of::<UnicodeScalar>() as u64)
-                    as i32 as i32;
+                outLen /= std::mem::size_of::<UnicodeScalar>();
                 last = first + outLen
             }
         }
@@ -323,14 +318,14 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                     utf32Buf = Vec::with_capacity(BUF_SIZE);
                 }
                 utf32Buf.clear();
-                if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
+                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
                     utf32Buf.push(i as u32);
                 }
-                if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
+                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
                     while utf32Buf.len() < BUF_SIZE
                         && {
                             i = get_uni_c(f);
-                            i != -1i32
+                            i != -1
                         }
                         && i != '\n' as i32
                         && i != '\r' as i32
@@ -338,26 +333,26 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                         utf32Buf.push(i as u32);
                     }
                 }
-                if i == -1i32 && errno::errno() != errno::EINTR && utf32Buf.is_empty() {
+                if i == -1 && errno::errno() != errno::EINTR && utf32Buf.is_empty() {
                     return false;
                 }
                 /* We didn't get the whole line because our buffer was too small.  */
-                if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
+                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
                     buffer_overflow();
                 }
                 apply_normalization(utf32Buf.as_mut_ptr(), utf32Buf.len() as _, norm);
             }
             _ => {
                 // none
-                if last < BUF_SIZE as i32 && i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
+                if last < BUF_SIZE && i != -1 && i != '\n' as i32 && i != '\r' as i32 {
                     BUFFER[last as usize] = i;
                     last += 1;
                 }
-                if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-                    while last < BUF_SIZE as i32
+                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
+                    while last < BUF_SIZE
                         && {
                             i = get_uni_c(f);
-                            i != -1i32
+                            i != -1
                         }
                         && i != '\n' as i32
                         && i != '\r' as i32
@@ -366,11 +361,11 @@ pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
                         last += 1;
                     }
                 }
-                if i == -1i32 && errno::errno() != errno::EINTR && last == first {
+                if i == -1 && errno::errno() != errno::EINTR && last == first {
                     return false;
                 }
                 /* We didn't get the whole line because our buffer was too small.  */
-                if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
+                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
                     buffer_overflow();
                 }
             }

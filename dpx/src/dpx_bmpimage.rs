@@ -396,16 +396,14 @@ fn read_raster_rle8<R: Read>(
         if eol == 0 && eoi == 0 {
             let b0 = u8::get(handle);
             let b1 = u8::get(handle);
-            if b0 as i32 != 0i32 {
+            if b0 as i32 != 0 {
                 warn!("RLE decode failed...");
                 return Err(());
-            } else {
-                if b1 as i32 == 0x1i32 {
-                    eoi = 1i32
-                } else if b1 as i32 != 0i32 {
-                    warn!("RLE decode failed...");
-                    return Err(());
-                }
+            } else if b1 as i32 == 0x1 {
+                eoi = 1;
+            } else if b1 as i32 != 0 {
+                warn!("RLE decode failed...");
+                return Err(());
             }
         }
         v += 1
@@ -460,10 +458,8 @@ fn read_raster_rle4<R: Read>(
                                 p = &mut p[1..];
                                 p[0] = ((b as i32) << 4 & 0xf0) as u8;
                             }
-                        } else {
-                            if handle.read_exact(&mut p[..nbytes as usize]).is_err() {
-                                return Err(());
-                            }
+                        } else if handle.read_exact(&mut p[..nbytes as usize]).is_err() {
+                            return Err(());
                         }
                         h += b1 as i32;
                         count += nbytes;
@@ -502,13 +498,11 @@ fn read_raster_rle4<R: Read>(
             if b0 as i32 != 0i32 {
                 warn!("No EOL/EOI marker. RLE decode failed...");
                 return Err(());
-            } else {
-                if b1 as i32 == 0x1i32 {
-                    eoi = 1i32
-                } else if b1 as i32 != 0i32 {
-                    warn!("No EOL/EOI marker. RLE decode failed...");
-                    return Err(());
-                }
+            } else if b1 as i32 == 0x1 {
+                eoi = 1;
+            } else if b1 as i32 != 0 {
+                warn!("No EOL/EOI marker. RLE decode failed...");
+                return Err(());
             }
         }
         v += 1
