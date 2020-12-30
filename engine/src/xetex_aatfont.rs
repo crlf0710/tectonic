@@ -104,7 +104,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     let mut width: CGFloat = 0.;
     let typesetter;
     let mut line;
-    let f = node.font() as libc::c_uint;
+    let f = node.font() as u32;
     if let Font::Native(Aat(attributes)) = &FONT_LAYOUT_ENGINE[f as usize] {
         let txt = node.text();
         let txtLen = txt.len() as CFIndex;
@@ -253,11 +253,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
     CFRelease(typesetter as CFTypeRef);
 }
 
-unsafe fn getGlyphBBoxFromCTFont(font: CTFontRef, mut gid: u16, mut bbox: *mut GlyphBBox) {
-    (*bbox).xMin = 65536.;
-    (*bbox).yMin = 65536.;
-    (*bbox).xMax = -65536.;
-    (*bbox).yMax = -65536.;
+unsafe fn getGlyphBBoxFromCTFont(font: CTFontRef, mut gid: u16) -> GlyphBBox {
     let rect = CTFontGetBoundingRectsForGlyphs(
         font,
         kCTFontOrientationDefault,
@@ -266,22 +262,21 @@ unsafe fn getGlyphBBoxFromCTFont(font: CTFontRef, mut gid: u16, mut bbox: *mut G
         1i32 as CFIndex,
     );
     if CGRectIsNull(rect) {
-        (*bbox).yMax = 0.;
-        (*bbox).xMax = (*bbox).yMax;
-        (*bbox).yMin = (*bbox).xMax;
-        (*bbox).xMin = (*bbox).yMin
+        GlyphBBox::default()
     } else {
-        (*bbox).yMin = PStoTeXPoints(rect.origin.y) as libc::c_float;
-        (*bbox).yMax = PStoTeXPoints(rect.origin.y + rect.size.height) as libc::c_float;
-        (*bbox).xMin = PStoTeXPoints(rect.origin.x) as libc::c_float;
-        (*bbox).xMax = PStoTeXPoints(rect.origin.x + rect.size.width) as libc::c_float
-    };
+        GlyphBBox {
+            yMin: PStoTeXPoints(rect.origin.y) as _,
+            yMax: PStoTeXPoints(rect.origin.y + rect.size.height) as _,
+            xMin: PStoTeXPoints(rect.origin.x) as _,
+            xMax: PStoTeXPoints(rect.origin.x + rect.size.width) as _,
+        }
+    }
 }
 
 /// returns glyph bounding box in TeX points
-pub(crate) unsafe fn GetGlyphBBox_AAT(attributes: CFDictionaryRef, gid: u16, bbox: *mut GlyphBBox) {
+pub(crate) unsafe fn GetGlyphBBox_AAT(attributes: CFDictionaryRef, gid: u16) -> GlyphBBox {
     let font = font_from_attributes(attributes);
-    getGlyphBBoxFromCTFont(font, gid, bbox)
+    getGlyphBBoxFromCTFont(font, gid)
 }
 
 unsafe fn getGlyphWidthFromCTFont(font: CTFontRef, mut gid: u16) -> f64 {
@@ -307,13 +302,7 @@ pub(crate) unsafe fn GetGlyphHeightDepth_AAT(
     ht: *mut libc::c_float,
     dp: *mut libc::c_float,
 ) {
-    let mut bbox: GlyphBBox = GlyphBBox {
-        xMin: 0.,
-        yMin: 0.,
-        xMax: 0.,
-        yMax: 0.,
-    };
-    GetGlyphBBox_AAT(attributes, gid, &mut bbox);
+    let bbox = GetGlyphBBox_AAT(attributes, gid);
     *ht = bbox.yMax;
     *dp = -bbox.yMin;
 }
@@ -334,13 +323,7 @@ pub(crate) unsafe fn GetGlyphSidebearings_AAT(
         advances.as_mut_ptr(),
         1i32 as CFIndex,
     );
-    let mut bbox: GlyphBBox = GlyphBBox {
-        xMin: 0.,
-        yMin: 0.,
-        xMax: 0.,
-        yMax: 0.,
-    };
-    getGlyphBBoxFromCTFont(font, gid, &mut bbox);
+    let bbox = getGlyphBBoxFromCTFont(font, gid);
     *lsb = bbox.xMin;
     *rsb = (PStoTeXPoints(advance) - bbox.xMax as f64) as libc::c_float;
 }
@@ -359,17 +342,11 @@ pub(crate) unsafe fn GetGlyphItalCorr_AAT(attributes: CFDictionaryRef, mut gid: 
         advances.as_mut_ptr(),
         1i32 as CFIndex,
     );
-    let mut bbox: GlyphBBox = GlyphBBox {
-        xMin: 0.,
-        yMin: 0.,
-        xMax: 0.,
-        yMax: 0.,
-    };
-    getGlyphBBoxFromCTFont(font, gid, &mut bbox);
+    let bbox = getGlyphBBoxFromCTFont(font, gid);
     if bbox.xMax as f64 > PStoTeXPoints(advance) {
         return bbox.xMax as f64 - PStoTeXPoints(advance);
     }
-    return 0i32 as f64;
+    return 0.;
 }
 unsafe fn mapCharToGlyphFromCTFont(font: CTFontRef, ch: char) -> libc::c_int {
     let mut glyphs: [CGGlyph; 2] = [0i32 as CGGlyph, 0];
@@ -892,11 +869,11 @@ pub(crate) unsafe fn loadAATfont(
         }
         CFRelease(featureSettings as CFTypeRef);
     }
-    if loaded_font_flags as libc::c_int & 0x1i32 != 0i32 {
-        let red: CGFloat = ((rgbValue & 0xff000000u32) >> 24i32) as f64 / 255.0f64;
-        let green: CGFloat = ((rgbValue & 0xff0000i32 as libc::c_uint) >> 16i32) as f64 / 255.0f64;
-        let blue: CGFloat = ((rgbValue & 0xff00i32 as libc::c_uint) >> 8i32) as f64 / 255.0f64;
-        let alpha: CGFloat = (rgbValue & 0xffi32 as libc::c_uint) as f64 / 255.0f64;
+    if loaded_font_flags as i32 & 0x1 != 0 {
+        let red: CGFloat = ((rgbValue & 0xff000000) >> 24) as f64 / 255.;
+        let green: CGFloat = ((rgbValue & 0xff0000) >> 16) as f64 / 255.;
+        let blue: CGFloat = ((rgbValue & 0xff00) >> 8) as f64 / 255.;
+        let alpha: CGFloat = (rgbValue & 0xff) as f64 / 255.;
         // this wrapper CGColor is already at retain count zero
         let color = CGColor::rgb(red, green, blue, alpha);
         CFDictionaryAddValue(

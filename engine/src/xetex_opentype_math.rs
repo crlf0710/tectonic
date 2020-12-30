@@ -94,7 +94,7 @@ pub(crate) unsafe fn get_ot_math_constant(f: usize, n: libc::c_int) -> Scaled {
         let hbFont = font.get_hb_font();
         let rval = hb_ot_math_get_constant(hbFont, constant);
         /* scale according to font size, except the ones that are percentages */
-        match constant as libc::c_uint {
+        match constant as u32 {
             0 | 1 | 55 => Scaled::ZERO,
             _ => D2Fix(font.units_to_points(rval as f32) as f64),
         }
@@ -146,7 +146,7 @@ pub(crate) unsafe fn get_native_mathsy_param(f: usize, n: libc::c_int) -> Scaled
             as libc::c_int
     {
         let ot_index = TeX_sym_to_OT_map[n as usize];
-        if ot_index as libc::c_uint != 4294967295 as hb_ot_math_constant_t as libc::c_uint {
+        if ot_index as u32 != 4294967295 {
             rval = get_ot_math_constant(f, ot_index as libc::c_int)
         }
     }
@@ -187,7 +187,7 @@ pub(crate) unsafe fn get_native_mathex_param(f: usize, n: libc::c_int) -> Scaled
             as libc::c_int
     {
         let ot_index = TeX_ext_to_OT_map[n as usize];
-        if ot_index as libc::c_uint != 4294967295 as hb_ot_math_constant_t as libc::c_uint {
+        if ot_index as u32 != 4294967295 {
             rval = get_ot_math_constant(f, ot_index as libc::c_int)
         }
     }
@@ -219,7 +219,7 @@ pub(crate) unsafe fn get_ot_math_variant(
             } else {
                 HB_DIRECTION_TTB as i32
             }) as hb_direction_t,
-            v as libc::c_uint,
+            v as u32,
             &mut count,
             variant.as_mut_ptr(),
         );

@@ -442,7 +442,7 @@ pub static mut error_buf: String = String::new();
 
 #[macro_export]
 macro_rules! abort(
-    ($($arg:tt)*) => {{
+    ($($arg:tt)*) => { unsafe {
         use std::io::Write;
         let v = format!($($arg)*);
         bridge::error_buf = v.clone();

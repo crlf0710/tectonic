@@ -19,11 +19,6 @@ use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::createFont;
 use crate::xetex_xetex0::{diagnostic, get_tracing_fonts_state};
 
-#[cfg(not(target_os = "macos"))]
-use self::imp::XeTeXFontMgr_FC_create;
-#[cfg(target_os = "macos")]
-use self::imp::XeTeXFontMgr_Mac_create;
-
 use harfbuzz_sys::{hb_font_get_face, hb_ot_layout_get_size_params};
 
 #[cfg(not(target_os = "macos"))]
@@ -79,7 +74,7 @@ pub(crate) struct XeTeXFontMgrOpSizeRec {
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgrFamily {
-    pub(crate) styles: BTreeMap<String, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) styles: BTreeMap<String, Rc<XeTeXFontMgrFont>>,
     pub(crate) minWeight: u16,
     pub(crate) maxWeight: u16,
     pub(crate) minWidth: u16,
@@ -129,10 +124,10 @@ impl XeTeXFontMgrNameCollection {
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct XeTeXFontMgr {
-    pub(crate) m_nameToFont: BTreeMap<String, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) m_nameToFont: BTreeMap<String, Rc<XeTeXFontMgrFont>>,
     pub(crate) m_nameToFamily: BTreeMap<String, Rc<RefCell<XeTeXFontMgrFamily>>>,
-    pub(crate) m_platformRefToFont: BTreeMap<PlatformFontRef, Rc<RefCell<XeTeXFontMgrFont>>>,
-    pub(crate) m_psNameToFont: BTreeMap<String, Rc<RefCell<XeTeXFontMgrFont>>>,
+    pub(crate) m_platformRefToFont: BTreeMap<PlatformFontRef, Rc<XeTeXFontMgrFont>>,
+    pub(crate) m_psNameToFont: BTreeMap<String, Rc<XeTeXFontMgrFont>>,
     // maps PS name (as used in .xdv) to font record
 }
 
@@ -267,21 +262,10 @@ unsafe fn my_fmax(x: f64, y: f64) -> f64 {
     }
 }
 pub(crate) unsafe fn XeTeXFontMgr_GetFontManager() -> &'static mut FontMgr {
-    #[cfg(not(target_os = "macos"))]
-    {
-        if XeTeXFontMgr_sFontManager.is_none() {
-            let mut mngr = XeTeXFontMgr_FC_create();
-            mngr.initialize();
-            XeTeXFontMgr_sFontManager = Some(mngr);
-        }
-    }
-    #[cfg(target_os = "macos")]
-    {
-        if XeTeXFontMgr_sFontManager.is_none() {
-            let mut mngr = XeTeXFontMgr_Mac_create();
-            mngr.initialize();
-            XeTeXFontMgr_sFontManager = Some(mngr);
-        }
+    if XeTeXFontMgr_sFontManager.is_none() {
+        let mut mngr = FontMgr::create();
+        mngr.initialize();
+        XeTeXFontMgr_sFontManager = Some(mngr);
     }
     XeTeXFontMgr_sFontManager.as_deref_mut().unwrap()
 }
@@ -310,506 +294,465 @@ pub(crate) unsafe fn XeTeXFontMgr_setReqEngine(
 }
 // above are singleton operation.
 
-pub(crate) unsafe fn XeTeXFontMgr_findFont(
-    self_0: &mut FontMgr,
-    name: &str,
-    variant: &mut String,
-    mut ptSize: f64,
-) -> PlatformFontRef {
-    // 1st arg is name as specified by user (C string, UTF-8)
-    // 2nd is /B/I/AAT/OT/ICU/GR/S=## qualifiers
-    // 1. try name given as "full name"
-    // 2. if there's a hyphen, split and try "family-style"
-    // 3. try as PostScript name
-    // 4. try name as family with "Regular/Plain/Normal" style
-    // apply style qualifiers and optical sizing if present
-    // SIDE EFFECT: sets sReqEngine to 'A' or 'O' or 'G' if appropriate,
-    //   else clears it to 0
-    // SIDE EFFECT: updates TeX variables /nameoffile/ and /namelength/,
-    //   to match the actual font found
-    // SIDE EFFECT: edits /variant/ string in-place removing /B or /I
-    // ptSize is in TeX points, or negative for 'scaled' factor
-    // "variant" string will be shortened (in-place) by removal of /B and /I if present
-    let mut font: Option<Rc<RefCell<XeTeXFontMgrFont>>> = None;
-    let mut dsize: i32 = 100i32;
-    loaded_font_design_size = Scaled(655360);
-    for pass in 0..2 {
-        // try full name as given
-        if let Some(font) = self_0.m_nameToFont.get(name) {
-            if font.borrow().opSizeInfo.designSize != 0 {
-                dsize = font.borrow().opSizeInfo.designSize as i32
-            }
-            break;
-        }
-        // if there's a hyphen, split there and try Family-Style
-        if let Some(hyph) = name[..name.len() - 1].find('-') {
-            let family = name[..hyph].to_string();
-            if let Some(family_ptr) = self_0.m_nameToFamily.get(&family) {
-                let style = name[hyph + 1..].to_string();
-                if let Some(style_FONT_PTR) = family_ptr.borrow().styles.get(&style).cloned() {
-                    if style_FONT_PTR.borrow().opSizeInfo.designSize != 0 {
-                        dsize = style_FONT_PTR.borrow().opSizeInfo.designSize as i32
-                    }
-                    font = Some(style_FONT_PTR.clone());
-                    break;
+pub(crate) trait FindFont {
+    unsafe fn find_font(
+        &mut self,
+        name: &str,
+        variant: &mut String,
+        ptSize: f64,
+    ) -> PlatformFontRef;
+}
+impl<T> FindFont for T
+where
+    T: std::ops::DerefMut<Target = XeTeXFontMgr> + FontMgrExt,
+{
+    unsafe fn find_font(
+        &mut self,
+        name: &str,
+        variant: &mut String,
+        mut ptSize: f64,
+    ) -> PlatformFontRef {
+        // 1st arg is name as specified by user (C string, UTF-8)
+        // 2nd is /B/I/AAT/OT/ICU/GR/S=## qualifiers
+        // 1. try name given as "full name"
+        // 2. if there's a hyphen, split and try "family-style"
+        // 3. try as PostScript name
+        // 4. try name as family with "Regular/Plain/Normal" style
+        // apply style qualifiers and optical sizing if present
+        // SIDE EFFECT: sets sReqEngine to 'A' or 'O' or 'G' if appropriate,
+        //   else clears it to 0
+        // SIDE EFFECT: updates TeX variables /nameoffile/ and /namelength/,
+        //   to match the actual font found
+        // SIDE EFFECT: edits /variant/ string in-place removing /B or /I
+        // ptSize is in TeX points, or negative for 'scaled' factor
+        // "variant" string will be shortened (in-place) by removal of /B and /I if present
+        let mut font: Option<Rc<XeTeXFontMgrFont>> = None;
+        let mut dsize: i32 = 100i32;
+        loaded_font_design_size = Scaled(655360);
+        for pass in 0..2 {
+            // try full name as given
+            if let Some(font) = self.m_nameToFont.get(name) {
+                if font.opSizeInfo.designSize != 0 {
+                    dsize = font.opSizeInfo.designSize as i32
                 }
+                break;
             }
-        }
-        // try as PostScript name
-        if let Some(font) = self_0.m_psNameToFont.get(name) {
-            if font.borrow().opSizeInfo.designSize != 0i32 as libc::c_uint {
-                dsize = font.borrow().opSizeInfo.designSize as i32
-            }
-            break;
-        }
-        // try for the name as a family name
-        if let Some(family_ptr) = self_0.m_nameToFamily.get(name) {
-            // look for a family member with the "regular" bit set in OS/2
-            let mut regFonts: i32 = 0i32;
-            for (_k, v) in family_ptr.borrow().styles.iter() {
-                if v.borrow().isReg {
-                    if regFonts == 0i32 {
-                        font = Some(v.clone());
-                    }
-                    regFonts += 1
-                }
-            }
-            // families with Ornament or similar fonts may flag those as Regular,
-            // which confuses the search above... so try some known names
-            if font.is_none() || regFonts > 1i32 {
-                // try for style "Regular", "Plain", "Normal", "Roman"
-                const regular_style_names: [&str; 4] = ["Regular", "Plain", "Normal", "Roman"];
-                for &style in regular_style_names.iter() {
-                    if let Some(style_FONT_PTR) = family_ptr.borrow().styles.get(style) {
+            // if there's a hyphen, split there and try Family-Style
+            if let Some(hyph) = name[..name.len() - 1].find('-') {
+                let family = name[..hyph].to_string();
+                if let Some(family_ptr) = self.m_nameToFamily.get(&family) {
+                    let style = name[hyph + 1..].to_string();
+                    if let Some(style_FONT_PTR) = family_ptr.borrow().styles.get(&style).cloned() {
+                        if style_FONT_PTR.opSizeInfo.designSize != 0 {
+                            dsize = style_FONT_PTR.opSizeInfo.designSize as i32
+                        }
                         font = Some(style_FONT_PTR.clone());
                         break;
                     }
                 }
             }
-            if font.is_none() {
-                // look through the family for the (weight, width, slant) nearest to (80, 100, 0)
-                font = XeTeXFontMgr_bestMatchFromFamily(
-                    self_0,
-                    &family_ptr.borrow(),
-                    80i32,
-                    100i32,
-                    0i32,
-                )
-            }
-            if !font.is_none() {
+            // try as PostScript name
+            if let Some(font) = self.m_psNameToFont.get(name) {
+                if font.opSizeInfo.designSize != 0 {
+                    dsize = font.opSizeInfo.designSize as i32
+                }
                 break;
             }
+            // try for the name as a family name
+            if let Some(family_ptr) = self.m_nameToFamily.get(name) {
+                // look for a family member with the "regular" bit set in OS/2
+                let mut regFonts: i32 = 0;
+                for (_k, v) in family_ptr.borrow().styles.iter() {
+                    if v.isReg {
+                        if regFonts == 0 {
+                            font = Some(v.clone());
+                        }
+                        regFonts += 1;
+                    }
+                }
+                // families with Ornament or similar fonts may flag those as Regular,
+                // which confuses the search above... so try some known names
+                if font.is_none() || regFonts > 1 {
+                    // try for style "Regular", "Plain", "Normal", "Roman"
+                    const regular_style_names: [&str; 4] = ["Regular", "Plain", "Normal", "Roman"];
+                    for &style in regular_style_names.iter() {
+                        if let Some(style_FONT_PTR) = family_ptr.borrow().styles.get(style) {
+                            font = Some(style_FONT_PTR.clone());
+                            break;
+                        }
+                    }
+                }
+                if font.is_none() {
+                    // look through the family for the (weight, width, slant) nearest to (80, 100, 0)
+                    font = self.best_match_from_family(&family_ptr.borrow(), 80, 100, 0)
+                }
+                if !font.is_none() {
+                    break;
+                }
+            }
+            if pass == 0i32 {
+                // didn't find it in our caches, so do a platform search (may be relatively expensive);
+                // this will update the caches with any fonts that seem to match the name given,
+                // so that the second pass might find it
+                self.search_for_host_platform_fonts(name);
+            }
         }
-        if pass == 0i32 {
-            // didn't find it in our caches, so do a platform search (may be relatively expensive);
-            // this will update the caches with any fonts that seem to match the name given,
-            // so that the second pass might find it
-            self_0.search_for_host_platform_fonts(name);
+        if font.is_none() {
+            return 0 as PlatformFontRef;
         }
-    }
-    if font.is_none() {
-        return 0 as PlatformFontRef;
-    }
-    let mut font = font.unwrap();
-    let parent_clone = font.borrow().parent.clone();
-    let parent = parent_clone.as_ref().unwrap().borrow();
-    // if there are variant requests, try to apply them
-    // and delete B, I, and S=... codes from the string, just retain /engine option
-    XeTeXFontMgr_sReqEngine = 0i32 as libc::c_char;
-    let mut reqBold = false;
-    let mut reqItal = false;
-    let mut font = if !variant.is_empty() {
-        let mut varString = String::new();
-        let mut cp = variant.as_bytes();
-        while !cp.is_empty() {
-            if cp.starts_with(b"AAT") {
-                XeTeXFontMgr_sReqEngine = 'A' as i32 as libc::c_char;
-                cp = &cp[3..];
-                match varString.chars().last() {
-                    None | Some('/') => {}
-                    _ => varString.push('/'),
-                }
-                varString += "AAT";
-            } else if cp.starts_with(b"ICU") {
-                // for backword compatability
-                XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
-                cp = &cp[3..];
-                match varString.chars().last() {
-                    None | Some('/') => {}
-                    _ => varString.push('/'),
-                }
-                varString += "OT";
-            } else if cp.starts_with(b"OT") {
-                XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
-                cp = &cp[2..];
-                match varString.chars().last() {
-                    None | Some('/') => {}
-                    _ => varString.push('/'),
-                }
-                varString += "OT";
-            } else if cp.starts_with(b"GR") {
-                XeTeXFontMgr_sReqEngine = 'G' as i32 as libc::c_char;
-                cp = &cp[2..];
-                match varString.chars().last() {
-                    None | Some('/') => {}
-                    _ => varString.push('/'),
-                }
-                varString += "GR";
-            } else if cp[0] == b'S' {
-                cp = &cp[1..];
-                if cp[0] == b'=' {
+        let mut font = font.unwrap();
+        let parent_clone = font.parent.clone();
+        let parent = parent_clone.as_ref().unwrap().borrow();
+        // if there are variant requests, try to apply them
+        // and delete B, I, and S=... codes from the string, just retain /engine option
+        XeTeXFontMgr_sReqEngine = 0i32 as libc::c_char;
+        let mut reqBold = false;
+        let mut reqItal = false;
+        let mut font = if !variant.is_empty() {
+            let mut varString = String::new();
+            let mut cp = variant.as_bytes();
+            while !cp.is_empty() {
+                if cp.starts_with(b"AAT") {
+                    XeTeXFontMgr_sReqEngine = 'A' as i32 as libc::c_char;
+                    cp = &cp[3..];
+                    match varString.chars().last() {
+                        None | Some('/') => {}
+                        _ => varString.push('/'),
+                    }
+                    varString += "AAT";
+                } else if cp.starts_with(b"ICU") {
+                    // for backword compatability
+                    XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
+                    cp = &cp[3..];
+                    match varString.chars().last() {
+                        None | Some('/') => {}
+                        _ => varString.push('/'),
+                    }
+                    varString += "OT";
+                } else if cp.starts_with(b"OT") {
+                    XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
+                    cp = &cp[2..];
+                    match varString.chars().last() {
+                        None | Some('/') => {}
+                        _ => varString.push('/'),
+                    }
+                    varString += "OT";
+                } else if cp.starts_with(b"GR") {
+                    XeTeXFontMgr_sReqEngine = 'G' as i32 as libc::c_char;
+                    cp = &cp[2..];
+                    match varString.chars().last() {
+                        None | Some('/') => {}
+                        _ => varString.push('/'),
+                    }
+                    varString += "GR";
+                } else if cp[0] == b'S' {
                     cp = &cp[1..];
-                }
-                ptSize = 0.0f64;
-                while (b'0'..=b'9').contains(&cp[0]) {
-                    ptSize = ptSize * 10. + cp[0] as f64 - '0' as u32 as f64;
-                    cp = &cp[1..];
-                }
-                if cp[0] == b'.' {
-                    let mut dec = 1_f64;
-                    cp = &cp[1..];
-                    while (b'0'..=b'9').contains(&cp[0]) {
-                        dec *= 10.;
-                        ptSize += (cp[0] as i32 - '0' as i32) as f64 / dec;
+                    if cp[0] == b'=' {
                         cp = &cp[1..];
                     }
-                }
-            } else {
-                loop
-                /* if the code is "B" or "I", we skip putting it in varString */
-                {
-                    match cp[0] {
-                        b'B' => {
-                            reqBold = true;
-                            cp = &cp[1..];
-                        }
-                        b'I' => {
-                            reqItal = true;
-                            cp = &cp[1..];
-                        }
-                        _ => break,
+                    ptSize = 0.0f64;
+                    while (b'0'..=b'9').contains(&cp[0]) {
+                        ptSize = ptSize * 10. + cp[0] as f64 - '0' as u32 as f64;
+                        cp = &cp[1..];
                     }
-                }
-            }
-            while !cp.is_empty() && cp[0] != b'/' {
-                cp = &cp[1..];
-            }
-            if cp[0] == b'/' {
-                cp = &cp[1..];
-            }
-        }
-        *variant = varString;
-        if reqItal {
-            let mut bestMatch = Some(font.clone());
-            if (font.borrow().slant as i32) < parent.maxSlant as i32 {
-                // try for a face with more slant
-                bestMatch = XeTeXFontMgr_bestMatchFromFamily(
-                    self_0,
-                    &parent,
-                    font.borrow().weight as i32,
-                    font.borrow().width as i32,
-                    parent.maxSlant as i32,
-                )
-            }
-            if bestMatch.is_some()
-                && Rc::ptr_eq(bestMatch.as_ref().unwrap(), &font)
-                && font.borrow().slant as i32 > parent.minSlant as i32
-            {
-                // maybe the slant is negated, or maybe this was something like "Times-Italic/I"
-                bestMatch = XeTeXFontMgr_bestMatchFromFamily(
-                    self_0,
-                    &parent,
-                    font.borrow().weight as i32,
-                    font.borrow().width as i32,
-                    parent.minSlant as i32,
-                )
-            }
-            if parent.minWeight as i32 == parent.maxWeight as i32
-                && bestMatch.as_ref().unwrap().borrow().isBold as i32 != font.borrow().isBold as i32
-            {
-                // try again using the bold flag, as we can't trust weight values
-                let mut newBest = None;
-                for (_, v) in parent.styles.iter() {
-                    if v.borrow().isBold == font.borrow().isBold
-                        && newBest.is_none()
-                        && v.borrow().isItalic != font.borrow().isItalic
+                    if cp[0] == b'.' {
+                        let mut dec = 1_f64;
+                        cp = &cp[1..];
+                        while (b'0'..=b'9').contains(&cp[0]) {
+                            dec *= 10.;
+                            ptSize += (cp[0] as i32 - '0' as i32) as f64 / dec;
+                            cp = &cp[1..];
+                        }
+                    }
+                } else {
+                    loop
+                    /* if the code is "B" or "I", we skip putting it in varString */
                     {
-                        newBest = Some(v.clone());
-                        break;
-                    }
-                }
-                if newBest.is_some() {
-                    bestMatch = newBest
-                }
-            }
-            if bestMatch.is_some() && Rc::ptr_eq(bestMatch.as_ref().unwrap(), &font) {
-                // maybe slant values weren't present; try the style bits as a fallback
-                bestMatch = None;
-                for (_, v) in parent.styles.iter() {
-                    let style_FONT_PTR = v;
-                    if style_FONT_PTR.borrow().isItalic != font.borrow().isItalic {
-                        if parent.minWeight != parent.maxWeight {
-                            // weight info was available, so try to match that
-                            if bestMatch.is_none()
-                                || XeTeXFontMgr_weightAndWidthDiff(
-                                    self_0,
-                                    &style_FONT_PTR.borrow(),
-                                    &font.borrow(),
-                                ) < XeTeXFontMgr_weightAndWidthDiff(
-                                    self_0,
-                                    &bestMatch.as_ref().unwrap().borrow(),
-                                    &font.borrow(),
-                                )
-                            {
-                                bestMatch = Some(style_FONT_PTR.clone());
+                        match cp[0] {
+                            b'B' => {
+                                reqBold = true;
+                                cp = &cp[1..];
                             }
-                        } else if bestMatch.is_none()
-                            && style_FONT_PTR.borrow().isBold == font.borrow().isBold
-                        {
-                            bestMatch = Some(style_FONT_PTR.clone());
-                            break;
-                            // no weight info, so try matching style bits
-                            // found a match, no need to look further as we can't distinguish!
+                            b'I' => {
+                                reqItal = true;
+                                cp = &cp[1..];
+                            }
+                            _ => break,
                         }
                     }
                 }
+                while !cp.is_empty() && cp[0] != b'/' {
+                    cp = &cp[1..];
+                }
+                if cp[0] == b'/' {
+                    cp = &cp[1..];
+                }
             }
-            if let Some(bm) = bestMatch {
-                font = bm;
-            }
-        }
-        if reqBold {
-            // try for more boldness, with the same width and slant
-            let mut bestMatch_0 = Some(font.clone());
-            if (font.borrow().weight as i32) < parent.maxWeight as i32 {
-                // try to increase weight by 1/2 x (max - min), rounding up
-                bestMatch_0 = XeTeXFontMgr_bestMatchFromFamily(
-                    self_0,
-                    &parent,
-                    font.borrow().weight as i32
-                        + (parent.maxWeight as i32 - parent.minWeight as i32) / 2i32
-                        + 1i32,
-                    font.borrow().width as i32,
-                    font.borrow().slant as i32,
-                );
-                if parent.minSlant as i32 == parent.maxSlant as i32 {
-                    // double-check the italic flag, as we can't trust slant values
-                    let mut newBest_0: Option<Rc<RefCell<_>>> = None;
+            *variant = varString;
+            if reqItal {
+                let mut bestMatch = Some(font.clone());
+                if (font.slant as i32) < parent.maxSlant as i32 {
+                    // try for a face with more slant
+                    bestMatch = self.best_match_from_family(
+                        &parent,
+                        font.weight as i32,
+                        font.width as i32,
+                        parent.maxSlant as i32,
+                    )
+                }
+                if bestMatch.is_some()
+                    && Rc::ptr_eq(bestMatch.as_ref().unwrap(), &font)
+                    && font.slant as i32 > parent.minSlant as i32
+                {
+                    // maybe the slant is negated, or maybe this was something like "Times-Italic/I"
+                    bestMatch = self.best_match_from_family(
+                        &parent,
+                        font.weight as i32,
+                        font.width as i32,
+                        parent.minSlant as i32,
+                    )
+                }
+                if parent.minWeight as i32 == parent.maxWeight as i32
+                    && bestMatch.as_ref().unwrap().isBold as i32 != font.isBold as i32
+                {
+                    // try again using the bold flag, as we can't trust weight values
+                    let mut newBest = None;
+                    for (_, v) in parent.styles.iter() {
+                        if v.isBold == font.isBold
+                            && newBest.is_none()
+                            && v.isItalic != font.isItalic
+                        {
+                            newBest = Some(v.clone());
+                            break;
+                        }
+                    }
+                    if newBest.is_some() {
+                        bestMatch = newBest
+                    }
+                }
+                if bestMatch.is_some() && Rc::ptr_eq(bestMatch.as_ref().unwrap(), &font) {
+                    // maybe slant values weren't present; try the style bits as a fallback
+                    bestMatch = None;
                     for (_, v) in parent.styles.iter() {
                         let style_FONT_PTR = v;
-                        if style_FONT_PTR.borrow().isItalic == font.borrow().isItalic
-                            && (newBest_0.is_none()
-                                || XeTeXFontMgr_weightAndWidthDiff(
-                                    self_0,
-                                    &style_FONT_PTR.borrow(),
-                                    &bestMatch_0.as_ref().unwrap().borrow(),
-                                ) < XeTeXFontMgr_weightAndWidthDiff(
-                                    self_0,
-                                    &newBest_0.as_ref().unwrap().borrow(),
-                                    &bestMatch_0.as_ref().unwrap().borrow(),
-                                ))
-                        {
-                            newBest_0 = Some(style_FONT_PTR.clone());
+                        if style_FONT_PTR.isItalic != font.isItalic {
+                            if parent.minWeight != parent.maxWeight {
+                                // weight info was available, so try to match that
+                                if bestMatch.is_none()
+                                    || style_FONT_PTR.weight_and_width_diff(&font)
+                                        < bestMatch.as_ref().unwrap().weight_and_width_diff(&font)
+                                {
+                                    bestMatch = Some(style_FONT_PTR.clone());
+                                }
+                            } else if bestMatch.is_none() && style_FONT_PTR.isBold == font.isBold {
+                                bestMatch = Some(style_FONT_PTR.clone());
+                                break;
+                                // no weight info, so try matching style bits
+                                // found a match, no need to look further as we can't distinguish!
+                            }
                         }
                     }
-                    if newBest_0.is_some() {
-                        bestMatch_0 = newBest_0
-                    }
+                }
+                if let Some(bm) = bestMatch {
+                    font = bm;
                 }
             }
-            if bestMatch_0.is_some()
-                && Rc::ptr_eq(&bestMatch_0.as_ref().unwrap(), &font)
-                && !font.borrow().isBold
-            {
-                for (_, v) in parent.styles.iter() {
-                    let style_FONT_PTR = v;
-                    if style_FONT_PTR.borrow().isItalic == font.borrow().isItalic
-                        && style_FONT_PTR.borrow().isBold
-                    {
-                        bestMatch_0 = Some(style_FONT_PTR.clone());
-                        break;
-                    }
-                }
-            }
-            bestMatch_0
-        } else {
-            Some(font)
-        }
-    } else {
-        Some(font)
-    };
-    // if there's optical size info, try to apply it
-    if ptSize < 0.0f64 {
-        ptSize = dsize as f64 / 10.0f64
-    } // convert to decipoints for comparison with the opSize values
-    if let Some(fnt) = font.as_ref() {
-        if fnt.borrow().opSizeInfo.subFamilyID != 0 && ptSize > 0. {
-            ptSize *= 10.;
-            let mut bestMismatch: f64 = my_fmax(
-                fnt.borrow().opSizeInfo.minSize as f64 - ptSize,
-                ptSize - fnt.borrow().opSizeInfo.maxSize as f64,
-            );
-            if bestMismatch > 0. {
-                let mut bestMatch_1 = fnt.clone();
-                for (_, v) in parent.styles.iter() {
-                    let style_FONT_PTR = v;
-                    if style_FONT_PTR.borrow().opSizeInfo.subFamilyID
-                        == fnt.borrow().opSizeInfo.subFamilyID
-                    {
-                        let mismatch = my_fmax(
-                            style_FONT_PTR.borrow().opSizeInfo.minSize as f64 - ptSize,
-                            ptSize - style_FONT_PTR.borrow().opSizeInfo.maxSize as f64,
-                        );
-                        if mismatch < bestMismatch {
-                            bestMatch_1 = style_FONT_PTR.clone();
-                            bestMismatch = mismatch
+            if reqBold {
+                // try for more boldness, with the same width and slant
+                let mut bestMatch_0 = Some(font.clone());
+                if (font.weight as i32) < parent.maxWeight as i32 {
+                    // try to increase weight by 1/2 x (max - min), rounding up
+                    bestMatch_0 = self.best_match_from_family(
+                        &parent,
+                        font.weight as i32
+                            + (parent.maxWeight as i32 - parent.minWeight as i32) / 2i32
+                            + 1i32,
+                        font.width as i32,
+                        font.slant as i32,
+                    );
+                    if parent.minSlant as i32 == parent.maxSlant as i32 {
+                        // double-check the italic flag, as we can't trust slant values
+                        let mut newBest_0: Option<Rc<XeTeXFontMgrFont>> = None;
+                        for (_, v) in parent.styles.iter() {
+                            let style_FONT_PTR = v;
+                            if style_FONT_PTR.isItalic == font.isItalic
+                                && (newBest_0.is_none()
+                                    || style_FONT_PTR
+                                        .weight_and_width_diff(&bestMatch_0.as_ref().unwrap())
+                                        < newBest_0
+                                            .as_ref()
+                                            .unwrap()
+                                            .weight_and_width_diff(&bestMatch_0.as_ref().unwrap()))
+                            {
+                                newBest_0 = Some(style_FONT_PTR.clone());
+                            }
                         }
-                        if bestMismatch <= 0. {
+                        if newBest_0.is_some() {
+                            bestMatch_0 = newBest_0
+                        }
+                    }
+                }
+                if bestMatch_0.is_some()
+                    && Rc::ptr_eq(&bestMatch_0.as_ref().unwrap(), &font)
+                    && !font.isBold
+                {
+                    for (_, v) in parent.styles.iter() {
+                        let style_FONT_PTR = v;
+                        if style_FONT_PTR.isItalic == font.isItalic && style_FONT_PTR.isBold {
+                            bestMatch_0 = Some(style_FONT_PTR.clone());
                             break;
                         }
                     }
                 }
-                font = Some(bestMatch_1);
+                bestMatch_0
+            } else {
+                Some(font)
+            }
+        } else {
+            Some(font)
+        };
+        // if there's optical size info, try to apply it
+        if ptSize < 0.0f64 {
+            ptSize = dsize as f64 / 10.0f64
+        } // convert to decipoints for comparison with the opSize values
+        if let Some(fnt) = font.as_ref() {
+            if fnt.opSizeInfo.subFamilyID != 0 && ptSize > 0. {
+                ptSize *= 10.;
+                let mut bestMismatch: f64 = my_fmax(
+                    fnt.opSizeInfo.minSize as f64 - ptSize,
+                    ptSize - fnt.opSizeInfo.maxSize as f64,
+                );
+                if bestMismatch > 0. {
+                    let mut bestMatch_1 = fnt.clone();
+                    for (_, v) in parent.styles.iter() {
+                        let style_FONT_PTR = v;
+                        if style_FONT_PTR.opSizeInfo.subFamilyID == fnt.opSizeInfo.subFamilyID {
+                            let mismatch = my_fmax(
+                                style_FONT_PTR.opSizeInfo.minSize as f64 - ptSize,
+                                ptSize - style_FONT_PTR.opSizeInfo.maxSize as f64,
+                            );
+                            if mismatch < bestMismatch {
+                                bestMatch_1 = style_FONT_PTR.clone();
+                                bestMismatch = mismatch
+                            }
+                            if bestMismatch <= 0. {
+                                break;
+                            }
+                        }
+                    }
+                    font = Some(bestMatch_1);
+                }
             }
         }
-    }
-    if let Some(font) = font.as_ref() {
-        if font.borrow().opSizeInfo.designSize != 0 {
-            loaded_font_design_size =
-                Scaled((font.borrow().opSizeInfo.designSize << 16).wrapping_div(10) as i32)
+        if let Some(font) = font.as_ref() {
+            if font.opSizeInfo.designSize != 0 {
+                loaded_font_design_size =
+                    Scaled((font.opSizeInfo.designSize << 16).wrapping_div(10) as i32)
+            }
         }
-    }
-    let font = font.unwrap();
-    if get_tracing_fonts_state() > 0i32 {
-        diagnostic(false, || {
-            t_print_nl!(
-                " -> {}",
-                self_0.get_platform_font_desc(font.borrow().fontRef)
-            );
-        });
-    }
-    let x = font.borrow().fontRef;
-    x
-}
-pub(crate) unsafe fn XeTeXFontMgr_getFullName(
-    self_0: &XeTeXFontMgr,
-    font: PlatformFontRef,
-) -> String {
-    // return the full name of the font, suitable for use in XeTeX source
-    // without requiring style qualifiers
-    let FONT_PTR = if let Some(FONT_PTR) = self_0.m_platformRefToFont.get(&font) {
-        FONT_PTR
-    } else {
-        abort!("internal error {} in XeTeXFontMgr", 2);
-    };
-    if let Some(name) = FONT_PTR.borrow().m_fullName.as_ref() {
-        name.clone()
-    } else {
-        FONT_PTR.borrow().m_psName.clone()
-    }
-}
-pub(crate) unsafe fn XeTeXFontMgr_weightAndWidthDiff(
-    mut _self_0: &XeTeXFontMgr,
-    a: &XeTeXFontMgrFont,
-    b: &XeTeXFontMgrFont,
-) -> i32 {
-    if a.weight as i32 == 0i32 && a.width as i32 == 0i32 {
-        // assume there was no OS/2 info
-        if a.isBold as i32 == b.isBold as i32 {
-            return 0i32;
-        } else {
-            return 10000i32;
+        let font = font.unwrap();
+        if get_tracing_fonts_state() > 0i32 {
+            diagnostic(false, || {
+                t_print_nl!(" -> {}", self.get_platform_font_desc(Self::font_ref(&font)));
+            });
         }
-    }
-    let mut widDiff: i32 = ((a.width as i32 - b.width as i32) as i64).abs() as i32;
-    if widDiff < 10i32 {
-        widDiff *= 50i32
-    }
-    (((a.weight as i32 - b.weight as i32) as i64).abs() + widDiff as i64) as i32
-}
-pub(crate) unsafe fn XeTeXFontMgr_styleDiff(
-    mut _self_0: &XeTeXFontMgr,
-    a: &XeTeXFontMgrFont,
-    wt: i32,
-    wd: i32,
-    slant: i32,
-) -> i32 {
-    let mut widDiff: i32 = ((a.width as i32 - wd) as i64).abs() as i32;
-    if widDiff < 10i32 {
-        widDiff *= 200i32
-    }
-    (((a.slant as i64).abs() - (slant as i64).abs()).abs() * 2i32 as i64
-        + ((a.weight as i32 - wt) as i64).abs()
-        + widDiff as i64) as i32
-}
-pub(crate) unsafe fn XeTeXFontMgr_bestMatchFromFamily(
-    self_0: &XeTeXFontMgr,
-    fam: &XeTeXFontMgrFamily,
-    wt: i32,
-    wd: i32,
-    slant: i32,
-) -> Option<Rc<RefCell<XeTeXFontMgrFont>>> {
-    let mut bestMatch: Option<Rc<RefCell<_>>> = None;
-    for (_, v) in fam.styles.iter() {
-        if bestMatch.is_none()
-            || XeTeXFontMgr_styleDiff(self_0, &v.borrow(), wt, wd, slant)
-                < XeTeXFontMgr_styleDiff(
-                    self_0,
-                    &bestMatch.as_ref().unwrap().borrow(),
-                    wt,
-                    wd,
-                    slant,
-                )
-        {
-            bestMatch = Some(v.clone());
-        }
-    }
-    bestMatch
-}
-pub(crate) unsafe fn XeTeXFontMgr_getOpSize(
-    mut _self_0: &XeTeXFontMgr,
-    font: &XeTeXFontInst,
-) -> Option<XeTeXFontMgrOpSizeRec> {
-    let hbFont = font.get_hb_font();
-    if hbFont.is_null() {
-        return None;
-    }
-    let face = hb_font_get_face(hbFont);
-    let mut size_rec = XeTeXFontMgrOpSizeRec::default();
-    let ok = hb_ot_layout_get_size_params(
-        face,
-        &mut size_rec.designSize,
-        &mut size_rec.subFamilyID,
-        &mut size_rec.nameCode,
-        &mut size_rec.minSize,
-        &mut size_rec.maxSize,
-    ) != 0;
-    if ok {
-        Some(size_rec)
-    } else {
-        None
-    }
-}
-pub(crate) unsafe fn XeTeXFontMgr_getDesignSize(
-    self_0: &XeTeXFontMgr,
-    font: &XeTeXFontInst,
-) -> f64 {
-    if let Some(size_rec) = XeTeXFontMgr_getOpSize(self_0, font) {
-        size_rec.designSize as f64 / 10.
-    } else {
-        10.
+        let x = font.fontRef;
+        x
     }
 }
 impl XeTeXFontMgr {
-    pub(crate) unsafe fn base_get_op_size_rec_and_style_flags(
+    pub(crate) fn get_full_name(&self, font: PlatformFontRef) -> String {
+        // return the full name of the font, suitable for use in XeTeX source
+        // without requiring style qualifiers
+        let FONT_PTR = if let Some(FONT_PTR) = self.m_platformRefToFont.get(&font) {
+            FONT_PTR
+        } else {
+            abort!("internal error {} in XeTeXFontMgr", 2);
+        };
+        if let Some(name) = FONT_PTR.m_fullName.as_ref() {
+            name.clone()
+        } else {
+            FONT_PTR.m_psName.clone()
+        }
+    }
+    pub(crate) unsafe fn best_match_from_family(
         &self,
-        theFont: &mut XeTeXFontMgrFont,
-    ) {
+        fam: &XeTeXFontMgrFamily,
+        wt: i32,
+        wd: i32,
+        slant: i32,
+    ) -> Option<Rc<XeTeXFontMgrFont>> {
+        let mut bestMatch: Option<Rc<XeTeXFontMgrFont>> = None;
+        for (_, v) in fam.styles.iter() {
+            if bestMatch.is_none()
+                || v.style_diff(wt, wd, slant)
+                    < bestMatch.as_ref().unwrap().style_diff(wt, wd, slant)
+            {
+                bestMatch = Some(v.clone());
+            }
+        }
+        bestMatch
+    }
+}
+impl XeTeXFontMgrFont {
+    pub(crate) fn weight_and_width_diff(&self, b: &XeTeXFontMgrFont) -> i32 {
+        if self.weight == 0 && self.width == 0 {
+            // assume there was no OS/2 info
+            return if self.isBold == b.isBold { 0 } else { 10000 };
+        }
+        let mut widDiff: i32 = ((self.width as i32 - b.width as i32) as i64).abs() as i32;
+        if widDiff < 10 {
+            widDiff *= 50
+        }
+        (((self.weight as i32 - b.weight as i32) as i64).abs() + widDiff as i64) as i32
+    }
+    pub(crate) fn style_diff(&self, wt: i32, wd: i32, slant: i32) -> i32 {
+        let mut widDiff: i32 = ((self.width as i32 - wd) as i64).abs() as i32;
+        if widDiff < 10 {
+            widDiff *= 200
+        }
+        (((self.slant as i64).abs() - (slant as i64).abs()).abs() * 2 as i64
+            + ((self.weight as i32 - wt) as i64).abs()
+            + widDiff as i64) as i32
+    }
+}
+impl XeTeXFontInst {
+    pub(crate) unsafe fn get_op_size(&self) -> Option<XeTeXFontMgrOpSizeRec> {
+        let hbFont = self.get_hb_font();
+        if hbFont.is_null() {
+            return None;
+        }
+        let face = hb_font_get_face(hbFont);
+        let mut size_rec = XeTeXFontMgrOpSizeRec::default();
+        let ok = hb_ot_layout_get_size_params(
+            face,
+            &mut size_rec.designSize,
+            &mut size_rec.subFamilyID,
+            &mut size_rec.nameCode,
+            &mut size_rec.minSize,
+            &mut size_rec.maxSize,
+        ) != 0;
+        if ok {
+            Some(size_rec)
+        } else {
+            None
+        }
+    }
+    pub(crate) unsafe fn get_design_size(&self) -> f64 {
+        if let Some(size_rec) = self.get_op_size() {
+            size_rec.designSize as f64 / 10.
+        } else {
+            10.
+        }
+    }
+}
+impl XeTeXFontMgrFont {
+    pub(crate) unsafe fn base_get_op_size_rec_and_style_flags(&mut self) {
         use crate::freetype_sys_patch::{TT_Header, FT_SFNT_HEAD, FT_SFNT_OS2, FT_SFNT_POST};
         use freetype::freetype_sys::{TT_Postscript, TT_OS2};
-        if let Some(font) = createFont(theFont.fontRef, Scaled(655360)) {
-            if let Some(size_rec) = XeTeXFontMgr_getOpSize(self, &font) {
-                theFont.opSizeInfo.designSize = size_rec.designSize;
+        if let Some(font) = createFont(self.fontRef, Scaled(655360)) {
+            if let Some(size_rec) = font.get_op_size() {
+                self.opSizeInfo.designSize = size_rec.designSize;
                 if size_rec.subFamilyID == 0
                     && size_rec.nameCode == 0
                     && size_rec.minSize == 0
@@ -817,34 +760,34 @@ impl XeTeXFontMgr {
                 {
                     // feature is valid, but no 'size' range
                 } else {
-                    theFont.opSizeInfo.subFamilyID = size_rec.subFamilyID;
-                    theFont.opSizeInfo.nameCode = size_rec.nameCode;
-                    theFont.opSizeInfo.minSize = size_rec.minSize;
-                    theFont.opSizeInfo.maxSize = size_rec.maxSize;
+                    self.opSizeInfo.subFamilyID = size_rec.subFamilyID;
+                    self.opSizeInfo.nameCode = size_rec.nameCode;
+                    self.opSizeInfo.minSize = size_rec.minSize;
+                    self.opSizeInfo.maxSize = size_rec.maxSize;
                 }
             }
             let os2Table = font.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
             if !os2Table.is_null() {
-                theFont.weight = (*os2Table).usWeightClass;
-                theFont.width = (*os2Table).usWidthClass;
+                self.weight = (*os2Table).usWeightClass;
+                self.width = (*os2Table).usWidthClass;
                 let sel = (*os2Table).fsSelection;
-                theFont.isReg = sel as i32 & 1i32 << 6i32 != 0i32;
-                theFont.isBold = sel as i32 & 1i32 << 5i32 != 0i32;
-                theFont.isItalic = sel as i32 & 1i32 << 0i32 != 0i32
+                self.isReg = sel as i32 & 1 << 6 != 0;
+                self.isBold = sel as i32 & 1 << 5 != 0;
+                self.isItalic = sel as i32 & 1 << 0 != 0
             }
             let headTable = font.get_font_table_ft(FT_SFNT_HEAD) as *mut TT_Header;
             if !headTable.is_null() {
                 let ms = (*headTable).Mac_Style;
-                if ms as i32 & 1i32 << 0i32 != 0i32 {
-                    theFont.isBold = true
+                if ms as i32 & 1 << 0 != 0 {
+                    self.isBold = true
                 }
-                if ms as i32 & 1i32 << 1i32 != 0i32 {
-                    theFont.isItalic = true
+                if ms as i32 & 1 << 1 != 0 {
+                    self.isItalic = true
                 }
             }
             let postTable = font.get_font_table_ft(FT_SFNT_POST) as *const TT_Postscript;
             if !postTable.is_null() {
-                theFont.slant = (1000_f64
+                self.slant = (1000_f64
                     * (Fix2D(Scaled(-(*postTable).italicAngle as i32)) * std::f64::consts::PI
                         / 180.)
                         .tan()) as i32 as i16
@@ -852,161 +795,164 @@ impl XeTeXFontMgr {
         }
     }
 }
-// append a name but only if it's not already in the list
-pub(crate) unsafe fn XeTeXFontMgr_appendToList(
-    mut _self_0: &XeTeXFontMgr,
-    list: &mut VecDeque<String>,
-    cstr: &str,
-) {
-    fn has_occur(list: &VecDeque<String>, val: &str) -> bool {
-        for item in list.iter() {
-            if item == val {
-                return true;
-            }
-        }
-        false
-    }
-    if has_occur(list, cstr) {
-        return;
-    }
-    list.push_back(cstr.to_string());
+
+pub(crate) trait AddToList {
+    // append a name but only if it's not already in the list
+    fn append_to_list(&mut self, cstr: &str);
+    // prepend a name, removing it from later in the list if present
+    fn prepend_to_list(&mut self, cstr: &str);
 }
-// prepend a name, removing it from later in the list if present
-pub(crate) unsafe fn XeTeXFontMgr_prependToList(
-    _self_0: &XeTeXFontMgr,
-    list: &mut VecDeque<String>,
-    cstr: &str,
-) {
-    fn remove_first_occur(list: &mut VecDeque<String>, val: &str) -> bool {
-        let mut found_idx = None;
-        for (idx, item) in list.iter().enumerate() {
-            if item == val {
-                found_idx = Some(idx);
-                break;
+impl AddToList for VecDeque<String> {
+    fn append_to_list(&mut self, cstr: &str) {
+        fn has_occur(list: &VecDeque<String>, val: &str) -> bool {
+            for item in list.iter() {
+                if item == val {
+                    return true;
+                }
             }
-        }
-        if let Some(idx) = found_idx {
-            list.remove(idx);
-            true
-        } else {
             false
         }
-    }
-
-    remove_first_occur(list, cstr);
-    list.push_front(cstr.to_string());
-}
-pub(crate) unsafe fn XeTeXFontMgr_addToMaps(
-    self_0: &mut FontMgr,
-    platformFont: PlatformFontRef,
-    names: &XeTeXFontMgrNameCollection,
-) {
-    if self_0.m_platformRefToFont.contains_key(&platformFont) {
-        return;
-    }
-    if names.m_psName.is_empty() {
-        return;
-    }
-    if self_0.m_psNameToFont.contains_key(&names.m_psName) {
-        return;
-    }
-    let thisFont = Rc::new(RefCell::new(XeTeXFontMgrFont::new(
-        platformFont,
-        names.m_psName.clone(),
-    )));
-    self_0.get_op_size_rec_and_style_flags(&mut thisFont.borrow_mut());
-    match self_0.m_psNameToFont.get_mut(&names.m_psName) {
-        Some(v) => {
-            *v = thisFont.clone();
+        if has_occur(self, cstr) {
+            return;
         }
-        None => {
-            self_0
-                .m_psNameToFont
-                .insert(names.m_psName.clone(), thisFont.clone());
-        }
+        self.push_back(cstr.to_string());
     }
-    self_0
-        .m_platformRefToFont
-        .insert(platformFont, thisFont.clone());
-    if !names.m_fullNames.is_empty() {
-        thisFont.borrow_mut().m_fullName = Some(names.m_fullNames[0].clone());
-    }
-    thisFont.borrow_mut().m_familyName = if !names.m_familyNames.is_empty() {
-        Some(names.m_familyNames[0].clone())
-    } else {
-        Some(names.m_psName.clone())
-    };
-    thisFont.borrow_mut().m_styleName = if !names.m_styleNames.is_empty() {
-        Some(names.m_styleNames[0].clone())
-    } else {
-        Some(String::new())
-    };
-    for familyName in names.m_familyNames.iter() {
-        let family = if let Some(family_rc) = self_0.m_nameToFamily.get_mut(familyName) {
-            let family = &mut family_rc.borrow_mut();
-            let thisFont = thisFont.borrow();
-            family.minWeight = family.minWeight.min(thisFont.weight);
-            family.maxWeight = family.maxWeight.max(thisFont.weight);
-            family.minWidth = family.minWidth.min(thisFont.width);
-            family.maxWidth = family.maxWidth.max(thisFont.width);
-            family.minSlant = family.minSlant.min(thisFont.slant);
-            family.maxSlant = family.maxSlant.max(thisFont.slant);
-            family_rc.clone()
-        } else {
-            let family_rc = Rc::new(RefCell::new(XeTeXFontMgrFamily::new()));
-            self_0
-                .m_nameToFamily
-                .insert(familyName.clone(), family_rc.clone());
-            {
-                let family = &mut family_rc.borrow_mut();
-                let thisFont = thisFont.borrow();
-                family.minWeight = thisFont.weight;
-                family.maxWeight = thisFont.weight;
-                family.minWidth = thisFont.width;
-                family.maxWidth = thisFont.width;
-                family.minSlant = thisFont.slant;
-                family.maxSlant = thisFont.slant;
+    fn prepend_to_list(&mut self, cstr: &str) {
+        fn remove_first_occur(list: &mut VecDeque<String>, val: &str) {
+            for (idx, item) in list.iter().enumerate() {
+                if item == val {
+                    list.remove(idx);
+                    return;
+                }
             }
-            family_rc
-        };
-        if thisFont.borrow().parent.is_none() {
-            thisFont.borrow_mut().parent = Some(family.clone());
         }
-        // ensure all style names in the family point to thisFont
-        for styleName in names.m_styleNames.iter() {
-            if !family.borrow().styles.contains_key(styleName) {
-                family
-                    .borrow_mut()
-                    .styles
-                    .insert(styleName.clone(), thisFont.clone());
+
+        remove_first_occur(self, cstr);
+        self.push_front(cstr.to_string());
+    }
+}
+
+pub(crate) trait AddToMaps {
+    unsafe fn add_to_maps(
+        &mut self,
+        platformFont: PlatformFontRef,
+        names: &XeTeXFontMgrNameCollection,
+    );
+}
+impl<T> AddToMaps for T
+where
+    T: std::ops::DerefMut<Target = XeTeXFontMgr> + FontMgrExt,
+{
+    unsafe fn add_to_maps(
+        &mut self,
+        platformFont: PlatformFontRef,
+        names: &XeTeXFontMgrNameCollection,
+    ) {
+        if self.m_platformRefToFont.contains_key(&platformFont) {
+            return;
+        }
+        if names.m_psName.is_empty() {
+            return;
+        }
+        if self.m_psNameToFont.contains_key(&names.m_psName) {
+            return;
+        }
+        let mut thisFont = XeTeXFontMgrFont::new(platformFont, names.m_psName.clone());
+        self.get_op_size_rec_and_style_flags(&mut thisFont);
+        if !names.m_fullNames.is_empty() {
+            thisFont.m_fullName = Some(names.m_fullNames[0].clone());
+        }
+        thisFont.m_familyName = if !names.m_familyNames.is_empty() {
+            Some(names.m_familyNames[0].clone())
+        } else {
+            Some(names.m_psName.clone())
+        };
+        thisFont.m_styleName = if !names.m_styleNames.is_empty() {
+            Some(names.m_styleNames[0].clone())
+        } else {
+            Some(String::new())
+        };
+        let (weight, width, slant) = (thisFont.weight, thisFont.width, thisFont.slant);
+        for familyName in names.m_familyNames.iter() {
+            let family = if let Some(family_rc) = self.m_nameToFamily.get_mut(familyName) {
+                let family = &mut family_rc.borrow_mut();
+                family.minWeight = family.minWeight.min(weight);
+                family.maxWeight = family.maxWeight.max(weight);
+                family.minWidth = family.minWidth.min(width);
+                family.maxWidth = family.maxWidth.max(width);
+                family.minSlant = family.minSlant.min(slant);
+                family.maxSlant = family.maxSlant.max(slant);
+                family_rc.clone()
+            } else {
+                let family_rc = Rc::new(RefCell::new(XeTeXFontMgrFamily::new()));
+                self.m_nameToFamily
+                    .insert(familyName.clone(), family_rc.clone());
+                {
+                    let family = &mut family_rc.borrow_mut();
+                    family.minWeight = weight;
+                    family.maxWeight = weight;
+                    family.minWidth = width;
+                    family.maxWidth = width;
+                    family.minSlant = slant;
+                    family.maxSlant = slant;
+                }
+                family_rc
+            };
+            if thisFont.parent.is_none() {
+                thisFont.parent = Some(family.clone());
+            }
+        }
+        let thisFont = Rc::new(thisFont);
+        match self.m_psNameToFont.get_mut(&names.m_psName) {
+            Some(v) => {
+                *v = thisFont.clone();
+            }
+            None => {
+                self.m_psNameToFont
+                    .insert(names.m_psName.clone(), thisFont.clone());
+            }
+        }
+        self.m_platformRefToFont
+            .insert(platformFont, thisFont.clone());
+        for familyName in names.m_familyNames.iter() {
+            if let Some(family) = self.m_nameToFamily.get_mut(familyName) {
+                // ensure all style names in the family point to thisFont
+                for styleName in names.m_styleNames.iter() {
+                    if !family.borrow().styles.contains_key(styleName) {
+                        family
+                            .borrow_mut()
+                            .styles
+                            .insert(styleName.clone(), thisFont.clone());
+                    }
+                    /*
+                        else if (iFont->second != thisFont)
+                            fprintf(stderr, "# Font name warning: ambiguous Style \"%s\" in Family \"%s\" (PSNames \"%s\" and \"%s\")\n",
+                                        j->c_str(), i->c_str(), iFont->second->m_psName->c_str(), thisFont->m_psName->c_str());
+                    */
+                }
+            }
+        }
+        for fullName in names.m_fullNames.iter() {
+            if !self.m_nameToFont.contains_key(fullName) {
+                self.m_nameToFont.insert(fullName.clone(), thisFont.clone());
             }
             /*
-                else if (iFont->second != thisFont)
-                    fprintf(stderr, "# Font name warning: ambiguous Style \"%s\" in Family \"%s\" (PSNames \"%s\" and \"%s\")\n",
-                                j->c_str(), i->c_str(), iFont->second->m_psName->c_str(), thisFont->m_psName->c_str());
+                    else if (iFont->second != thisFont)
+                        fprintf(stderr, "# Font name warning: ambiguous FullName \"%s\" (PSNames \"%s\" and \"%s\")\n",
+                                    i->c_str(), iFont->second->m_psName->c_str(), thisFont->m_psName->c_str());
             */
         }
     }
-    for fullName in names.m_fullNames.iter() {
-        if !self_0.m_nameToFont.contains_key(fullName) {
-            self_0
-                .m_nameToFont
-                .insert(fullName.clone(), thisFont.clone());
-        }
-        /*
-                else if (iFont->second != thisFont)
-                    fprintf(stderr, "# Font name warning: ambiguous FullName \"%s\" (PSNames \"%s\" and \"%s\")\n",
-                                i->c_str(), iFont->second->m_psName->c_str(), thisFont->m_psName->c_str());
-        */
-    }
 }
 
-pub(crate) unsafe fn XeTeXFontMgr_base_ctor() -> XeTeXFontMgr {
-    XeTeXFontMgr {
-        m_nameToFont: BTreeMap::default(),
-        m_nameToFamily: BTreeMap::default(),
-        m_platformRefToFont: BTreeMap::default(),
-        m_psNameToFont: BTreeMap::default(),
+impl XeTeXFontMgr {
+    pub(crate) fn base_ctor() -> Self {
+        Self {
+            m_nameToFont: BTreeMap::default(),
+            m_nameToFamily: BTreeMap::default(),
+            m_platformRefToFont: BTreeMap::default(),
+            m_psNameToFont: BTreeMap::default(),
+        }
     }
 }
 
@@ -1018,4 +964,5 @@ pub(crate) trait FontMgrExt {
 
     unsafe fn read_names(&self, _: Self::FontRef) -> XeTeXFontMgrNameCollection;
     unsafe fn get_op_size_rec_and_style_flags(&self, _: &mut XeTeXFontMgrFont);
+    fn font_ref(_: &XeTeXFontMgrFont) -> Self::FontRef;
 }

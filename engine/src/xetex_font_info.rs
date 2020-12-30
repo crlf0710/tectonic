@@ -82,21 +82,18 @@ use crate::xetex_ext::Fix2D;
 use libc::free;
 extern "C" {
     // TODO: NOTE: this api doesn't included in harfbuzz_sys
-    //#[no_mangle]
     fn hb_font_funcs_set_glyph_h_kerning_func(
         ffuncs: *mut hb_font_funcs_t,
         func: hb_font_get_glyph_h_kerning_func_t,
         user_data: *mut libc::c_void,
         destroy: hb_destroy_func_t,
     );
-    //#[no_mangle]
     fn hb_font_funcs_set_glyph_func(
         ffuncs: *mut hb_font_funcs_t,
         func: hb_font_get_glyph_func_t,
         user_data: *mut libc::c_void,
         destroy: hb_destroy_func_t,
     );
-    //#[no_mangle]
     fn hb_font_funcs_set_glyph_v_kerning_func(
         ffuncs: *mut hb_font_funcs_t,
         func: hb_font_get_glyph_v_kerning_func_t,
@@ -139,7 +136,7 @@ pub(crate) type GlyphID = uint16_t;
 
 use crate::xetex_scaledmath::Scaled;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct GlyphBBox {
     pub(crate) xMin: f32,
@@ -163,7 +160,7 @@ pub(crate) struct XeTeXFontInst {
     pub(crate) m_italicAngle: f32,
     pub(crate) m_vertical: bool,
     pub(crate) m_filename: String,
-    pub(crate) m_index: uint32_t,
+    pub(crate) m_index: u32,
     pub(crate) m_ftFace: FT_Face,
     pub(crate) m_backingData: Vec<u8>,
     pub(crate) m_backingData2: Vec<u8>,
@@ -191,18 +188,18 @@ static mut hbFontFuncs: *mut hb_font_funcs_t = 0 as *mut hb_font_funcs_t;
 impl XeTeXFontInst {
     pub(crate) unsafe fn base_ctor(
         pathname: &str,
-        index: libc::c_int,
+        index: i32,
         pointSize: f32,
-        status: *mut libc::c_int,
+        status: &mut bool,
     ) -> Self {
         let mut res = Self {
             m_unitsPerEM: 0,
             m_pointSize: pointSize,
-            m_ascent: 0i32 as f32,
-            m_descent: 0i32 as f32,
-            m_capHeight: 0i32 as f32,
-            m_xHeight: 0i32 as f32,
-            m_italicAngle: 0i32 as f32,
+            m_ascent: 0.,
+            m_descent: 0.,
+            m_capHeight: 0.,
+            m_xHeight: 0.,
+            m_italicAngle: 0.,
             m_vertical: false,
             m_filename: String::new(),
             m_index: 0,
@@ -218,9 +215,9 @@ impl XeTeXFontInst {
     }
     pub(crate) unsafe fn create(
         pathname: &str,
-        index: libc::c_int,
+        index: i32,
         pointSize: f32,
-        status: *mut libc::c_int,
+        status: &mut bool,
     ) -> Box<Self> {
         Box::new(Self::base_ctor(pathname, index, pointSize, status))
     }
@@ -366,7 +363,7 @@ unsafe extern "C" fn _get_glyph_contour_point(
     mut _hbf: *mut hb_font_t,
     font_data: *mut libc::c_void,
     gid: hb_codepoint_t,
-    point_index: libc::c_uint,
+    point_index: u32,
     x: *mut hb_position_t,
     y: *mut hb_position_t,
     mut _p: *mut libc::c_void,
@@ -376,8 +373,8 @@ unsafe extern "C" fn _get_glyph_contour_point(
     let mut ret = false;
     let error = FT_Load_Glyph(face, gid, (1i64 << 0i32) as FT_Int32);
     if error == 0
-        && (*(*face).glyph).format as libc::c_uint == FT_GLYPH_FORMAT_OUTLINE as libc::c_uint
-        && point_index < (*(*face).glyph).outline.n_points as libc::c_uint
+        && (*(*face).glyph).format as u32 == FT_GLYPH_FORMAT_OUTLINE as u32
+        && point_index < (*(*face).glyph).outline.n_points as u32
     {
         *x = (*(*(*face).glyph).outline.points.offset(point_index as isize)).x as hb_position_t;
         *y = (*(*(*face).glyph).outline.points.offset(point_index as isize)).y as hb_position_t;
@@ -390,7 +387,7 @@ unsafe extern "C" fn _get_glyph_name(
     font_data: *mut libc::c_void,
     gid: hb_codepoint_t,
     name: *mut libc::c_char,
-    size: libc::c_uint,
+    size: u32,
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
     let face = font_data as FT_Face;
@@ -500,7 +497,7 @@ unsafe extern "C" fn _get_table(
             if error == 0 {
                 blob = hb_blob_create(
                     table as *const libc::c_char,
-                    length as libc::c_uint,
+                    length as u32,
                     HB_MEMORY_MODE_WRITABLE,
                     table as *mut libc::c_void,
                     Some(free as unsafe extern "C" fn(_: *mut libc::c_void) -> ()),
@@ -517,7 +514,7 @@ impl XeTeXFontInst {
         &mut self,
         pathname: &str,
         index: libc::c_int,
-        status: *mut libc::c_int,
+        status: &mut bool,
     ) {
         use crate::freetype_sys_patch::{FT_SFNT_OS2, FT_SFNT_POST};
         use freetype::freetype_sys::FT_Open_Args;
@@ -533,7 +530,7 @@ impl XeTeXFontInst {
             .or_else(|| InFile::open(pathname, TTInputFormat::TRUETYPE, 0))
             .or_else(|| InFile::open(pathname, TTInputFormat::TYPE1, 0));
         if handle.is_none() {
-            *status = 1i32;
+            *status = true;
             return;
         }
         let mut handle = handle.unwrap();
@@ -553,7 +550,7 @@ impl XeTeXFontInst {
             &mut self.m_ftFace,
         );
         if (*self.m_ftFace).face_flags & 1 << 0i32 == 0 {
-            *status = 1i32;
+            *status = true;
             return;
         }
         /* for non-sfnt-packaged fonts (presumably Type 1), see if there is an AFM file we can attach */
@@ -622,8 +619,8 @@ impl XeTeXFontInst {
             self.m_ftFace as *mut libc::c_void,
             None,
         );
-        hb_face_set_index(hbFace, index as libc::c_uint);
-        hb_face_set_upem(hbFace, self.m_unitsPerEM as libc::c_uint);
+        hb_face_set_index(hbFace, index as u32);
+        hb_face_set_upem(hbFace, self.m_unitsPerEM as u32);
         self.m_hbFont = hb_font_create(hbFace);
         hb_face_destroy(hbFace);
         if hbFontFuncs.is_null() {
@@ -641,7 +638,7 @@ impl XeTeXFontInst {
             self.m_unitsPerEM as libc::c_int,
         );
         // We don’t want device tables adjustments
-        hb_font_set_ppem(self.m_hbFont, 0i32 as libc::c_uint, 0i32 as libc::c_uint);
+        hb_font_set_ppem(self.m_hbFont, 0, 0);
     }
 
     pub(crate) unsafe fn set_layout_dir_vertical(&mut self, vertical: bool) {
@@ -683,16 +680,13 @@ impl XeTeXFontInst {
         FT_Get_Sfnt_Table(self.m_ftFace, tag)
     }
 
-    pub(crate) unsafe fn get_glyph_bounds(&self, gid: GlyphID, mut bbox: *mut GlyphBBox) {
+    pub(crate) unsafe fn get_glyph_bounds(&self, gid: GlyphID) -> GlyphBBox {
         use freetype::freetype_sys::FT_GLYPH_BBOX_UNSCALED;
-        (*bbox).yMax = 0.0f64 as f32;
-        (*bbox).xMax = (*bbox).yMax;
-        (*bbox).yMin = (*bbox).xMax;
-        (*bbox).xMin = (*bbox).yMin;
+        let mut bbox = GlyphBBox::default();
         let mut error: FT_Error =
             FT_Load_Glyph(self.m_ftFace, gid as FT_UInt, (1i64 << 0i32) as FT_Int32);
         if error != 0 {
-            return;
+            return bbox;
         }
         let mut glyph: FT_Glyph = 0 as FT_Glyph;
         error = FT_Get_Glyph((*self.m_ftFace).glyph, &mut glyph);
@@ -708,12 +702,13 @@ impl XeTeXFontInst {
                 FT_GLYPH_BBOX_UNSCALED as libc::c_int as FT_UInt,
                 &mut ft_bbox,
             );
-            (*bbox).xMin = self.units_to_points(ft_bbox.xMin as f32);
-            (*bbox).yMin = self.units_to_points(ft_bbox.yMin as f32);
-            (*bbox).xMax = self.units_to_points(ft_bbox.xMax as f32);
-            (*bbox).yMax = self.units_to_points(ft_bbox.yMax as f32);
+            bbox.xMin = self.units_to_points(ft_bbox.xMin as f32);
+            bbox.yMin = self.units_to_points(ft_bbox.yMin as f32);
+            bbox.xMax = self.units_to_points(ft_bbox.xMax as f32);
+            bbox.yMax = self.units_to_points(ft_bbox.yMax as f32);
             FT_Done_Glyph(glyph);
         };
+        bbox
     }
 
     pub(crate) unsafe fn map_char_to_glyph(&self, ch: char) -> GlyphID {
@@ -729,42 +724,24 @@ impl XeTeXFontInst {
     }
 
     pub(crate) unsafe fn get_glyph_height_depth(&self, gid: GlyphID) -> (f32, f32) {
-        let mut bbox: GlyphBBox = GlyphBBox {
-            xMin: 0.,
-            yMin: 0.,
-            xMax: 0.,
-            yMax: 0.,
-        };
-        self.get_glyph_bounds(gid, &mut bbox);
+        let bbox = self.get_glyph_bounds(gid);
         (bbox.yMax, -bbox.yMin)
     }
 
     pub(crate) unsafe fn get_glyph_sidebearings(&self, gid: GlyphID) -> (f32, f32) {
         let width: f32 = self.get_glyph_width(gid);
-        let mut bbox: GlyphBBox = GlyphBBox {
-            xMin: 0.,
-            yMin: 0.,
-            xMax: 0.,
-            yMax: 0.,
-        };
-        self.get_glyph_bounds(gid, &mut bbox);
+        let bbox = self.get_glyph_bounds(gid);
         (bbox.xMin, width - bbox.xMax)
     }
 
     pub(crate) unsafe fn get_glyph_ital_corr(&self, gid: GlyphID) -> f32 {
-        let mut rval: f32 = 0.0f64 as f32;
         let width: f32 = self.get_glyph_width(gid);
-        let mut bbox: GlyphBBox = GlyphBBox {
-            xMin: 0.,
-            yMin: 0.,
-            xMax: 0.,
-            yMax: 0.,
-        };
-        self.get_glyph_bounds(gid, &mut bbox);
+        let bbox = self.get_glyph_bounds(gid);
         if bbox.xMax > width {
-            rval = bbox.xMax - width
+            bbox.xMax - width
+        } else {
+            0.
         }
-        rval
     }
 
     pub(crate) unsafe fn map_glyph_to_index(&self, glyphName: *const libc::c_char) -> GlyphID {
@@ -795,7 +772,7 @@ impl XeTeXFontInst {
         let mut gindex: FT_UInt = 0;
         let mut ch: UChar32 = FT_Get_First_Char(self.m_ftFace, &mut gindex) as UChar32;
         let mut prev: UChar32 = ch;
-        while gindex != 0i32 as libc::c_uint {
+        while gindex != 0 {
             prev = ch;
             ch = FT_Get_Next_Char(self.m_ftFace, ch as FT_ULong, &mut gindex) as UChar32
         }

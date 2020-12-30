@@ -4,7 +4,6 @@
 use crate::xetex_aatfont::getFileNameFromCTFont;
 use std::ptr;
 
-pub(crate) type uint32_t = libc::c_uint;
 pub(crate) type Boolean = libc::c_uchar;
 
 use crate::cf_prelude::*;
@@ -48,21 +47,21 @@ impl XeTeXFontInst_Mac {
     pub(crate) unsafe fn ctor(
         descriptor: CTFontDescriptorRef,
         pointSize: f32,
-        status: *mut libc::c_int,
+        status: &mut bool,
     ) -> Self {
         let mut super_ = XeTeXFontInst::base_ctor("", 0i32, pointSize, status);
         let mut m_descriptor = descriptor;
         let mut m_fontRef = 0 as CTFontRef;
 
         if m_descriptor.is_null() {
-            *status = 1i32;
+            *status = true;
             return Self {
                 super_,
                 m_descriptor,
                 m_fontRef,
             };
         }
-        if *status != 0i32 {
+        if *status != false {
             m_descriptor = 0 as CTFontDescriptorRef
         }
         // Create a copy of original font descriptor with font cascading (fallback) disabled
@@ -92,7 +91,7 @@ impl XeTeXFontInst_Mac {
             ptr::null(),
         );
         if !m_fontRef.is_null() {
-            let mut index: uint32_t = 0;
+            let mut index = 0;
             let pathname = getFileNameFromCTFont(m_fontRef, &mut index);
             super_ = XeTeXFontInst::base_ctor(
                 &pathname,
@@ -101,7 +100,7 @@ impl XeTeXFontInst_Mac {
                 status,
             );
         } else {
-            *status = 1i32;
+            *status = true;
             CFRelease(m_descriptor as CFTypeRef);
             m_descriptor = 0 as CTFontDescriptorRef
         };
@@ -116,7 +115,7 @@ impl XeTeXFontInst_Mac {
     pub(crate) unsafe fn create(
         descriptor: CTFontDescriptorRef,
         pointSize: f32,
-        status: *mut libc::c_int,
+        status: &mut bool,
     ) -> Box<Self> {
         Box::new(Self::ctor(descriptor, pointSize, status))
     }
@@ -125,7 +124,7 @@ impl XeTeXFontInst_Mac {
         pathname: &str,
         index: libc::c_int,
         pointSize: f32,
-        status: *mut libc::c_int,
+        status: &mut bool,
     ) -> Box<Self> {
         Box::new(Self {
             super_: XeTeXFontInst::base_ctor(pathname, index, pointSize, status),
