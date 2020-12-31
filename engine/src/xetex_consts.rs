@@ -1154,3 +1154,12 @@ impl From<i32> for UnicodeMode {
         Self::n(n).unwrap_or_else(|| panic!("incorrect unicode encoding mode = {}", n))
     }
 }
+
+/// base number for XeTeX special integer codes
+pub(crate) const XETEX_INT: i32 = 27;
+pub(crate) const ACTIVE_CHAR: i16 = 13;
+
+pub(crate) const OPEN_NODE: u16 = 0;
+pub(crate) const WRITE_NODE: u16 = 1;
+pub(crate) const CLOSE_NODE: u16 = 2;
+pub(crate) const SPECIAL_NODE: u16 = 3;

@@ -3,7 +3,7 @@
 use crate::{t_eprint, t_print, t_print_nl};
 use std::ptr;
 
-use super::xetex_texmfmp::get_date_and_time;
+use super::xetex_texmfmp::{get_date_and_time, init_start_time};
 use crate::cmd::*;
 use crate::fmt_file::{load_fmt_file, store_fmt_file};
 use crate::help;
@@ -14,6 +14,7 @@ use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
 use crate::xetex_output::Esc;
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
+use crate::xetex_scaledmath::init_randoms;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
 use crate::xetex_stringpool::{
     init_pool_ptr, init_str_ptr, max_strings, pool_free, pool_ptr, pool_size, str_pool, str_ptr,
@@ -23,6 +24,7 @@ use crate::xetex_stringpool::{
     load_pool_strings, make_string, PoolString, EMPTY_STRING, TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::synctex_init_command;
+use crate::xetex_texmfmp::get_seconds_and_micros;
 use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
     alter_aux, alter_box_dimen, alter_integer, alter_page_so_far, alter_prev_graf, back_error,
@@ -457,6 +459,13 @@ pub(crate) static mut help_ptr: u8 = 0;
 pub(crate) static mut use_err_help: bool = false;
 #[no_mangle]
 pub(crate) static mut arith_error: bool = false;
+
+pub(crate) static mut randoms: [i32; 55] = [0; 55];
+pub(crate) static mut j_random: i8 = 0;
+pub(crate) static mut random_seed: i32 = 0;
+pub(crate) static mut two_to_the: [i32; 31] = [0; 31];
+pub(crate) static mut spec_log: [i32; 29] = [0; 29];
+
 #[no_mangle]
 pub(crate) static mut MEM: Vec<memory_word> = Vec::new();
 #[no_mangle]
@@ -788,6 +797,8 @@ pub(crate) static mut rule_wd: Scaled = Scaled::ZERO;
 pub(crate) static mut cur_h: Scaled = Scaled::ZERO;
 #[no_mangle]
 pub(crate) static mut cur_v: Scaled = Scaled::ZERO;
+pub(crate) static mut epochseconds: i32 = 0;
+pub(crate) static mut microseconds: i32 = 0;
 #[no_mangle]
 pub(crate) static mut total_stretch: [Scaled; 4] = [Scaled::ZERO; 4];
 #[no_mangle]
@@ -2166,6 +2177,30 @@ unsafe fn initialize_more_variables() {
     error_count = 0_i8;
     help_ptr = 0_u8;
     use_err_help = false;
+
+    two_to_the[0] = 1;
+    for k in 1..=30 {
+        two_to_the[k] = 2 * two_to_the[k - 1];
+    }
+
+    spec_log[1] = 93032640;
+    spec_log[2] = 38612034;
+    spec_log[3] = 17922280;
+    spec_log[4] = 8662214;
+    spec_log[5] = 4261238;
+    spec_log[6] = 2113709;
+    spec_log[7] = 1052693;
+    spec_log[8] = 525315;
+    spec_log[9] = 262400;
+    spec_log[10] = 131136;
+    spec_log[11] = 65552;
+    spec_log[12] = 32772;
+    spec_log[13] = 16385;
+    for k in 14..=27 {
+        spec_log[k] = two_to_the[27 - k];
+    }
+    spec_log[28] = 1;
+
     NEST_PTR = 0;
     MAX_NEST_STACK = 0;
     cur_list.mode = (false, ListMode::VMode);
@@ -2181,6 +2216,7 @@ unsafe fn initialize_more_variables() {
     last_glue = MAX_HALFWORD;
     last_penalty = 0;
     last_kern = Scaled::ZERO;
+    last_node_type = -1;
     page_so_far[7] = Scaled::ZERO;
 
     for k in INT_BASE..=EQTB_SIZE {
@@ -2275,6 +2311,8 @@ unsafe fn initialize_more_variables() {
         *k = false;
     }
 
+    get_seconds_and_micros(&mut epochseconds, &mut microseconds);
+    init_start_time();
     LR_ptr = None.tex_int();
     LR_problems = 0;
     cur_dir = LR::LeftToRight;
@@ -3154,19 +3192,33 @@ unsafe fn initialize_primitives() {
     primitive("lastskip", Cmd::LastItem, LastItemCode::LastSkip);
     primitive("inputlineno", Cmd::LastItem, LastItemCode::InputLineNo);
     primitive("badness", Cmd::LastItem, LastItemCode::Badness);
+    primitive("pdflastxpos", Cmd::LastItem, LastItemCode::PdfLastXPos);
+    primitive("pdflastypos", Cmd::LastItem, LastItemCode::PdfLastYPos);
+    primitive("elapsedtime", Cmd::LastItem, LastItemCode::ElapsedTime);
+    primitive("shellescape", Cmd::LastItem, LastItemCode::PdfShellEscape);
+    primitive("randomseed", Cmd::LastItem, LastItemCode::RandomSeed);
 
     primitive("number", Cmd::Convert, ConvertCode::Number);
     primitive("romannumeral", Cmd::Convert, ConvertCode::RomanNumeral);
     primitive("string", Cmd::Convert, ConvertCode::String);
     primitive("meaning", Cmd::Convert, ConvertCode::Meaning);
     primitive("fontname", Cmd::Convert, ConvertCode::FontName);
-    primitive("jobname", Cmd::Convert, ConvertCode::JobName);
+    primitive("expanded", Cmd::Convert, ConvertCode::Expanded);
     primitive("leftmarginkern", Cmd::Convert, ConvertCode::LeftMarginKern);
     primitive(
         "rightmarginkern",
         Cmd::Convert,
         ConvertCode::RightMarginKern,
     );
+    primitive("creationdate", Cmd::Convert, ConvertCode::PdfCreationDate);
+    primitive("filemoddate", Cmd::Convert, ConvertCode::PdfFileModDate);
+    primitive("filesize", Cmd::Convert, ConvertCode::PdfFileSize);
+    primitive("mdfivesum", Cmd::Convert, ConvertCode::PdfMdfiveSum);
+    primitive("filedump", Cmd::Convert, ConvertCode::PdfFileDump);
+    primitive("strcmp", Cmd::Convert, ConvertCode::PdfStrcmp);
+    primitive("uniformdeviate", Cmd::Convert, ConvertCode::UniformDeviate);
+    primitive("normaldeviate", Cmd::Convert, ConvertCode::NormalDeviate);
+    primitive("jobname", Cmd::Convert, ConvertCode::JobName);
     primitive("Uchar", Cmd::Convert, ConvertCode::XetexUchar);
     primitive("Ucharcat", Cmd::Convert, ConvertCode::XetexUcharcat);
 
@@ -3437,6 +3489,8 @@ unsafe fn initialize_primitives() {
     EQTB[FROZEN_SPECIAL] = EQTB[val as usize];
     primitive("immediate", Cmd::Extension, IMMEDIATE_CODE as i32);
     primitive("setlanguage", Cmd::Extension, SET_LANGUAGE_CODE as i32);
+    primitive("resettimer", Cmd::Extension, RESET_TIMER_CODE as i32);
+    primitive("setrandomseed", Cmd::Extension, SET_RANDOM_SEED_CODE as i32);
 
     primitive(
         "synctex",
@@ -3744,11 +3798,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
             Cmd::Extension,
             XETEX_LINEBREAK_LOCALE_EXTENSION_CODE as i32,
         );
-        primitive(
-            "pdfsavepos",
-            Cmd::Extension,
-            PDFTEX_FIRST_EXTENSION_CODE as i32 + 0,
-        );
+        primitive("pdfsavepos", Cmd::Extension, PDF_SAVE_POS_NODE);
 
         primitive("lastnodetype", Cmd::LastItem, LastItemCode::LastNodeType);
         primitive("eTeXversion", Cmd::LastItem, LastItemCode::EtexVersion);
@@ -3910,19 +3960,13 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
             Cmd::LastItem,
             LastItemCode::XetexLastChar,
         );
-        primitive("pdflastxpos", Cmd::LastItem, LastItemCode::PdfLastXPos);
-        primitive("pdflastypos", Cmd::LastItem, LastItemCode::PdfLastYPos);
-
-        primitive("strcmp", Cmd::Convert, ConvertCode::PdfStrcmp);
-        primitive("mdfivesum", Cmd::Convert, ConvertCode::PdfMdfiveSum);
-        primitive("pdfmdfivesum", Cmd::Convert, ConvertCode::PdfMdfiveSum);
-
-        primitive("shellescape", Cmd::LastItem, LastItemCode::PdfShellEscape);
         primitive(
             "XeTeXpdfpagecount",
             Cmd::LastItem,
             LastItemCode::XetexPdfPageCount,
         );
+
+        // everyeof moved to be with other assign_toks
 
         primitive(
             "tracingassigns",
@@ -4275,6 +4319,9 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     }
 
     font_used = vec![false; FONT_MAX + 1];
+
+    random_seed = (microseconds * 1000) + (epochseconds % 1000000);
+    init_randoms(random_seed);
 
     selector = if interaction == InteractionMode::Batch {
         Selector::NO_PRINT
