@@ -340,14 +340,14 @@ pub(crate) struct list_state_record {
     /// auxiliary data about the current list
     pub(crate) aux: memory_word,
 }
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 #[repr(C)]
 pub(crate) struct input_state_t {
     pub(crate) state: InputState,
     pub(crate) index: Btl,
-    pub(crate) start: i32,
-    pub(crate) loc: i32,
-    pub(crate) limit: i32,
+    pub(crate) start: Option<usize>, // TODO: fix, should be just usize
+    pub(crate) loc: Option<usize>,
+    pub(crate) limit: usize,
     pub(crate) name: i32,
     pub(crate) synctex_tag: i32,
 }
@@ -596,9 +596,9 @@ pub(crate) static mut cur_input: input_state_t = input_state_t {
     /// reference for buffer information
     index: Btl::Parameter,
     /// starting position in `buffer`
-    start: 0,
+    start: None,
     /// location of first unread character in `buffer`
-    loc: 0,
+    loc: None,
     /// end of current line in `buffer`
     limit: 0,
     /// name of the current file
@@ -2187,10 +2187,10 @@ unsafe fn init_io(input: &mut input_state_t) {
         conversionData: 0 as *mut libc::c_void,
     }));
 
-    BUFFER[first as usize] = 0;
+    BUFFER[first] = 0;
     last = first;
-    input.loc = first as i32;
-    input.limit = last as i32;
+    input.loc = Some(first);
+    input.limit = last;
     first = last + 1;
 }
 unsafe fn initialize_more_variables() {
@@ -3759,7 +3759,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     warning_index = None.tex_int();
     first = 1;
     cur_input.state = InputState::NewLine;
-    cur_input.start = 1;
+    cur_input.start = Some(1);
     cur_input.index = Btl::Parameter;
     line = 0;
     cur_input.name = 0;

@@ -871,10 +871,10 @@ pub(crate) unsafe fn loadAATfont(
     }
     if loaded_font_flags as i32 & 0x1 != 0 {
         let rgba = rgbValue.to_be_bytes();
-        let red = rgba.0 as f64 / 255.;
-        let green = rgba.1 as f64 / 255.;
-        let blue = rgba.2 as f64 / 255.;
-        let alpha = rgba.3 as f64 / 255.;
+        let red = rgba[0] as f64 / 255.;
+        let green = rgba[1] as f64 / 255.;
+        let blue = rgba[2] as f64 / 255.;
+        let alpha = rgba[3] as f64 / 255.;
         // this wrapper CGColor is already at retain count zero
         let color = CGColor::rgb(red, green, blue, alpha);
         CFDictionaryAddValue(
