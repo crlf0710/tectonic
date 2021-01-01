@@ -9224,37 +9224,29 @@ pub(crate) unsafe fn make_name_string(name: &str) -> str_number {
     result
 }
 
-unsafe fn scan_file_name_braced(_input: &mut input_state_t) -> (FileName, bool, Option<u8>) {
-    unimplemented!()
-    /*    small_number save_scanner_status;
-    int32_t save_def_ref, save_cur_cs;
-    str_number s;
-    int32_t i;
-    bool save_stop_at_space;
+unsafe fn scan_file_name_braced(
+    input: &mut input_state_t,
+    cs: i32,
+) -> (FileName, bool, Option<u8>) {
+    let save_scanner_status = scanner_status;
+    let save_def_ref = def_ref;
+    scan_toks(input, cs, false, true);
 
-    save_scanner_status = scanner_status;
-    save_def_ref = def_ref;
-    save_cur_cs = cur_cs;
-    cur_cs = warning_index;
-    scan_toks(false, true);
-
-    old_setting = selector;
-    selector = SELECTOR_NEW_STRING;
-    show_token_list(mem[def_ref].b32.s1, TEX_NULL, pool_size - pool_ptr);
-    selector = old_setting;
-    s = make_string();
+    let filename = format!("{}", TokenNode(Some(def_ref)));
     delete_token_ref(def_ref);
     def_ref = save_def_ref;
-    cur_cs = save_cur_cs;
     scanner_status = save_scanner_status;
-    save_stop_at_space = stop_at_space;
+    let save_stop_at_space = stop_at_space;
 
-    begin_name();
-
-    for (i = str_start[s - TOO_BIG_CHAR]; i < str_start[s + 1 - TOO_BIG_CHAR]; i++)
-        more_name(str_pool[i]);
-
-    stop_at_space = save_stop_at_space;*/
+    let res = make_name(|a, e, q, qc| {
+        for k in filename.encode_utf16() {
+            if !more_name(k, false, a, e, q, qc) {
+                break;
+            }
+        }
+    });
+    stop_at_space = save_stop_at_space;
+    res
 }
 
 pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, bool, Option<u8>) {
@@ -9268,7 +9260,7 @@ pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, boo
     };
     back_input(input, tok);
     let res = if cmd == Cmd::LeftBrace {
-        scan_file_name_braced(input)
+        scan_file_name_braced(input, warning_index)
     } else {
         name_in_progress = true;
         let res = make_name(|a, e, q, qc| {
