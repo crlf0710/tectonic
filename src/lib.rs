@@ -69,7 +69,7 @@ pub use crate::engines::tex::{TexEngine, TexResult};
 pub use crate::engines::xdvipdfmx::XdvipdfmxEngine;
 pub use crate::errors::{Error, ErrorKind, Result};
 
-const FORMAT_SERIAL: u32 = 28; // keep synchronized with tectonic/xetex-constants.h!!
+const FORMAT_SERIAL: u32 = 40; // keep synchronized with tectonic/xetex-constants.h!!
 
 /// Compile LaTeX text to a PDF.
 ///
