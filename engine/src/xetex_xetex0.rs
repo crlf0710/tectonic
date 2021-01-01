@@ -5803,15 +5803,15 @@ pub(crate) unsafe fn find_font_dimen(input: &mut input_state_t, writing: bool) -
     };
     val
 }
-pub(crate) unsafe fn scan_something_internal(
+unsafe fn restart_scan_something_internal(
     input: &mut input_state_t,
     tok: i32,
     cmd: Cmd,
     chr: i32,
     level: ValLevel,
     negative: bool,
-) -> (i32, ValLevel) {
-    let (mut val, mut val_level) = match cmd {
+) -> (bool, i32, ValLevel) {
+    match cmd {
         Cmd::DefCode => {
             let m = chr;
             let val = scan_usv_num(input);
@@ -5849,7 +5849,7 @@ pub(crate) unsafe fn scan_something_internal(
             } else {
                 EQTB[(m + val) as usize].val
             };
-            (val, ValLevel::Int)
+            (true, val, ValLevel::Int)
         }
         Cmd::XetexDefCode => {
             let m = chr;
@@ -5877,7 +5877,7 @@ pub(crate) unsafe fn scan_something_internal(
                 error();
                 0
             };
-            (val, ValLevel::Int)
+            (true, val, ValLevel::Int)
         }
         Cmd::ToksRegister | Cmd::AssignToks | Cmd::DefFamily | Cmd::SetFont | Cmd::DefFont => {
             let m = chr;
@@ -5889,7 +5889,7 @@ pub(crate) unsafe fn scan_something_internal(
                     "look up `weird error\' in the index to The TeXbook.)"
                 );
                 back_error(input, tok);
-                (0, ValLevel::Dimen)
+                (true, 0, ValLevel::Dimen)
             } else if cmd <= Cmd::AssignToks {
                 let val = if cmd < Cmd::AssignToks {
                     if m == 0i32 {
@@ -5919,28 +5919,28 @@ pub(crate) unsafe fn scan_something_internal(
                 } else {
                     EQTB[m as usize].val
                 };
-                (val, ValLevel::Tok)
+                (true, val, ValLevel::Tok)
             } else {
                 back_input(input, tok);
                 let val = scan_font_ident(input);
-                (FONT_ID_BASE as i32 + val, ValLevel::Ident)
+                (true, FONT_ID_BASE as i32 + val, ValLevel::Ident)
             }
         }
         Cmd::AssignInt => {
             let m = chr;
-            (EQTB[m as usize].val, ValLevel::Int)
+            (true, EQTB[m as usize].val, ValLevel::Int)
         }
         Cmd::AssignDimen => {
             let m = chr;
-            (EQTB[m as usize].val, ValLevel::Dimen)
+            (true, EQTB[m as usize].val, ValLevel::Dimen)
         }
         Cmd::AssignGlue => {
             let m = chr;
-            (EQTB[m as usize].val, ValLevel::Glue)
+            (true, EQTB[m as usize].val, ValLevel::Glue)
         }
         Cmd::AssignMuGlue => {
             let m = chr;
-            (EQTB[m as usize].val, ValLevel::Mu)
+            (true, EQTB[m as usize].val, ValLevel::Mu)
         }
         Cmd::SetAux => {
             let m = chr;
@@ -5954,26 +5954,26 @@ pub(crate) unsafe fn scan_something_internal(
                 );
                 error();
                 if level != ValLevel::Tok {
-                    (0, ValLevel::Dimen)
+                    (true, 0, ValLevel::Dimen)
                 } else {
-                    (0, ValLevel::Int)
+                    (true, 0, ValLevel::Int)
                 }
             } else if m == ListMode::VMode as i32 {
-                (cur_list.aux.b32.s1, ValLevel::Dimen)
+                (true, cur_list.aux.b32.s1, ValLevel::Dimen)
             } else {
-                (cur_list.aux.b32.s0, ValLevel::Int)
+                (true, cur_list.aux.b32.s0, ValLevel::Int)
             }
         }
         Cmd::SetPrevGraf => {
             if cur_list.mode.1 == ListMode::NoMode {
-                (0, ValLevel::Int)
+                (true, 0, ValLevel::Int)
             } else {
                 NEST[NEST_PTR] = cur_list;
                 let mut p = NEST_PTR;
                 while NEST[p].mode.1 != ListMode::VMode {
                     p -= 1
                 }
-                (NEST[p].prev_graf, ValLevel::Int)
+                (true, NEST[p].prev_graf, ValLevel::Int)
             }
         }
         Cmd::SetPageInt => {
@@ -5985,7 +5985,7 @@ pub(crate) unsafe fn scan_something_internal(
             } else {
                 insert_penalties
             };
-            (val, ValLevel::Int)
+            (true, val, ValLevel::Int)
         }
         Cmd::SetPageDimen => {
             let m = chr;
@@ -5998,7 +5998,7 @@ pub(crate) unsafe fn scan_something_internal(
             } else {
                 page_so_far[m as usize]
             };
-            (val.0, ValLevel::Dimen)
+            (true, val.0, ValLevel::Dimen)
         }
         Cmd::SetShape => {
             let m = chr;
@@ -6020,7 +6020,7 @@ pub(crate) unsafe fn scan_something_internal(
             } else {
                 0
             };
-            (val, ValLevel::Int)
+            (true, val, ValLevel::Int)
         }
         Cmd::SetBoxDimen => {
             let m = chr;
@@ -6040,20 +6040,20 @@ pub(crate) unsafe fn scan_something_internal(
             } else {
                 0
             };
-            (val, ValLevel::Dimen)
+            (true, val, ValLevel::Dimen)
         }
-        Cmd::CharGiven | Cmd::MathGiven => (chr, ValLevel::Int),
+        Cmd::CharGiven | Cmd::MathGiven => (true, chr, ValLevel::Int),
         Cmd::AssignFontDimen => {
             let val = find_font_dimen(input, false);
             FONT_INFO[fmem_ptr as usize].b32.s1 = 0;
-            (FONT_INFO[val as usize].b32.s1, ValLevel::Dimen)
+            (true, FONT_INFO[val as usize].b32.s1, ValLevel::Dimen)
         }
         Cmd::AssignFontInt => {
             let m = AssignFontInt::from(chr);
             let val = scan_font_ident(input);
             match m {
-                AssignFontInt::HyphenChar => (HYPHEN_CHAR[val as usize], ValLevel::Int),
-                AssignFontInt::SkewChar => (SKEW_CHAR[val as usize], ValLevel::Int),
+                AssignFontInt::HyphenChar => (true, HYPHEN_CHAR[val as usize], ValLevel::Int),
+                AssignFontInt::SkewChar => (true, SKEW_CHAR[val as usize], ValLevel::Int),
                 _ => {
                     let n = val;
                     let k = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[n as usize] {
@@ -6062,10 +6062,13 @@ pub(crate) unsafe fn scan_something_internal(
                         scan_char_num(input)
                     };
                     match m {
-                        AssignFontInt::LpCode => {
-                            (get_cp_code(n as usize, k as u32, Side::Left), ValLevel::Int)
-                        }
+                        AssignFontInt::LpCode => (
+                            true,
+                            get_cp_code(n as usize, k as u32, Side::Left),
+                            ValLevel::Int,
+                        ),
                         AssignFontInt::RpCode => (
+                            true,
                             get_cp_code(n as usize, k as u32, Side::Right),
                             ValLevel::Int,
                         ),
@@ -6083,7 +6086,7 @@ pub(crate) unsafe fn scan_something_internal(
                     ValLevel::Int | ValLevel::Dimen => MEM[(m + 2) as usize].b32.s1,
                     _ => MEM[(m + 1) as usize].b32.s1,
                 };
-                (val, val_level)
+                (true, val, val_level)
             } else {
                 let val = scan_register_num(input);
                 let val_level = ValLevel::from(m as u8);
@@ -6106,7 +6109,7 @@ pub(crate) unsafe fn scan_something_internal(
                         _ => val,
                     }
                 };
-                (val, val_level)
+                (true, val, val_level)
             }
         }
         Cmd::LastItem => {
@@ -6155,7 +6158,7 @@ pub(crate) unsafe fn scan_something_internal(
                             }
                         }
                     }
-                    return (val, val_level);
+                    return (false, val, val_level);
                 }
                 if m >= XETEX_DIM {
                     let val = match m {
@@ -6252,7 +6255,7 @@ pub(crate) unsafe fn scan_something_internal(
                         }
                         _ => unreachable!(),
                     };
-                    (val, ValLevel::Dimen)
+                    (true, val, ValLevel::Dimen)
                 } else {
                     let val = match m {
                         LastItemCode::InputLineNo => line,
@@ -6531,7 +6534,7 @@ pub(crate) unsafe fn scan_something_internal(
                         }
                         _ => unreachable!(),
                     };
-                    (val, ValLevel::Int)
+                    (true, val, ValLevel::Int)
                 }
             } else {
                 let mut val = 0;
@@ -6609,7 +6612,7 @@ pub(crate) unsafe fn scan_something_internal(
                         _ => unreachable!(),
                     }
                 }
-                (val, val_level)
+                (true, val, val_level)
             }
         }
         _ => {
@@ -6621,6 +6624,7 @@ pub(crate) unsafe fn scan_something_internal(
             help!("I\'m forgetting what you said and using zero instead.");
             error();
             (
+                true,
                 0,
                 if level != ValLevel::Tok {
                     ValLevel::Dimen
@@ -6629,33 +6633,46 @@ pub(crate) unsafe fn scan_something_internal(
                 },
             )
         }
-    };
-
-    while val_level > level {
-        /*447:*/
-        if val_level == ValLevel::Glue {
-            val = MEM[(val + 1) as usize].b32.s1
-        } else if val_level == ValLevel::Mu {
-            mu_error();
-        }
-        val_level.prev();
     }
+}
+pub(crate) unsafe fn scan_something_internal(
+    input: &mut input_state_t,
+    tok: i32,
+    cmd: Cmd,
+    chr: i32,
+    level: ValLevel,
+    negative: bool,
+) -> (i32, ValLevel) {
+    let (flag, mut val, mut val_level) =
+        restart_scan_something_internal(input, tok, cmd, chr, level, negative);
 
-    let val = if negative {
-        match val_level {
-            ValLevel::Int | ValLevel::Dimen => -val,
-            ValLevel::Glue | ValLevel::Mu => {
-                let val = &GlueSpec(val as usize);
-                let spec = -val;
-                spec.ptr() as i32
+    if flag {
+        while val_level > level {
+            /*447:*/
+            if val_level == ValLevel::Glue {
+                val = MEM[(val + 1) as usize].b32.s1
+            } else if val_level == ValLevel::Mu {
+                mu_error();
             }
-            _ => unreachable!(),
+            val_level.prev();
         }
-    } else {
-        if val_level == ValLevel::Glue || val_level == ValLevel::Mu {
-            GlueSpec(val as usize).rc_inc();
+
+        val = if negative {
+            match val_level {
+                ValLevel::Int | ValLevel::Dimen => -val,
+                ValLevel::Glue | ValLevel::Mu => {
+                    let val = &GlueSpec(val as usize);
+                    let spec = -val;
+                    spec.ptr() as i32
+                }
+                _ => unreachable!(),
+            }
+        } else {
+            if val_level == ValLevel::Glue || val_level == ValLevel::Mu {
+                GlueSpec(val as usize).rc_inc();
+            }
+            val
         }
-        val
     };
     (val, val_level)
 }
