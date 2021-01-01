@@ -7202,11 +7202,7 @@ pub unsafe fn bibtex_main(bibtex_config: &BibtexConfig, mut aux_file_name: *cons
         if verbose {
             log!("This is BibTeX, Version 0.99d\n");
         } else {
-            writeln!(
-                log_file.as_mut().unwrap(),
-                "This is BibTeX, Version 0.99d"
-            )
-            .unwrap();
+            writeln!(log_file.as_mut().unwrap(), "This is BibTeX, Version 0.99d").unwrap();
         }
         writeln!(
             log_file.as_mut().unwrap(),
