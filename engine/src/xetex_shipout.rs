@@ -5,25 +5,23 @@ use crate::help;
 use crate::node::*;
 use crate::t_eprint;
 use crate::xetex_consts::*;
-use crate::xetex_errors::{confusion, error, fatal_error, overflow};
+use crate::xetex_errors::{confusion, error, fatal_error};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
 use crate::xetex_ini::shell_escape_enabled;
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_dir, cur_h, cur_h_offset, cur_input, cur_list, cur_page_height, cur_page_width,
     cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, file_offset, font_used,
-    init_pool_ptr, input_state_t, job_name, last_bop, log_opened, max_h, max_print_line, max_push,
-    max_v, output_file_extension, pdf_last_x_pos, pdf_last_y_pos, pool_ptr, pool_size, rule_dp,
-    rule_ht, rule_wd, rust_stdout, selector, semantic_pagination_enabled, str_pool, str_ptr,
-    str_start, term_offset, write_file, write_loc, write_open, xtx_ligature_present, LR_problems,
-    LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO,
-    FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE, MEM,
-    TOTAL_PAGES, WIDTH_BASE,
+    input_state_t, job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v,
+    output_file_extension, pdf_last_x_pos, pdf_last_y_pos, rule_dp, rule_ht, rule_wd, rust_stdout,
+    selector, semantic_pagination_enabled, term_offset, write_file, write_loc, write_open,
+    xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK,
+    FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING,
+    FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{print_chr, print_ln};
 use crate::xetex_scaledmath::{tex_round, Scaled};
-use crate::xetex_stringpool::PoolString;
-use crate::xetex_stringpool::TOO_BIG_CHAR;
+use crate::xetex_stringpool::{pool_ptr, str_pool, str_ptr, str_start, PoolString, TOO_BIG_CHAR};
 use crate::xetex_synctex::{
     synctex_current, synctex_hlist, synctex_horizontal_rule_or_glue, synctex_kern, synctex_math,
     synctex_sheet, synctex_teehs, synctex_tsilh, synctex_tsilv, synctex_vlist, synctex_void_hlist,
@@ -440,9 +438,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                         /* "Now r points to the first native_word_node of the run,
                          * and p to the last." */
                         if p != r_nw.ptr() {
-                            if pool_ptr + k > pool_size {
-                                overflow("pool size", (pool_size - init_pool_ptr) as usize);
-                            }
+                            PoolString::check_capacity(k);
                             let mut k = Scaled::ZERO;
                             let mut q = r_nw.ptr();
                             loop {

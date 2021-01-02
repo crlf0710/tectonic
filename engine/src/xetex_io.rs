@@ -468,13 +468,13 @@ pub(crate) unsafe fn get_uni_c(f: &mut UFILE) -> i32 {
             if rval != -1 {
                 rval += ttstub_input_getc(handle) << 8;
                 if rval >= 0xd800 && rval <= 0xdbff {
-                    let mut lo_0: i32 = ttstub_input_getc(handle);
-                    lo_0 += ttstub_input_getc(handle) << 8;
-                    if lo_0 >= 0xdc00 && lo_0 <= 0xdfff {
-                        rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo_0 - 0xdc00)
+                    let mut lo: i32 = ttstub_input_getc(handle);
+                    lo += ttstub_input_getc(handle) << 8;
+                    if lo >= 0xdc00 && lo <= 0xdfff {
+                        rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo - 0xdc00)
                     } else {
                         rval = 0xfffd;
-                        f.savedChar = lo_0 as i64
+                        f.savedChar = lo as i64
                     }
                 } else if rval >= 0xdc00 && rval <= 0xdfff {
                     rval = 0xfffd
