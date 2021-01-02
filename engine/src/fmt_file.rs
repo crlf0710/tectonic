@@ -3,6 +3,7 @@ use std::ptr;
 use crate::cmd::{Cmd, InteractionMode};
 use crate::help;
 use crate::xetex_consts::IntPar;
+use crate::xetex_ini::ReNew;
 use crate::xetex_ini::{b16x4, b32x2, memory_word, EqtbWord, Selector, UTF16_code, FONT_PTR};
 use crate::xetex_output::Esc;
 use crate::xetex_stringpool::{
@@ -517,12 +518,12 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     cur_input.loc = j;
 
     if in_initex_mode {
-        FONT_INFO = Vec::new();
-        str_pool = Vec::new();
-        str_start = Vec::new();
-        yhash = Vec::new();
-        EQTB = Vec::new();
-        MEM = Vec::new();
+        FONT_INFO.clear();
+        str_pool.clear();
+        str_start.clear();
+        yhash.clear();
+        EQTB.clear();
+        MEM.clear();
     }
 
     fn bad_fmt() -> ! {
@@ -565,14 +566,13 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
         EQTB_TOP
     };
 
-    yhash = vec![b32x2::default(); 1 + hash_top - hash_offset + 1];
+    yhash.renew(1 + hash_top - hash_offset + 1);
 
     for x in HASH_BASE..=hash_top {
         yhash[x - hash_offset] = b32x2_le_t { s0: 0, s1: 0 };
     }
 
-    EQTB = Vec::with_capacity(EQTB_TOP + 2);
-    EQTB.set_len(EQTB_TOP + 2);
+    EQTB.renew(EQTB_TOP + 2);
     let ucs = EqtbWord {
         cmd: Cmd::UndefinedCS as _,
         val: None.tex_int() as _,
@@ -596,8 +596,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     cur_list.tail = CONTRIB_HEAD;
     page_tail = PAGE_HEAD;
 
-    MEM = Vec::with_capacity(MEM_TOP + 2);
-    MEM.set_len(MEM_TOP + 2);
+    MEM.renew(MEM_TOP + 2);
 
     fmt_in.undump_one(&mut x);
     if x != EQTB_SIZE as i32 {
@@ -638,7 +637,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     max_strings = max_strings.max(str_ptr as usize + strings_free);
 
-    str_start = vec![0; max_strings + 1];
+    str_start.renew(max_strings + 1);
     let mut v = vec![0_i32; (str_ptr - TOO_BIG_CHAR + 1) as usize];
     fmt_in.undump(&mut v);
     for (ind, val) in v.into_iter().enumerate() {
@@ -652,7 +651,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
             );
         }
     }
-    str_pool = vec![0; pool_size + 1];
+    str_pool.renew(pool_size + 1);
     fmt_in.undump(&mut str_pool[..pool_ptr]);
     init_str_ptr = str_ptr;
     init_pool_ptr = pool_ptr;
@@ -840,7 +839,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     if fmem_ptr > FONT_MEM_SIZE as i32 {
         FONT_MEM_SIZE = fmem_ptr as usize
     }
-    FONT_INFO = vec![memory_word::default(); FONT_MEM_SIZE + 1];
+    FONT_INFO.renew(FONT_MEM_SIZE + 1);
     fmt_in.undump(&mut FONT_INFO[..fmem_ptr as usize]);
     fmt_in.undump_one(&mut x);
     if x < FONT_BASE as i32 {
@@ -852,35 +851,35 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     FONT_PTR = x as usize;
 
-    FONT_MAPPING = vec![ptr::null_mut(); FONT_MAX + 1];
-    for _ in 0..FONT_MAX + 1 {
-        FONT_LAYOUT_ENGINE.push(crate::xetex_ext::Font::None);
-    }
-    FONT_FLAGS = vec![0; FONT_MAX + 1];
-    FONT_LETTER_SPACE = vec![Scaled::ZERO; FONT_MAX + 1];
-    FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
-    FONT_SIZE = vec![Scaled::ZERO; FONT_MAX + 1];
-    FONT_DSIZE = vec![Scaled::ZERO; FONT_MAX + 1];
-    FONT_PARAMS = vec![0; FONT_MAX + 1];
-    FONT_NAME = vec![0; FONT_MAX + 1];
-    FONT_AREA = vec![0; FONT_MAX + 1];
-    FONT_BC = vec![0; FONT_MAX + 1];
-    FONT_EC = vec![0; FONT_MAX + 1];
-    FONT_GLUE = vec![0; FONT_MAX + 1];
-    HYPHEN_CHAR = vec![0; FONT_MAX + 1];
-    SKEW_CHAR = vec![0; FONT_MAX + 1];
-    BCHAR_LABEL = vec![0; FONT_MAX + 1];
-    FONT_BCHAR = vec![0; FONT_MAX + 1];
-    FONT_FALSE_BCHAR = vec![0; FONT_MAX + 1];
-    CHAR_BASE = vec![0; FONT_MAX + 1];
-    WIDTH_BASE = vec![0; FONT_MAX + 1];
-    HEIGHT_BASE = vec![0; FONT_MAX + 1];
-    DEPTH_BASE = vec![0; FONT_MAX + 1];
-    ITALIC_BASE = vec![0; FONT_MAX + 1];
-    LIG_KERN_BASE = vec![0; FONT_MAX + 1];
-    KERN_BASE = vec![0; FONT_MAX + 1];
-    EXTEN_BASE = vec![0; FONT_MAX + 1];
-    PARAM_BASE = vec![0; FONT_MAX + 1];
+    FONT_MAPPING.clear();
+    FONT_MAPPING.resize(FONT_MAX + 1, ptr::null_mut());
+    FONT_LAYOUT_ENGINE.clear();
+    FONT_LAYOUT_ENGINE.resize_with(FONT_MAX + 1, || crate::xetex_ext::Font::None);
+    FONT_FLAGS.renew(FONT_MAX + 1);
+    FONT_LETTER_SPACE.renew(FONT_MAX + 1);
+    FONT_CHECK.renew(FONT_MAX + 1);
+    FONT_SIZE.renew(FONT_MAX + 1);
+    FONT_DSIZE.renew(FONT_MAX + 1);
+    FONT_PARAMS.renew(FONT_MAX + 1);
+    FONT_NAME.renew(FONT_MAX + 1);
+    FONT_AREA.renew(FONT_MAX + 1);
+    FONT_BC.renew(FONT_MAX + 1);
+    FONT_EC.renew(FONT_MAX + 1);
+    FONT_GLUE.renew(FONT_MAX + 1);
+    HYPHEN_CHAR.renew(FONT_MAX + 1);
+    SKEW_CHAR.renew(FONT_MAX + 1);
+    BCHAR_LABEL.renew(FONT_MAX + 1);
+    FONT_BCHAR.renew(FONT_MAX + 1);
+    FONT_FALSE_BCHAR.renew(FONT_MAX + 1);
+    CHAR_BASE.renew(FONT_MAX + 1);
+    WIDTH_BASE.renew(FONT_MAX + 1);
+    HEIGHT_BASE.renew(FONT_MAX + 1);
+    DEPTH_BASE.renew(FONT_MAX + 1);
+    ITALIC_BASE.renew(FONT_MAX + 1);
+    LIG_KERN_BASE.renew(FONT_MAX + 1);
+    KERN_BASE.renew(FONT_MAX + 1);
+    EXTEN_BASE.renew(FONT_MAX + 1);
+    PARAM_BASE.renew(FONT_MAX + 1);
 
     for k in 0..FONT_PTR + 1 {
         FONT_MAPPING[k as usize] = ptr::null_mut();
@@ -1073,15 +1072,15 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     }
 
     if trie_trl.is_empty() {
-        trie_trl = vec![0; j as usize + 2];
+        trie_trl.resize(j as usize + 2, 0);
     }
     fmt_in.undump(&mut trie_trl[..(j + 1) as usize]);
     if trie_tro.is_empty() {
-        trie_tro = vec![0; j as usize + 2];
+        trie_tro.resize(j as usize + 2, 0);
     }
     fmt_in.undump(&mut trie_tro[..(j + 1) as usize]);
     if trie_trc.is_empty() {
-        trie_trc = vec![0; j as usize + 2];
+        trie_trc.resize(j as usize + 2, 0);
     }
     fmt_in.undump(&mut trie_trc[..(j + 1) as usize]);
     fmt_in.undump_one(&mut max_hyph_char);

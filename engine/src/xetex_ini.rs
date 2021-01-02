@@ -3484,69 +3484,67 @@ pub(crate) unsafe fn tt_cleanup() {
     */
     pdf_files_close();
     TEX_format_default = String::new();
-    font_used = Vec::new();
+    font_used.clear();
     deinitialize_shipout_variables();
 
     destroy_font_manager();
 
-    FONT_LAYOUT_ENGINE = Vec::new();
-
     // Free the big allocated arrays
-    BUFFER = Vec::new();
-    NEST = Vec::new();
-    SAVE_STACK = Vec::new();
-    INPUT_STACK = Vec::new();
-    INPUT_FILE = Vec::new();
-    LINE_STACK = Vec::new();
-    EOF_SEEN = Vec::new();
-    GRP_STACK = Vec::new();
-    IF_STACK = Vec::new();
-    SOURCE_FILENAME_STACK = Vec::new();
-    FULL_SOURCE_FILENAME_STACK = Vec::new();
-    PARAM_STACK = Vec::new();
-    HYPH_WORD = Vec::new();
-    HYPH_LIST = Vec::new();
-    HYPH_LINK = Vec::new();
+    BUFFER.clear();
+    NEST.clear();
+    SAVE_STACK.clear();
+    INPUT_STACK.clear();
+    INPUT_FILE.clear();
+    LINE_STACK.clear();
+    EOF_SEEN.clear();
+    GRP_STACK.clear();
+    IF_STACK.clear();
+    SOURCE_FILENAME_STACK.clear();
+    FULL_SOURCE_FILENAME_STACK.clear();
+    PARAM_STACK.clear();
+    HYPH_WORD.clear();
+    HYPH_LIST.clear();
+    HYPH_LINK.clear();
 
     // Free arrays allocated in load_fmt_file
-    yhash = Vec::new();
-    EQTB = Vec::new();
-    MEM = Vec::new();
-    str_start = Vec::new();
-    str_pool = Vec::new();
-    FONT_INFO = Vec::new();
+    yhash.clear();
+    EQTB.clear();
+    MEM.clear();
+    str_start.clear();
+    str_pool.clear();
+    FONT_INFO.clear();
 
-    FONT_MAPPING = Vec::new();
-    FONT_LAYOUT_ENGINE = Vec::new();
-    FONT_FLAGS = Vec::new();
-    FONT_LETTER_SPACE = Vec::new();
-    FONT_CHECK = Vec::new();
-    FONT_SIZE = Vec::new();
-    FONT_DSIZE = Vec::new();
-    FONT_PARAMS = Vec::new();
-    FONT_NAME = Vec::new();
-    FONT_AREA = Vec::new();
-    FONT_BC = Vec::new();
-    FONT_EC = Vec::new();
-    FONT_GLUE = Vec::new();
-    HYPHEN_CHAR = Vec::new();
-    SKEW_CHAR = Vec::new();
-    BCHAR_LABEL = Vec::new();
-    FONT_BCHAR = Vec::new();
-    FONT_FALSE_BCHAR = Vec::new();
-    CHAR_BASE = Vec::new();
-    WIDTH_BASE = Vec::new();
-    HEIGHT_BASE = Vec::new();
-    DEPTH_BASE = Vec::new();
-    ITALIC_BASE = Vec::new();
-    LIG_KERN_BASE = Vec::new();
-    KERN_BASE = Vec::new();
-    EXTEN_BASE = Vec::new();
-    PARAM_BASE = Vec::new();
+    FONT_MAPPING.clear();
+    FONT_LAYOUT_ENGINE.clear();
+    FONT_FLAGS.clear();
+    FONT_LETTER_SPACE.clear();
+    FONT_CHECK.clear();
+    FONT_SIZE.clear();
+    FONT_DSIZE.clear();
+    FONT_PARAMS.clear();
+    FONT_NAME.clear();
+    FONT_AREA.clear();
+    FONT_BC.clear();
+    FONT_EC.clear();
+    FONT_GLUE.clear();
+    HYPHEN_CHAR.clear();
+    SKEW_CHAR.clear();
+    BCHAR_LABEL.clear();
+    FONT_BCHAR.clear();
+    FONT_FALSE_BCHAR.clear();
+    CHAR_BASE.clear();
+    WIDTH_BASE.clear();
+    HEIGHT_BASE.clear();
+    DEPTH_BASE.clear();
+    ITALIC_BASE.clear();
+    LIG_KERN_BASE.clear();
+    KERN_BASE.clear();
+    EXTEN_BASE.clear();
+    PARAM_BASE.clear();
 
-    trie_trl = Vec::new();
-    trie_tro = Vec::new();
-    trie_trc = Vec::new();
+    trie_trl.clear();
+    trie_tro.clear();
+    trie_trc.clear();
 
     read_file = [NONE_UFILE; 17];
     read_open = [OpenMode::Closed; 17];
@@ -3585,24 +3583,24 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     hash_extra = 600000;
     expand_depth = 10000;
     /* Allocate many of our big arrays. */
-    BUFFER = vec![0; BUF_SIZE + 1];
-    NEST = vec![list_state_record::default(); NEST_SIZE + 1];
-    SAVE_STACK = vec![EqtbWord::default(); SAVE_SIZE + 1];
-    INPUT_STACK = vec![input_state_t::default(); STACK_SIZE + 1];
-    INPUT_FILE = Vec::with_capacity(MAX_IN_OPEN + 1);
-    for _ in 0..MAX_IN_OPEN + 1 {
-        INPUT_FILE.push(None);
-    }
-    LINE_STACK = vec![0; MAX_IN_OPEN + 1];
-    EOF_SEEN = vec![false; MAX_IN_OPEN + 1];
-    GRP_STACK = vec![0; MAX_IN_OPEN + 1];
-    IF_STACK = vec![Some(0); MAX_IN_OPEN + 1];
-    SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
-    FULL_SOURCE_FILENAME_STACK = vec![0; MAX_IN_OPEN + 1];
-    PARAM_STACK = vec![0; PARAM_SIZE + 1];
-    HYPH_WORD = vec![0; HYPH_SIZE + 1];
-    HYPH_LIST = vec![Some(0); HYPH_SIZE + 1];
-    HYPH_LINK = vec![0; HYPH_SIZE + 1];
+    BUFFER.renew(BUF_SIZE + 1);
+    NEST.renew(NEST_SIZE + 1);
+    SAVE_STACK.renew(SAVE_SIZE + 1);
+    INPUT_STACK.renew(STACK_SIZE + 1);
+    INPUT_FILE.clear();
+    INPUT_FILE.resize_with(MAX_IN_OPEN + 1, || None);
+    LINE_STACK.renew(MAX_IN_OPEN + 1);
+    EOF_SEEN.renew(MAX_IN_OPEN + 1);
+    GRP_STACK.renew(MAX_IN_OPEN + 1);
+    IF_STACK.clear();
+    IF_STACK.resize(MAX_IN_OPEN + 1, Some(0));
+    SOURCE_FILENAME_STACK.renew(MAX_IN_OPEN + 1);
+    FULL_SOURCE_FILENAME_STACK.renew(MAX_IN_OPEN + 1);
+    PARAM_STACK.renew(PARAM_SIZE + 1);
+    HYPH_WORD.renew(HYPH_SIZE + 1);
+    HYPH_LIST.clear();
+    HYPH_LIST.resize(HYPH_SIZE + 1, Some(0));
+    HYPH_LINK.renew(HYPH_SIZE + 1);
 
     /* First bit of initex handling: more allocations. */
 
@@ -4223,36 +4221,37 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         trie_ptr = 0;
         trie_r[0] = 0;
         hyph_start = 0;
-        FONT_MAPPING = vec![ptr::null_mut(); FONT_MAX + 1];
+
+        FONT_MAPPING.clear();
+        FONT_MAPPING.resize(FONT_MAX + 1, ptr::null_mut());
         FONT_LAYOUT_ENGINE.clear();
-        for _ in 0..FONT_MAX + 1 {
-            FONT_LAYOUT_ENGINE.push(Font::None);
-        }
-        FONT_FLAGS = vec![0; FONT_MAX + 1];
-        FONT_LETTER_SPACE = vec![Scaled::ZERO; FONT_MAX + 1];
-        FONT_CHECK = vec![b16x4_le_t::default(); FONT_MAX + 1];
-        FONT_SIZE = vec![Scaled::ZERO; FONT_MAX + 1];
-        FONT_DSIZE = vec![Scaled::ZERO; FONT_MAX + 1];
-        FONT_PARAMS = vec![0; FONT_MAX + 1];
-        FONT_NAME = vec![0; FONT_MAX + 1];
-        FONT_AREA = vec![0; FONT_MAX + 1];
-        FONT_BC = vec![0; FONT_MAX + 1];
-        FONT_EC = vec![0; FONT_MAX + 1];
-        FONT_GLUE = vec![0; FONT_MAX + 1];
-        HYPHEN_CHAR = vec![0; FONT_MAX + 1];
-        SKEW_CHAR = vec![0; FONT_MAX + 1];
-        BCHAR_LABEL = vec![0; FONT_MAX + 1];
-        FONT_BCHAR = vec![0; FONT_MAX + 1];
-        FONT_FALSE_BCHAR = vec![0; FONT_MAX + 1];
-        CHAR_BASE = vec![0; FONT_MAX + 1];
-        WIDTH_BASE = vec![0; FONT_MAX + 1];
-        HEIGHT_BASE = vec![0; FONT_MAX + 1];
-        DEPTH_BASE = vec![0; FONT_MAX + 1];
-        ITALIC_BASE = vec![0; FONT_MAX + 1];
-        LIG_KERN_BASE = vec![0; FONT_MAX + 1];
-        KERN_BASE = vec![0; FONT_MAX + 1];
-        EXTEN_BASE = vec![0; FONT_MAX + 1];
-        PARAM_BASE = vec![0; FONT_MAX + 1];
+        FONT_LAYOUT_ENGINE.resize_with(FONT_MAX + 1, || crate::xetex_ext::Font::None);
+        FONT_FLAGS.renew(FONT_MAX + 1);
+        FONT_LETTER_SPACE.renew(FONT_MAX + 1);
+        FONT_CHECK.renew(FONT_MAX + 1);
+        FONT_SIZE.renew(FONT_MAX + 1);
+        FONT_DSIZE.renew(FONT_MAX + 1);
+        FONT_PARAMS.renew(FONT_MAX + 1);
+        FONT_NAME.renew(FONT_MAX + 1);
+        FONT_AREA.renew(FONT_MAX + 1);
+        FONT_BC.renew(FONT_MAX + 1);
+        FONT_EC.renew(FONT_MAX + 1);
+        FONT_GLUE.renew(FONT_MAX + 1);
+        HYPHEN_CHAR.renew(FONT_MAX + 1);
+        SKEW_CHAR.renew(FONT_MAX + 1);
+        BCHAR_LABEL.renew(FONT_MAX + 1);
+        FONT_BCHAR.renew(FONT_MAX + 1);
+        FONT_FALSE_BCHAR.renew(FONT_MAX + 1);
+        CHAR_BASE.renew(FONT_MAX + 1);
+        WIDTH_BASE.renew(FONT_MAX + 1);
+        HEIGHT_BASE.renew(FONT_MAX + 1);
+        DEPTH_BASE.renew(FONT_MAX + 1);
+        ITALIC_BASE.renew(FONT_MAX + 1);
+        LIG_KERN_BASE.renew(FONT_MAX + 1);
+        KERN_BASE.renew(FONT_MAX + 1);
+        EXTEN_BASE.renew(FONT_MAX + 1);
+        PARAM_BASE.renew(FONT_MAX + 1);
+
         FONT_PTR = 0;
         fmem_ptr = 7;
         FONT_NAME[0] = maketexstring("nullfont");
@@ -4284,7 +4283,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         }
     }
 
-    font_used = vec![false; FONT_MAX + 1];
+    font_used.renew(FONT_MAX + 1);
 
     selector = if interaction == InteractionMode::Batch {
         Selector::NO_PRINT
@@ -4304,4 +4303,18 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     tt_cleanup();
 
     history
+}
+
+pub(crate) trait ReNew {
+    fn renew(&mut self, new_size: usize);
+}
+impl<T> ReNew for Vec<T>
+where
+    T: Clone + Default,
+{
+    fn renew(&mut self, new_len: usize) {
+        self.clear();
+        let value = T::default();
+        self.resize(new_len, value)
+    }
 }
