@@ -42,8 +42,8 @@ use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
 use crate::bridge::{
-    ttstub_input_get_size, ttstub_input_getc, ttstub_output_close, ttstub_output_open_stdout,
-    ttstub_output_putc,
+    ttstub_input_get_size, ttstub_output_close, ttstub_output_open_stdout, ttstub_output_putc,
+    ReadByte,
 };
 use libc::{free, memset, strlen, strtoul};
 
@@ -2605,31 +2605,28 @@ unsafe fn tt_mfreadln<R: Read + Seek>(size: usize, handle: &mut R) -> Result<Vec
     let mut c;
     let mut buf = Vec::with_capacity(size + 1);
     loop {
-        c = ttstub_input_getc(handle);
-        if !(c != -1 && c != '\n' as i32 && c != '\r' as i32) {
+        c = handle.read_byte();
+        if let Some(c) = c.filter(|&c| c != b'\n' && c != b'\r') {
+            if buf.len() >= size {
+                return Err(MfReadErr::NotEnoughSpace);
+            }
+            buf.push(c as u8);
+        } else {
             break;
         }
-        if buf.len() >= size {
-            return Err(MfReadErr::NotEnoughSpace);
-        }
-        buf.push(c as u8);
     }
-    if c == -1 && buf.is_empty() {
+    if c.is_none() && buf.is_empty() {
         return Err(MfReadErr::Eof);
     }
-    if c == '\r' as i32
-        && {
-            c = ttstub_input_getc(handle);
-            c >= 0
+    if c == Some(b'\r') {
+        if handle.read_byte().filter(|&c| c != b'\n').is_some() {
+            handle.seek(SeekFrom::Current(-1)).unwrap();
         }
-        && c != '\n' as i32
-    {
-        handle.seek(SeekFrom::Current(-1)).unwrap();
     }
     Ok(buf)
 }
 unsafe fn backup_line<R: Read + Seek>(handle: &mut R) -> i32 {
-    let mut ch: i32 = -1;
+    let mut ch = None;
     /* Note: this code should work even if \r\n is eol. It could fail on a
      * machine where \n is eol and there is a \r in the stream --- Highly
      * unlikely in the last few bytes where this is likely to be used.
@@ -2639,21 +2636,20 @@ unsafe fn backup_line<R: Read + Seek>(handle: &mut R) -> i32 {
             let pos = handle.seek(SeekFrom::Current(-2));
             match pos {
                 Ok(pos)
-                    if (pos > 0
-                        && {
-                            ch = ttstub_input_getc(handle);
-                            ch >= 0
-                        }
-                        && (ch != '\n' as i32 && ch != '\r' as i32)) => {}
+                    if (pos > 0 && {
+                        ch = handle.read_byte();
+                        ch.filter(|&c| c != b'\n' && c != b'\r').is_some()
+                    }) => {}
                 _ => break,
             }
         },
         _ => {}
     }
-    if ch < 0 {
-        return 0;
+    if ch.is_none() {
+        0
+    } else {
+        1
     }
-    1
 }
 unsafe fn find_xref<R: Read + Seek>(handle: &mut R, file_size: i32) -> i32 {
     let mut tries: i32 = 10;

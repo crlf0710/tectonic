@@ -34,7 +34,7 @@ use super::dpx_pdfcolor::{
     pdf_get_colorspace_reference,
 };
 use super::dpx_pdfximage::pdf_ximage_set_image;
-use crate::bridge::{ttstub_input_get_size, ttstub_input_getc};
+use crate::bridge::ttstub_input_get_size;
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
 };
@@ -351,18 +351,14 @@ unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> pdf_stream {
     XMP_stream
 }
 unsafe fn JPEG_get_marker<R: Read>(handle: &mut R) -> Option<JPEG_marker> {
-    let mut c = ttstub_input_getc(handle);
-    if c != 0xff {
+    use bridge::ReadByte;
+    if handle.read_byte() != Some(0xff) {
         return None;
     }
     loop {
-        c = ttstub_input_getc(handle);
-        if c < 0 {
-            return None;
-        } else {
-            if c > 0 && c < 255 {
-                return Some(c as JPEG_marker);
-            }
+        let c = handle.read_byte()?;
+        if c > 0 && c < 255 {
+            return Some(c as JPEG_marker);
         }
     }
 }

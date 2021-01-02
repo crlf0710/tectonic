@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use bridge::{stub_errno as errno, ttstub_input_getc, InFile, TTInputFormat};
+use bridge::{InFile, ReadByte, TTInputFormat};
 
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
@@ -37,7 +37,7 @@ pub(crate) type UnicodeScalar = i32;
 
 pub(crate) struct UFILE {
     pub(crate) handle: Option<InFile>,
-    pub(crate) savedChar: i64,
+    pub(crate) savedChar: Option<char>,
     pub(crate) skipNextLF: i16,
     pub(crate) encodingMode: UnicodeMode,
     pub(crate) conversionData: *mut libc::c_void,
@@ -125,28 +125,28 @@ pub(crate) unsafe fn u_open_in(
     let mut ufile = Box::new(UFILE {
         encodingMode: UnicodeMode::Auto,
         conversionData: ptr::null_mut(),
-        savedChar: -1,
+        savedChar: None,
         skipNextLF: 0,
         handle: Some(handle),
     });
     if mode == UnicodeMode::Auto {
         /* sniff encoding form */
         let handle = ufile.handle.as_mut().unwrap();
-        let B1 = ttstub_input_getc(handle);
-        let B2 = ttstub_input_getc(handle);
-        if B1 == 0xfe && B2 == 0xff {
+        let B1 = handle.read_byte();
+        let B2 = handle.read_byte();
+        if B1 == Some(0xfe) && B2 == Some(0xff) {
             mode = UnicodeMode::Utf16be;
-        } else if B2 == 0xfe && B1 == 0xff {
+        } else if B2 == Some(0xfe) && B1 == Some(0xff) {
             mode = UnicodeMode::Utf16le;
-        } else if B1 == 0 && B2 != 0 {
+        } else if B1 == Some(0) && B2 != Some(0) {
             mode = UnicodeMode::Utf16be;
             handle.seek(SeekFrom::Start(0)).unwrap();
-        } else if B2 == 0 && B1 != 0 {
+        } else if B2 == Some(0) && B1 != Some(0) {
             mode = UnicodeMode::Utf16le;
             handle.seek(SeekFrom::Start(0)).unwrap();
-        } else if B1 == 0xef && B2 == 0xbb {
-            let B3 = ttstub_input_getc(handle);
-            if B3 == 0xbf {
+        } else if B1 == Some(0xef) && B2 == Some(0xbb) {
+            let B3 = handle.read_byte();
+            if B3 == Some(0xbf) {
                 mode = UnicodeMode::Utf8;
             }
         }
@@ -207,187 +207,186 @@ unsafe fn apply_normalization(buf: *mut u32, len: i32, norm: i32) {
     }
     last = first + (outUsed as usize) / std::mem::size_of::<UnicodeScalar>();
 }
-pub(crate) unsafe fn input_line(f: &mut UFILE) -> bool {
-    static mut byteBuffer: Vec<i8> = Vec::new();
-    static mut utf32Buf: Vec<u32> = Vec::new();
-    let mut i;
-    let norm = get_input_normalization_state();
-    if f.handle.is_none() {
-        /* NULL 'handle' means this: */
-        panic!("reads from synthetic \"terminal\" file #0 should never happen");
-    }
-    last = first;
-    if f.encodingMode == UnicodeMode::ICUMapping {
-        let mut errorCode: UErrorCode = U_ZERO_ERROR;
-        if byteBuffer.is_empty() {
-            byteBuffer = Vec::with_capacity(BUF_SIZE + 1);
+impl UFILE {
+    pub(crate) unsafe fn input_line(&mut self) -> bool {
+        static mut byteBuffer: Vec<u8> = Vec::new();
+        static mut utf32Buf: Vec<u32> = Vec::new();
+        let norm = get_input_normalization_state();
+        if self.handle.is_none() {
+            /* NULL 'handle' means this: */
+            panic!("reads from synthetic \"terminal\" file #0 should never happen");
         }
-        byteBuffer.clear();
-        /* Recognize either LF or CR as a line terminator; skip initial LF if prev line ended with CR.  */
-        let handle = f.handle.as_mut().unwrap();
-        i = ttstub_input_getc(handle);
-        if f.skipNextLF != 0 {
-            f.skipNextLF = 0_i16;
-            if i == '\n' as i32 {
-                i = ttstub_input_getc(handle)
+        last = first;
+        let skip_lf = if self.encodingMode == UnicodeMode::ICUMapping {
+            let mut errorCode: UErrorCode = U_ZERO_ERROR;
+            if byteBuffer.is_empty() {
+                byteBuffer = Vec::with_capacity(BUF_SIZE + 1);
             }
-        }
-        if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-            byteBuffer.push(i as i8);
-        }
-        if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-            while byteBuffer.len() < BUF_SIZE
-                && {
-                    i = ttstub_input_getc(handle);
-                    i != -1i32
+            byteBuffer.clear();
+            /* Recognize either LF or CR as a line terminator; skip initial LF if prev line ended with CR.  */
+            let handle = self.handle.as_mut().unwrap();
+            let mut i: Option<u8> = handle.read_byte();
+            if self.skipNextLF != 0 {
+                self.skipNextLF = 0_i16;
+                if i == Some(b'\n') {
+                    i = handle.read_byte();
                 }
-                && i != '\n' as i32
-                && i != '\r' as i32
-            {
-                byteBuffer.push(i as i8);
             }
-        }
-        if i == -1i32 && errno::errno() != errno::EINTR && byteBuffer.is_empty() {
-            return false;
-        }
-        if i != -1i32 && i != '\n' as i32 && i != '\r' as i32 {
-            buffer_overflow();
-        }
-        /* now apply the mapping to turn external bytes into Unicode characters in buffer */
-        let cnv = f.conversionData as *mut icu::UConverter;
-        match norm {
-            1 | 2 => {
-                // NFC
-                // NFD
-                if utf32Buf.is_empty() {
-                    utf32Buf = vec![0; BUF_SIZE];
-                } // sets 'last' correctly
-                let tmpLen = icu::ucnv_toAlgorithmic(
-                    icu::UCNV_UTF32_LittleEndian,
-                    cnv,
-                    utf32Buf.as_ptr() as *mut i8,
-                    (BUF_SIZE as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as i32,
-                    byteBuffer.as_ptr(),
-                    byteBuffer.len() as i32,
-                    &mut errorCode,
-                );
-                if errorCode != 0 {
-                    conversion_error(errorCode as i32);
-                    return false;
-                }
-                apply_normalization(
-                    utf32Buf.as_mut_ptr(),
-                    (tmpLen as u64).wrapping_div(::std::mem::size_of::<u32>() as _) as i32,
-                    norm,
-                );
+            if let Some(i) = i.filter(|&i| i != b'\n' && i != b'\r') {
+                byteBuffer.push(i);
             }
-            _ => {
-                // none
-                let mut outLen = icu::ucnv_toAlgorithmic(
-                    icu::UCNV_UTF32_LittleEndian,
-                    cnv,
-                    &mut BUFFER[first as usize] as *mut UnicodeScalar as *mut i8,
-                    (std::mem::size_of::<UnicodeScalar>() * (BUF_SIZE - first)) as i32,
-                    byteBuffer.as_ptr(),
-                    byteBuffer.len() as i32,
-                    &mut errorCode,
-                ) as usize;
-                if errorCode != 0 {
-                    conversion_error(errorCode as i32);
-                    return false;
+            if i.filter(|&i| i != b'\n' && i != b'\r').is_some() {
+                while byteBuffer.len() < BUF_SIZE {
+                    i = handle.read_byte();
+                    if let Some(i) = i.filter(|&i| i != b'\n' && i != b'\r') {
+                        byteBuffer.push(i);
+                    } else {
+                        break;
+                    }
                 }
-                outLen /= std::mem::size_of::<UnicodeScalar>();
-                last = first + outLen
             }
-        }
-    } else {
-        /* Recognize either LF or CR as a line terminator; skip initial LF if prev line ended with CR.  */
-        i = get_uni_c(f);
-        if f.skipNextLF != 0 {
-            f.skipNextLF = 0_i16;
-            if i == '\n' as i32 {
-                i = get_uni_c(f)
+            if i.is_none() && byteBuffer.is_empty() {
+                return false;
             }
-        }
-        match norm {
-            1 | 2 => {
-                // NFC
-                // NFD
-                // read Unicode chars into utf32Buf as UTF32
-                if utf32Buf.is_empty() {
-                    utf32Buf = Vec::with_capacity(BUF_SIZE);
+            if i.filter(|&i| i != b'\n' && i != b'\r').is_some() {
+                buffer_overflow();
+            }
+            /* now apply the mapping to turn external bytes into Unicode characters in buffer */
+            let cnv = self.conversionData as *mut icu::UConverter;
+            match norm {
+                1 | 2 => {
+                    // NFC
+                    // NFD
+                    if utf32Buf.is_empty() {
+                        utf32Buf = vec![0; BUF_SIZE];
+                    } // sets 'last' correctly
+                    let tmpLen = icu::ucnv_toAlgorithmic(
+                        icu::UCNV_UTF32_LittleEndian,
+                        cnv,
+                        utf32Buf.as_ptr() as *mut i8,
+                        (BUF_SIZE as u64).wrapping_mul(::std::mem::size_of::<u32>() as _) as i32,
+                        byteBuffer.as_ptr() as *const i8,
+                        byteBuffer.len() as i32,
+                        &mut errorCode,
+                    );
+                    if errorCode != 0 {
+                        conversion_error(errorCode as i32);
+                        return false;
+                    }
+                    apply_normalization(
+                        utf32Buf.as_mut_ptr(),
+                        (tmpLen as u64).wrapping_div(::std::mem::size_of::<u32>() as _) as i32,
+                        norm,
+                    );
                 }
-                utf32Buf.clear();
-                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
-                    utf32Buf.push(i as u32);
+                _ => {
+                    // none
+                    let mut outLen = icu::ucnv_toAlgorithmic(
+                        icu::UCNV_UTF32_LittleEndian,
+                        cnv,
+                        &mut BUFFER[first as usize] as *mut UnicodeScalar as *mut i8,
+                        (std::mem::size_of::<UnicodeScalar>() * (BUF_SIZE - first)) as i32,
+                        byteBuffer.as_ptr() as *const i8,
+                        byteBuffer.len() as i32,
+                        &mut errorCode,
+                    ) as usize;
+                    if errorCode != 0 {
+                        conversion_error(errorCode as i32);
+                        return false;
+                    }
+                    outLen /= std::mem::size_of::<UnicodeScalar>();
+                    last = first + outLen
                 }
-                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
-                    while utf32Buf.len() < BUF_SIZE
-                        && {
-                            i = get_uni_c(f);
-                            i != -1
-                        }
-                        && i != '\n' as i32
-                        && i != '\r' as i32
-                    {
+            }
+            i == Some(b'\r')
+        } else {
+            /* Recognize either LF or CR as a line terminator; skip initial LF if prev line ended with CR.  */
+            let mut i: Option<char> = self.get_uni_c();
+            if self.skipNextLF != 0 {
+                self.skipNextLF = 0_i16;
+                if i == Some('\n') {
+                    i = self.get_uni_c()
+                }
+            }
+            match norm {
+                1 | 2 => {
+                    // NFC
+                    // NFD
+                    // read Unicode chars into utf32Buf as UTF32
+                    if utf32Buf.is_empty() {
+                        utf32Buf = Vec::with_capacity(BUF_SIZE);
+                    }
+                    utf32Buf.clear();
+                    if let Some(i) = i.filter(|&i| i != '\n' && i != '\r') {
                         utf32Buf.push(i as u32);
                     }
-                }
-                if i == -1 && errno::errno() != errno::EINTR && utf32Buf.is_empty() {
-                    return false;
-                }
-                /* We didn't get the whole line because our buffer was too small.  */
-                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
-                    buffer_overflow();
-                }
-                apply_normalization(utf32Buf.as_mut_ptr(), utf32Buf.len() as _, norm);
-            }
-            _ => {
-                // none
-                if last < BUF_SIZE && i != -1 && i != '\n' as i32 && i != '\r' as i32 {
-                    BUFFER[last as usize] = i;
-                    last += 1;
-                }
-                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
-                    while last < BUF_SIZE
-                        && {
-                            i = get_uni_c(f);
-                            i != -1
+                    if i.filter(|&i| i != '\n' && i != '\r').is_some() {
+                        while utf32Buf.len() < BUF_SIZE {
+                            i = self.get_uni_c();
+                            if let Some(i) = i.filter(|&i| i != '\n' && i != '\r') {
+                                utf32Buf.push(i as u32);
+                            } else {
+                                break;
+                            }
                         }
-                        && i != '\n' as i32
-                        && i != '\r' as i32
-                    {
-                        BUFFER[last as usize] = i;
-                        last += 1;
+                    }
+                    if i.is_none() && utf32Buf.is_empty() {
+                        return false;
+                    }
+                    /* We didn't get the whole line because our buffer was too small.  */
+                    if i.filter(|&i| i != '\n' && i != '\r').is_some() {
+                        buffer_overflow();
+                    }
+                    apply_normalization(utf32Buf.as_mut_ptr(), utf32Buf.len() as _, norm);
+                }
+                _ => {
+                    // none
+                    if last < BUF_SIZE {
+                        if let Some(i) = i.filter(|&i| i != '\n' && i != '\r') {
+                            BUFFER[last as usize] = i as i32;
+                            last += 1;
+                        }
+                    }
+                    if i.filter(|&i| i != '\n' && i != '\r').is_some() {
+                        while last < BUF_SIZE {
+                            i = self.get_uni_c();
+                            if let Some(i) = i.filter(|&i| i != '\n' && i != '\r') {
+                                BUFFER[last as usize] = i as i32;
+                                last += 1;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                    if i.is_none() && last == first {
+                        return false;
+                    }
+                    /* We didn't get the whole line because our buffer was too small.  */
+                    if i.filter(|&i| i != '\n' && i != '\r').is_some() {
+                        buffer_overflow();
                     }
                 }
-                if i == -1 && errno::errno() != errno::EINTR && last == first {
-                    return false;
-                }
-                /* We didn't get the whole line because our buffer was too small.  */
-                if i != -1 && i != '\n' as i32 && i != '\r' as i32 {
-                    buffer_overflow();
-                }
             }
+            i == Some('\r')
+        };
+        /* If line ended with CR, remember to skip following LF. */
+        if skip_lf {
+            self.skipNextLF = 1_i16
         }
+        BUFFER[last as usize] = ' ' as i32;
+        if last >= max_buf_stack {
+            max_buf_stack = last
+        }
+        /* Trim trailing space or EOL characters.  */
+        while last > first
+            && (BUFFER[(last - 1) as usize] == ' ' as i32
+                || BUFFER[(last - 1) as usize] == '\r' as i32
+                || BUFFER[(last - 1) as usize] == '\n' as i32)
+        {
+            last -= 1
+        }
+        true
     }
-    /* If line ended with CR, remember to skip following LF. */
-    if i == '\r' as i32 {
-        f.skipNextLF = 1_i16
-    }
-    BUFFER[last as usize] = ' ' as i32;
-    if last >= max_buf_stack {
-        max_buf_stack = last
-    }
-    /* Trim trailing space or EOL characters.  */
-    while last > first
-        && (BUFFER[(last - 1) as usize] == ' ' as i32
-            || BUFFER[(last - 1) as usize] == '\r' as i32
-            || BUFFER[(last - 1) as usize] == '\n' as i32)
-    {
-        last -= 1
-    }
-    true
 }
 impl Drop for UFILE {
     fn drop(&mut self) {
@@ -399,95 +398,107 @@ impl Drop for UFILE {
     }
 }
 
-pub(crate) unsafe fn get_uni_c(f: &mut UFILE) -> i32 {
-    if f.savedChar != -1 {
-        let rval = f.savedChar as i32;
-        f.savedChar = -1;
-        return rval;
-    }
-    let handle = f.handle.as_mut().unwrap();
-    let mut rval;
-    match f.encodingMode {
-        UnicodeMode::Utf8 => {
-            rval = ttstub_input_getc(handle);
-            //c = rval;
-            if rval != -1 {
-                let extraBytes = bytesFromUTF8[rval as usize] as u16;
-                match extraBytes {
-                    0..=3 => {
-                        for _ in 0..extraBytes {
-                            let c = ttstub_input_getc(handle);
-                            if c < 0x80 || c >= 0xC0 {
-                                if c != -1 {
-                                    handle.seek(SeekFrom::Current(-1)).unwrap();
+impl UFILE {
+    pub(crate) unsafe fn get_uni_c(&mut self) -> Option<char> {
+        if let Some(rval) = self.savedChar {
+            self.savedChar = None;
+            return Some(rval);
+        }
+        let handle = self.handle.as_mut().unwrap();
+        match self.encodingMode {
+            UnicodeMode::Utf8 => {
+                if let Some(val8) = handle.read_byte() {
+                    let mut rval = val8 as i32;
+                    let extraBytes = bytesFromUTF8[rval as usize] as u16;
+                    match extraBytes {
+                        0..=3 => {
+                            for _ in 0..extraBytes {
+                                if let Some(c) = handle.read_byte() {
+                                    if c < 0x80 || c >= 0xC0 {
+                                        handle.seek(SeekFrom::Current(-1)).unwrap();
+                                        bad_utf8_warning();
+                                        return Some('\u{fffd}'); /* return without adjusting by offsetsFromUTF8 */
+                                    }
+                                    rval <<= 6;
+                                    rval += c as i32;
+                                } else {
+                                    bad_utf8_warning();
+                                    return Some('\u{fffd}');
                                 }
-                                bad_utf8_warning();
-                                return 0xFFFD; /* return without adjusting by offsetsFromUTF8 */
                             }
-                            rval <<= 6;
-                            rval += c;
                         }
+                        5 | 4 => {
+                            bad_utf8_warning();
+                            return Some('\u{fffd}'); /* return without adjusting by offsetsFromUTF8 */
+                        }
+                        _ => {}
                     }
-                    5 | 4 => {
+
+                    rval -= offsetsFromUTF8[extraBytes as usize] as i32;
+
+                    if rval < 0 || rval > 0x10ffff {
                         bad_utf8_warning();
-                        return 0xFFFD; /* return without adjusting by offsetsFromUTF8 */
+                        return Some('\u{fffd}');
                     }
-                    _ => {}
-                }
-
-                rval -= offsetsFromUTF8[extraBytes as usize] as i32;
-
-                if rval < 0 || rval > 0x10ffff {
-                    bad_utf8_warning();
-                    return 0xfffd;
+                    Some(std::char::from_u32_unchecked(rval as u32))
+                } else {
+                    None
                 }
             }
-        }
-        UnicodeMode::Utf16be => {
-            rval = ttstub_input_getc(handle);
-            if rval != -1 {
-                rval <<= 8;
-                rval += ttstub_input_getc(handle);
-                if rval >= 0xd800 && rval <= 0xdbff {
-                    let mut lo: i32 = ttstub_input_getc(handle);
-                    lo <<= 8;
-                    lo += ttstub_input_getc(handle);
-                    if lo >= 0xdc00 && lo <= 0xdfff {
-                        rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo - 0xdc00)
-                    } else {
-                        rval = 0xfffd;
-                        f.savedChar = lo as i64
+            UnicodeMode::Utf16be => {
+                if let Some(val8) = handle.read_byte() {
+                    let mut rval = val8 as i32;
+                    rval <<= 8;
+                    rval += handle.read_byte().unwrap() as i32;
+                    if rval >= 0xd800 && rval <= 0xdbff {
+                        let mut lo = handle.read_byte().unwrap() as i32;
+                        lo <<= 8;
+                        lo += handle.read_byte().unwrap() as i32;
+                        if lo >= 0xdc00 && lo <= 0xdfff {
+                            rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo - 0xdc00)
+                        } else {
+                            rval = 0xfffd;
+                            self.savedChar = Some(std::char::from_u32_unchecked(lo as u32))
+                        }
+                    } else if rval >= 0xdc00 && rval <= 0xdfff {
+                        rval = 0xfffd
                     }
-                } else if rval >= 0xdc00 && rval <= 0xdfff {
-                    rval = 0xfffd
+                    Some(std::char::from_u32_unchecked(rval as u32))
+                } else {
+                    None
                 }
             }
-        }
-        UnicodeMode::Utf16le => {
-            rval = ttstub_input_getc(handle);
-            if rval != -1 {
-                rval += ttstub_input_getc(handle) << 8;
-                if rval >= 0xd800 && rval <= 0xdbff {
-                    let mut lo: i32 = ttstub_input_getc(handle);
-                    lo += ttstub_input_getc(handle) << 8;
-                    if lo >= 0xdc00 && lo <= 0xdfff {
-                        rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo - 0xdc00)
-                    } else {
-                        rval = 0xfffd;
-                        f.savedChar = lo as i64
+            UnicodeMode::Utf16le => {
+                if let Some(val8) = handle.read_byte() {
+                    let mut rval = val8 as i32;
+                    rval += (handle.read_byte().unwrap() as i32) << 8;
+                    if rval >= 0xd800 && rval <= 0xdbff {
+                        let mut lo = handle.read_byte().unwrap() as i32;
+                        lo += (handle.read_byte().unwrap() as i32) << 8;
+                        if lo >= 0xdc00 && lo <= 0xdfff {
+                            rval = 0x10000 + (rval - 0xd800) * 0x400 + (lo - 0xdc00)
+                        } else {
+                            rval = 0xfffd;
+                            self.savedChar = Some(std::char::from_u32_unchecked(lo as u32));
+                        }
+                    } else if rval >= 0xdc00 && rval <= 0xdfff {
+                        rval = 0xfffd
                     }
-                } else if rval >= 0xdc00 && rval <= 0xdfff {
-                    rval = 0xfffd
+                    Some(std::char::from_u32_unchecked(rval as u32))
+                } else {
+                    None
                 }
             }
-        }
-        UnicodeMode::Raw => rval = ttstub_input_getc(handle),
-        _ => {
-            panic!("internal error; file input mode={:?}", f.encodingMode,);
+            UnicodeMode::Raw => handle
+                .read_byte()
+                .map(|c| std::char::from_u32_unchecked(c as u32)),
+            _ => {
+                panic!("internal error; file input mode={:?}", self.encodingMode);
+            }
         }
     }
-    rval
 }
+
 pub(crate) unsafe fn open_or_close_in(input: &mut input_state_t, chr: i32) {
     use xetex_consts::*;
     let c = chr as u8;

@@ -70,7 +70,7 @@ use super::dpx_tt_table::{
     tt_read_vhea_table,
 };
 use super::dpx_vf::{vf_close_all_fonts, vf_locate_font, vf_set_char, vf_set_verbose};
-use crate::bridge::{ttstub_input_get_size, ttstub_input_getc};
+use crate::bridge::{ttstub_input_get_size, ReadByte};
 use crate::dpx_dvicodes::*;
 use crate::dpx_truetype::sfnt_table_info;
 use crate::specials::{
@@ -226,17 +226,16 @@ static mut DVI_PAGE_BUFFER: Vec<u8> = Vec::new();
 static mut DVI_PAGE_BUF_INDEX: usize = 0;
 /* functions to read numbers from the dvi file and store them in DVI_PAGE_BUFFER */
 unsafe fn get_and_buffer_unsigned_byte<R: Read>(handle: &mut R) -> i32 {
-    let ch = ttstub_input_getc(handle);
-    if ch < 0 {
-        panic!("File ended prematurely\n");
-    }
+    let ch = handle
+        .read_byte()
+        .unwrap_or_else(|| panic!("File ended prematurely\n"));
     if DVI_PAGE_BUF_INDEX == DVI_PAGE_BUFFER.len() {
-        DVI_PAGE_BUFFER.push(ch as u8);
+        DVI_PAGE_BUFFER.push(ch);
     } else {
-        DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX] = ch as u8;
+        DVI_PAGE_BUFFER[DVI_PAGE_BUF_INDEX] = ch;
     }
     DVI_PAGE_BUF_INDEX += 1;
-    ch
+    ch as i32
 }
 unsafe fn get_and_buffer_unsigned_pair<R: Read>(handle: &mut R) -> u32 {
     let mut pair: u32 = get_and_buffer_unsigned_byte(handle) as u32;
@@ -360,7 +359,7 @@ unsafe fn find_post() -> i32 {
     {
         current -= 1;
         handle.seek(SeekFrom::Start(current as u64)).unwrap();
-        let ch = ttstub_input_getc(handle) as u8;
+        let ch = handle.read_byte().unwrap();
         if !(ch == PADDING && current > 0) {
             break ch;
         }
@@ -380,14 +379,14 @@ unsafe fn find_post() -> i32 {
     /* Make sure post_post is really there */
     current -= 5;
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
-    let ch = ttstub_input_getc(handle) as u8;
+    let ch = handle.read_byte().unwrap();
     if ch != POST_POST {
         info!("Found {} where post_post opcode should be\n", ch);
         panic!(invalid_signature);
     }
     current = i32::get(handle);
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
-    let ch = ttstub_input_getc(handle) as u8;
+    let ch = handle.read_byte().unwrap();
     if ch != POST {
         info!("Found {} where post_post opcode should be\n", ch);
         panic!(invalid_signature);
@@ -1907,7 +1906,7 @@ pub(crate) unsafe fn dvi_init(dvi_filename: &str, mag: f64) -> f64 {
 pub(crate) unsafe fn dvi_close() {
     if linear != 0 {
         /* probably reading a pipe from xetex; consume any remaining data */
-        while ttstub_input_getc(dvi_handle.as_mut().unwrap()) != -1 {}
+        while dvi_handle.as_mut().unwrap().read_byte().is_some() {}
     }
     /* We add comment in dvi_close instead of dvi_init so user
      * has a change to overwrite it.  The docinfo dictionary is
