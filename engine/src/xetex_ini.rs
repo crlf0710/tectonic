@@ -535,12 +535,6 @@ pub(crate) static mut prim: [b32x2; 501] = [b32x2 { s0: 0, s1: 0 }; 501];
 #[no_mangle]
 pub(crate) static mut prim_used: usize = 0;
 #[no_mangle]
-pub(crate) static mut prim_eqtb: [EqtbWord; 501] = [EqtbWord {
-    lvl: 0,
-    cmd: 0,
-    val: 0,
-}; 501];
-#[no_mangle]
 pub(crate) static mut SAVE_STACK: Vec<EqtbWord> = Vec::new();
 
 /// first unused entry on |save_stack|
@@ -1044,9 +1038,9 @@ where
     EQTB[val as usize].lvl = LEVEL_ONE;
     EQTB[val as usize].cmd = c as u16;
     EQTB[val as usize].val = o;
-    prim_eqtb[prim_val as usize].lvl = LEVEL_ONE;
-    prim_eqtb[prim_val as usize].cmd = c as u16;
-    prim_eqtb[prim_val as usize].val = o;
+    EQTB[PRIM_EQTB_BASE + prim_val as usize].lvl = LEVEL_ONE;
+    EQTB[PRIM_EQTB_BASE + prim_val as usize].cmd = c as u16;
+    EQTB[PRIM_EQTB_BASE + prim_val as usize].val = o;
     val
 }
 
@@ -2228,16 +2222,6 @@ unsafe fn initialize_more_variables() {
 
     for k in prim.iter_mut().take(PRIM_SIZE + 1) {
         *k = zero_prim;
-    }
-
-    let ucs = EqtbWord {
-        lvl: LEVEL_ZERO,
-        cmd: Cmd::UndefinedCS as u16,
-        val: None.tex_int(),
-    };
-
-    for k in prim_eqtb.iter_mut().take(PRIM_SIZE + 1) {
-        *k = ucs;
     }
 
     SAVE_PTR = 0;

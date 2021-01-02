@@ -4,6 +4,8 @@
 */
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::xetex_consts::{FROZEN_NULL_FONT, PRIM_EQTB_BASE};
+use crate::xetex_ini::prim;
 use crate::{t_print, t_print_nl};
 
 use super::xetex_consts::{
@@ -361,6 +363,9 @@ impl fmt::Display for Cs {
                         Esc("csname").fmt(f)?;
                         Esc("endcsname").fmt(f)
                     }
+                } else if p >= PRIM_EQTB_BASE as i32 && p < FROZEN_NULL_FONT as i32 {
+                    Esc(&PoolString::from(prim[p as usize - PRIM_EQTB_BASE].s1 - 1).to_string())
+                        .fmt(f)
                 } else {
                     Esc(&PoolString::from(yhash[p as usize - hash_offset].s1).to_string()).fmt(f)
                 }
@@ -391,6 +396,10 @@ impl fmt::Display for Cs {
             } else if yhash[p as usize - hash_offset].s1 >= str_ptr {
                 Esc("NONEXISTENT").fmt(f)?;
                 '.'.fmt(f)
+            } else if p >= PRIM_EQTB_BASE as i32 && p < FROZEN_NULL_FONT as i32 {
+                Esc(&PoolString::from(prim[p as usize - PRIM_EQTB_BASE].s1 - 1).to_string())
+                    .fmt(f)?;
+                ' '.fmt(f)
             } else {
                 Esc(&PoolString::from(yhash[p as usize - hash_offset].s1).to_string()).fmt(f)?;
                 ' '.fmt(f)

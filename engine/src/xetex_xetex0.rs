@@ -42,8 +42,8 @@ use crate::xetex_ini::{
     max_reg_help_line, max_reg_num, mem_end, name_in_progress, name_of_font,
     no_new_control_sequence, open_parens, output_active, pack_begin_line, page_contents,
     page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos, pre_adjust_tail,
-    prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack, read_file, read_open, rover,
-    rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed,
+    prev_class, prim, prim_used, pseudo_files, pstack, read_file, read_open, rover, rt_hit,
+    rust_stdout, sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed,
     shown_mode, skip_line, space_class, stop_at_space, tally, term_offset, texmf_log_name,
     total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
     warning_index, write_file, write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr,
@@ -5089,10 +5089,10 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         if cs == UNDEFINED_PRIMITIVE {
                             break;
                         }
-                        let t = prim_eqtb[cs as usize].cmd as i32;
+                        let t = EQTB[PRIM_EQTB_BASE + cs as usize].cmd as i32;
                         if t > MAX_COMMAND as i32 {
                             ocmd = Cmd::from(t as u16);
-                            ochr = prim_eqtb[cs as usize].val;
+                            ochr = EQTB[PRIM_EQTB_BASE + cs as usize].val;
                             //otok = ocmd as i32 * MAX_CHAR_VAL + ochr;
                             ocs = 0;
                         } else {
@@ -6665,9 +6665,9 @@ unsafe fn restart_scan_something_internal(
                 if cs != UNDEFINED_PRIMITIVE as usize {
                     restart_scan_something_internal(
                         input,
-                        CS_TOKEN_FLAG + cs as i32,
-                        eq_type(cs),
-                        EQTB[cs].val,
+                        CS_TOKEN_FLAG + PRIM_EQTB_BASE as i32 + cs as i32,
+                        eq_type(PRIM_EQTB_BASE + cs),
+                        EQTB[PRIM_EQTB_BASE + cs].val,
                         level,
                         negative,
                     )
@@ -6838,7 +6838,12 @@ unsafe fn scan_int_positive(
         };
 
         return if cs != UNDEFINED_PRIMITIVE as usize {
-            scan_int_positive(input, CS_TOKEN_FLAG + cs as i32, eq_type(cs), EQTB[cs].val)
+            scan_int_positive(
+                input,
+                CS_TOKEN_FLAG + PRIM_EQTB_BASE as i32 + cs as i32,
+                eq_type(PRIM_EQTB_BASE + cs),
+                EQTB[PRIM_EQTB_BASE + cs].val,
+            )
         } else {
             scan_int_positive(input, CS_TOKEN_FLAG + FROZEN_RELAX as i32, Cmd::Relax, 0)
         };
@@ -9016,8 +9021,8 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             } as i32;
             b = cmd != Cmd::UndefinedCS
                 && m != UNDEFINED_PRIMITIVE
-                && cmd == Cmd::from(prim_eqtb[m as usize].cmd)
-                && chr == prim_eqtb[m as usize].val;
+                && cmd == Cmd::from(EQTB[PRIM_EQTB_BASE + m as usize].cmd)
+                && chr == EQTB[PRIM_EQTB_BASE + m as usize].val;
         }
     }
 
@@ -14227,9 +14232,9 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 prim_lookup(yhash[cs as usize - hash_offset].s1) as i32
                             };
                             if cur_cs != UNDEFINED_PRIMITIVE {
-                                cur_cmd = Cmd::from(prim_eqtb[cur_cs as usize].cmd);
-                                cur_chr = prim_eqtb[cur_cs as usize].val;
-                                cur_tok = CS_TOKEN_FLAG + cur_cs;
+                                cur_cmd = Cmd::from(EQTB[PRIM_EQTB_BASE + cur_cs as usize].cmd);
+                                cur_chr = EQTB[PRIM_EQTB_BASE + cur_cs as usize].val;
+                                cur_tok = CS_TOKEN_FLAG + PRIM_EQTB_BASE as i32 + cur_cs;
                                 big_switch = false;
                             }
                         }
