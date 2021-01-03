@@ -383,7 +383,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
         eq_word_define(DIMEN_BASE as usize + DimenPar::display_width as usize, l.0);
         eq_word_define(DIMEN_BASE as usize + DimenPar::display_indent as usize, s.0);
         if let Some(ed) = LOCAL(Local::every_display).opt() {
-            begin_token_list(input, ed, Btl::EveryDisplayText);
+            begin_token_list(input, Some(ed), Btl::EveryDisplayText);
         }
         if NEST_PTR == 1 {
             build_page(input);
@@ -396,7 +396,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
             insert_src_special();
         }
         if let Some(em) = LOCAL(Local::every_math).opt() {
-            begin_token_list(input, em, Btl::EveryMathText);
+            begin_token_list(input, Some(em), Btl::EveryMathText);
         }
     };
 }
@@ -409,7 +409,7 @@ pub(crate) unsafe fn start_eq_no(input: &mut input_state_t, chr: i32) {
         insert_src_special();
     }
     if let Some(em) = LOCAL(Local::every_math).opt() {
-        begin_token_list(input, em, Btl::EveryMathText);
+        begin_token_list(input, Some(em), Btl::EveryMathText);
     };
 }
 pub(crate) unsafe fn math_limit_switch(chr: i32) {

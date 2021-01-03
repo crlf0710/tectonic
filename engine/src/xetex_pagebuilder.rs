@@ -405,7 +405,7 @@ unsafe fn fire_up(input: &mut input_state_t, c: usize) {
                 cur_list.mode = (true, ListMode::VMode);
                 cur_list.aux.b32.s1 = IGNORE_DEPTH; /* this is `prev_depth` */
                 cur_list.mode_line = -line;
-                begin_token_list(input, l, Btl::OutputText);
+                begin_token_list(input, Some(l), Btl::OutputText);
                 new_save_level(GroupCode::Output);
                 normal_paragraph();
                 scan_left_brace(input);
@@ -466,7 +466,7 @@ pub(crate) unsafe fn build_page(input: &mut input_state_t) {
                     || page_so_far[4] != Scaled::ZERO
                     || page_so_far[5] != Scaled::ZERO
                 {
-                    0_i32
+                    0
                 } else {
                     badness(page_so_far[0] - page_so_far[1], page_so_far[2])
                 }

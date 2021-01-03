@@ -2,8 +2,6 @@
 // Copyright 2016-2019 the Tectonic Project
 // Licensed under the MIT License.
 
-use cc;
-
 fn main() {
     let mut stub_cfg = cc::Build::new();
 

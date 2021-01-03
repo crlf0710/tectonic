@@ -887,13 +887,12 @@ pub(crate) mod whatsit {
         }
         pub(crate) unsafe fn glyph_ids(&self) -> &[u16] {
             let count = self.glyph_count() as usize;
-            let pp =
-                (self.glyph_info_ptr() as *const FixedPoint).offset(count as isize) as *const u16;
+            let pp = (self.glyph_info_ptr() as *const FixedPoint).add(count) as *const u16;
             std::slice::from_raw_parts(pp, count)
         }
         pub(crate) unsafe fn glyph_ids_mut(&mut self) -> &mut [u16] {
             let count = self.glyph_count() as usize;
-            let pp = (self.glyph_info_ptr() as *mut FixedPoint).offset(count as isize) as *mut u16;
+            let pp = (self.glyph_info_ptr() as *mut FixedPoint).add(count) as *mut u16;
             std::slice::from_raw_parts_mut(pp, count)
         }
         pub(crate) unsafe fn set_metrics(&mut self, use_glyph_metrics: bool) {

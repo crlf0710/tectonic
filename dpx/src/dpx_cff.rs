@@ -1812,25 +1812,23 @@ pub(crate) unsafe fn cff_charsets_lookup_gid(charset: *mut cff_charsets, cid: u1
  */
 
 pub(crate) unsafe fn cff_charsets_lookup_inverse(cff: &cff_font, gid: u16) -> u16 {
-    if cff.flag & (1i32 << 5i32 | 1i32 << 6i32 | 1i32 << 7i32) != 0 {
+    if cff.flag & (1 << 5 | 1 << 6 | 1 << 7) != 0 {
         panic!("Predefined CFF charsets not supported yet");
-    } else {
-        if cff.charsets.is_null() {
-            panic!("Charsets data not available");
-        }
+    } else if cff.charsets.is_null() {
+        panic!("Charsets data not available");
     }
-    if gid as i32 == 0i32 {
-        return 0i32 as u16;
+    if gid == 0 {
+        return 0;
         /* .notdef */
     }
     cff_charsets_lookup_cid(&*cff.charsets, gid)
 }
 
 pub(crate) unsafe fn cff_charsets_lookup_cid(charset: &cff_charsets, mut gid: u16) -> u16 {
-    let mut sid: u16 = 0i32 as u16;
+    let mut sid: u16 = 0;
     match charset.format as i32 {
         0 => {
-            if gid as i32 - 1i32 >= charset.num_entries as i32 {
+            if gid as i32 - 1 >= charset.num_entries as i32 {
                 panic!("Invalid GID.");
             }
             sid = *charset.data.glyphs.offset((gid as i32 - 1i32) as isize)

@@ -7,8 +7,6 @@
 /// here. It would be great to streamline things.
 ///
 /// TODO: this surely needs to become much smarter and more flexible.
-use cc;
-
 use std::env;
 use std::path::PathBuf;
 

@@ -179,11 +179,9 @@ fn is_smallcap(glyphname: &[u8]) -> bool {
     let (p, slen) = skip_modifier(p);
     if slen == len {
         return true;
-    } else {
-        if slen > 0 {
-            /* ??? */
-            return false;
-        }
+    } else if slen > 0 {
+        /* ??? */
+        return false;
     }
     let (mut p, slen) = skip_capital(p);
     let mut len = len - slen;
@@ -527,20 +525,14 @@ pub(crate) fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
          * Check if the 4th character is uppercase hexadecimal digit.
          * "union" should not be treated as Unicode glyph name.
          */
-        if c.is_ascii_digit() || (b'A'..=b'F').contains(&c) {
-            return true;
-        } else {
-            return false;
-        }
-    } else {
-        if len <= 7 && len >= 5 && glyphname[0] == b'u' {
-            for c in &glyphname[1..(len - 1)] {
-                if !c.is_ascii_digit() && !(b'A'..=b'F').contains(c) {
-                    return false;
-                }
+        return c.is_ascii_digit() || (b'A'..=b'F').contains(&c);
+    } else if len <= 7 && len >= 5 && glyphname[0] == b'u' {
+        for c in &glyphname[1..(len - 1)] {
+            if !c.is_ascii_digit() && !(b'A'..=b'F').contains(c) {
+                return false;
             }
-            return true;
         }
+        return true;
     }
     false
 }
@@ -652,10 +644,8 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
             }
             return len;
         /* Cannot continue */
-        } else {
-            if delim.is_null() || delim > endptr {
-                delim = endptr
-            }
+        } else if delim.is_null() || delim > endptr {
+            delim = endptr;
         }
         let sub_len = delim.offset_from(p) as i64 as i32;
         let name_p = new(((sub_len + 1i32) as u32 as u64)
@@ -752,10 +742,8 @@ pub(crate) unsafe fn agl_get_unicodes(
             );
             return -1i32;
         /* Cannot continue */
-        } else {
-            if delim.is_null() || delim > endptr {
-                delim = endptr
-            }
+        } else if delim.is_null() || delim > endptr {
+            delim = endptr;
         }
         let sub_len = delim.offset_from(p) as i32;
         let name_p = new(((sub_len + 1i32) as u32 as u64)

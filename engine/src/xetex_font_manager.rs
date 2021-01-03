@@ -346,7 +346,7 @@ where
                         if style_FONT_PTR.opSizeInfo.designSize != 0 {
                             dsize = style_FONT_PTR.opSizeInfo.designSize as i32
                         }
-                        font = Some(style_FONT_PTR.clone());
+                        font = Some(style_FONT_PTR);
                         break;
                     }
                 }
@@ -386,7 +386,7 @@ where
                     // look through the family for the (weight, width, slant) nearest to (80, 100, 0)
                     font = self.best_match_from_family(&family_ptr.borrow(), 80, 100, 0)
                 }
-                if !font.is_none() {
+                if font.is_some() {
                     break;
                 }
             }
@@ -656,8 +656,7 @@ where
                 t_print_nl!(" -> {}", self.get_platform_font_desc(Self::font_ref(&font)));
             });
         }
-        let x = font.fontRef;
-        x
+        font.fontRef
     }
 }
 impl XeTeXFontMgr {

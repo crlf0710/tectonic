@@ -7,6 +7,7 @@
     unused_assignments,
     unused_mut
 )]
+#![allow(clippy::many_single_char_names)]
 
 extern crate tectonic_bridge as bridge;
 
@@ -7201,15 +7202,11 @@ pub unsafe fn bibtex_main(bibtex_config: &BibtexConfig, mut aux_file_name: *cons
         if verbose {
             log!("This is BibTeX, Version 0.99d\n");
         } else {
-            write!(
-                log_file.as_mut().unwrap(),
-                "This is BibTeX, Version 0.99d\n"
-            )
-            .unwrap();
+            writeln!(log_file.as_mut().unwrap(), "This is BibTeX, Version 0.99d").unwrap();
         }
-        write!(
+        writeln!(
             log_file.as_mut().unwrap(),
-            "Capacity: max_strings={}, hash_size={}, hash_prime={}\n",
+            "Capacity: max_strings={}, hash_size={}, hash_prime={}",
             max_strings as i64,
             hash_size as i64,
             hash_prime as i64

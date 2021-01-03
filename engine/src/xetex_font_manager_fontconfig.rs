@@ -414,10 +414,8 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                                 };
                                 if preferredName {
                                     nameList.prepend_to_list(&utf8name);
-                                } else {
-                                    if !nameList.contains(&utf8name) {
-                                        nameList.push_back(utf8name);
-                                    }
+                                } else if !nameList.contains(&utf8name) {
+                                    nameList.push_back(utf8name);
                                 }
                             }
                         }
@@ -426,10 +424,10 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                 }
             }
             if !familyNames.is_empty() {
-                names.m_familyNames = familyNames.clone();
+                names.m_familyNames = familyNames;
             }
             if !subFamilyNames.is_empty() {
-                names.m_styleNames = subFamilyNames.clone();
+                names.m_styleNames = subFamilyNames;
             }
         } else {
             let mut index = 0;

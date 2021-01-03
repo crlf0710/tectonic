@@ -2013,11 +2013,11 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     let r = get_avail();
     *LLIST_link(q) = Some(r).tex_int();
     MEM[r].b32.s0 = CS_TOKEN_FLAG + END_WRITE as i32;
-    begin_token_list(input, q, Btl::Inserted);
-    begin_token_list(input, p.tokens() as usize, Btl::WriteText);
+    begin_token_list(input, Some(q), Btl::Inserted);
+    begin_token_list(input, p.tokens().opt(), Btl::WriteText);
     let q = get_avail();
     MEM[q].b32.s0 = LEFT_BRACE_TOKEN + '{' as i32;
-    begin_token_list(input, q, Btl::Inserted);
+    begin_token_list(input, Some(q), Btl::Inserted);
 
     let old_mode = cur_list.mode;
     cur_list.mode = (false, ListMode::NoMode);

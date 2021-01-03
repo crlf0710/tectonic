@@ -760,11 +760,8 @@ unsafe fn loadOTfont(
                 }
             }
         }
-        match current_block {
-            10622493848381539643 => {
-                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
-            }
-            _ => {}
+        if current_block == 10622493848381539643 {
+            font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
         }
         cp1 = cp2;
     }
@@ -1124,12 +1121,12 @@ pub(crate) unsafe fn makeXDVGlyphArrayData(p: &NativeWord) -> Vec<u8> {
     let glyph_ids = p.glyph_ids();
     buf.extend_from_slice(&p.width().0.to_be_bytes()[..]);
     buf.extend_from_slice(&glyphCount.to_be_bytes()[..]);
-    for i in 0..glyphCount as usize {
-        buf.extend_from_slice(&locations[i].x.0.to_be_bytes()[..]);
-        buf.extend_from_slice(&locations[i].y.0.to_be_bytes()[..]);
+    for loc in locations {
+        buf.extend_from_slice(&loc.x.0.to_be_bytes()[..]);
+        buf.extend_from_slice(&loc.y.0.to_be_bytes()[..]);
     }
-    for i in 0..glyphCount as usize {
-        buf.extend_from_slice(&glyph_ids[i].to_be_bytes()[..]);
+    for gid in glyph_ids {
+        buf.extend_from_slice(&gid.to_be_bytes()[..]);
     }
     buf
 }
@@ -1145,7 +1142,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     let extend;
     let slant;
     #[allow(unused_assignments)]
-    let mut embolden: f32 = 0.0f64 as f32;
+    let mut embolden: f32 = 0.;
     match &FONT_LAYOUT_ENGINE[f].as_native() {
         #[cfg(target_os = "macos")]
         Aat(attributes) => {
@@ -1160,7 +1157,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
             )
             .is_null()
             {
-                flags = (flags as libc::c_int | 0x100i32) as u16
+                flags = (flags as libc::c_int | 0x100) as u16
             }
             let color = CFDictionaryGetValue(
                 *attributes,
@@ -1192,8 +1189,8 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
             filename = engine.get_font_filename(&mut index);
             assert!(!filename.is_empty());
             rgba = engine.get_rgb_value();
-            if FONT_FLAGS[f] as i32 & 0x2i32 != 0i32 {
-                flags = (flags as i32 | 0x100i32) as u16
+            if FONT_FLAGS[f] as i32 & 0x2 != 0 {
+                flags = (flags as i32 | 0x100) as u16
             }
             extend = engine.get_extend_factor();
             slant = engine.get_slant_factor();
@@ -1209,7 +1206,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     //      c[4]
      */
     let mut fontDefLength = 4 + 2 + 1 + filename.len() as i32 + 4; /* face index */
-    if FONT_FLAGS[f] as i32 & 0x1i32 != 0i32 {
+    if FONT_FLAGS[f] as i32 & 0x1 != 0 {
         fontDefLength += 4; /* 32-bit RGBA value */
         flags |= 0x200;
     }
@@ -1233,16 +1230,16 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     buf.extend_from_slice(filename.as_bytes());
 
     buf.extend_from_slice(&index.to_be_bytes()[..]);
-    if FONT_FLAGS[f] as i32 & 0x1i32 != 0i32 {
+    if FONT_FLAGS[f] as i32 & 0x1 != 0 {
         buf.extend_from_slice(&rgba.to_be_bytes()[..]);
     }
-    if flags as i32 & 0x1000i32 != 0 {
+    if flags as i32 & 0x1000 != 0 {
         buf.extend_from_slice(&D2Fix(extend as f64).0.to_be_bytes()[..]);
     }
-    if flags as i32 & 0x2000i32 != 0 {
+    if flags as i32 & 0x2000 != 0 {
         buf.extend_from_slice(&D2Fix(slant as f64).0.to_be_bytes()[..]);
     }
-    if flags as i32 & 0x4000i32 != 0 {
+    if flags as i32 & 0x4000 != 0 {
         buf.extend_from_slice(&D2Fix(embolden as f64).0.to_be_bytes()[..]);
     }
     buf
@@ -1251,8 +1248,8 @@ pub(crate) unsafe fn apply_mapping(pCnv: *mut libc::c_void, txt: &[u16]) -> Vec<
     let cnv = pCnv as teckit::TECkit_Converter;
     let mut inUsed: u32 = 0;
     let mut outUsed: u32 = 0;
-    let _2 = std::mem::size_of::<UniChar>();
-    let mut out_length = txt.len() * _2 + 32;
+    let two = std::mem::size_of::<UniChar>();
+    let mut out_length = txt.len() * two + 32;
     let mut mapped_text = vec![0_u16; out_length / 2];
     loop
     /* try the mapping */
@@ -1260,7 +1257,7 @@ pub(crate) unsafe fn apply_mapping(pCnv: *mut libc::c_void, txt: &[u16]) -> Vec<
         let status = teckit::TECkit_ConvertBuffer(
             cnv,
             txt.as_ptr() as *const u8,
-            (txt.len() * _2) as u32,
+            (txt.len() * two) as u32,
             &mut inUsed,
             mapped_text.as_mut_ptr() as *mut u8,
             out_length as _,
@@ -1273,7 +1270,7 @@ pub(crate) unsafe fn apply_mapping(pCnv: *mut libc::c_void, txt: &[u16]) -> Vec<
                 return mapped_text;
             }
             1 => {
-                out_length += txt.len() * _2 + 32;
+                out_length += txt.len() * two + 32;
                 mapped_text = vec![0_u16; out_length / 2];
             }
             _ => return Vec::new(),
@@ -1292,8 +1289,8 @@ pub(crate) unsafe fn get_native_char_height_depth(font: usize, ch: char) -> (Sca
     let (ht, dp) = match &FONT_LAYOUT_ENGINE[font] {
         #[cfg(target_os = "macos")]
         Font::Native(Aat(attributes)) => {
-            let mut ht: f32 = 0.0f64 as f32;
-            let mut dp: f32 = 0.0f64 as f32;
+            let mut ht: f32 = 0.;
+            let mut dp: f32 = 0.;
             let gid: libc::c_int = aat::MapCharToGlyph_AAT(*attributes, ch);
             aat::GetGlyphHeightDepth_AAT(*attributes, gid as u16, &mut ht, &mut dp);
             (ht, dp)

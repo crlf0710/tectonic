@@ -228,7 +228,7 @@ pub(crate) unsafe fn spc_lookup_object(key: &str) -> *mut pdf_obj {
         panic!("Object reference %s not exist.", key);
       }
     */
-    return value; /* _FIXME_ */
+    value /* _FIXME_ */
 }
 pub(crate) unsafe fn spc_push_object(key: &str, value: *mut pdf_obj) {
     assert!(!NAMED_OBJECTS.is_null());
@@ -474,7 +474,7 @@ unsafe fn print_error(name: *const i8, spe: &mut SpcEnv, ap: &mut SpcArg) {
         ebuf[i] = 0;
         if !ap.cur.is_empty() {
             for j in 60..i {
-                ebuf[j] = b'.' as u8
+                ebuf[j] = b'.';
             }
         }
         warn!(
