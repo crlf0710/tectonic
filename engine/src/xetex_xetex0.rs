@@ -8878,9 +8878,12 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
         IfTestCode::IfEof => {
             let val = scan_four_bit_int_or_18(input);
             b = if val == 18 {
+                dbg!("AAAA");
                 true
             } else {
-                read_open[val as usize] == OpenMode::Closed
+                let r = read_open[val as usize] == OpenMode::Closed;
+                dbg!(r);
+                r
             };
         }
 
