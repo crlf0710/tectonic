@@ -2257,6 +2257,7 @@ impl fmt::Display for CmdChr {
                     XetexUchar => "Uchar",
                     XetexUcharcat => "Ucharcat",
                     JobName => "jobname",
+                    _ => unreachable!(), // XetexFeatureNameOld and XetexSelectorNameOld
                 }
             })
             .fmt(f),
@@ -8220,6 +8221,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
         }
         ConvertCode::UniformDeviate => oval = Some(scan_int(input)),
         ConvertCode::NormalDeviate | ConvertCode::EtexRevision | ConvertCode::XetexRevision => {}
+        _ => unreachable!(), // XetexFeatureNameOld and XetexSelectorNameOld
     }
     let s = match c {
         ConvertCode::Number => format!("{}", oval.unwrap()),

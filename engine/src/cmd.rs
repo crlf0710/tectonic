@@ -477,6 +477,8 @@ pub(crate) enum ConvertCode {
     FontName = 4,
     EtexRevision = 5, /* = ETEX_CONVERT_BASE */
     Expanded = 6,     /* = ETEX_CONVERT_CODES */
+    XetexFeatureNameOld = 8,
+    XetexSelectorNameOld = 9,
     LeftMarginKern = 16,
     RightMarginKern = 17,
     PdfStrcmp = 18,

@@ -1136,7 +1136,7 @@ impl From<i32> for MoveDir {
  * of the "format" files must be regenerated -- this includes changes to the
  * string pool. KEEP SYNCHRONIZED WITH src/lib.rs!!! */
 
-pub(crate) const FORMAT_SERIAL: placeholdertype = 28;
+pub(crate) const FORMAT_SERIAL: placeholdertype = 29;
 
 /// Unicode file reading modes
 #[repr(i32)]
