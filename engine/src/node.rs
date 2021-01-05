@@ -264,6 +264,9 @@ impl List {
         MEM[self.ptr() + 5].b32.s1 = v;
         self
     }
+    pub(crate) unsafe fn list(&self) -> NodeList {
+        NodeList::from(&mut MEM[self.ptr() + 5].b32.s1)
+    }
     pub(crate) unsafe fn glue_sign(&self) -> GlueSign {
         GlueSign::from(MEM[self.ptr() + 5].b16.s1)
     }
@@ -561,6 +564,9 @@ impl Discretionary {
     /// aka "llink" in doubly-linked list
     pub(crate) unsafe fn pre_break(&self) -> i32 {
         MEM[self.ptr() + 1].b32.s0
+    }
+    pub(crate) unsafe fn pre_break_nl<'a>(&'a self) -> NodeList<'a> {
+        NodeList::from(&mut MEM[self.ptr() + 1].b32.s0)
     }
     pub(crate) unsafe fn set_pre_break(&mut self, v: i32) -> &mut Self {
         MEM[self.ptr() + 1].b32.s0 = v;
@@ -2441,3 +2447,7 @@ pub(crate) const SYNCTEX_FIELD_SIZE: i32 = 1;
 pub(crate) trait NodeSize {
     const SIZE: i32;
 }
+
+pub(crate) use self::nodelist::NodeList;
+
+mod nodelist;
