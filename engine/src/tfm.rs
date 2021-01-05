@@ -22,7 +22,6 @@ use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_ini::loaded_font_flags;
 use crate::xetex_ini::loaded_font_letter_space;
 use crate::xetex_ini::loaded_font_mapping;
-use crate::xetex_ini::pool_ptr;
 use crate::xetex_ini::BCHAR_LABEL;
 use crate::xetex_ini::DEPTH_BASE;
 use crate::xetex_ini::FONT_AREA;
@@ -50,10 +49,7 @@ use crate::xetex_ini::SKEW_CHAR;
 use crate::xetex_ini::{
     CHAR_BASE, EXTEN_BASE, FONT_BC, FONT_INFO, FONT_NAME, ITALIC_BASE, WIDTH_BASE,
 };
-
-use crate::xetex_ini::init_pool_ptr;
-use crate::xetex_ini::pool_size;
-use crate::xetex_ini::str_pool;
+use crate::xetex_stringpool::{pool_ptr, str_pool};
 
 use crate::xetex_ext::ot_get_font_metrics;
 use crate::xetex_ext::{check_for_tfm_font_mapping, load_tfm_font_mapping};
@@ -65,7 +61,6 @@ use crate::xetex_consts::IntPar;
 use crate::xetex_consts::LIST_TAG;
 use crate::xetex_consts::NON_ADDRESS;
 use crate::xetex_errors::error;
-use crate::xetex_errors::overflow;
 use crate::xetex_output::print_chr;
 use crate::xetex_output::Cs;
 use crate::xetex_stringpool::make_string;
@@ -614,9 +609,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
     } else {
         loaded_font_design_size
     };
-    if pool_ptr + name.len() > pool_size {
-        overflow("pool size", pool_size - init_pool_ptr);
-    }
+    PoolString::check_capacity(name.len());
     for b in name.bytes() {
         str_pool[pool_ptr] = b as packed_UTF16_code;
         pool_ptr += 1;

@@ -5,6 +5,10 @@ use crate::help;
 use crate::xetex_consts::IntPar;
 use crate::xetex_ini::{b16x4, b32x2, memory_word, EqtbWord, Selector, UTF16_code, FONT_PTR};
 use crate::xetex_output::Esc;
+use crate::xetex_stringpool::{
+    init_pool_ptr, init_str_ptr, max_strings, pool_free, pool_ptr, pool_size, str_pool, str_ptr,
+    str_start, strings_free,
+};
 use bridge::{ttstub_output_close, InFile, OutputHandleWrapper, TTHistory, TTInputFormat};
 
 use crate::{t_eprint, t_print, t_print_nl};
@@ -47,10 +51,9 @@ use crate::xetex_consts::{get_int_par, set_int_par};
 use crate::xetex_consts::{
     ValLevel, HYPH_PRIME, MAX_FONT_MAX, MIN_HALFWORD, UNDEFINED_CONTROL_SEQUENCE,
 };
-use crate::xetex_stringpool::{make_string, PoolString, EMPTY_STRING, TOO_BIG_CHAR};
+use crate::xetex_stringpool::{PoolString, EMPTY_STRING, TOO_BIG_CHAR};
 
 use crate::xetex_errors::error;
-use crate::xetex_errors::overflow;
 use crate::xetex_output::print_ln;
 use crate::xetex_xetexd::llist_link;
 use crate::xetex_xetexd::{TeXInt, TeXOpt};
@@ -127,6 +130,12 @@ pub(crate) unsafe fn store_fmt_file() {
         panic!("\\dump inside a group");
     }
 
+    selector = if interaction == InteractionMode::Batch {
+        Selector::LOG_ONLY
+    } else {
+        Selector::TERM_AND_LOG
+    };
+
     let s = format!(
         " (preloaded format={} {}.{}.{})",
         PoolString::from(job_name),
@@ -134,24 +143,8 @@ pub(crate) unsafe fn store_fmt_file() {
         get_int_par(IntPar::month),
         get_int_par(IntPar::day),
     );
-    for i in s.encode_utf16() {
-        if pool_ptr < pool_size {
-            str_pool[pool_ptr as usize] = i;
-            pool_ptr += 1
-        }
-    }
 
-    selector = if interaction == InteractionMode::Batch {
-        Selector::LOG_ONLY
-    } else {
-        Selector::TERM_AND_LOG
-    };
-
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
-
-    format_ident = make_string();
+    format_ident = PoolString::add_new_from_str(&s);
     let out_name = pack_job_name(".fmt");
 
     let fmt_out = OutputHandleWrapper::open(&out_name, 0);
@@ -390,7 +383,7 @@ pub(crate) unsafe fn store_fmt_file() {
     fmt_out.dump(&FONT_BCHAR[..FONT_PTR + 1]);
     fmt_out.dump(&FONT_FALSE_BCHAR[..FONT_PTR + 1]);
 
-    for k in FONT_BASE..=FONT_PTR {
+    for k in FONT_BASE..FONT_PTR + 1 {
         t_print_nl!(
             "\\font{}=",
             Esc(&PoolString::from(yhash[FONT_ID_BASE + k - hash_offset].s1).to_string())
@@ -889,7 +882,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     EXTEN_BASE = vec![0; FONT_MAX + 1];
     PARAM_BASE = vec![0; FONT_MAX + 1];
 
-    for k in 0..=FONT_PTR {
+    for k in 0..FONT_PTR + 1 {
         FONT_MAPPING[k as usize] = ptr::null_mut();
     }
 

@@ -1,13 +1,13 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
-use crate::xetex_ini::{pool_ptr, pool_size, str_pool};
-use crate::xetex_stringpool::{make_string, PoolString, EMPTY_STRING, TOO_BIG_CHAR};
+use crate::xetex_stringpool::{
+    make_string, pool_ptr, str_pool, PoolString, EMPTY_STRING, TOO_BIG_CHAR,
+};
 use bridge::ttstub_get_file_md5;
 use std::ffi::CString;
 
 use std::env;
 
-pub(crate) type size_t = usize;
 pub(crate) type str_number = i32;
 /* texmfmp.c: Hand-coded routines for TeX or Metafont in C.  Originally
 written by Tim Morgan, drawing from other Unix ports of TeX.  This is
@@ -38,19 +38,11 @@ pub(crate) fn get_date_and_time() -> (i32, i32, i32, i32) {
 
     (minutes as _, day as _, month as _, year)
 }
-unsafe fn checkpool_pointer(pool_ptr_0: usize, len: size_t) {
-    assert!(
-        (pool_ptr_0 as u64) + (len as u64) < pool_size as u64,
-        "string pool overflow [{} bytes]",
-        pool_size,
-    );
-}
 pub(crate) unsafe fn maketexstring(s: &str) -> i32 {
     if s.is_empty() {
         return EMPTY_STRING;
     }
-    let len = s.as_bytes().len();
-    checkpool_pointer(pool_ptr, len as _);
+    PoolString::check_capacity(s.len());
     let v: Vec<u16> = s.encode_utf16().collect();
     let len = v.len();
     str_pool[pool_ptr..pool_ptr + len].copy_from_slice(v.as_slice());

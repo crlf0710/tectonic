@@ -1,10 +1,35 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::xetex_errors::overflow;
-use crate::xetex_ini::{
-    init_pool_ptr, init_str_ptr, max_strings, pool_ptr, pool_size, str_pool, str_ptr, str_start,
-    BUFFER,
-};
+use crate::xetex_ini::BUFFER;
+
+/// the characters
+pub(crate) static mut str_pool: Vec<packed_UTF16_code> = Vec::new();
+
+/// the starting pointers
+pub(crate) static mut str_start: Vec<usize> = Vec::new();
+
+/// first unused position in |str_pool|
+pub(crate) static mut pool_ptr: usize = 0;
+
+/// number of the current string being created
+pub(crate) static mut str_ptr: str_number = 0;
+
+/// the starting value of `pool_ptr`
+pub(crate) static mut init_pool_ptr: usize = 0;
+
+/// the starting value of `str_ptr`
+pub(crate) static mut init_str_ptr: str_number = 0;
+
+pub(crate) static mut max_strings: usize = 0;
+
+pub(crate) static mut strings_free: usize = 0;
+
+pub(crate) static mut string_vacancies: usize = 0;
+
+pub(crate) static mut pool_size: usize = 0;
+
+pub(crate) static mut pool_free: usize = 0;
 
 pub(crate) const TOO_BIG_CHAR: i32 = 0x10000;
 pub(crate) const EMPTY_STRING: i32 = TOO_BIG_CHAR + 1;
@@ -67,21 +92,21 @@ impl PoolString {
         unsafe {
             let offset = str_start[(str_ptr - TOO_BIG_CHAR) as usize];
             let slice = &str_pool[offset..offset + len];
-            PoolString::Span(slice)
+            Self::Span(slice)
         }
     }*/
 
     pub fn as_slice(&self) -> &[Utf16] {
         match self {
-            PoolString::Char(s) => slice::from_ref(s),
-            PoolString::Span(s) => s,
+            Self::Char(_) => unreachable!(),
+            Self::Span(s) => s,
         }
     }
 
     pub fn len(&self) -> usize {
         match self {
-            PoolString::Span(s) => s.len(),
-            PoolString::Char(_) => todo!(),
+            Self::Span(s) => s.len(),
+            Self::Char(_) => unreachable!(),
         }
     }
 
@@ -89,11 +114,35 @@ impl PoolString {
         str_ptr -= 1;
         pool_ptr = str_start[(str_ptr - TOO_BIG_CHAR) as usize]
     }
+
+    pub fn check_capacity(len: usize) {
+        unsafe {
+            if pool_ptr + len > pool_size {
+                overflow("pool size", pool_size - init_pool_ptr);
+            }
+        }
+    }
+    pub fn add_new_from_str(s: &str) -> i32 {
+        unsafe {
+            for i in s.encode_utf16() {
+                if pool_ptr < pool_size {
+                    str_pool[pool_ptr as usize] = i;
+                    pool_ptr += 1
+                }
+            }
+            Self::check_capacity(1);
+            make_string()
+        }
+    }
 }
 
 impl std::fmt::Display for PoolString {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        for c in std::char::decode_utf16(self.as_slice().iter().cloned()) {
+        let slice = match self {
+            Self::Char(s) => slice::from_ref(s),
+            Self::Span(s) => s,
+        };
+        for c in std::char::decode_utf16(slice.iter().cloned()) {
             if let Ok(c) = c {
                 c.fmt(f)?;
             } else {
@@ -132,9 +181,7 @@ pub(crate) unsafe fn make_string() -> str_number {
 }
 pub(crate) unsafe fn append_str(s: str_number) {
     let ps = PoolString::from(s);
-    if pool_ptr + ps.len() > pool_size {
-        overflow("pool size", pool_size - init_pool_ptr);
-    }
+    PoolString::check_capacity(ps.len());
     for &c in ps.as_slice() {
         str_pool[pool_ptr] = c;
         pool_ptr += 1;

@@ -33,28 +33,28 @@ use crate::xetex_ini::{
     def_ref, deletions_allowed, depth_threshold, disc_ptr, error_count, error_line, expand_depth,
     expand_depth_count, false_bchar, file_offset, first, first_count, fmem_ptr,
     font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash_extra,
-    hash_high, hash_used, hi_mem_min, history, if_limit, if_line, init_pool_ptr, init_str_ptr,
-    ins_disc, insert_penalties, insert_src_special_auto, insert_src_special_every_par,
-    insert_src_special_every_vbox, interaction, is_hyph, is_in_csname, job_name, last,
-    last_badness, last_glue, last_kern, last_leftmost_char, last_node_type, last_penalty,
-    last_rightmost_char, lft_hit, lig_stack, ligature_present, line, lo_mem_max, log_file,
-    log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j, main_k,
-    main_s, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num, max_strings, mem_end,
-    name_in_progress, name_of_font, no_new_control_sequence, open_parens, output_active,
-    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
-    pdf_last_y_pos, pool_ptr, pool_size, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used,
-    pseudo_files, pstack, read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level,
-    sa_root, scanner_status, selector, set_box_allowed, shown_mode, skip_line, space_class,
-    stop_at_space, str_pool, str_ptr, str_start, tally, term_offset, texmf_log_name, total_shrink,
-    total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens, warning_index,
-    write_file, write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER,
-    BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC,
-    FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
-    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
-    GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE,
-    LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK,
-    MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK,
-    SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE,
+    hash_high, hash_used, hi_mem_min, history, if_limit, if_line, ins_disc, insert_penalties,
+    insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
+    interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
+    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
+    ligature_present, line, lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set,
+    main_f, main_h, main_i, main_j, main_k, main_s, max_buf_stack, max_print_line,
+    max_reg_help_line, max_reg_num, mem_end, name_in_progress, name_of_font,
+    no_new_control_sequence, open_parens, output_active, pack_begin_line, page_contents,
+    page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos, pre_adjust_tail,
+    prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack, read_file, read_open, rover,
+    rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed,
+    shown_mode, skip_line, space_class, stop_at_space, tally, term_offset, texmf_log_name,
+    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
+    warning_index, write_file, write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr,
+    BCHAR_LABEL, BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR,
+    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING,
+    FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE,
+    FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
+    INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK,
+    MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE,
+    PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
+    SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, memory_word, prefixed_command};
 use crate::xetex_ini::{hash_offset, FONT_LETTER_SPACE};
@@ -74,7 +74,8 @@ use crate::xetex_scaledmath::{
 };
 use crate::xetex_shipout::{finalize_dvi_file, new_edge, out_what, ship_out};
 use crate::xetex_stringpool::{
-    append_str, make_string, search_string, slow_make_string, str_eq_buf, PoolString, EMPTY_STRING,
+    append_str, init_str_ptr, make_string, max_strings, pool_ptr, pool_size, search_string,
+    slow_make_string, str_eq_buf, str_pool, str_ptr, str_start, PoolString, EMPTY_STRING,
     TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
@@ -2694,9 +2695,7 @@ pub(crate) unsafe fn id_lookup(j: usize, l: usize) -> i32 {
                         p = hash_used
                     }
                 }
-                if pool_ptr + ll > pool_size {
-                    overflow("pool size", (pool_size - init_pool_ptr) as usize);
-                }
+                PoolString::check_capacity(ll);
                 let d = PoolString::current().len();
                 while pool_ptr > str_start[(str_ptr - TOO_BIG_CHAR) as usize] {
                     pool_ptr -= 1;
@@ -7671,9 +7670,7 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     let mut s16 = s.encode_utf16().collect::<Vec<_>>();
     s16.push(' ' as u16);
     flush_list(llist_link(TEMP_HEAD));
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
+    PoolString::check_capacity(1);
     let nl = get_int_par(IntPar::new_line_char);
     let p = get_avail();
     let mut q = p;
@@ -8866,9 +8863,7 @@ pub(crate) unsafe fn more_name(
         *quoted_filename = true;
         return true;
     }
-    if pool_ptr + 1 > pool_size {
-        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-    }
+    PoolString::check_capacity(1);
     str_pool[pool_ptr] = c;
     pool_ptr += 1;
     if c == '/' as u16 {
@@ -9071,11 +9066,7 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
         name_in_progress = true;
         let res = make_name(|area_delimiter, ext_delimiter, _, _| {
             stop_at_space = false;
-            assert!(
-                !((pool_ptr as usize) + primary_input_name.len() * 2 >= pool_size as usize),
-                "string pool overflow [{} bytes]",
-                pool_size,
-            );
+            PoolString::check_capacity(primary_input_name.len() * 2);
             for rval in primary_input_name.chars() {
                 let mut b = [0; 2];
                 for i in rval.encode_utf16(&mut b) {
@@ -9234,9 +9225,7 @@ pub(crate) unsafe fn new_native_character(f: internal_font_number, c: char) -> N
     if !(FONT_MAPPING[f]).is_null() {
         let mut buf = [0; 2];
         let b = c.encode_utf16(&mut buf);
-        if pool_ptr + b.len() > pool_size {
-            overflow("pool size", pool_size - init_pool_ptr);
-        }
+        PoolString::check_capacity(b.len());
         for c16 in b {
             str_pool[pool_ptr] = *c16;
             pool_ptr += 1
@@ -13158,16 +13147,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
         }
     } else {
         let s = format!("FONT{}", PoolString::from((u - 1) as i32));
-        for i in s.encode_utf16() {
-            if pool_ptr < pool_size {
-                str_pool[pool_ptr as usize] = i;
-                pool_ptr += 1
-            }
-        }
-        if pool_ptr + 1 > pool_size {
-            overflow("pool size", (pool_size - init_pool_ptr) as usize);
-        }
-        make_string()
+        PoolString::add_new_from_str(&s)
     };
     if a >= 4 {
         geq_define(u, Cmd::SetFont, Some(FONT_BASE));
@@ -13205,7 +13185,7 @@ pub(crate) unsafe fn new_font(input: &mut input_state_t, a: i16) {
     }
     name_in_progress = false;
 
-    for f in (FONT_BASE + 1)..=FONT_PTR {
+    for f in (FONT_BASE + 1)..FONT_PTR + 1 {
         // TODO: check
         let font_name = PoolString::from(FONT_NAME[f]);
         let font_area = PoolString::from(FONT_AREA[f]);

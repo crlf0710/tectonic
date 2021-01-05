@@ -12,12 +12,12 @@ use super::xetex_consts::{
 };
 use crate::cmd::Cmd;
 use crate::node::NativeWord;
-use crate::xetex_stringpool::PoolString;
+use crate::xetex_stringpool::{str_ptr, PoolString};
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
     error_line, file_offset, hash_offset, line, log_file, max_print_line, rust_stdout, selector,
-    str_ptr, tally, term_offset, trick_buf, trick_count, write_file, yhash, EQTB_TOP,
+    tally, term_offset, trick_buf, trick_count, write_file, yhash, EQTB_TOP,
     FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 

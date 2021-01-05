@@ -16,6 +16,10 @@ use crate::xetex_output::Esc;
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
 use crate::xetex_stringpool::{
+    init_pool_ptr, init_str_ptr, max_strings, pool_free, pool_ptr, pool_size, str_pool, str_ptr,
+    str_start, string_vacancies, strings_free,
+};
+use crate::xetex_stringpool::{
     load_pool_strings, make_string, PoolString, EMPTY_STRING, TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::synctex_init_command;
@@ -387,16 +391,6 @@ pub(crate) static mut half_error_line: i32 = 0;
 #[no_mangle]
 pub(crate) static mut max_print_line: i32 = 0;
 #[no_mangle]
-pub(crate) static mut max_strings: usize = 0;
-#[no_mangle]
-pub(crate) static mut strings_free: usize = 0;
-#[no_mangle]
-pub(crate) static mut string_vacancies: usize = 0;
-#[no_mangle]
-pub(crate) static mut pool_size: usize = 0;
-#[no_mangle]
-pub(crate) static mut pool_free: usize = 0;
-#[no_mangle]
 pub(crate) static mut FONT_MEM_SIZE: usize = 0;
 #[no_mangle]
 pub(crate) static mut FONT_MAX: usize = 0;
@@ -429,23 +423,6 @@ pub(crate) static mut insert_src_special_every_math: bool = false;
 #[no_mangle]
 pub(crate) static mut insert_src_special_every_vbox: bool = false;
 
-/// the characters
-pub(crate) static mut str_pool: Vec<packed_UTF16_code> = Vec::new();
-
-/// the starting pointers
-pub(crate) static mut str_start: Vec<usize> = Vec::new();
-
-/// first unused position in |str_pool|
-pub(crate) static mut pool_ptr: usize = 0;
-
-/// number of the current string being created
-pub(crate) static mut str_ptr: str_number = 0;
-
-/// the starting value of `pool_ptr`
-pub(crate) static mut init_pool_ptr: usize = 0;
-
-/// the starting value of `str_ptr`
-pub(crate) static mut init_str_ptr: str_number = 0;
 #[no_mangle]
 pub(crate) static mut rust_stdout: Option<OutputHandleWrapper> = None;
 #[no_mangle]
@@ -1343,9 +1320,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
                     /*974:*/
                     n += 1;
                     hc[n] = cur_lang as i32;
-                    if pool_ptr + n > pool_size {
-                        overflow("pool size", (pool_size - init_pool_ptr) as usize);
-                    }
+                    PoolString::check_capacity(n);
                     let mut h = 0;
 
                     for j in 1..=n {
