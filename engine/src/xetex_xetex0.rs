@@ -8848,28 +8848,28 @@ pub(crate) unsafe fn more_name(
     area_delimiter: &mut usize,
     ext_delimiter: &mut usize,
     quoted_filename: &mut bool,
-    file_name_quote_char: &mut Option<char>,
+    file_name_quote_char: &mut Option<u8>,
 ) -> bool {
-    if stop_at_space_ && file_name_quote_char.is_none() && c as i32 == ' ' as i32 {
+    if stop_at_space_ && file_name_quote_char.is_none() && c == b' ' as _ {
         return false;
     }
-    if stop_at_space_ && file_name_quote_char.map(|qc| qc as i32) == Some(c as i32) {
+    if stop_at_space_ && file_name_quote_char.map(|qc| qc as _) == Some(c) {
         *file_name_quote_char = None;
         return true;
     }
-    if stop_at_space_ && file_name_quote_char.is_none() && (c == '\"' as u16 || c == '\'' as u16) {
-        *file_name_quote_char = Some(char::from(c as u8));
+    if stop_at_space_ && file_name_quote_char.is_none() && (c == b'\"' as _ || c == b'\'' as _) {
+        *file_name_quote_char = Some(c as u8);
         *quoted_filename = true;
         return true;
     }
     PoolString::check_capacity(1);
     str_pool[pool_ptr] = c;
     pool_ptr += 1;
-    if c == '/' as u16 {
+    if c == b'/' as u16 {
         // IS_DIR_SEP
         *area_delimiter = PoolString::current().len();
         *ext_delimiter = 0;
-    } else if c == '.' as u16 {
+    } else if c == b'.' as u16 {
         *ext_delimiter = PoolString::current().len();
     }
     true
@@ -8882,9 +8882,9 @@ pub(crate) struct FileName {
     pub ext: str_number,
 }
 
-pub(crate) unsafe fn make_name<F>(mut f: F) -> (FileName, bool, Option<char>)
+pub(crate) unsafe fn make_name<F>(mut f: F) -> (FileName, bool, Option<u8>)
 where
-    F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<char>),
+    F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<u8>),
 {
     let mut area_delimiter = 0;
     let mut ext_delimiter = 0;
@@ -8981,7 +8981,7 @@ pub(crate) unsafe fn make_name_string(name: &str) -> str_number {
     result
 }
 
-pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, bool, Option<char>) {
+pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, bool, Option<u8>) {
     name_in_progress = true;
     let res = make_name(|a, e, q, qc| {
         let (mut tok, mut cmd, mut chr, _) = loop {

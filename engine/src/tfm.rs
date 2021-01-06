@@ -90,7 +90,7 @@ pub(crate) unsafe fn read_font_info(
     file: &FileName,
     s: Scaled,
     quoted_filename: bool,
-    file_name_quote_char: Option<char>,
+    file_name_quote_char: Option<u8>,
 ) -> Result<(bool, usize, String), TfmError> {
     let name = file.to_string();
 
@@ -543,17 +543,17 @@ pub(crate) unsafe fn bad_tfm(
     u: i32,
     file: &FileName,
     s: Scaled,
-    file_name_quote_char: Option<char>,
+    file_name_quote_char: Option<u8>,
 ) {
     if get_int_par(IntPar::suppress_fontnotfound_error) == 0 {
         /* NOTE: must preserve this path to keep passing the TRIP tests */
         t_eprint!("Font {:#}=", Cs(u));
         if let Some(qc) = file_name_quote_char {
-            print_chr(qc);
+            print_chr(char::from(qc));
         }
         t_print!("{:#}", file);
         if let Some(qc) = file_name_quote_char {
-            print_chr(qc);
+            print_chr(char::from(qc));
         }
         if s >= Scaled::ZERO {
             t_print!(" at {}pt", s);
@@ -704,18 +704,18 @@ unsafe fn nf_error(
     u: i32,
     file: &FileName,
     s: Scaled,
-    file_name_quote_char: Option<char>,
+    file_name_quote_char: Option<u8>,
 ) {
     match e {
         NativeFontError::NotFound => {}
         NativeFontError::NotEnoughMemory => {
             t_eprint!("Font {:#}=", Cs(u));
             if let Some(qc) = file_name_quote_char {
-                print_chr(qc);
+                print_chr(char::from(qc));
             }
             t_print!("{:#}", file);
             if let Some(qc) = file_name_quote_char {
-                print_chr(qc);
+                print_chr(char::from(qc));
             }
             if s >= Scaled::ZERO {
                 t_print!(" at {}pt", s);
