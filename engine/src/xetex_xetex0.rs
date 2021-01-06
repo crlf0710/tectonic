@@ -461,7 +461,7 @@ pub(crate) unsafe fn new_rule() -> Rule {
         .set_height(NULL_FLAG);
     p
 }
-pub(crate) unsafe fn new_ligature(f: internal_font_number, c: u16, q: i32) -> usize {
+pub(crate) unsafe fn new_ligature(f: internal_font_number, c: u16, q: Option<usize>) -> usize {
     let mut p = Ligature(get_node(SMALL_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::Ligature);
     p.set_font(f as u16)
@@ -625,7 +625,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                     }
                     _ => t_print!("$"),
                 },
-                TxtNode::Ligature(l) => short_display(l.lig_ptr().opt()),
+                TxtNode::Ligature(l) => short_display(l.lig_ptr()),
                 TxtNode::Disc(d) => {
                     short_display(d.pre_break().opt());
                     short_display(d.post_break().opt());
@@ -1067,7 +1067,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_chr('|');
                     }
                     font_in_short_display = l.font() as usize;
-                    short_display(l.lig_ptr().opt());
+                    short_display(l.lig_ptr());
                     if l.right_hit() {
                         print_chr('|');
                     }
@@ -1342,7 +1342,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     m.free();
                 }
                 TxtNode::Ligature(l) => {
-                    flush_node_list(l.lig_ptr().opt());
+                    flush_node_list(l.lig_ptr());
                     l.free();
                 }
                 TxtNode::Mark(m) => {
@@ -1524,7 +1524,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     let mut r_lig = Ligature(r);
                     r_lig.set_char(p.char());
                     r_lig.set_font(p.font());
-                    r_lig.set_lig_ptr(copy_node_list(p.lig_ptr().opt()));
+                    r_lig.set_lig_ptr(copy_node_list(p.lig_ptr()).opt());
                 }
                 TxtNode::Disc(p) => {
                     r = get_node(SMALL_NODE_SIZE);
@@ -13592,11 +13592,7 @@ pub(crate) unsafe fn do_extension(
 }
 pub(crate) unsafe fn fix_language() {
     let lang = get_int_par(IntPar::language);
-    let l = if lang <= 0 || lang > 255 {
-        0
-    } else {
-        lang
-    };
+    let l = if lang <= 0 || lang > 255 { 0 } else { lang };
     if l != cur_list.aux.b32.s1 {
         let mut lang = Language::new_node();
         *LLIST_link(cur_list.tail) = Some(lang.ptr()).tex_int();
@@ -14921,16 +14917,16 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
         ls.set_font(main_f as u16);
         cur_l = cur_chr;
         ls.set_character(cur_l as u16);
-        cur_q = cur_list.tail as i32;
+        cur_q = cur_list.tail;
 
         let mut current_block: u64;
         if cancel_boundary {
             cancel_boundary = false;
-            main_k = NON_ADDRESS;
+            main_k = NON_ADDRESS as _;
         } else {
             main_k = BCHAR_LABEL[main_f as usize]
         }
-        if main_k == NON_ADDRESS {
+        if main_k == NON_ADDRESS as _ {
             current_block = 249799543778823886;
         } else {
             cur_r = cur_l;
@@ -14981,7 +14977,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 /*1075: */
                                 if main_j.s1 >= 128 {
                                     if cur_l < TOO_BIG_CHAR {
-                                        if LLIST_link(cur_q as usize).opt().is_some()
+                                        if LLIST_link(cur_q).opt().is_some()
                                             && MEM[cur_list.tail].b16.s0 as i32
                                                 == HYPHEN_CHAR[main_f as usize]
                                         {
@@ -14991,15 +14987,14 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                             let mut main_p = Ligature(new_ligature(
                                                 main_f,
                                                 cur_l as u16,
-                                                *LLIST_link(cur_q as usize),
+                                                llist_link(cur_q),
                                             ));
                                             main_p.set_hits(lft_hit, rt_hit && lig_stack.is_some());
                                             lft_hit = false;
                                             if rt_hit && lig_stack.is_some() {
                                                 rt_hit = false;
                                             }
-                                            *LLIST_link(cur_q as usize) =
-                                                Some(main_p.ptr()).tex_int();
+                                            *LLIST_link(cur_q) = Some(main_p.ptr()).tex_int();
                                             cur_list.tail = main_p.ptr();
                                             ligature_present = false
                                         }
@@ -15067,7 +15062,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                         }
                                         7 | 11 => {
                                             if cur_l < TOO_BIG_CHAR {
-                                                if LLIST_link(cur_q as usize).opt().is_some()
+                                                if LLIST_link(cur_q).opt().is_some()
                                                     && MEM[cur_list.tail].b16.s0 as i32
                                                         == HYPHEN_CHAR[main_f as usize]
                                                 {
@@ -15077,14 +15072,13 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                                     let main_p = new_ligature(
                                                         main_f,
                                                         cur_l as u16,
-                                                        *LLIST_link(cur_q as usize),
+                                                        llist_link(cur_q),
                                                     );
                                                     if lft_hit {
                                                         MEM[main_p].b16.s0 = 2;
                                                         lft_hit = false
                                                     }
-                                                    *LLIST_link(cur_q as usize) =
-                                                        Some(main_p).tex_int();
+                                                    *LLIST_link(cur_q) = Some(main_p).tex_int();
                                                     cur_list.tail = main_p;
                                                     ligature_present = false
                                                 }
@@ -15098,7 +15092,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                                     }
                                                 }
                                             }
-                                            cur_q = cur_list.tail as i32;
+                                            cur_q = cur_list.tail;
                                             cur_l = main_j.s0 as i32;
                                             main_i = FONT_CHARACTER_INFO(
                                                 main_f,
@@ -15284,18 +15278,15 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             // lab80:
                             /*main_loop_wrapup *//*1070: */
                             if cur_l < TOO_BIG_CHAR {
-                                if LLIST_link(cur_q as usize).opt().is_some()
+                                if LLIST_link(cur_q).opt().is_some()
                                     && MEM[cur_list.tail].b16.s0 as i32
                                         == HYPHEN_CHAR[main_f as usize]
                                 {
                                     ins_disc = true;
                                 }
                                 if ligature_present {
-                                    let main_p = new_ligature(
-                                        main_f,
-                                        cur_l as u16,
-                                        *LLIST_link(cur_q as usize) as i32,
-                                    );
+                                    let main_p =
+                                        new_ligature(main_f, cur_l as u16, llist_link(cur_q));
                                     if lft_hit {
                                         MEM[main_p].b16.s0 = 2;
                                         lft_hit = false
@@ -15304,7 +15295,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                         MEM[main_p].b16.s0 += 1;
                                         rt_hit = false;
                                     }
-                                    *LLIST_link(cur_q as usize) = Some(main_p).tex_int();
+                                    *LLIST_link(cur_q) = Some(main_p).tex_int();
                                     cur_list.tail = main_p;
                                     ligature_present = false
                                 }
@@ -15339,7 +15330,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 big_switch = false;
                                 continue 'big_switch;
                             }
-                            cur_q = cur_list.tail as i32;
+                            cur_q = cur_list.tail;
                             cur_l = MEM[lig_stack.unwrap()].b16.s0 as i32;
                             current_block = 4014385708774270501;
                         }

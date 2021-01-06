@@ -833,7 +833,7 @@ pub(crate) static mut active_width: DeltaSize = DeltaSize::new();
 #[no_mangle]
 pub(crate) static mut hc: [i32; 4099] = [0; 4099];
 #[no_mangle]
-pub(crate) static mut hf: internal_font_number = 0;
+pub(crate) static mut hf: usize = 0;
 #[no_mangle]
 pub(crate) static mut hu: [i32; 4097] = [0; 4097];
 #[no_mangle]
@@ -841,19 +841,13 @@ pub(crate) static mut cur_lang: u8 = 0;
 #[no_mangle]
 pub(crate) static mut hyf: [u8; 4097] = [0; 4097];
 #[no_mangle]
-pub(crate) static mut init_list: i32 = 0;
-#[no_mangle]
-pub(crate) static mut init_lig: bool = false;
-#[no_mangle]
-pub(crate) static mut init_lft: bool = false;
-#[no_mangle]
-pub(crate) static mut hyphen_passed: i16 = 0;
+pub(crate) static mut hyphen_passed: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_l: i32 = 0;
 #[no_mangle]
 pub(crate) static mut cur_r: i32 = 0;
 #[no_mangle]
-pub(crate) static mut cur_q: i32 = 0;
+pub(crate) static mut cur_q: usize = 0;
 #[no_mangle]
 pub(crate) static mut lig_stack: Option<usize> = Some(0);
 #[no_mangle]
@@ -4255,7 +4249,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         FONT_AREA[0] = EMPTY_STRING;
         HYPHEN_CHAR[0] = '-' as i32;
         SKEW_CHAR[0] = -1;
-        BCHAR_LABEL[0] = NON_ADDRESS;
+        BCHAR_LABEL[0] = NON_ADDRESS as _;
         FONT_BCHAR[0] = TOO_BIG_CHAR;
         FONT_FALSE_BCHAR[0] = TOO_BIG_CHAR;
         FONT_BC[0] = 1;

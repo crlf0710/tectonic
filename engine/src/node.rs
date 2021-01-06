@@ -519,11 +519,11 @@ impl Ligature {
         self
     }
     /// WEB: link(char(p))
-    pub(crate) unsafe fn lig_ptr(&self) -> i32 {
-        MEM[self.ptr() + 1].b32.s1
+    pub(crate) unsafe fn lig_ptr(&self) -> Option<usize> {
+        MEM[self.ptr() + 1].b32.s1.opt()
     }
-    pub(crate) unsafe fn set_lig_ptr(&mut self, v: i32) -> &mut Self {
-        MEM[self.ptr() + 1].b32.s1 = v;
+    pub(crate) unsafe fn set_lig_ptr(&mut self, v: Option<usize>) -> &mut Self {
+        MEM[self.ptr() + 1].b32.s1 = v.tex_int();
         self
     }
     pub(crate) unsafe fn free(self) {

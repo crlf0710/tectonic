@@ -512,7 +512,7 @@ pub(crate) unsafe fn read_font_info(
     if bch_label < nl {
         BCHAR_LABEL[f] = bch_label + LIG_KERN_BASE[f]
     } else {
-        BCHAR_LABEL[f] = NON_ADDRESS;
+        BCHAR_LABEL[f] = NON_ADDRESS as _;
     }
     FONT_BCHAR[f] = bchar_0 as _;
     FONT_FALSE_BCHAR[f] = bchar_0 as nine_bits;

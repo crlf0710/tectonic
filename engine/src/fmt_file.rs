@@ -1182,16 +1182,7 @@ macro_rules! slice {
     };
 }
 
-slice!(
-    i32,
-    memory_word,
-    b32x2,
-    b16x4,
-    u16,
-    i16,
-    EqtbWord,
-    Scaled
-);
+slice!(i32, memory_word, b32x2, b16x4, u16, i16, EqtbWord, Scaled);
 
 /* Read and write dump files.  As distributed, these files are
 architecture dependent; specifically, BigEndian and LittleEndian

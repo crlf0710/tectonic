@@ -1596,7 +1596,7 @@ unsafe fn reverse(
                         }
                     }
                     TxtNode::Ligature(tmp_ptr) => {
-                        flush_node_list(tmp_ptr.lig_ptr().opt());
+                        flush_node_list(tmp_ptr.lig_ptr());
                         let mut p = Ligature(get_avail());
                         p.set_char(tmp_ptr.char())
                             .set_font(tmp_ptr.font())
