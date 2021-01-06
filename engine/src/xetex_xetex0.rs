@@ -90,7 +90,6 @@ use bridge::{OutputHandleWrapper, TTHistory, TTInputFormat};
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
-pub(crate) type packed_UTF16_code = u16;
 pub(crate) type internal_font_number = usize;
 pub(crate) type font_index = i32;
 
@@ -462,7 +461,7 @@ pub(crate) unsafe fn new_rule() -> Rule {
         .set_height(NULL_FLAG);
     p
 }
-pub(crate) unsafe fn new_ligature(f: internal_font_number, c: u16, q: i32) -> usize {
+pub(crate) unsafe fn new_ligature(f: internal_font_number, c: u16, q: Option<usize>) -> usize {
     let mut p = Ligature(get_node(SMALL_NODE_SIZE));
     set_NODE_type(p.ptr(), TextNode::Ligature);
     p.set_font(f as u16)
@@ -626,7 +625,7 @@ pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
                     }
                     _ => t_print!("$"),
                 },
-                TxtNode::Ligature(l) => short_display(l.lig_ptr().opt()),
+                TxtNode::Ligature(l) => short_display(l.lig_ptr()),
                 TxtNode::Disc(d) => {
                     short_display(d.pre_break().opt());
                     short_display(d.post_break().opt());
@@ -748,13 +747,13 @@ pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
         t_print!("\"{:X}", a);
     };
 }
-pub(crate) unsafe fn print_subsidiary_data(d: &MCell, c: UTF16_code) {
+pub(crate) unsafe fn print_subsidiary_data(d: &MCell, c: u8) {
     if PoolString::current().len() as i32 >= depth_threshold {
         if d.typ != MathCell::Empty {
             t_print!(" []");
         }
     } else {
-        str_pool[pool_ptr] = c;
+        str_pool[pool_ptr] = c as _;
         pool_ptr += 1;
         match d.typ {
             MathCell::MathChar => {
@@ -863,7 +862,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if p.is_horizontal() && p.lr_mode() == LRMode::DList {
                         t_print!(", display");
                     }
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(p.list_ptr().opt());
                     pool_ptr -= 1
@@ -886,7 +885,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if p.shrink() != Scaled::ZERO {
                         t_print!(", shrink {}", GlueUnit(p.shrink(), p.shrink_order(), ""));
                     }
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(p.list_ptr().opt());
                     pool_ptr -= 1
@@ -909,7 +908,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         p_ins.depth(),
                         p_ins.float_cost()
                     );
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(p_ins.ins_ptr().opt());
                     pool_ptr -= 1
@@ -984,7 +983,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_chr('x');
                         }
                         t_print!("leaders {}", GlueSpecUnit(g.glue_ptr(), ""));
-                        str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                        str_pool[pool_ptr] = '.' as _;
                         pool_ptr += 1;
                         show_node_list(g.leader_ptr().opt());
                         pool_ptr -= 1
@@ -1068,7 +1067,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         print_chr('|');
                     }
                     font_in_short_display = l.font() as usize;
-                    short_display(l.lig_ptr().opt());
+                    short_display(l.lig_ptr());
                     if l.right_hit() {
                         print_chr('|');
                     }
@@ -1082,11 +1081,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if d.replace_count() > 0 {
                         t_print!(" replacing {}", d.replace_count() as i32);
                     }
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(d.pre_break().opt());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr] = '|' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '|' as _;
                     pool_ptr += 1;
                     show_node_list(d.post_break().opt());
                     pool_ptr -= 1
@@ -1104,7 +1103,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if a.subtype() != AdjustType::Post {
                         t_print!(" pre ");
                     }
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(a.adj_ptr().opt());
                     pool_ptr -= 1
@@ -1115,19 +1114,19 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 },
                 TxtNode::Choice(c) => {
                     print_esc_cstr("mathchoice");
-                    str_pool[pool_ptr] = 'D' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 'D' as _;
                     pool_ptr += 1;
                     show_node_list(c.display());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr] = 'T' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 'T' as _;
                     pool_ptr += 1;
                     show_node_list(c.text());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr] = 'S' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 'S' as _;
                     pool_ptr += 1;
                     show_node_list(c.script());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr] = 's' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 's' as _;
                     pool_ptr += 1;
                     show_node_list(c.scriptscript());
                     pool_ptr -= 1
@@ -1192,10 +1191,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             Limit::NoLimits => print_esc_cstr("nolimits"),
                             Limit::Normal => {}
                         }
-                        print_subsidiary_data(bm.nucleus(), '.' as i32 as UTF16_code);
+                        print_subsidiary_data(bm.nucleus(), b'.');
                     }
-                    print_subsidiary_data(bm.supscr(), '^' as i32 as UTF16_code);
-                    print_subsidiary_data(bm.subscr(), '_' as i32 as UTF16_code);
+                    print_subsidiary_data(bm.supscr(), b'^');
+                    print_subsidiary_data(bm.subscr(), b'_');
                 }
                 MathNode::Fraction => {
                     let f = Fraction(p);
@@ -1214,8 +1213,8 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!(", right-delimiter ");
                         print_delimiter(rd);
                     }
-                    print_subsidiary_data(f.numerator(), '\\' as i32 as UTF16_code);
-                    print_subsidiary_data(f.denumerator(), '/' as i32 as UTF16_code);
+                    print_subsidiary_data(f.numerator(), b'\\');
+                    print_subsidiary_data(f.denumerator(), b'/');
                 }
             },
             Node::Unknown(_) => t_print!("Unknown node type!"),
@@ -1343,7 +1342,7 @@ pub(crate) unsafe fn flush_node_list(mut popt: Option<usize>) {
                     m.free();
                 }
                 TxtNode::Ligature(l) => {
-                    flush_node_list(l.lig_ptr().opt());
+                    flush_node_list(l.lig_ptr());
                     l.free();
                 }
                 TxtNode::Mark(m) => {
@@ -1525,7 +1524,7 @@ pub(crate) unsafe fn copy_node_list(mut popt: Option<usize>) -> i32 {
                     let mut r_lig = Ligature(r);
                     r_lig.set_char(p.char());
                     r_lig.set_font(p.font());
-                    r_lig.set_lig_ptr(copy_node_list(p.lig_ptr().opt()));
+                    r_lig.set_lig_ptr(copy_node_list(p.lig_ptr()).opt());
                 }
                 TxtNode::Disc(p) => {
                     r = get_node(SMALL_NODE_SIZE);
@@ -4501,7 +4500,6 @@ pub(crate) unsafe fn get_token(input: &mut input_state_t) -> (i32, Cmd, i32, i32
 pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
     let mut p: Option<usize> = None; // current node in parameter token list being built
     let mut rbrace_ptr: i32 = None.tex_int(); // one step before the last `right_brace` token
-    let mut match_chr: UTF16_code = 0; // character used in parameter
     let save_scanner_status = scanner_status; // `scanner_status` upon entry
     let save_warning_index = warning_index; // `warning_index` upon entry
     warning_index = cs;
@@ -4536,6 +4534,7 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
         let mut m = 0; // the number of tokens or groups (usually)
         let mut s = None; // backup pointer for parameter matching
         let mut cont = false;
+        let mut match_chr: UTF16_code = 0; // character used in parameter
         's_135: loop {
             if !cont {
                 *LLIST_link(TEMP_HEAD) = None.tex_int();
@@ -8849,28 +8848,28 @@ pub(crate) unsafe fn more_name(
     area_delimiter: &mut usize,
     ext_delimiter: &mut usize,
     quoted_filename: &mut bool,
-    file_name_quote_char: &mut Option<char>,
+    file_name_quote_char: &mut Option<u8>,
 ) -> bool {
-    if stop_at_space_ && file_name_quote_char.is_none() && c as i32 == ' ' as i32 {
+    if stop_at_space_ && file_name_quote_char.is_none() && c == b' ' as _ {
         return false;
     }
-    if stop_at_space_ && file_name_quote_char.map(|qc| qc as i32) == Some(c as i32) {
+    if stop_at_space_ && file_name_quote_char.map(|qc| qc as _) == Some(c) {
         *file_name_quote_char = None;
         return true;
     }
-    if stop_at_space_ && file_name_quote_char.is_none() && (c == '\"' as u16 || c == '\'' as u16) {
-        *file_name_quote_char = Some(char::from(c as u8));
+    if stop_at_space_ && file_name_quote_char.is_none() && (c == b'\"' as _ || c == b'\'' as _) {
+        *file_name_quote_char = Some(c as u8);
         *quoted_filename = true;
         return true;
     }
     PoolString::check_capacity(1);
     str_pool[pool_ptr] = c;
     pool_ptr += 1;
-    if c == '/' as u16 {
+    if c == b'/' as u16 {
         // IS_DIR_SEP
         *area_delimiter = PoolString::current().len();
         *ext_delimiter = 0;
-    } else if c == '.' as u16 {
+    } else if c == b'.' as u16 {
         *ext_delimiter = PoolString::current().len();
     }
     true
@@ -8883,9 +8882,9 @@ pub(crate) struct FileName {
     pub ext: str_number,
 }
 
-pub(crate) unsafe fn make_name<F>(mut f: F) -> (FileName, bool, Option<char>)
+pub(crate) unsafe fn make_name<F>(mut f: F) -> (FileName, bool, Option<u8>)
 where
-    F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<char>),
+    F: FnMut(&mut usize, &mut usize, &mut bool, &mut Option<u8>),
 {
     let mut area_delimiter = 0;
     let mut ext_delimiter = 0;
@@ -8982,7 +8981,7 @@ pub(crate) unsafe fn make_name_string(name: &str) -> str_number {
     result
 }
 
-pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, bool, Option<char>) {
+pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, bool, Option<u8>) {
     name_in_progress = true;
     let res = make_name(|a, e, q, qc| {
         let (mut tok, mut cmd, mut chr, _) = loop {
@@ -9204,10 +9203,10 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: char) {
 }
 pub(crate) unsafe fn new_native_word_node(f: usize, n: i32) -> NativeWord {
     let l = (NATIVE_NODE_SIZE as u64).wrapping_add(
-        ((n as u64) * (::std::mem::size_of::<UTF16_code>() as u64)
-            + (::std::mem::size_of::<memory_word>() as u64)
+        ((n as u64) * (std::mem::size_of::<u16>() as u64)
+            + (std::mem::size_of::<memory_word>() as u64)
             - 1)
-            / (::std::mem::size_of::<memory_word>() as u64),
+            / (std::mem::size_of::<memory_word>() as u64),
     ) as i32;
     let mut q = NativeWord::from(get_node(l) as usize);
     set_NODE_type(q.ptr(), TextNode::WhatsIt);
@@ -12464,11 +12463,11 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
         let mut q = None;
         f = EQTB[CUR_FONT_LOC].val as usize;
         let val = if cmd == Cmd::Letter || cmd == Cmd::OtherChar || cmd == Cmd::CharGiven {
-            q = new_character(f, chr as UTF16_code);
+            q = new_character(f, chr as u16);
             chr
         } else if cmd == Cmd::CharNum {
             let val = scan_char_num(input);
-            q = new_character(f, val as UTF16_code);
+            q = new_character(f, val as u16);
             val
         } else {
             back_input(input, tok);
@@ -13593,17 +13592,13 @@ pub(crate) unsafe fn do_extension(
 }
 pub(crate) unsafe fn fix_language() {
     let lang = get_int_par(IntPar::language);
-    let l: UTF16_code = if lang <= 0 || lang > 255 {
-        0
-    } else {
-        lang as UTF16_code
-    };
-    if l as i32 != cur_list.aux.b32.s1 {
+    let l = if lang <= 0 || lang > 255 { 0 } else { lang };
+    if l != cur_list.aux.b32.s1 {
         let mut lang = Language::new_node();
         *LLIST_link(cur_list.tail) = Some(lang.ptr()).tex_int();
         cur_list.tail = lang.ptr();
-        lang.set_lang(l as i32);
-        cur_list.aux.b32.s1 = l as i32;
+        lang.set_lang(l);
+        cur_list.aux.b32.s1 = l;
         lang.set_lhm(norm_min(get_int_par(IntPar::left_hyphen_min)) as u16)
             .set_rhm(norm_min(get_int_par(IntPar::right_hyphen_min)) as u16);
     };
@@ -14922,16 +14917,16 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
         ls.set_font(main_f as u16);
         cur_l = cur_chr;
         ls.set_character(cur_l as u16);
-        cur_q = cur_list.tail as i32;
+        cur_q = cur_list.tail;
 
         let mut current_block: u64;
         if cancel_boundary {
             cancel_boundary = false;
-            main_k = NON_ADDRESS;
+            main_k = NON_ADDRESS as _;
         } else {
             main_k = BCHAR_LABEL[main_f as usize]
         }
-        if main_k == NON_ADDRESS {
+        if main_k == NON_ADDRESS as _ {
             current_block = 249799543778823886;
         } else {
             cur_r = cur_l;
@@ -14982,7 +14977,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 /*1075: */
                                 if main_j.s1 >= 128 {
                                     if cur_l < TOO_BIG_CHAR {
-                                        if LLIST_link(cur_q as usize).opt().is_some()
+                                        if LLIST_link(cur_q).opt().is_some()
                                             && MEM[cur_list.tail].b16.s0 as i32
                                                 == HYPHEN_CHAR[main_f as usize]
                                         {
@@ -14992,15 +14987,14 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                             let mut main_p = Ligature(new_ligature(
                                                 main_f,
                                                 cur_l as u16,
-                                                *LLIST_link(cur_q as usize),
+                                                llist_link(cur_q),
                                             ));
                                             main_p.set_hits(lft_hit, rt_hit && lig_stack.is_some());
                                             lft_hit = false;
                                             if rt_hit && lig_stack.is_some() {
                                                 rt_hit = false;
                                             }
-                                            *LLIST_link(cur_q as usize) =
-                                                Some(main_p.ptr()).tex_int();
+                                            *LLIST_link(cur_q) = Some(main_p.ptr()).tex_int();
                                             cur_list.tail = main_p.ptr();
                                             ligature_present = false
                                         }
@@ -15068,7 +15062,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                         }
                                         7 | 11 => {
                                             if cur_l < TOO_BIG_CHAR {
-                                                if LLIST_link(cur_q as usize).opt().is_some()
+                                                if LLIST_link(cur_q).opt().is_some()
                                                     && MEM[cur_list.tail].b16.s0 as i32
                                                         == HYPHEN_CHAR[main_f as usize]
                                                 {
@@ -15078,14 +15072,13 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                                     let main_p = new_ligature(
                                                         main_f,
                                                         cur_l as u16,
-                                                        *LLIST_link(cur_q as usize),
+                                                        llist_link(cur_q),
                                                     );
                                                     if lft_hit {
                                                         MEM[main_p].b16.s0 = 2;
                                                         lft_hit = false
                                                     }
-                                                    *LLIST_link(cur_q as usize) =
-                                                        Some(main_p).tex_int();
+                                                    *LLIST_link(cur_q) = Some(main_p).tex_int();
                                                     cur_list.tail = main_p;
                                                     ligature_present = false
                                                 }
@@ -15099,7 +15092,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                                     }
                                                 }
                                             }
-                                            cur_q = cur_list.tail as i32;
+                                            cur_q = cur_list.tail;
                                             cur_l = main_j.s0 as i32;
                                             main_i = FONT_CHARACTER_INFO(
                                                 main_f,
@@ -15285,18 +15278,15 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             // lab80:
                             /*main_loop_wrapup *//*1070: */
                             if cur_l < TOO_BIG_CHAR {
-                                if LLIST_link(cur_q as usize).opt().is_some()
+                                if LLIST_link(cur_q).opt().is_some()
                                     && MEM[cur_list.tail].b16.s0 as i32
                                         == HYPHEN_CHAR[main_f as usize]
                                 {
                                     ins_disc = true;
                                 }
                                 if ligature_present {
-                                    let main_p = new_ligature(
-                                        main_f,
-                                        cur_l as u16,
-                                        *LLIST_link(cur_q as usize) as i32,
-                                    );
+                                    let main_p =
+                                        new_ligature(main_f, cur_l as u16, llist_link(cur_q));
                                     if lft_hit {
                                         MEM[main_p].b16.s0 = 2;
                                         lft_hit = false
@@ -15305,7 +15295,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                         MEM[main_p].b16.s0 += 1;
                                         rt_hit = false;
                                     }
-                                    *LLIST_link(cur_q as usize) = Some(main_p).tex_int();
+                                    *LLIST_link(cur_q) = Some(main_p).tex_int();
                                     cur_list.tail = main_p;
                                     ligature_present = false
                                 }
@@ -15340,7 +15330,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 big_switch = false;
                                 continue 'big_switch;
                             }
-                            cur_q = cur_list.tail as i32;
+                            cur_q = cur_list.tail;
                             cur_l = MEM[lig_stack.unwrap()].b16.s0 as i32;
                             current_block = 4014385708774270501;
                         }

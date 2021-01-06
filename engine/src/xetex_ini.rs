@@ -76,10 +76,8 @@ pub(crate) enum Selector {
 }
 
 /*18: */
-pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
-pub(crate) type packed_UTF16_code = u16;
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct b32x2_le_t {
@@ -706,9 +704,9 @@ pub(crate) static mut FONT_NAME: Vec<str_number> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_AREA: Vec<str_number> = Vec::new();
 #[no_mangle]
-pub(crate) static mut FONT_BC: Vec<UTF16_code> = Vec::new();
+pub(crate) static mut FONT_BC: Vec<u16> = Vec::new();
 #[no_mangle]
-pub(crate) static mut FONT_EC: Vec<UTF16_code> = Vec::new();
+pub(crate) static mut FONT_EC: Vec<u16> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_GLUE: Vec<i32> = Vec::new();
 #[no_mangle]
@@ -835,7 +833,7 @@ pub(crate) static mut active_width: DeltaSize = DeltaSize::new();
 #[no_mangle]
 pub(crate) static mut hc: [i32; 4099] = [0; 4099];
 #[no_mangle]
-pub(crate) static mut hf: internal_font_number = 0;
+pub(crate) static mut hf: usize = 0;
 #[no_mangle]
 pub(crate) static mut hu: [i32; 4097] = [0; 4097];
 #[no_mangle]
@@ -843,19 +841,13 @@ pub(crate) static mut cur_lang: u8 = 0;
 #[no_mangle]
 pub(crate) static mut hyf: [u8; 4097] = [0; 4097];
 #[no_mangle]
-pub(crate) static mut init_list: i32 = 0;
-#[no_mangle]
-pub(crate) static mut init_lig: bool = false;
-#[no_mangle]
-pub(crate) static mut init_lft: bool = false;
-#[no_mangle]
-pub(crate) static mut hyphen_passed: i16 = 0;
+pub(crate) static mut hyphen_passed: usize = 0;
 #[no_mangle]
 pub(crate) static mut cur_l: i32 = 0;
 #[no_mangle]
 pub(crate) static mut cur_r: i32 = 0;
 #[no_mangle]
-pub(crate) static mut cur_q: i32 = 0;
+pub(crate) static mut cur_q: usize = 0;
 #[no_mangle]
 pub(crate) static mut lig_stack: Option<usize> = Some(0);
 #[no_mangle]
@@ -1116,7 +1108,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                         let mut q = 0;
                         hc[0] = cur_lang as i32;
                         while l <= k {
-                            let c = hc[l as usize] as UTF16_code;
+                            let c = hc[l as usize] as _;
                             l += 1;
                             let mut p = trie_l[q as usize];
                             let mut first_child = true;
@@ -1168,18 +1160,18 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
         /*:996*/
         if get_int_par(IntPar::saving_hyphs) > 0 {
             /*1643:*/
-            let c = cur_lang as UTF16_code;
+            let c = cur_lang;
             let first_child = false;
             let mut p = 0;
             let mut q;
             loop {
                 q = p;
                 p = trie_r[q as usize];
-                if p == 0 || c as i32 <= trie_c[p as usize] as i32 {
+                if p == 0 || (c as u16) <= trie_c[p as usize] {
                     break;
                 }
             }
-            if p == 0 || (c as i32) < trie_c[p as usize] as i32 {
+            if p == 0 || (c as u16) < trie_c[p as usize] {
                 /*:1644*/
                 /*999:*/
                 if trie_ptr == trie_size {
@@ -1194,15 +1186,14 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                 } else {
                     trie_r[q as usize] = p;
                 }
-                trie_c[p as usize] = c;
+                trie_c[p as usize] = c as _;
                 trie_o[p as usize] = MIN_TRIE_OP;
             }
             let mut q = p;
             let mut p = trie_l[q as usize];
             let mut first_child = true;
-            let mut c = 0 as UTF16_code;
-            while c as i32 <= 255 {
-                if *LC_CODE(c as _) > 0 || c == 255 && first_child {
+            for c in 0..=255 {
+                if *LC_CODE(c) > 0 || c == 255 && first_child {
                     if p == 0 {
                         /*999:*/
                         if trie_ptr == trie_size {
@@ -1218,17 +1209,16 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                         } else {
                             trie_r[q as usize] = p;
                         }
-                        trie_c[p as usize] = c;
+                        trie_c[p as usize] = c as _;
                         trie_o[p as usize] = MIN_TRIE_OP;
                     } else {
-                        trie_c[p as usize] = c;
+                        trie_c[p as usize] = c as _;
                     }
-                    trie_o[p as usize] = *LC_CODE(c as _) as _;
+                    trie_o[p as usize] = *LC_CODE(c) as _;
                     q = p;
                     p = trie_r[q as usize];
                     first_child = false
                 }
-                c = c.wrapping_add(1)
             }
             if first_child {
                 trie_l[q as usize] = 0;
@@ -1325,7 +1315,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
 
                     for j in 1..=n {
                         h = ((h as i32 + h as i32 + hc[j]) % HYPH_PRIME) as hyph_pointer;
-                        str_pool[pool_ptr] = hc[j] as packed_UTF16_code;
+                        str_pool[pool_ptr] = hc[j] as u16;
                         pool_ptr += 1;
                     }
 
@@ -4259,7 +4249,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         FONT_AREA[0] = EMPTY_STRING;
         HYPHEN_CHAR[0] = '-' as i32;
         SKEW_CHAR[0] = -1;
-        BCHAR_LABEL[0] = NON_ADDRESS;
+        BCHAR_LABEL[0] = NON_ADDRESS as _;
         FONT_BCHAR[0] = TOO_BIG_CHAR;
         FONT_FALSE_BCHAR[0] = TOO_BIG_CHAR;
         FONT_BC[0] = 1;

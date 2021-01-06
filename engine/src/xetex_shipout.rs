@@ -31,8 +31,8 @@ use crate::xetex_texmfmp::maketexstring;
 use crate::xetex_xetex0::{
     begin_token_list, diagnostic, effective_char, end_token_list, flush_list, flush_node_list,
     free_node, get_avail, get_node, get_token, internal_font_number, make_name_string, new_kern,
-    new_math, new_native_word_node, open_log_file, pack_job_name, packed_UTF16_code, prepare_mag,
-    scan_toks, show_box, str_number, token_show, FileName, UTF16_code,
+    new_math, new_native_word_node, open_log_file, pack_job_name, prepare_mag, scan_toks, show_box,
+    str_number, token_show, FileName, UTF16_code,
 };
 use crate::xetex_xetex0::{TokenList, TokenNode};
 use crate::xetex_xetexd::{
@@ -453,7 +453,7 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         }
                                     }
                                     Node::Text(TxtNode::Glue(q)) => {
-                                        str_pool[pool_ptr] = ' ' as i32 as packed_UTF16_code;
+                                        str_pool[pool_ptr] = ' ' as _;
                                         pool_ptr += 1;
                                         let g = GlueSpec(q.glue_ptr() as usize);
                                         k += g.size();
@@ -1276,7 +1276,7 @@ unsafe fn vlist_out(this_box: &List) {
                     }
                     dvi_out(SET_GLYPHS);
                     dvi_four(0); /* width */
-                    dvi_two(1 as UTF16_code); /* glyph count */
+                    dvi_two(1_u16); /* glyph count */
                     dvi_four(0); /* x offset as fixed-point */
                     dvi_four(0); /* y offset as fixed-point */
                     dvi_two(g.glyph());
@@ -1596,7 +1596,7 @@ unsafe fn reverse(
                         }
                     }
                     TxtNode::Ligature(tmp_ptr) => {
-                        flush_node_list(tmp_ptr.lig_ptr().opt());
+                        flush_node_list(tmp_ptr.lig_ptr());
                         let mut p = Ligature(get_avail());
                         p.set_char(tmp_ptr.char())
                             .set_font(tmp_ptr.font())
@@ -2263,7 +2263,7 @@ unsafe fn dvi_four(x: i32) {
     dvi_out(b[3]);
 }
 
-unsafe fn dvi_two(s: UTF16_code) {
+unsafe fn dvi_two(s: u16) {
     let b = s.to_be_bytes();
     dvi_out(b[0]);
     dvi_out(b[1]);

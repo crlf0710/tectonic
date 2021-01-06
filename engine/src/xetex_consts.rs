@@ -1006,7 +1006,7 @@ pub(crate) const SET_TEXT_AND_GLYPHS: u8 = 254;
 
 pub(crate) const XETEX_VERSION: placeholdertype = 0;
 pub(crate) const FONT_BASE: usize = 0;
-pub(crate) const NON_ADDRESS: placeholdertype = 0;
+pub(crate) const NON_ADDRESS: usize = 0;
 pub(crate) const UNDEFINED_PRIMITIVE: placeholdertype = 0;
 pub(crate) const PRIM_BASE: usize = 1;
 pub(crate) const SLANT_CODE: placeholdertype = 1;

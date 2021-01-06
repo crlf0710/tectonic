@@ -410,54 +410,29 @@ impl fmt::Display for FileName {
         if f.alternate() {
             let mut must_quote: bool = false;
             let mut quote_char = None;
-            if a != 0 {
-                for &j in PoolString::from(a).as_slice() {
-                    if must_quote && quote_char.is_some() {
-                        break;
-                    }
-                    if j as i32 == ' ' as i32 {
-                        must_quote = true;
-                    } else if j as i32 == '\"' as i32 {
-                        must_quote = true;
-                        quote_char = Some('\'');
-                    } else if j as i32 == '\'' as i32 {
-                        must_quote = true;
-                        quote_char = Some('\"');
-                    }
-                }
-            }
-            if n != 0 {
-                for &j in PoolString::from(n).as_slice() {
-                    if must_quote && quote_char.is_some() {
-                        break;
-                    }
-                    if j as i32 == ' ' as i32 {
-                        must_quote = true;
-                    } else if j as i32 == '\"' as i32 {
-                        must_quote = true;
-                        quote_char = Some('\'');
-                    } else if j as i32 == '\'' as i32 {
-                        must_quote = true;
-                        quote_char = Some('\"');
+
+            fn find_quote(s: i32, quote_char: &mut Option<char>, must_quote: &mut bool) {
+                if s != 0 {
+                    for &j in PoolString::from(s).as_slice() {
+                        if *must_quote && quote_char.is_some() {
+                            break;
+                        }
+                        if j == b' ' as _ {
+                            *must_quote = true;
+                        } else if j == b'\"' as _ {
+                            *must_quote = true;
+                            *quote_char = Some('\'');
+                        } else if j == b'\'' as _ {
+                            *must_quote = true;
+                            *quote_char = Some('\"');
+                        }
                     }
                 }
             }
-            if e != 0 {
-                for &j in PoolString::from(e).as_slice() {
-                    if must_quote && quote_char.is_some() {
-                        break;
-                    }
-                    if j as i32 == ' ' as i32 {
-                        must_quote = true;
-                    } else if j as i32 == '\"' as i32 {
-                        must_quote = true;
-                        quote_char = Some('\'');
-                    } else if j as i32 == '\'' as i32 {
-                        must_quote = true;
-                        quote_char = Some('\"');
-                    }
-                }
-            }
+            find_quote(a, &mut quote_char, &mut must_quote);
+            find_quote(n, &mut quote_char, &mut must_quote);
+            find_quote(e, &mut quote_char, &mut must_quote);
+
             if must_quote {
                 if let Some(qc) = quote_char {
                     qc.fmt(f)?;
@@ -466,54 +441,35 @@ impl fmt::Display for FileName {
                     '\"'.fmt(f)?;
                 }
             }
-            if a != 0 {
-                for j in std::char::decode_utf16(PoolString::from(a).as_slice().iter().cloned()) {
-                    let j = j.unwrap();
-                    if Some(j) == quote_char {
+
+            fn fmt_name_part(
+                f: &mut fmt::Formatter,
+                s: i32,
+                quote_char: &mut Option<char>,
+            ) -> fmt::Result {
+                if s != 0 {
+                    for j in std::char::decode_utf16(PoolString::from(s).as_slice().iter().cloned())
+                    {
+                        let j = j.unwrap();
+                        if Some(j) == *quote_char {
+                            j.fmt(f)?;
+                            let c = match j {
+                                '\"' => '\'',
+                                '\'' => '\"',
+                                _ => unreachable!(),
+                            };
+                            *quote_char = Some(c);
+                            c.fmt(f)?;
+                        }
                         j.fmt(f)?;
-                        let c = match j {
-                            '\"' => '\'',
-                            '\'' => '\"',
-                            _ => unreachable!(),
-                        };
-                        quote_char = Some(c);
-                        c.fmt(f)?;
                     }
-                    j.fmt(f)?;
                 }
+                Ok(())
             }
-            if n != 0 {
-                for j in std::char::decode_utf16(PoolString::from(n).as_slice().iter().cloned()) {
-                    let j = j.unwrap();
-                    if Some(j) == quote_char {
-                        j.fmt(f)?;
-                        let c = match j {
-                            '\"' => '\'',
-                            '\'' => '\"',
-                            _ => unreachable!(),
-                        };
-                        quote_char = Some(c);
-                        c.fmt(f)?;
-                    }
-                    j.fmt(f)?;
-                }
-            }
-            if e != 0 {
-                for j in std::char::decode_utf16(PoolString::from(e).as_slice().iter().cloned()) {
-                    let j = j.unwrap();
-                    if Some(j) == quote_char {
-                        j.fmt(f)?;
-                        let c = match j {
-                            '\"' => '\'',
-                            '\'' => '\"',
-                            _ => unreachable!(),
-                        };
-                        quote_char = Some(c);
-                        c.fmt(f)?;
-                    }
-                    j.fmt(f)?;
-                }
-            }
+            fmt_name_part(f, a, &mut quote_char)?;
+            fmt_name_part(f, n, &mut quote_char)?;
+            fmt_name_part(f, e, &mut quote_char)?;
+
             if let Some(qc) = quote_char {
                 qc.fmt(f)?;
             };
@@ -609,30 +565,30 @@ pub(crate) unsafe fn print_file_line() {
 pub(crate) struct Roman(pub i32);
 impl fmt::Display for Roman {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        const roman_data: &[u8] = b"m2d5c2l5x2v5i";
+        const ROMAN_DATA: &[u8] = b"m2d5c2l5x2v5i";
         let mut n = self.0;
-        let mut j: u8 = 0_u8;
+        let mut j = 0;
         let mut v = 1000;
         loop {
             while n >= v {
-                char::from(roman_data[j as usize]).fmt(f)?;
+                char::from(ROMAN_DATA[j]).fmt(f)?;
                 n -= v;
             }
             if n <= 0 {
                 return Ok(());
             }
             let mut k = j + 2;
-            let mut u = v / (roman_data[k as usize - 1] as i32 - '0' as i32);
-            if roman_data[k as usize - 1] as i32 == '2' as i32 {
+            let mut u = v / ((ROMAN_DATA[k - 1] - b'0') as i32);
+            if ROMAN_DATA[k - 1] == b'2' {
                 k += 2;
-                u /= roman_data[k as usize - 1] as i32 - '0' as i32;
+                u /= (ROMAN_DATA[k - 1] - b'0') as i32;
             }
             if n + u >= v {
-                char::from(roman_data[k as usize]).fmt(f)?;
+                char::from(ROMAN_DATA[k]).fmt(f)?;
                 n += u;
             } else {
                 j += 2;
-                v /= roman_data[j as usize - 1] as i32 - '0' as i32;
+                v /= (ROMAN_DATA[j - 1] - b'0') as i32;
             }
         }
     }

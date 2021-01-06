@@ -3,7 +3,7 @@ use std::ptr;
 use crate::cmd::{Cmd, InteractionMode};
 use crate::help;
 use crate::xetex_consts::IntPar;
-use crate::xetex_ini::{b16x4, b32x2, memory_word, EqtbWord, Selector, UTF16_code, FONT_PTR};
+use crate::xetex_ini::{b16x4, b32x2, memory_word, EqtbWord, Selector, FONT_PTR};
 use crate::xetex_output::Esc;
 use crate::xetex_stringpool::{
     init_pool_ptr, init_str_ptr, max_strings, pool_free, pool_ptr, pool_size, str_pool, str_ptr,
@@ -1182,16 +1182,7 @@ macro_rules! slice {
     };
 }
 
-slice!(
-    i32,
-    memory_word,
-    b32x2,
-    b16x4,
-    UTF16_code,
-    i16,
-    EqtbWord,
-    Scaled
-);
+slice!(i32, memory_word, b32x2, b16x4, u16, i16, EqtbWord, Scaled);
 
 /* Read and write dump files.  As distributed, these files are
 architecture dependent; specifically, BigEndian and LittleEndian

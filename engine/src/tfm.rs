@@ -8,9 +8,7 @@ use std::io::Read;
 
 use crate::xetex_ini::b16x4;
 use crate::xetex_ini::nine_bits;
-use crate::xetex_ini::packed_UTF16_code;
 use crate::xetex_ini::str_number;
-use crate::xetex_ini::UTF16_code;
 use crate::xetex_scaledmath::Scaled;
 
 use crate::xetex_xetexd::TeXInt;
@@ -92,7 +90,7 @@ pub(crate) unsafe fn read_font_info(
     file: &FileName,
     s: Scaled,
     quoted_filename: bool,
-    file_name_quote_char: Option<char>,
+    file_name_quote_char: Option<u8>,
 ) -> Result<(bool, usize, String), TfmError> {
     let name = file.to_string();
 
@@ -514,7 +512,7 @@ pub(crate) unsafe fn read_font_info(
     if bch_label < nl {
         BCHAR_LABEL[f] = bch_label + LIG_KERN_BASE[f]
     } else {
-        BCHAR_LABEL[f] = NON_ADDRESS;
+        BCHAR_LABEL[f] = NON_ADDRESS as _;
     }
     FONT_BCHAR[f] = bchar_0 as _;
     FONT_FALSE_BCHAR[f] = bchar_0 as nine_bits;
@@ -528,8 +526,8 @@ pub(crate) unsafe fn read_font_info(
 
     FONT_NAME[f] = file.name;
     FONT_AREA[f] = file.area;
-    FONT_BC[f] = bc as UTF16_code;
-    FONT_EC[f] = ec as UTF16_code;
+    FONT_BC[f] = bc as _;
+    FONT_EC[f] = ec as _;
     FONT_GLUE[f] = None.tex_int();
     PARAM_BASE[f] -= 1;
     fmem_ptr += lf;
@@ -545,17 +543,17 @@ pub(crate) unsafe fn bad_tfm(
     u: i32,
     file: &FileName,
     s: Scaled,
-    file_name_quote_char: Option<char>,
+    file_name_quote_char: Option<u8>,
 ) {
     if get_int_par(IntPar::suppress_fontnotfound_error) == 0 {
         /* NOTE: must preserve this path to keep passing the TRIP tests */
         t_eprint!("Font {:#}=", Cs(u));
         if let Some(qc) = file_name_quote_char {
-            print_chr(qc);
+            print_chr(char::from(qc));
         }
         t_print!("{:#}", file);
         if let Some(qc) = file_name_quote_char {
-            print_chr(qc);
+            print_chr(char::from(qc));
         }
         if s >= Scaled::ZERO {
             t_print!(" at {}pt", s);
@@ -611,7 +609,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
     };
     PoolString::check_capacity(name.len());
     for b in name.bytes() {
-        str_pool[pool_ptr] = b as packed_UTF16_code;
+        str_pool[pool_ptr] = b as _;
         pool_ptr += 1;
     }
 
@@ -656,8 +654,8 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
     HEIGHT_BASE[FONT_PTR] = ascent.0;
     DEPTH_BASE[FONT_PTR] = -descent.0;
     FONT_PARAMS[FONT_PTR] = num_font_dimens;
-    FONT_BC[FONT_PTR] = 0 as UTF16_code;
-    FONT_EC[FONT_PTR] = 65535 as UTF16_code;
+    FONT_BC[FONT_PTR] = 0;
+    FONT_EC[FONT_PTR] = 65535;
     font_used[FONT_PTR] = false;
     HYPHEN_CHAR[FONT_PTR] = get_int_par(IntPar::default_hyphen_char);
     SKEW_CHAR[FONT_PTR] = get_int_par(IntPar::default_skew_char);
@@ -706,18 +704,18 @@ unsafe fn nf_error(
     u: i32,
     file: &FileName,
     s: Scaled,
-    file_name_quote_char: Option<char>,
+    file_name_quote_char: Option<u8>,
 ) {
     match e {
         NativeFontError::NotFound => {}
         NativeFontError::NotEnoughMemory => {
             t_eprint!("Font {:#}=", Cs(u));
             if let Some(qc) = file_name_quote_char {
-                print_chr(qc);
+                print_chr(char::from(qc));
             }
             t_print!("{:#}", file);
             if let Some(qc) = file_name_quote_char {
-                print_chr(qc);
+                print_chr(char::from(qc));
             }
             if s >= Scaled::ZERO {
                 t_print!(" at {}pt", s);

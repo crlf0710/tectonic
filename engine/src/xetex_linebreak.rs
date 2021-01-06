@@ -9,15 +9,13 @@ use crate::trie::{
 };
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error};
-use crate::xetex_ini::b16x4;
 use crate::xetex_ini::{
     active_width, adjust_tail, arith_error, avail, cur_l, cur_lang, cur_list, cur_q, cur_r,
     first_p, font_in_short_display, global_prev_p, hc, hf, hu, hyf, hyph_index, hyphen_passed,
-    init_lft, init_lig, init_list, just_box, last_leftmost_char, last_rightmost_char, lft_hit,
-    lig_stack, ligature_present, pack_begin_line, pre_adjust_tail, rt_hit,
-    semantic_pagination_enabled, xtx_ligature_present, BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR,
-    FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST, HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM,
-    WIDTH_BASE,
+    just_box, last_leftmost_char, last_rightmost_char, lft_hit, lig_stack, ligature_present,
+    pack_begin_line, pre_adjust_tail, rt_hit, semantic_pagination_enabled, xtx_ligature_present,
+    BCHAR_LABEL, CHAR_BASE, EQTB, FONT_BCHAR, FONT_INFO, HYPHEN_CHAR, HYPH_LINK, HYPH_LIST,
+    HYPH_WORD, KERN_BASE, LIG_KERN_BASE, MEM, WIDTH_BASE,
 };
 use std::cmp::Ordering;
 
@@ -38,7 +36,6 @@ use crate::xetex_scaledmath::Scaled;
 
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
-pub(crate) type font_index = i32;
 pub(crate) type hyph_pointer = u16;
 
 const AWFUL_BAD: i32 = 0x3FFFFFFF;
@@ -48,6 +45,7 @@ const DECENT_FIT: u8 = 2;
 const TIGHT_FIT: u8 = 3;
 const LAST_ACTIVE: usize = ACTIVE_LIST;
 
+static mut init_lig: Option<bool> = None;
 static mut passive: i32 = 0;
 use crate::node::DeltaSize;
 static mut cur_active_width: DeltaSize = DeltaSize::new();
@@ -73,15 +71,15 @@ static mut fewest_demerits: i32 = 0;
 static mut best_line: i32 = 0;
 static mut actual_looseness: i32 = 0;
 static mut line_diff: i32 = 0;
-static mut hn: i16 = 0;
+static mut hn: usize = 0;
 static mut ha: usize = 0;
 static mut hb: usize = 0;
 static mut hyf_char: i32 = 0;
 static mut init_cur_lang: u8 = 0;
-static mut l_hyf: i32 = 0;
-static mut r_hyf: i32 = 0;
-static mut init_l_hyf: i32 = 0;
-static mut init_r_hyf: i32 = 0;
+static mut l_hyf: usize = 0;
+static mut r_hyf: usize = 0;
+static mut init_l_hyf: usize = 0;
+static mut init_r_hyf: usize = 0;
 static mut hyf_bchar: i32 = 0;
 static mut last_line_fill: i32 = 0;
 static mut do_last_line_fit: bool = false;
@@ -141,8 +139,8 @@ pub(crate) unsafe fn line_break(d: bool) {
     /* Yet more initialization of various kinds */
 
     init_cur_lang = (cur_list.prev_graf % 65536) as _;
-    init_l_hyf = cur_list.prev_graf / 0x400000;
-    init_r_hyf = (cur_list.prev_graf / 65536) % 64;
+    init_l_hyf = (cur_list.prev_graf / 0x400000) as _;
+    init_r_hyf = ((cur_list.prev_graf / 65536) % 64) as _;
 
     pop_nest();
 
@@ -343,8 +341,8 @@ pub(crate) unsafe fn line_break(d: bool) {
                 TxtNode::WhatsIt(cp) => match cp {
                     WhatsIt::Language(l) => {
                         cur_lang = l.lang() as u8;
-                        l_hyf = l.lhm() as i32;
-                        r_hyf = l.rhm() as i32;
+                        l_hyf = l.lhm() as usize;
+                        r_hyf = l.rhm() as usize;
                         if trie_trc[(hyph_start + cur_lang as i32) as usize] as i32
                             != cur_lang as i32
                         {
@@ -699,7 +697,7 @@ pub(crate) unsafe fn line_break(d: bool) {
                             hf = s.font() as usize;
                         }
                         CharOrText::Text(TxtNode::Ligature(l)) => {
-                            if let Some(q) = l.lig_ptr().opt() {
+                            if let Some(q) = l.lig_ptr() {
                                 let q = Char(q);
                                 c = q.character() as UnicodeScalar;
                                 hf = q.font() as usize;
@@ -736,8 +734,8 @@ pub(crate) unsafe fn line_break(d: bool) {
                                 }
                                 WhatsIt::Language(l) => {
                                     cur_lang = l.lang() as u8;
-                                    l_hyf = l.lhm() as i32;
-                                    r_hyf = l.rhm() as i32;
+                                    l_hyf = l.lhm() as usize;
+                                    r_hyf = l.rhm() as usize;
 
                                     hyph_index =
                                         if trie_trc[(hyph_start + cur_lang as i32) as usize] as i32
@@ -828,7 +826,7 @@ pub(crate) unsafe fn line_break(d: bool) {
                      * "Note that if there are chars with lccode = 0,
                      * we split them out into separate native_word
                      * nodes." */
-                    hn = 0 as i16;
+                    hn = 0;
 
                     'restart: loop {
                         // 'ha' can change in the loop, so for safety:
@@ -877,20 +875,19 @@ pub(crate) unsafe fn line_break(d: bool) {
                                 ha_nw = NativeWord::from(ha);
                                 break;
                             } else {
-                                if hn as usize == max_hyphenatable_length() {
+                                if hn == max_hyphenatable_length() {
                                     break 'restart;
                                 }
                                 hn += 1;
                                 if (c as i64) < 65536 {
-                                    hu[hn as usize] = c;
-                                    hc[hn as usize] = hc[0]
+                                    hu[hn] = c;
+                                    hc[hn] = hc[0]
                                 } else {
-                                    hu[hn as usize] = ((c as i64 - 65536) / 1024 + 0xd800) as i32;
-                                    hc[hn as usize] =
-                                        ((hc[0] as i64 - 65536) / 1024 + 0xd800) as i32;
+                                    hu[hn] = ((c as i64 - 65536) / 1024 + 0xd800) as i32;
+                                    hc[hn] = ((hc[0] as i64 - 65536) / 1024 + 0xd800) as i32;
                                     hn += 1;
-                                    hu[hn as usize] = c % 1024 + 0xdc00;
-                                    hc[hn as usize] = hc[0] % 1024 + 0xdc00;
+                                    hu[hn] = c % 1024 + 0xdc00;
+                                    hc[hn] = hc[0] % 1024 + 0xdc00;
                                     l += 1;
                                 }
                                 hyf_bchar = TOO_BIG_CHAR;
@@ -923,13 +920,13 @@ pub(crate) unsafe fn line_break(d: bool) {
                                 if hc[0] > max_hyph_char {
                                     break;
                                 }
-                                if hn as usize == max_hyphenatable_length() {
+                                if hn == max_hyphenatable_length() {
                                     break;
                                 }
                                 hb = s.ptr();
                                 hn += 1;
-                                hu[hn as usize] = c;
-                                hc[hn as usize] = hc[0];
+                                hu[hn] = c;
+                                hc[hn] = hc[0];
                                 hyf_bchar = TOO_BIG_CHAR;
                             }
                             CharOrText::Text(TxtNode::Ligature(l)) => {
@@ -939,7 +936,7 @@ pub(crate) unsafe fn line_break(d: bool) {
                                     break;
                                 }
                                 let mut j = hn;
-                                let mut qopt = l.lig_ptr().opt();
+                                let mut qopt = l.lig_ptr();
                                 if let Some(q) = qopt {
                                     let q = Char(q);
                                     hyf_bchar = q.character() as i32;
@@ -960,18 +957,18 @@ pub(crate) unsafe fn line_break(d: bool) {
                                     if hc[0] > max_hyph_char {
                                         break 's_1342;
                                     }
-                                    if j as usize == max_hyphenatable_length() {
+                                    if j == max_hyphenatable_length() {
                                         break 's_1342;
                                     }
                                     j += 1;
-                                    hu[j as usize] = c;
-                                    hc[j as usize] = hc[0];
+                                    hu[j] = c;
+                                    hc[j] = hc[0];
                                     qopt = llist_link(q.ptr());
                                 }
                                 hb = l.ptr();
                                 hn = j;
                                 if l.right_hit() {
-                                    hyf_bchar = FONT_BCHAR[hf as usize]
+                                    hyf_bchar = FONT_BCHAR[hf]
                                 } else {
                                     hyf_bchar = TOO_BIG_CHAR;
                                 }
@@ -981,7 +978,7 @@ pub(crate) unsafe fn line_break(d: bool) {
                             {
                                 /*:932*/
                                 hb = s.ptr();
-                                hyf_bchar = FONT_BCHAR[hf as usize]
+                                hyf_bchar = FONT_BCHAR[hf]
                             }
                             _ => break,
                         }
@@ -992,7 +989,7 @@ pub(crate) unsafe fn line_break(d: bool) {
                 /*933: check that the nodes following hb permit
                  * hyphenation and that at least l_hyf + r_hyf letters
                  * have been found, otherwise goto done1 */
-                if (hn as i32) < l_hyf + r_hyf {
+                if hn < l_hyf + r_hyf {
                     return c;
                 }
 
@@ -2014,17 +2011,16 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
 }
 unsafe fn hyphenate() {
     let mut current_block: u64 = 0;
-    let mut l: i16;
     let mut c: UnicodeScalar = 0i32;
 
     for j in 0..=hn {
-        hyf[j as usize] = 0_u8;
+        hyf[j] = 0_u8;
     }
     let mut h = hc[1] as hyph_pointer;
     hn += 1;
-    hc[hn as usize] = cur_lang as i32;
+    hc[hn] = cur_lang as i32;
     for j in 2..=hn {
-        h = ((h as i32 + h as i32 + hc[j as usize]) % HYPH_PRIME) as hyph_pointer;
+        h = ((h as i32 + h as i32 + hc[j]) % HYPH_PRIME) as hyph_pointer;
     }
     'hyph: loop {
         let k = HYPH_WORD[h as usize];
@@ -2033,12 +2029,12 @@ unsafe fn hyphenate() {
             break;
         }
         let ks = PoolString::from(k);
-        if ks.len() == hn as usize {
+        if ks.len() == hn {
             for (j, &kc) in ks.as_slice().iter().enumerate() {
                 if kc as i32 != hc[j + 1] {
                     break;
                 }
-                if j + 1 >= hn as usize {
+                if j + 1 >= hn {
                     let mut sopt = HYPH_LIST[h as usize];
                     while let Some(s) = sopt {
                         hyf[MEM[s].b32.s0 as usize] = 1_u8;
@@ -2062,20 +2058,20 @@ unsafe fn hyphenate() {
             return;
         }
         hc[0] = 0;
-        hc[(hn as i32 + 1) as usize] = 0;
-        hc[(hn as i32 + 2) as usize] = max_hyph_char;
-        for j in 0..=(hn as i32 - r_hyf + 1) {
-            let mut z = trie_trl[(cur_lang as i32 + 1) as usize] + hc[j as usize];
-            l = j as i16;
+        hc[hn + 1] = 0;
+        hc[hn + 2] = max_hyph_char;
+        for j in 0..=(hn - r_hyf + 1) {
+            let mut z = trie_trl[(cur_lang as i32 + 1) as usize] + hc[j];
+            let mut l = j;
             while hc[l as usize] == trie_trc[z as usize] as i32 {
                 if trie_tro[z as usize] != MIN_TRIE_OP as i32 {
                     /*959: */
                     let mut v = trie_tro[z as usize]; /*:958 */
                     loop {
                         v += op_start[cur_lang as usize];
-                        let i = (l as i32 - hyf_distance[v as usize] as i32) as i16;
-                        if hyf_num[v as usize] as i32 > hyf[i as usize] as i32 {
-                            hyf[i as usize] = hyf_num[v as usize] as u8
+                        let i = l - hyf_distance[v as usize] as usize;
+                        if hyf_num[v as usize] as i32 > hyf[i] as i32 {
+                            hyf[i] = hyf_num[v as usize] as u8
                         }
                         v = hyf_next[v as usize] as i32;
                         if v == MIN_TRIE_OP as i32 {
@@ -2084,29 +2080,31 @@ unsafe fn hyphenate() {
                     }
                 }
                 l += 1;
-                z = trie_trl[z as usize] + hc[l as usize];
+                z = trie_trl[z as usize] + hc[l];
             }
         }
     }
     for j in 0..l_hyf {
-        hyf[j as usize] = 0_u8;
+        hyf[j] = 0_u8;
     }
     for j in 0..r_hyf {
-        hyf[(hn as i32 - j as i32) as usize] = 0_u8;
+        hyf[hn - j] = 0_u8;
     }
-    let mut j = l_hyf as i16;
-    let for_end_4 = hn as i32 - r_hyf;
-    if j as i32 > for_end_4 {
-        return;
-    };
-    loop {
-        if hyf[j as usize] as i32 & 1i32 != 0 {
-            break;
-        }
-        if (j as i32) >= for_end_4 {
+    {
+        let mut j = l_hyf;
+        let for_end = hn - r_hyf;
+        if j > for_end {
             return;
+        };
+        loop {
+            if hyf[j] as i32 & 1 != 0 {
+                break;
+            }
+            if j >= for_end {
+                return;
+            }
+            j += 1;
         }
-        j += 1;
     }
     if let CharOrText::Text(TxtNode::WhatsIt(WhatsIt::NativeWord(ha_nw))) = &CharOrText::from(ha) {
         let mut s = cur_p.unwrap();
@@ -2114,14 +2112,13 @@ unsafe fn hyphenate() {
             s = *LLIST_link(s) as usize;
         }
         hyphen_passed = 0;
-        for j in l_hyf..=(hn as i32 - r_hyf) {
-            if hyf[j as usize] as i32 & 1i32 != 0 {
-                let mut q = new_native_word_node(hf, j as i32 - hyphen_passed as i32);
+        for j in l_hyf..=(hn - r_hyf) {
+            if hyf[j] as i32 & 1 != 0 {
+                let mut q = new_native_word_node(hf, (j - hyphen_passed) as i32);
                 q.set_actual_text_from(ha_nw);
 
                 let ha_text = ha_nw.text();
-                q.text_mut()
-                    .copy_from_slice(&ha_text[hyphen_passed as usize..j as usize]);
+                q.text_mut().copy_from_slice(&ha_text[hyphen_passed..j]);
 
                 q.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
                 *LLIST_link(s) = Some(q.ptr()).tex_int();
@@ -2133,15 +2130,14 @@ unsafe fn hyphenate() {
                 );
                 *LLIST_link(s) = Some(q.ptr()).tex_int();
                 s = q.ptr();
-                hyphen_passed = j as i16;
+                hyphen_passed = j;
             }
         }
         let ha_text = ha_nw.text();
-        hn = ha_text.len() as i16;
-        let mut q = new_native_word_node(hf, hn as i32 - hyphen_passed as i32);
+        hn = ha_text.len() as usize;
+        let mut q = new_native_word_node(hf, (hn - hyphen_passed) as i32);
         q.set_actual_text_from(ha_nw);
-        q.text_mut()
-            .copy_from_slice(&ha_text[(hyphen_passed as usize)..]);
+        q.text_mut().copy_from_slice(&ha_text[hyphen_passed..]);
 
         q.set_metrics(get_int_par(IntPar::xetex_use_glyph_metrics) > 0);
         *LLIST_link(s) = Some(q.ptr()).tex_int();
@@ -2151,84 +2147,96 @@ unsafe fn hyphenate() {
         *LLIST_link(ha) = None.tex_int();
         flush_node_list(Some(ha));
     } else {
-        let mut s = 0; // TODO: check
+        unsafe fn get_prev(first: usize, current: usize) -> usize {
+            let mut s = first;
+            while LLIST_link(s).opt() != Some(current) {
+                s = *LLIST_link(s) as usize;
+            }
+            s
+        }
+
+        let mut s;
         let q = *LLIST_link(hb);
         *LLIST_link(hb) = None.tex_int();
         let r = LLIST_link(ha).opt().unwrap();
         *LLIST_link(ha) = None.tex_int();
         let bchar = hyf_bchar;
-        let current_block: u64 = match CharOrText::from(ha) {
+        let init_list;
+        let mut j;
+        match CharOrText::from(ha) {
             CharOrText::Char(c) => {
                 if c.font() as usize != hf {
-                    6826215413708131726
+                    // found2:
+                    s = ha;
+                    j = 0;
+                    hu[0] = max_hyph_char;
+                    init_lig = None;
+                    init_list = None;
                 } else {
-                    init_list = Some(c.ptr()).tex_int();
-                    init_lig = false;
+                    init_list = Some(c.ptr());
+                    init_lig = None;
                     hu[0] = c.character() as i32;
-                    6662862405959679103
+                    s = get_prev(cur_p.unwrap(), ha);
+                    j = 0;
                 }
             }
             CharOrText::Text(TxtNode::Ligature(l)) => {
                 if l.font() as usize != hf {
-                    6826215413708131726
+                    // found2:
+                    s = ha;
+                    j = 0;
+                    hu[0] = max_hyph_char;
+                    init_lig = None;
+                    init_list = None;
                 } else {
                     init_list = l.lig_ptr();
-                    init_lig = true;
-                    init_lft = l.left_hit();
+                    let lft = l.left_hit();
                     hu[0] = l.char() as i32;
-                    if init_list.opt().is_none() && init_lft {
+                    init_lig = if init_list.is_none() && lft {
                         hu[0] = max_hyph_char;
-                        init_lig = false;
-                    }
+                        None
+                    } else {
+                        Some(lft)
+                    };
                     l.free();
-                    6662862405959679103
+                    s = get_prev(cur_p.unwrap(), ha);
+                    j = 0;
                 }
             }
             _ => match CharOrText::from(r) {
-                CharOrText::Text(TxtNode::Ligature(r)) if r.left_hit() => 6826215413708131726,
-                _ => {
-                    j = 1_i16;
+                CharOrText::Text(TxtNode::Ligature(r)) if r.left_hit() => {
+                    // found2:
                     s = ha;
-                    init_list = None.tex_int();
-                    5209103994167801282
+                    j = 0;
+                    hu[0] = max_hyph_char;
+                    init_lig = None;
+                    init_list = None;
+                }
+                _ => {
+                    j = 1;
+                    s = ha;
+                    init_list = None;
+                    // TODO: check `init_lig`
                 }
             },
-        };
-        match current_block {
-            6662862405959679103 => {
-                s = cur_p.unwrap();
-                while LLIST_link(s as usize).opt() != Some(ha) {
-                    s = *LLIST_link(s as usize) as usize;
-                }
-                j = 0_i16
-            }
-            6826215413708131726 => {
-                // found2:
-                s = ha;
-                j = 0_i16;
-                hu[0] = max_hyph_char;
-                init_lig = false;
-                init_list = None.tex_int()
-            }
-            _ => {}
         }
         // common_ending
         flush_node_list(Some(r));
         loop {
-            l = j;
-            j = (reconstitute(j, hn, bchar, hyf_char) as i32 + 1) as i16;
+            let mut l = j;
+            j = reconstitute(j, hn, bchar, hyf_char, init_list) + 1;
             if hyphen_passed == 0 {
                 *LLIST_link(s) = *LLIST_link(HOLD_HEAD);
                 while let Some(next) = LLIST_link(s).opt() {
                     s = next;
                 }
-                if hyf[(j as i32 - 1i32) as usize] as i32 & 1i32 != 0 {
+                if hyf[j - 1] as i32 & 1 != 0 {
                     l = j;
-                    hyphen_passed = (j as i32 - 1i32) as i16;
+                    hyphen_passed = j - 1;
                     *LLIST_link(HOLD_HEAD) = None.tex_int()
                 }
             }
-            if hyphen_passed as i32 > 0 {
+            if hyphen_passed > 0 {
                 loop
                 /*949: */
                 {
@@ -2241,20 +2249,19 @@ unsafe fn hyphenate() {
                         r_count += 1;
                     }
                     let mut i = hyphen_passed;
-                    hyf[i as usize] = 0;
+                    hyf[i] = 0;
                     let mut minor_tail: Option<usize> = None;
                     r.set_pre_break(None.tex_int());
                     let hyf_node = new_character(hf, hyf_char as UTF16_code);
                     if let Some(hyf_node) = hyf_node {
                         i += 1;
-                        c = hu[i as usize];
-                        hu[i as usize] = hyf_char;
+                        c = hu[i];
+                        hu[i] = hyf_char;
                         *LLIST_link(hyf_node) = avail.tex_int();
                         avail = Some(hyf_node);
                     }
-                    while l as i32 <= i as i32 {
-                        l = (reconstitute(l, i, FONT_BCHAR[hf as usize], TOO_BIG_CHAR) as i32 + 1)
-                            as i16;
+                    while l <= i {
+                        l = reconstitute(l, i, FONT_BCHAR[hf], TOO_BIG_CHAR, init_list) + 1;
                         if let Some(hh) = llist_link(HOLD_HEAD) {
                             if let Some(mt) = minor_tail {
                                 *LLIST_link(mt) = Some(hh).tex_int();
@@ -2270,25 +2277,25 @@ unsafe fn hyphenate() {
                         }
                     }
                     if hyf_node.is_some() {
-                        hu[i as usize] = c;
+                        hu[i] = c;
                         l = i;
                         //i -= 1
                     }
                     let mut minor_tail: Option<usize> = None;
                     r.set_post_break(None.tex_int());
-                    let mut c_loc = 0_i16;
-                    if BCHAR_LABEL[hf as usize] != NON_ADDRESS {
+                    let mut c_loc = 0;
+                    if BCHAR_LABEL[hf] != NON_ADDRESS as _ {
                         l -= 1;
-                        c = hu[l as usize];
+                        c = hu[l];
                         c_loc = l;
-                        hu[l as usize] = max_hyph_char
+                        hu[l] = max_hyph_char
                     }
-                    while (l as i32) < j as i32 {
+                    while l < j {
                         loop {
-                            l = (reconstitute(l, hn, bchar, TOO_BIG_CHAR) as i32 + 1) as i16;
+                            l = reconstitute(l, hn, bchar, TOO_BIG_CHAR, init_list) + 1;
                             if c_loc > 0 {
-                                hu[c_loc as usize] = c;
-                                c_loc = 0_i16
+                                hu[c_loc] = c;
+                                c_loc = 0;
                             }
                             if let Some(hh) = llist_link(HOLD_HEAD) {
                                 if let Some(mt) = minor_tail {
@@ -2303,13 +2310,13 @@ unsafe fn hyphenate() {
                                     minor_tail = Some(next);
                                 }
                             }
-                            if l as i32 >= j as i32 {
+                            if l >= j {
                                 break;
                             }
                         }
-                        while l as i32 > j as i32 {
+                        while l > j {
                             /*952: */
-                            j = (reconstitute(j, hn, bchar, TOO_BIG_CHAR) as i32 + 1) as i16; /*:944*/
+                            j = reconstitute(j, hn, bchar, TOO_BIG_CHAR, init_list) + 1; /*:944*/
                             *LLIST_link(major_tail) = *LLIST_link(HOLD_HEAD);
                             while let Some(next) = llist_link(major_tail) {
                                 major_tail = next;
@@ -2326,19 +2333,19 @@ unsafe fn hyphenate() {
                         r.set_replace_count(r_count as u16);
                     }
                     s = major_tail;
-                    hyphen_passed = (j - 1) as i16;
+                    hyphen_passed = j - 1;
                     *LLIST_link(HOLD_HEAD) = None.tex_int();
-                    if hyf[(j as i32 - 1) as usize] as i32 & 1 == 0 {
+                    if hyf[j - 1] as i32 & 1 == 0 {
                         break;
                     }
                 }
             }
-            if j as i32 > hn as i32 {
+            if j > hn {
                 break;
             }
         }
         *LLIST_link(s) = q;
-        flush_list(init_list.opt());
+        flush_list(init_list);
     }
 }
 unsafe fn finite_shrink(p: GlueSpec) -> GlueSpec {
@@ -2359,78 +2366,66 @@ unsafe fn finite_shrink(p: GlueSpec) -> GlueSpec {
     delete_glue_ref(p.ptr());
     q
 }
-unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i16 {
-    let mut current_block: u64;
-    let mut q: b16x4 = b16x4 {
-        s0: 0,
-        s1: 0,
-        s2: 0,
-        s3: 0,
-    };
-    let mut k: font_index = 0;
-
+unsafe fn reconstitute(
+    mut j: usize,
+    n: usize,
+    mut bchar: i32,
+    mut hchar: i32,
+    init_list: Option<usize>,
+) -> usize {
     hyphen_passed = 0;
-    let mut t = HOLD_HEAD as i32;
+    let mut t = HOLD_HEAD;
     let mut w = Scaled::ZERO;
     *LLIST_link(HOLD_HEAD) = None.tex_int();
-    cur_l = hu[j as usize];
+    cur_l = hu[j];
     cur_q = t;
     if j == 0 {
-        ligature_present = init_lig;
-        let mut popt = init_list.opt();
-        if ligature_present {
-            lft_hit = init_lft
+        ligature_present = init_lig.is_some();
+        let mut popt = init_list;
+        if let Some(lft) = init_lig {
+            lft_hit = lft;
         }
         while let Some(p) = popt {
-            *LLIST_link(t as usize) = Some(get_avail()).tex_int();
-            t = *LLIST_link(t as usize);
-            MEM[t as usize].b16.s1 = hf as u16;
-            MEM[t as usize].b16.s0 = MEM[p].b16.s0;
+            *LLIST_link(t) = Some(get_avail()).tex_int();
+            t = *LLIST_link(t) as usize;
+            MEM[t].b16.s1 = hf as u16;
+            MEM[t].b16.s0 = MEM[p].b16.s0;
             popt = llist_link(p)
         }
     } else if cur_l < TOO_BIG_CHAR {
-        *LLIST_link(t as usize) = Some(get_avail()).tex_int();
-        t = *LLIST_link(t as usize);
-        MEM[t as usize].b16.s1 = hf as u16;
-        MEM[t as usize].b16.s0 = cur_l as u16
+        *LLIST_link(t) = Some(get_avail()).tex_int();
+        t = *LLIST_link(t) as usize;
+        MEM[t].b16.s1 = hf as u16;
+        MEM[t].b16.s0 = cur_l as u16
     }
     lig_stack = None;
-    cur_r = if (j as i32) < n as i32 {
-        hu[(j + 1) as usize]
-    } else {
-        bchar
-    };
-    let mut cur_rh = if hyf[j as usize] as i32 & 1i32 != 0 {
+    cur_r = if j < n { hu[j + 1] } else { bchar };
+    let mut cur_rh = if hyf[j] as i32 & 1 != 0 {
         hchar
     } else {
         TOO_BIG_CHAR
     };
     'c_27176: loop {
+        let mut kq = None;
         if cur_l == TOO_BIG_CHAR {
-            k = BCHAR_LABEL[hf as usize];
-            if k == NON_ADDRESS {
-                current_block = 4939169394500275451;
-            } else {
-                q = FONT_INFO[k as usize].b16;
-                current_block = 1434579379687443766;
+            let k = BCHAR_LABEL[hf] as usize;
+            if k != NON_ADDRESS {
+                kq = Some((k, FONT_INFO[k].b16));
             }
         } else {
-            let q0 = FONT_CHARACTER_INFO(hf, effective_char(true, hf, cur_l as u16) as usize);
-            if q0.s1 as i32 % 4 != LIG_TAG {
-                current_block = 4939169394500275451;
-            } else {
-                k = LIG_KERN_BASE[hf as usize] + q0.s0 as i32;
-                q = FONT_INFO[k as usize].b16;
+            let q = FONT_CHARACTER_INFO(hf, effective_char(true, hf, cur_l as u16) as usize);
+            if q.s1 as i32 % 4 == LIG_TAG {
+                let mut k = LIG_KERN_BASE[hf] as usize + q.s0 as usize;
+                let mut q = FONT_INFO[k].b16;
                 if q.s3 as i32 > 128 {
-                    k = ((LIG_KERN_BASE[hf as usize] + 256i32 * q.s1 as i32 + q.s0 as i32) as i64
-                        + 32768
-                        - (256i32 * 128i32) as i64) as font_index;
-                    q = FONT_INFO[k as usize].b16
+                    k = (LIG_KERN_BASE[hf] + 256 * q.s1 as i32 + q.s0 as i32) as usize + 32768
+                        - 256 * 128;
+                    q = FONT_INFO[k].b16
                 }
-                current_block = 1434579379687443766;
+                kq = Some((k, q));
             }
         }
-        if current_block == 1434579379687443766 {
+        if let Some((mut k, mut q)) = kq {
             let test_char = if cur_rh < TOO_BIG_CHAR { cur_rh } else { cur_r };
             loop {
                 if q.s2 as i32 == test_char && q.s3 <= 128 {
@@ -2440,7 +2435,7 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                         cur_rh = TOO_BIG_CHAR;
                         continue 'c_27176;
                     } else {
-                        if hchar < TOO_BIG_CHAR && hyf[j as usize] as i32 & 1 != 0 {
+                        if hchar < TOO_BIG_CHAR && hyf[j] as i32 & 1 != 0 {
                             hyphen_passed = j;
                             hchar = TOO_BIG_CHAR;
                         }
@@ -2449,7 +2444,7 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                             if cur_l == TOO_BIG_CHAR {
                                 lft_hit = true
                             }
-                            if j as i32 == n as i32 && lig_stack.is_none() {
+                            if j == n && lig_stack.is_none() {
                                 rt_hit = true;
                             }
                             match q.s1 as i32 {
@@ -2464,12 +2459,12 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                                     } else {
                                         let ls = new_lig_item(cur_r as u16);
                                         lig_stack = Some(ls);
-                                        if j as i32 == n as i32 {
+                                        if j == n {
                                             bchar = TOO_BIG_CHAR
                                         } else {
                                             let p = get_avail();
                                             MEM[ls + 1].b32.s1 = Some(p).tex_int();
-                                            MEM[p].b16.s0 = hu[(j as i32 + 1i32) as usize] as u16;
+                                            MEM[p].b16.s0 = hu[j + 1] as u16;
                                             MEM[p].b16.s1 = hf as u16
                                         }
                                     }
@@ -2483,17 +2478,13 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                                 }
                                 7 | 11 => {
                                     if ligature_present {
-                                        let p = new_ligature(
-                                            hf,
-                                            cur_l as u16,
-                                            *LLIST_link(cur_q as usize),
-                                        );
+                                        let p = new_ligature(hf, cur_l as u16, llist_link(cur_q));
                                         if lft_hit {
                                             MEM[p as usize].b16.s0 = 2_u16;
                                             lft_hit = false
                                         }
-                                        *LLIST_link(cur_q as usize) = Some(p).tex_int();
-                                        t = p as i32;
+                                        *LLIST_link(cur_q) = Some(p).tex_int();
+                                        t = p;
                                         ligature_present = false
                                     }
                                     cur_q = t;
@@ -2505,8 +2496,8 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                                     ligature_present = true;
                                     if let Some(ls) = lig_stack {
                                         if let Some(l) = MEM[(ls + 1) as usize].b32.s1.opt() {
-                                            *LLIST_link(t as usize) = Some(l).tex_int();
-                                            t = *LLIST_link(t as usize);
+                                            *LLIST_link(t) = Some(l).tex_int();
+                                            t = *LLIST_link(t) as usize;
                                             j += 1
                                         }
                                         lig_stack = llist_link(ls);
@@ -2514,32 +2505,32 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                                         if let Some(ls) = lig_stack {
                                             cur_r = MEM[ls].b16.s0 as i32
                                         } else {
-                                            if (j as i32) < n as i32 {
-                                                cur_r = hu[(j as i32 + 1i32) as usize]
+                                            if j < n {
+                                                cur_r = hu[j + 1]
                                             } else {
                                                 cur_r = bchar
                                             }
-                                            if hyf[j as usize] as i32 & 1i32 != 0 {
+                                            if hyf[j] as i32 & 1 != 0 {
                                                 cur_rh = hchar
                                             } else {
                                                 cur_rh = TOO_BIG_CHAR;
                                             }
                                         }
                                     } else {
-                                        if j as i32 == n as i32 {
+                                        if j == n {
                                             break;
                                         }
-                                        *LLIST_link(t as usize) = get_avail() as i32;
-                                        t = *LLIST_link(t as usize);
-                                        MEM[t as usize].b16.s1 = hf as u16;
-                                        MEM[t as usize].b16.s0 = cur_r as u16;
+                                        *LLIST_link(t) = get_avail() as i32;
+                                        t = *LLIST_link(t) as usize;
+                                        MEM[t].b16.s1 = hf as u16;
+                                        MEM[t].b16.s0 = cur_r as u16;
                                         j += 1;
-                                        if (j as i32) < n as i32 {
-                                            cur_r = hu[(j as i32 + 1i32) as usize]
+                                        if j < n {
+                                            cur_r = hu[j + 1]
                                         } else {
                                             cur_r = bchar
                                         }
-                                        if hyf[j as usize] as i32 & 1i32 != 0 {
+                                        if hyf[j] as i32 & 1 != 0 {
                                             cur_rh = hchar
                                         } else {
                                             cur_rh = TOO_BIG_CHAR
@@ -2553,15 +2544,12 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                                 continue 'c_27176;
                             }
                         } else {
-                            w =
-                                Scaled(
-                                    FONT_INFO[(KERN_BASE[hf as usize]
-                                        + 256 * q.s1 as i32
-                                        + q.s0 as i32)
-                                        as usize]
-                                        .b32
-                                        .s1,
-                                );
+                            w = Scaled(
+                                FONT_INFO
+                                    [(KERN_BASE[hf] + 256 * q.s1 as i32 + q.s0 as i32) as usize]
+                                    .b32
+                                    .s1,
+                            );
                             break;
                         }
                     }
@@ -2573,13 +2561,13 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                     cur_rh = TOO_BIG_CHAR;
                     continue 'c_27176;
                 } else {
-                    k = k + q.s3 as i32 + 1;
-                    q = FONT_INFO[k as usize].b16
+                    k = k + q.s3 as usize + 1;
+                    q = FONT_INFO[k].b16
                 }
             }
         }
         if ligature_present {
-            let p = new_ligature(hf, cur_l as u16, *LLIST_link(cur_q as usize));
+            let p = new_ligature(hf, cur_l as u16, llist_link(cur_q));
             if lft_hit {
                 MEM[p].b16.s0 = 2;
                 lft_hit = false
@@ -2588,23 +2576,23 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
                 MEM[p as usize].b16.s0 += 1;
                 rt_hit = false;
             }
-            *LLIST_link(cur_q as usize) = Some(p).tex_int();
-            t = p as i32;
+            *LLIST_link(cur_q) = Some(p).tex_int();
+            t = p;
             ligature_present = false
         }
         if w != Scaled::ZERO {
-            *LLIST_link(t as usize) = Some(new_kern(w).ptr()).tex_int();
-            t = *LLIST_link(t as usize);
+            *LLIST_link(t) = Some(new_kern(w).ptr()).tex_int();
+            t = *LLIST_link(t) as usize;
             w = Scaled::ZERO;
-            MEM[(t + 2) as usize].b32.s0 = 0;
+            MEM[t + 2].b32.s0 = 0;
         }
         if let Some(ls) = lig_stack {
             cur_q = t;
             cur_l = MEM[ls].b16.s0 as i32;
             ligature_present = true;
             if let Some(l) = MEM[ls + 1].b32.s1.opt() {
-                *LLIST_link(t as usize) = Some(l).tex_int();
-                t = *LLIST_link(t as usize);
+                *LLIST_link(t) = Some(l).tex_int();
+                t = *LLIST_link(t) as usize;
                 j += 1;
             }
             let p = ls;
@@ -2613,12 +2601,12 @@ unsafe fn reconstitute(mut j: i16, n: i16, mut bchar: i32, mut hchar: i32) -> i1
             if let Some(ls) = lig_stack {
                 cur_r = MEM[ls].b16.s0 as i32
             } else {
-                if (j as i32) < n as i32 {
-                    cur_r = hu[(j as i32 + 1i32) as usize]
+                if j < n {
+                    cur_r = hu[j + 1]
                 } else {
                     cur_r = bchar
                 }
-                if hyf[j as usize] as i32 & 1i32 != 0 {
+                if hyf[j] as i32 & 1 != 0 {
                     cur_rh = hchar
                 } else {
                     cur_rh = TOO_BIG_CHAR;

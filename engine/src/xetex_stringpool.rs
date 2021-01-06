@@ -4,7 +4,7 @@ use crate::xetex_errors::overflow;
 use crate::xetex_ini::BUFFER;
 
 /// the characters
-pub(crate) static mut str_pool: Vec<packed_UTF16_code> = Vec::new();
+pub(crate) static mut str_pool: Vec<u16> = Vec::new();
 
 /// the starting pointers
 pub(crate) static mut str_start: Vec<usize> = Vec::new();
@@ -35,7 +35,6 @@ pub(crate) const TOO_BIG_CHAR: i32 = 0x10000;
 pub(crate) const EMPTY_STRING: i32 = TOO_BIG_CHAR + 1;
 
 pub(crate) type str_number = i32;
-pub(crate) type packed_UTF16_code = u16;
 /* tectonic/xetex-stringpool.c: preloaded "string pool" constants
    Copyright 2017-2018 the Tectonic Project
    Licensed under the MIT License.
@@ -162,7 +161,7 @@ pub(crate) unsafe fn load_pool_strings(spare_size: usize) -> i32 {
             return 0i32;
         }
         for b in s.as_bytes() {
-            str_pool[pool_ptr] = *b as packed_UTF16_code;
+            str_pool[pool_ptr] = *b as _;
             pool_ptr += 1;
         }
         g = make_string()
