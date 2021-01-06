@@ -76,10 +76,8 @@ pub(crate) enum Selector {
 }
 
 /*18: */
-pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
-pub(crate) type packed_UTF16_code = u16;
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct b32x2_le_t {
@@ -706,9 +704,9 @@ pub(crate) static mut FONT_NAME: Vec<str_number> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_AREA: Vec<str_number> = Vec::new();
 #[no_mangle]
-pub(crate) static mut FONT_BC: Vec<UTF16_code> = Vec::new();
+pub(crate) static mut FONT_BC: Vec<u16> = Vec::new();
 #[no_mangle]
-pub(crate) static mut FONT_EC: Vec<UTF16_code> = Vec::new();
+pub(crate) static mut FONT_EC: Vec<u16> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_GLUE: Vec<i32> = Vec::new();
 #[no_mangle]
@@ -1116,7 +1114,7 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                         let mut q = 0;
                         hc[0] = cur_lang as i32;
                         while l <= k {
-                            let c = hc[l as usize] as UTF16_code;
+                            let c = hc[l as usize] as _;
                             l += 1;
                             let mut p = trie_l[q as usize];
                             let mut first_child = true;
@@ -1168,18 +1166,18 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
         /*:996*/
         if get_int_par(IntPar::saving_hyphs) > 0 {
             /*1643:*/
-            let c = cur_lang as UTF16_code;
+            let c = cur_lang;
             let first_child = false;
             let mut p = 0;
             let mut q;
             loop {
                 q = p;
                 p = trie_r[q as usize];
-                if p == 0 || c as i32 <= trie_c[p as usize] as i32 {
+                if p == 0 || (c as u16) <= trie_c[p as usize] {
                     break;
                 }
             }
-            if p == 0 || (c as i32) < trie_c[p as usize] as i32 {
+            if p == 0 || (c as u16) < trie_c[p as usize] {
                 /*:1644*/
                 /*999:*/
                 if trie_ptr == trie_size {
@@ -1194,15 +1192,14 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                 } else {
                     trie_r[q as usize] = p;
                 }
-                trie_c[p as usize] = c;
+                trie_c[p as usize] = c as _;
                 trie_o[p as usize] = MIN_TRIE_OP;
             }
             let mut q = p;
             let mut p = trie_l[q as usize];
             let mut first_child = true;
-            let mut c = 0 as UTF16_code;
-            while c as i32 <= 255 {
-                if *LC_CODE(c as _) > 0 || c == 255 && first_child {
+            for c in 0..=255 {
+                if *LC_CODE(c) > 0 || c == 255 && first_child {
                     if p == 0 {
                         /*999:*/
                         if trie_ptr == trie_size {
@@ -1218,17 +1215,16 @@ unsafe fn new_patterns(input: &mut input_state_t, cs: i32) {
                         } else {
                             trie_r[q as usize] = p;
                         }
-                        trie_c[p as usize] = c;
+                        trie_c[p as usize] = c as _;
                         trie_o[p as usize] = MIN_TRIE_OP;
                     } else {
-                        trie_c[p as usize] = c;
+                        trie_c[p as usize] = c as _;
                     }
-                    trie_o[p as usize] = *LC_CODE(c as _) as _;
+                    trie_o[p as usize] = *LC_CODE(c) as _;
                     q = p;
                     p = trie_r[q as usize];
                     first_child = false
                 }
-                c = c.wrapping_add(1)
             }
             if first_child {
                 trie_l[q as usize] = 0;
@@ -1325,7 +1321,7 @@ unsafe fn new_hyph_exceptions(input: &mut input_state_t) {
 
                     for j in 1..=n {
                         h = ((h as i32 + h as i32 + hc[j]) % HYPH_PRIME) as hyph_pointer;
-                        str_pool[pool_ptr] = hc[j] as packed_UTF16_code;
+                        str_pool[pool_ptr] = hc[j] as u16;
                         pool_ptr += 1;
                     }
 

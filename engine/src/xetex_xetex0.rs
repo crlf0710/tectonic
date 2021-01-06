@@ -90,7 +90,6 @@ use bridge::{OutputHandleWrapper, TTHistory, TTInputFormat};
 pub(crate) type UTF16_code = u16;
 pub(crate) type UnicodeScalar = i32;
 pub(crate) type str_number = i32;
-pub(crate) type packed_UTF16_code = u16;
 pub(crate) type internal_font_number = usize;
 pub(crate) type font_index = i32;
 
@@ -748,13 +747,13 @@ pub(crate) unsafe fn print_delimiter(d: &Delimeter) {
         t_print!("\"{:X}", a);
     };
 }
-pub(crate) unsafe fn print_subsidiary_data(d: &MCell, c: UTF16_code) {
+pub(crate) unsafe fn print_subsidiary_data(d: &MCell, c: u8) {
     if PoolString::current().len() as i32 >= depth_threshold {
         if d.typ != MathCell::Empty {
             t_print!(" []");
         }
     } else {
-        str_pool[pool_ptr] = c;
+        str_pool[pool_ptr] = c as _;
         pool_ptr += 1;
         match d.typ {
             MathCell::MathChar => {
@@ -863,7 +862,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if p.is_horizontal() && p.lr_mode() == LRMode::DList {
                         t_print!(", display");
                     }
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(p.list_ptr().opt());
                     pool_ptr -= 1
@@ -886,7 +885,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if p.shrink() != Scaled::ZERO {
                         t_print!(", shrink {}", GlueUnit(p.shrink(), p.shrink_order(), ""));
                     }
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(p.list_ptr().opt());
                     pool_ptr -= 1
@@ -909,7 +908,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         p_ins.depth(),
                         p_ins.float_cost()
                     );
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(p_ins.ins_ptr().opt());
                     pool_ptr -= 1
@@ -984,7 +983,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             print_chr('x');
                         }
                         t_print!("leaders {}", GlueSpecUnit(g.glue_ptr(), ""));
-                        str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                        str_pool[pool_ptr] = '.' as _;
                         pool_ptr += 1;
                         show_node_list(g.leader_ptr().opt());
                         pool_ptr -= 1
@@ -1082,11 +1081,11 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if d.replace_count() > 0 {
                         t_print!(" replacing {}", d.replace_count() as i32);
                     }
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(d.pre_break().opt());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr] = '|' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '|' as _;
                     pool_ptr += 1;
                     show_node_list(d.post_break().opt());
                     pool_ptr -= 1
@@ -1104,7 +1103,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                     if a.subtype() != AdjustType::Post {
                         t_print!(" pre ");
                     }
-                    str_pool[pool_ptr] = '.' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = '.' as _;
                     pool_ptr += 1;
                     show_node_list(a.adj_ptr().opt());
                     pool_ptr -= 1
@@ -1115,19 +1114,19 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                 },
                 TxtNode::Choice(c) => {
                     print_esc_cstr("mathchoice");
-                    str_pool[pool_ptr] = 'D' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 'D' as _;
                     pool_ptr += 1;
                     show_node_list(c.display());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr] = 'T' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 'T' as _;
                     pool_ptr += 1;
                     show_node_list(c.text());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr] = 'S' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 'S' as _;
                     pool_ptr += 1;
                     show_node_list(c.script());
                     pool_ptr -= 1;
-                    str_pool[pool_ptr] = 's' as i32 as packed_UTF16_code;
+                    str_pool[pool_ptr] = 's' as _;
                     pool_ptr += 1;
                     show_node_list(c.scriptscript());
                     pool_ptr -= 1
@@ -1192,10 +1191,10 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             Limit::NoLimits => print_esc_cstr("nolimits"),
                             Limit::Normal => {}
                         }
-                        print_subsidiary_data(bm.nucleus(), '.' as i32 as UTF16_code);
+                        print_subsidiary_data(bm.nucleus(), b'.');
                     }
-                    print_subsidiary_data(bm.supscr(), '^' as i32 as UTF16_code);
-                    print_subsidiary_data(bm.subscr(), '_' as i32 as UTF16_code);
+                    print_subsidiary_data(bm.supscr(), b'^');
+                    print_subsidiary_data(bm.subscr(), b'_');
                 }
                 MathNode::Fraction => {
                     let f = Fraction(p);
@@ -1214,8 +1213,8 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         t_print!(", right-delimiter ");
                         print_delimiter(rd);
                     }
-                    print_subsidiary_data(f.numerator(), '\\' as i32 as UTF16_code);
-                    print_subsidiary_data(f.denumerator(), '/' as i32 as UTF16_code);
+                    print_subsidiary_data(f.numerator(), b'\\');
+                    print_subsidiary_data(f.denumerator(), b'/');
                 }
             },
             Node::Unknown(_) => t_print!("Unknown node type!"),
@@ -4501,7 +4500,6 @@ pub(crate) unsafe fn get_token(input: &mut input_state_t) -> (i32, Cmd, i32, i32
 pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
     let mut p: Option<usize> = None; // current node in parameter token list being built
     let mut rbrace_ptr: i32 = None.tex_int(); // one step before the last `right_brace` token
-    let mut match_chr: UTF16_code = 0; // character used in parameter
     let save_scanner_status = scanner_status; // `scanner_status` upon entry
     let save_warning_index = warning_index; // `warning_index` upon entry
     warning_index = cs;
@@ -4536,6 +4534,7 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
         let mut m = 0; // the number of tokens or groups (usually)
         let mut s = None; // backup pointer for parameter matching
         let mut cont = false;
+        let mut match_chr: UTF16_code = 0; // character used in parameter
         's_135: loop {
             if !cont {
                 *LLIST_link(TEMP_HEAD) = None.tex_int();
@@ -9204,10 +9203,10 @@ pub(crate) unsafe fn char_warning(f: internal_font_number, c: char) {
 }
 pub(crate) unsafe fn new_native_word_node(f: usize, n: i32) -> NativeWord {
     let l = (NATIVE_NODE_SIZE as u64).wrapping_add(
-        ((n as u64) * (::std::mem::size_of::<UTF16_code>() as u64)
-            + (::std::mem::size_of::<memory_word>() as u64)
+        ((n as u64) * (std::mem::size_of::<u16>() as u64)
+            + (std::mem::size_of::<memory_word>() as u64)
             - 1)
-            / (::std::mem::size_of::<memory_word>() as u64),
+            / (std::mem::size_of::<memory_word>() as u64),
     ) as i32;
     let mut q = NativeWord::from(get_node(l) as usize);
     set_NODE_type(q.ptr(), TextNode::WhatsIt);
@@ -12464,11 +12463,11 @@ pub(crate) unsafe fn make_accent(input: &mut input_state_t) {
         let mut q = None;
         f = EQTB[CUR_FONT_LOC].val as usize;
         let val = if cmd == Cmd::Letter || cmd == Cmd::OtherChar || cmd == Cmd::CharGiven {
-            q = new_character(f, chr as UTF16_code);
+            q = new_character(f, chr as u16);
             chr
         } else if cmd == Cmd::CharNum {
             let val = scan_char_num(input);
-            q = new_character(f, val as UTF16_code);
+            q = new_character(f, val as u16);
             val
         } else {
             back_input(input, tok);
@@ -13593,17 +13592,17 @@ pub(crate) unsafe fn do_extension(
 }
 pub(crate) unsafe fn fix_language() {
     let lang = get_int_par(IntPar::language);
-    let l: UTF16_code = if lang <= 0 || lang > 255 {
+    let l = if lang <= 0 || lang > 255 {
         0
     } else {
-        lang as UTF16_code
+        lang
     };
-    if l as i32 != cur_list.aux.b32.s1 {
+    if l != cur_list.aux.b32.s1 {
         let mut lang = Language::new_node();
         *LLIST_link(cur_list.tail) = Some(lang.ptr()).tex_int();
         cur_list.tail = lang.ptr();
-        lang.set_lang(l as i32);
-        cur_list.aux.b32.s1 = l as i32;
+        lang.set_lang(l);
+        cur_list.aux.b32.s1 = l;
         lang.set_lhm(norm_min(get_int_par(IntPar::left_hyphen_min)) as u16)
             .set_rhm(norm_min(get_int_par(IntPar::right_hyphen_min)) as u16);
     };

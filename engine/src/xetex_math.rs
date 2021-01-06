@@ -71,7 +71,6 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-pub(crate) type UTF16_code = u16;
 use crate::node::Delimeter;
 pub(crate) const NULL_DELIMITER: Delimeter = Delimeter {
     chr2: MathChar {
@@ -2657,7 +2656,7 @@ unsafe fn mlist_to_hlist() {
                                 Some(p.ptr())
                             } else if cur_i.s3 as i32 > 0 {
                                 delta = *FONT_CHARINFO_ITALCORR(f, cur_i);
-                                let p = new_character(f, c as UTF16_code);
+                                let p = new_character(f, c as u16);
                                 if q.nucleus().typ == MathCell::MathTextChar
                                     && FONT_INFO[(2 + PARAM_BASE[f]) as usize].b32.s1 != 0
                                 {

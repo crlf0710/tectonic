@@ -1,7 +1,6 @@
 use crate::xetex_consts::BIGGEST_LANG;
 use crate::xetex_errors::overflow;
 use crate::xetex_ini::cur_lang;
-use crate::xetex_ini::packed_UTF16_code;
 
 pub(crate) type trie_pointer = i32;
 pub(crate) type trie_opcode = u16;
@@ -30,7 +29,7 @@ pub(crate) static mut trie_op_lang: [u8; 35112] = [0; 35112];
 pub(crate) static mut trie_op_val: [trie_opcode; 35112] = [0; 35112];
 pub(crate) static mut trie_op_ptr: i32 = 0;
 pub(crate) static mut max_op_used: trie_opcode = 0;
-pub(crate) static mut trie_c: Vec<packed_UTF16_code> = Vec::new();
+pub(crate) static mut trie_c: Vec<u16> = Vec::new();
 pub(crate) static mut trie_o: Vec<trie_opcode> = Vec::new();
 pub(crate) static mut trie_l: Vec<trie_pointer> = Vec::new();
 pub(crate) static mut trie_r: Vec<trie_pointer> = Vec::new();
