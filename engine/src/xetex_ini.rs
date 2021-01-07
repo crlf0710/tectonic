@@ -430,6 +430,8 @@ pub(crate) static mut selector: Selector = Selector::File(0);
 #[no_mangle]
 pub(crate) static mut tally: i32 = 0;
 #[no_mangle]
+pub(crate) static mut pseudo_tally: i32 = 0;
+#[no_mangle]
 pub(crate) static mut term_offset: i32 = 0;
 #[no_mangle]
 pub(crate) static mut file_offset: i32 = 0;
@@ -3687,6 +3689,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
 
     selector = Selector::TERM_ONLY;
     tally = 0;
+    pseudo_tally = 0;
     term_offset = 0;
     file_offset = 0;
     job_name = 0;

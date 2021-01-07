@@ -42,15 +42,15 @@ use crate::xetex_ini::{
     max_reg_help_line, max_reg_num, mem_end, name_in_progress, name_of_font,
     no_new_control_sequence, open_parens, output_active, pack_begin_line, page_contents,
     page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos, pre_adjust_tail,
-    prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack, read_file, read_open, rover,
-    rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed,
-    shown_mode, skip_line, space_class, stop_at_space, tally, term_offset, texmf_log_name,
-    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
-    warning_index, write_file, write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr,
-    BCHAR_LABEL, BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR,
-    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING,
-    FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE,
-    FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
+    prev_class, prim, prim_eqtb, prim_used, pseudo_files, pseudo_tally, pstack, read_file,
+    read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status, selector,
+    set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, tally, term_offset,
+    texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count, use_err_help,
+    used_tectonic_coda_tokens, warning_index, write_file, write_open, xtx_ligature_present, yhash,
+    LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA,
+    FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
+    FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
     INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK,
     MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE,
     PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
@@ -211,16 +211,16 @@ impl<'a> fmt::Display for TokenList {
 pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
     let mut match_chr = '#'; // character used in a `match`
     let mut n = b'0'; // the highest parameter number, as an ASCII digit
-    tally = 0;
+    pseudo_tally = 0;
     while let Some(p) = popt {
-        if tally >= l {
+        if pseudo_tally >= l {
             break;
         }
         /*332:*/
         if let Some(q) = q {
             if p == q {
-                first_count = tally;
-                trick_count = tally + 1 + error_line - half_error_line;
+                first_count = pseudo_tally;
+                trick_count = pseudo_tally + 1 + error_line - half_error_line;
                 if trick_count < error_line {
                     trick_count = error_line
                 }
@@ -3437,7 +3437,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                 || input.index != Btl::BackedUp
                 || input.loc.is_some()
             {
-                tally = 0i32;
+                tally = 0;
                 let old_setting = selector;
                 let l;
                 if input.state != InputState::TokenList {
@@ -3465,7 +3465,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     }
                     print_chr(' ');
                     l = tally;
-                    tally = 0;
+                    pseudo_tally = 0;
                     selector = Selector::PSEUDO;
                     trick_count = 1000000;
                     let j = if BUFFER[input.limit as usize] == get_int_par(IntPar::end_line_char) {
@@ -3476,8 +3476,8 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     if j > 0 {
                         for i in input.start.unwrap()..j {
                             if Some(i) == input.loc {
-                                first_count = tally;
-                                trick_count = tally + 1 + error_line - half_error_line;
+                                first_count = pseudo_tally;
+                                trick_count = pseudo_tally + 1 + error_line - half_error_line;
                                 if trick_count < error_line {
                                     trick_count = error_line
                                 }
@@ -3516,7 +3516,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                         Btl::TectonicCodaText => t_print_nl!("<TectonicCodaTokens> "),
                     }
                     l = tally;
-                    tally = 0i32;
+                    pseudo_tally = 0;
                     selector = Selector::PSEUDO;
                     trick_count = 1_000_000;
                     if [
@@ -3536,14 +3536,14 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                 }
                 selector = old_setting;
                 if trick_count == 1_000_000 {
-                    first_count = tally;
-                    trick_count = tally + 1 + error_line - half_error_line;
+                    first_count = pseudo_tally;
+                    trick_count = pseudo_tally + 1 + error_line - half_error_line;
                     if trick_count < error_line {
                         trick_count = error_line
                     }
                 }
-                let m = if tally < trick_count {
-                    tally - first_count
+                let m = if pseudo_tally < trick_count {
+                    pseudo_tally - first_count
                 } else {
                     trick_count - first_count
                 };

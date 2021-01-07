@@ -16,8 +16,8 @@ use crate::xetex_stringpool::{str_ptr, PoolString};
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
-    error_line, file_offset, hash_offset, line, log_file, max_print_line, rust_stdout, selector,
-    tally, term_offset, trick_buf, trick_count, write_file, yhash, EQTB_TOP,
+    error_line, file_offset, hash_offset, line, log_file, max_print_line, pseudo_tally,
+    rust_stdout, selector, tally, term_offset, trick_buf, trick_count, write_file, yhash, EQTB_TOP,
     FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 
@@ -96,7 +96,7 @@ unsafe fn print_term_log_char<W: io::Write>(
         write_log_ln(lg)?;
     } else {
         if s.is_control() {
-            let (buf, len) = replace_control(s);
+            let (buf, len) = replace_control(s as u8);
             for &c in &buf[..len] {
                 let c = char::from(c);
                 write_term_char(stdout, c)?;
@@ -116,7 +116,7 @@ unsafe fn print_log_char<W: io::Write>(lg: &mut W, s: char, nl: i32) -> io::Resu
         write_log_ln(lg)?;
     } else {
         if s.is_control() {
-            let (buf, len) = replace_control(s);
+            let (buf, len) = replace_control(s as u8);
             for &c in &buf[..len] {
                 write_log_char(lg, char::from(c))?;
             }
@@ -132,7 +132,7 @@ unsafe fn print_term_char<W: io::Write>(stdout: &mut W, s: char, nl: i32) -> io:
         write_term_ln(stdout)?;
     } else {
         if s.is_control() {
-            let (buf, len) = replace_control(s);
+            let (buf, len) = replace_control(s as u8);
             for &c in &buf[..len] {
                 write_term_char(stdout, char::from(c))?;
             }
@@ -148,7 +148,7 @@ unsafe fn print_file_char<W: io::Write>(file: &mut W, s: char, nl: i32) -> io::R
     if (s as i32) == nl {
         file.write_all(b"\n")?;
     } else if s.is_control() {
-        let (buf, len) = replace_control(s);
+        let (buf, len) = replace_control(s as u8);
         for &c in &buf[..len] {
             write!(file, "{}", char::from(c))?;
         }
@@ -267,21 +267,22 @@ impl fmt::Write for Selector {
                 Selector::PSEUDO => {
                     let mut count;
                     if s.is_control() {
-                        let (buf, len) = replace_control(s);
+                        let (buf, len) = replace_control(s as u8);
                         count = 0;
                         for &c in &buf[..len] {
-                            if tally < trick_count {
-                                trick_buf[((tally + count) % error_line) as usize] = char::from(c);
+                            if pseudo_tally < trick_count {
+                                trick_buf[((pseudo_tally + count) % error_line) as usize] =
+                                    char::from(c);
                             }
                             count += 1;
                         }
                     } else {
                         count = 1;
-                        if tally < trick_count {
-                            trick_buf[(tally % error_line) as usize] = s;
+                        if pseudo_tally < trick_count {
+                            trick_buf[(pseudo_tally % error_line) as usize] = s;
                         }
                     }
-                    tally += count;
+                    pseudo_tally += count;
                 }
                 Selector::File(u) => {
                     let file = write_file[u as usize].as_mut().unwrap();
@@ -294,11 +295,11 @@ impl fmt::Write for Selector {
     }
 }
 
-unsafe fn replace_control(s: char) -> ([u8; 4], usize) {
+unsafe fn replace_control(s: u8) -> ([u8; 4], usize) {
     match s {
-        '\u{0}'..='\u{1f}' => ([b'^', b'^', (s as u8) + 0x40, 0], 3),
-        '\u{7f}' => ([b'^', b'^', b'?', 0], 3),
-        '\u{80}'..='\u{9f}' => (
+        0..=0x1f => ([b'^', b'^', (s as u8) + 0x40, 0], 3),
+        0x7f => ([b'^', b'^', b'?', 0], 3),
+        0x80..=0x9f => (
             [
                 b'^',
                 b'^',
