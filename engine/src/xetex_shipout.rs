@@ -1720,7 +1720,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
             j = p.id() as i16;
 
             if write_open[j as usize] {
-                ttstub_output_close(write_file[j as usize].take().unwrap());
+                ttstub_output_close(write_file[j as usize].take().unwrap().0);
             }
 
             if j >= 16 {
@@ -1737,7 +1737,8 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
             let file = FileName { name, area, ext };
             let fullname = file.to_string();
 
-            write_file[j as usize] = OutputHandleWrapper::open(&fullname, 0);
+            write_file[j as usize] =
+                OutputHandleWrapper::open(&fullname, 0).map(crate::xetex_output::WFile::new);
             if write_file[j as usize].is_none() {
                 abort!("cannot open output file \"{}\"", fullname);
             }
@@ -1770,7 +1771,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
 
             j = p.id() as i16;
             if write_open[j as usize] {
-                ttstub_output_close(write_file[j as usize].take().unwrap());
+                ttstub_output_close(write_file[j as usize].take().unwrap().0);
             }
 
             write_open[j as usize] = false;

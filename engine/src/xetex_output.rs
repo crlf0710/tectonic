@@ -29,7 +29,7 @@ use super::xetex_ini::{
  * Licensed under the MIT License.
 */
 
-pub(crate) static mut write_file: [Option<OutputHandleWrapper>; 16] = [
+pub(crate) static mut write_file: [Option<WFile>; 16] = [
     None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
 ];
 
@@ -46,6 +46,29 @@ pub(crate) enum Selector {
     TERM_AND_LOG,
     PSEUDO,
     File(u8),
+}
+
+pub(crate) struct WFile(pub(crate) OutputHandleWrapper);
+impl WFile {
+    pub(crate) fn new(handler: OutputHandleWrapper) -> Self {
+        Self(handler)
+    }
+    fn write_ln(&mut self) -> std::io::Result<()> {
+        use std::io::Write;
+        self.write_all(b"\n")
+    }
+}
+impl core::ops::Deref for WFile {
+    type Target = OutputHandleWrapper;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl core::ops::DerefMut for WFile {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
 }
 
 pub(crate) struct LogTermOutput {
@@ -110,7 +133,6 @@ impl core::ops::DerefMut for LogTermOutput {
 }
 
 pub(crate) unsafe fn print_ln() {
-    use io::Write;
     match selector {
         Selector::TERM_AND_LOG => {
             rust_stdout.as_mut().unwrap().write_ln().unwrap();
@@ -124,11 +146,7 @@ pub(crate) unsafe fn print_ln() {
         }
         Selector::NO_PRINT | Selector::PSEUDO => {}
         Selector::File(u) => {
-            write_file[u as usize]
-                .as_mut()
-                .unwrap()
-                .write_all(b"\n")
-                .unwrap();
+            write_file[u as usize].as_mut().unwrap().write_ln().unwrap();
         }
     };
 }
@@ -163,7 +181,8 @@ fn print_term_log_char(
     Ok(())
 }
 
-unsafe fn print_file_char<W: std::io::Write>(file: &mut W, s: char, nl: i32) -> io::Result<()> {
+unsafe fn print_file_char(file: &mut WFile, s: char, nl: i32) -> io::Result<()> {
+    use std::io::Write;
     if (s as i32) == nl {
         file.write_all(b"\n")?;
     } else if s.is_control() {
@@ -249,15 +268,7 @@ impl fmt::Write for Selector {
                     }
                 }
                 Selector::File(u) => {
-                    let file = write_file[*u as usize].as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    if !s.contains(|c: char| (c as i32) == nl || c.is_control()) {
-                        IoWrite::write(file, s.as_bytes()).unwrap();
-                    } else {
-                        for c in s.chars() {
-                            print_file_char(file, c, nl).unwrap();
-                        }
-                    }
+                    write_file[*u as usize].as_mut().unwrap().write_str(s)?;
                 }
             }
         }
@@ -305,11 +316,35 @@ impl fmt::Write for Selector {
                     tally += count;
                 }
                 Selector::File(u) => {
-                    let file = write_file[u as usize].as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    print_file_char(file, s, nl).unwrap();
+                    write_file[u as usize].as_mut().unwrap().write_char(s)?;
                 }
             }
+        }
+        Ok(())
+    }
+}
+impl fmt::Write for WFile {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        use std::io::Write as IoWrite;
+        use std::ops::DerefMut;
+        unsafe {
+            let nl = get_int_par(IntPar::new_line_char);
+            if !s.contains(|c: char| (c as i32) == nl || c.is_control()) {
+                IoWrite::write(self.deref_mut(), s.as_bytes()).unwrap();
+            } else {
+                for c in s.chars() {
+                    print_file_char(self, c, nl).unwrap();
+                }
+            }
+        }
+        Ok(())
+    }
+    #[inline]
+    fn write_char(&mut self, s: char) -> fmt::Result {
+        unsafe {
+            let nl = get_int_par(IntPar::new_line_char);
+            print_file_char(self, s, nl).unwrap();
         }
         Ok(())
     }

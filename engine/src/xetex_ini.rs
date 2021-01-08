@@ -3525,7 +3525,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     /* Miscellaneous initializations that were mostly originally done in the
      * main() driver routines. */
     /* Get our stdout handle */
-    rust_stdout = ttstub_output_open_stdout().map(|h| LogTermOutput::new(h));
+    rust_stdout = ttstub_output_open_stdout().map(LogTermOutput::new);
     TEX_format_default = dump_name.to_string();
     /* Not sure why these get custom initializations. */
     if file_line_error_style_p < 0 {

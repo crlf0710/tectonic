@@ -9029,8 +9029,7 @@ pub(crate) unsafe fn open_log_file() {
         job_name = maketexstring("texput")
     }
     let log_name = pack_job_name(".log");
-    log_file =
-        OutputHandleWrapper::open(&log_name, 0).map(|h| crate::xetex_output::LogTermOutput::new(h));
+    log_file = OutputHandleWrapper::open(&log_name, 0).map(crate::xetex_output::LogTermOutput::new);
     if log_file.is_none() {
         abort!("cannot open log file output \"{}\"", log_name);
     }
@@ -15473,15 +15472,14 @@ pub(crate) unsafe fn close_files_and_terminate() {
     terminate_font_manager();
     for k in 0..=15 {
         if write_open[k] {
-            ttstub_output_close(write_file[k].take().unwrap());
+            ttstub_output_close(write_file[k].take().unwrap().0);
         }
     }
     finalize_dvi_file();
     synctex_terminate(log_opened);
     if log_opened {
         writeln!(log_file.as_mut().unwrap()).unwrap();
-        let crate::xetex_output::LogTermOutput { handler, .. } = log_file.take().unwrap();
-        ttstub_output_close(handler);
+        ttstub_output_close(log_file.take().unwrap().handler);
         log_file = None;
         match selector {
             Selector::LOG_ONLY => selector = Selector::NO_PRINT,
