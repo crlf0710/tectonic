@@ -2049,9 +2049,9 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     end_token_list(input);
 
     let j = p.id() as i16;
-    let old_setting = selector;
 
     if j == 18 {
+        let old_setting = selector;
         let s = format!("{}", TokenNode(Some(def_ref)));
         flush_list(Some(def_ref));
         if get_int_par(IntPar::tracing_online) <= 0 {
@@ -2074,6 +2074,7 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
         t_print_nl!("");
         print_ln();
+        selector = old_setting;
     } else if write_open[j as usize] {
         use std::fmt::Write;
         let file = write_file[j as usize].as_mut().unwrap();
@@ -2082,6 +2083,7 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
         file.write_ln().unwrap();
         flush_list(Some(def_ref));
     } else {
+        let old_setting = selector;
         if j == 17 && (selector == Selector::TERM_AND_LOG) {
             selector = Selector::LOG_ONLY
         }
@@ -2089,9 +2091,8 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
         token_show(Some(def_ref));
         print_ln();
         flush_list(Some(def_ref));
+        selector = old_setting;
     }
-
-    selector = old_setting;
 }
 
 unsafe fn pic_out(p: &Picture) {

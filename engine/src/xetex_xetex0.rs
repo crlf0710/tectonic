@@ -208,7 +208,85 @@ impl<'a> fmt::Display for TokenList {
 }
 /*:112*/
 /*118:*/
-pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: usize) {
+pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, l: usize) {
+    let mut match_chr = '#'; // character used in a `match`
+    let mut n = b'0'; // the highest parameter number, as an ASCII digit
+    tally = 0;
+    while let Some(p) = popt {
+        if tally >= l {
+            break;
+        }
+        // Display token |p|, and |return|
+        if p < hi_mem_min as usize || p > mem_end as usize {
+            t_print!("{}.", Esc("CLOBBERED"));
+            return;
+        }
+        let info = *LLIST_info(p as usize);
+        if info >= CS_TOKEN_FLAG {
+            t_print!("{}", Cs(info - CS_TOKEN_FLAG));
+        } else {
+            let m = Cmd::from((info / MAX_CHAR_VAL) as u16);
+            let c = info % MAX_CHAR_VAL;
+            if info < 0 {
+                t_print!("{}.", Esc("BAD"));
+            } else {
+                // Display the token `$(m,c)$`
+                /*306:*/
+                match m {
+                    Cmd::LeftBrace
+                    | Cmd::RightBrace
+                    | Cmd::MathShift
+                    | Cmd::TabMark
+                    | Cmd::SupMark
+                    | Cmd::SubMark
+                    | Cmd::Spacer
+                    | Cmd::Letter
+                    | Cmd::OtherChar => t_print!("{}", std::char::from_u32(c as u32).unwrap()),
+                    Cmd::MacParam => {
+                        let c = std::char::from_u32(c as u32).unwrap();
+                        t_print!("{0}{0}", c);
+                    }
+                    OUT_PARAM => {
+                        t_print!("{}", match_chr);
+                        if c <= 0x9 {
+                            t_print!("{}", char::from((c as u8) + b'0'));
+                        } else {
+                            t_print!("!");
+                            return;
+                        }
+                    }
+                    MATCH => {
+                        match_chr = std::char::from_u32(c as u32).unwrap();
+                        t_print!("{}", match_chr);
+                        n += 1;
+                        t_print!("{}", char::from(n));
+                        if n > b'9' {
+                            return;
+                        }
+                    }
+                    END_MATCH => {
+                        if c == 0 {
+                            t_print!("->");
+                        }
+                    }
+                    _ => t_print!("{}.", Esc("BAD")),
+                }
+            }
+        }
+        popt = LLIST_link(p as usize).opt();
+    }
+    if popt.is_some() {
+        t_print!("{}.", Esc("ETC"));
+    };
+}
+pub(crate) unsafe fn show_token_list_pseudo(
+    ps: &mut crate::xetex_output::Pseudo,
+    mut popt: Option<usize>,
+    q: Option<usize>,
+    l: usize,
+) {
+    use std::fmt::Write;
+    use std::format_args as fa;
     let mut match_chr = '#'; // character used in a `match`
     let mut n = b'0'; // the highest parameter number, as an ASCII digit
     tally = 0;
@@ -228,17 +306,17 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
         }
         // Display token |p|, and |return|
         if p < hi_mem_min as usize || p > mem_end as usize {
-            print_esc_cstr("CLOBBERED.");
+            ps.write_fmt(fa!("{}.", Esc("CLOBBERED"))).unwrap();
             return;
         }
         let info = *LLIST_info(p as usize);
         if info >= CS_TOKEN_FLAG {
-            t_print!("{}", Cs(info - CS_TOKEN_FLAG));
+            ps.write_fmt(fa!("{}", Cs(info - CS_TOKEN_FLAG))).unwrap();
         } else {
             let m = Cmd::from((info / MAX_CHAR_VAL) as u16);
             let c = info % MAX_CHAR_VAL;
             if info < 0 {
-                print_esc_cstr("BAD.");
+                ps.write_fmt(fa!("{}.", Esc("BAD"))).unwrap();
             } else {
                 // Display the token `$(m,c)$`
                 /*306:*/
@@ -251,43 +329,45 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                     | Cmd::SubMark
                     | Cmd::Spacer
                     | Cmd::Letter
-                    | Cmd::OtherChar => print_chr(std::char::from_u32(c as u32).unwrap()),
+                    | Cmd::OtherChar => ps
+                        .write_fmt(fa!("{}", std::char::from_u32(c as u32).unwrap()))
+                        .unwrap(),
                     Cmd::MacParam => {
                         let c = std::char::from_u32(c as u32).unwrap();
-                        print_chr(c);
-                        print_chr(c);
+                        ps.write_fmt(fa!("{0}{0}", c)).unwrap();
                     }
                     OUT_PARAM => {
-                        print_chr(match_chr);
+                        ps.write_fmt(fa!("{}", match_chr)).unwrap();
                         if c <= 0x9 {
-                            print_chr(char::from((c as u8) + b'0'));
+                            ps.write_fmt(fa!("{}", char::from((c as u8) + b'0')))
+                                .unwrap();
                         } else {
-                            print_chr('!');
+                            ps.write_fmt(fa!("!")).unwrap();
                             return;
                         }
                     }
                     MATCH => {
                         match_chr = std::char::from_u32(c as u32).unwrap();
-                        print_chr(match_chr);
+                        ps.write_fmt(fa!("{}", match_chr)).unwrap();
                         n += 1;
-                        print_chr(char::from(n));
+                        ps.write_fmt(fa!("{}", char::from(n))).unwrap();
                         if n > b'9' {
                             return;
                         }
                     }
                     END_MATCH => {
                         if c == 0 {
-                            t_print!("->");
+                            ps.write_fmt(fa!("->")).unwrap();
                         }
                     }
-                    _ => print_esc_cstr("BAD."),
+                    _ => ps.write_fmt(fa!("{}.", Esc("BAD"))).unwrap(),
                 }
             }
         }
         popt = LLIST_link(p as usize).opt();
     }
     if popt.is_some() {
-        print_esc_cstr("ETC.");
+        ps.write_fmt(fa!("{}.", Esc("ETC"))).unwrap();
     };
 }
 /// uses `scanner_status` to print a warning message
@@ -315,7 +395,7 @@ pub(crate) unsafe fn runaway() {
         };
         print_chr('?');
         print_ln();
-        show_token_list(llist_link(p), None, error_line - 10);
+        show_token_list(llist_link(p), error_line - 10);
     };
 }
 pub(crate) unsafe fn get_avail() -> usize {
@@ -674,7 +754,7 @@ pub(crate) unsafe fn print_mark(p: i32) {
     if p < hi_mem_min || p > mem_end {
         print_esc_cstr("CLOBBERED.");
     } else {
-        show_token_list(LLIST_link(p as usize).opt(), None, max_print_line - 10);
+        show_token_list(LLIST_link(p as usize).opt(), max_print_line - 10);
         // TODO
     }
     print_chr('}');
@@ -3350,7 +3430,7 @@ pub(crate) unsafe fn prepare_mag() {
 /// to its reference count; the pointer may be null.
 pub(crate) unsafe fn token_show(p: Option<usize>) {
     if let Some(p) = p {
-        show_token_list(llist_link(p), None, 10000000);
+        show_token_list(llist_link(p), 10000000);
     }
 }
 pub(crate) struct TokenNode(pub Option<usize>);
@@ -3438,7 +3518,6 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                 || input.loc.is_some()
             {
                 tally = 0;
-                let old_setting = selector;
                 let l;
                 if input.state != InputState::TokenList {
                     if input.name <= 17 {
@@ -3466,7 +3545,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     print_chr(' ');
                     l = tally;
                     tally = 0;
-                    selector = Selector::PSEUDO;
+                    let mut pseudo = crate::xetex_output::Pseudo;
                     trick_count = 1000000;
                     let j = if BUFFER[input.limit as usize] == get_int_par(IntPar::end_line_char) {
                         input.limit
@@ -3482,7 +3561,10 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                                     trick_count = error_line
                                 }
                             }
-                            print_chr(std::char::from_u32(BUFFER[i as usize] as u32).unwrap());
+                            use std::fmt::Write;
+                            pseudo
+                                .write_char(std::char::from_u32(BUFFER[i as usize] as u32).unwrap())
+                                .unwrap();
                         }
                     }
                 } else {
@@ -3517,7 +3599,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     }
                     l = tally;
                     tally = 0;
-                    selector = Selector::PSEUDO;
+                    let mut pseudo = crate::xetex_output::Pseudo;
                     trick_count = 1_000_000;
                     if [
                         Btl::Parameter,
@@ -3529,12 +3611,16 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     ]
                     .contains(&input.index)
                     {
-                        show_token_list(input.start, input.loc, 100000);
+                        show_token_list_pseudo(&mut pseudo, input.start, input.loc, 100000);
                     } else {
-                        show_token_list(MEM[input.start.unwrap()].b32.s1.opt(), input.loc, 100_000);
+                        show_token_list_pseudo(
+                            &mut pseudo,
+                            MEM[input.start.unwrap()].b32.s1.opt(),
+                            input.loc,
+                            100_000,
+                        );
                     }
                 }
-                selector = old_setting;
                 if trick_count == 1_000_000 {
                     first_count = tally;
                     trick_count = tally + 1 + error_line - half_error_line;
@@ -4773,7 +4859,7 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                     diagnostic(false, || {
                         t_print_nl!("{}", PoolString::from(match_chr as str_number));
                         t_print!("{}<-", n as i32);
-                        show_token_list(pstack[(n as i32 - 1) as usize].opt(), None, 1000);
+                        show_token_list(pstack[(n as i32 - 1) as usize].opt(), 1000);
                     });
                 }
             }

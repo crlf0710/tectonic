@@ -44,7 +44,6 @@ pub(crate) enum Selector {
     TERM_ONLY,
     LOG_ONLY,
     TERM_AND_LOG,
-    PSEUDO,
 }
 
 pub(crate) struct WFile(pub(crate) OutputHandleWrapper);
@@ -158,7 +157,7 @@ pub(crate) unsafe fn print_ln() {
         Selector::TERM_ONLY => {
             rust_stdout.as_mut().unwrap().write_ln().unwrap();
         }
-        Selector::NO_PRINT | Selector::PSEUDO => {}
+        Selector::NO_PRINT => {}
     };
 }
 
@@ -190,6 +189,40 @@ fn print_term_log_char(
         }
     }
     Ok(())
+}
+
+pub(crate) struct Pseudo;
+impl fmt::Write for Pseudo {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for c in s.chars() {
+            self.write_char(c)?;
+        }
+        Ok(())
+    }
+    #[inline]
+    fn write_char(&mut self, s: char) -> fmt::Result {
+        unsafe {
+            let mut count;
+            if s.is_control() {
+                let (buf, len) = replace_control(s);
+                count = 0;
+                for &c in &buf[..len] {
+                    if tally < trick_count {
+                        trick_buf[((tally + count) % error_line) as usize] = char::from(c);
+                    }
+                    count += 1;
+                }
+            } else {
+                count = 1;
+                if tally < trick_count {
+                    trick_buf[(tally % error_line) as usize] = s;
+                }
+            }
+            tally += count;
+        }
+        Ok(())
+    }
 }
 
 pub(crate) unsafe fn print_chr(c: char) {
@@ -258,11 +291,6 @@ impl fmt::Write for Selector {
                     }
                 }
                 Selector::NO_PRINT => {}
-                Selector::PSEUDO => {
-                    for c in s.chars() {
-                        self.write_char(c)?;
-                    }
-                }
             }
         }
         Ok(())
@@ -289,25 +317,6 @@ impl fmt::Write for Selector {
                     stdout.print_char(s, nl).unwrap();
                 }
                 Selector::NO_PRINT => {}
-                Selector::PSEUDO => {
-                    let mut count;
-                    if s.is_control() {
-                        let (buf, len) = replace_control(s);
-                        count = 0;
-                        for &c in &buf[..len] {
-                            if tally < trick_count {
-                                trick_buf[((tally + count) % error_line) as usize] = char::from(c);
-                            }
-                            count += 1;
-                        }
-                    } else {
-                        count = 1;
-                        if tally < trick_count {
-                            trick_buf[(tally % error_line) as usize] = s;
-                        }
-                    }
-                    tally += count;
-                }
             }
         }
         Ok(())
