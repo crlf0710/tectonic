@@ -13,14 +13,14 @@ use crate::cmd::InteractionMode;
 use crate::xetex_ini::tt_cleanup;
 use crate::xetex_ini::{
     error_count, halt_on_error_p, help_line, help_ptr, history, interaction, job_name, log_opened,
-    rust_stdout, selector, use_err_help,
+    rust_stdout, use_err_help,
 };
-use crate::xetex_output::print_ln;
+use crate::xetex_output::{print_ln, selector, Selector};
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
 use bridge::TTHistory;
 
-use crate::xetex_ini::{cur_input, Selector, INPUT_PTR, INPUT_STACK};
+use crate::xetex_ini::{cur_input, INPUT_PTR, INPUT_STACK};
 
 pub(crate) trait Confuse {
     type Output;

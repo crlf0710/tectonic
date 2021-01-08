@@ -7,7 +7,7 @@ use std::fmt;
 use std::io::Write;
 use std::ptr;
 
-use super::xetex_ini::{input_state_t, EqtbWord, Selector};
+use super::xetex_ini::{input_state_t, EqtbWord};
 use super::xetex_io::{name_of_input_file, u_open_in};
 use crate::cmd::*;
 use crate::core_memory::{mfree, xmalloc_array};
@@ -43,17 +43,16 @@ use crate::xetex_ini::{
     pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
     pdf_last_y_pos, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack,
     read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status,
-    selector, set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, tally,
-    texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count, use_err_help,
-    used_tectonic_coda_tokens, warning_index, write_file, write_open, xtx_ligature_present, yhash,
-    LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA,
-    FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO,
-    FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
-    FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
-    INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK,
-    MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE,
-    PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
-    SOURCE_FILENAME_STACK, STACK_SIZE,
+    set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, tally, texmf_log_name,
+    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
+    warning_index, write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr, BCHAR_LABEL,
+    BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE,
+    FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
+    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
+    GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE,
+    LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK,
+    MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK,
+    SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, memory_word, prefixed_command};
 use crate::xetex_ini::{hash_offset, FONT_LETTER_SPACE};
@@ -65,7 +64,9 @@ use crate::xetex_math::{
     math_fraction, math_left_right, math_limit_switch, math_radical, resume_after_display,
     start_eq_no, sub_sup,
 };
-use crate::xetex_output::{print_chr, print_esc_cstr, print_ln, SaNum};
+use crate::xetex_output::{
+    print_chr, print_esc_cstr, print_ln, selector, write_file, SaNum, Selector,
+};
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
 use crate::xetex_scaledmath::{

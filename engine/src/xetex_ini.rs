@@ -12,7 +12,7 @@ use crate::trie::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
-use crate::xetex_output::Esc;
+use crate::xetex_output::{selector, Esc, Selector};
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
 use crate::xetex_stringpool::{
@@ -51,7 +51,6 @@ use dpx::{pdf_files_close, pdf_files_init};
 
 use bridge::TTHistory;
 
-use bridge::OutputHandleWrapper;
 /* quasi-hack to get the primary input */
 /* tectonic/xetex-core.h: core XeTeX types and #includes.
    Copyright 2016 the Tectonic Project
@@ -63,17 +62,6 @@ use bridge::OutputHandleWrapper;
 /* harfbuzz */
 /* Endianness foo */
 /* our typedefs */
-
-#[repr(C)]
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum Selector {
-    NO_PRINT,
-    TERM_ONLY,
-    LOG_ONLY,
-    TERM_AND_LOG,
-    PSEUDO,
-    File(u8),
-}
 
 /*18: */
 pub(crate) type UnicodeScalar = i32;
@@ -426,8 +414,6 @@ use crate::xetex_output::LogTermOutput;
 pub(crate) static mut rust_stdout: Option<LogTermOutput> = None;
 #[no_mangle]
 pub(crate) static mut log_file: Option<LogTermOutput> = None;
-#[no_mangle]
-pub(crate) static mut selector: Selector = Selector::File(0);
 #[no_mangle]
 pub(crate) static mut tally: usize = 0;
 #[no_mangle]
@@ -909,10 +895,6 @@ pub(crate) static mut after_token: i32 = 0;
 pub(crate) static mut long_help_seen: bool = false;
 #[no_mangle]
 pub(crate) static mut format_ident: str_number = 0;
-#[no_mangle]
-pub(crate) static mut write_file: [Option<OutputHandleWrapper>; 16] = [
-    None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-];
 #[no_mangle]
 pub(crate) static mut write_open: [bool; 18] = [false; 18];
 #[no_mangle]

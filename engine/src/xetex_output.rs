@@ -14,11 +14,9 @@ use crate::cmd::Cmd;
 use crate::node::NativeWord;
 use crate::xetex_stringpool::{str_ptr, PoolString};
 
-use super::xetex_ini::Selector;
 use super::xetex_ini::{
-    error_line, hash_offset, line, log_file, max_print_line, rust_stdout, selector, tally,
-    trick_buf, trick_count, write_file, yhash, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN,
-    LINE_STACK, MEM,
+    error_line, hash_offset, line, log_file, max_print_line, rust_stdout, tally, trick_buf,
+    trick_count, yhash, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 
 /* Extra stuff used in various change files for various reasons.  */
@@ -31,14 +29,33 @@ use super::xetex_ini::{
  * Licensed under the MIT License.
 */
 
+pub(crate) static mut write_file: [Option<OutputHandleWrapper>; 16] = [
+    None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+];
+
+pub(crate) static mut selector: Selector = Selector::NO_PRINT;
+
+use bridge::OutputHandleWrapper;
+
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Selector {
+    NO_PRINT,
+    TERM_ONLY,
+    LOG_ONLY,
+    TERM_AND_LOG,
+    PSEUDO,
+    File(u8),
+}
+
 pub(crate) struct LogTermOutput {
-    pub(crate) handler: bridge::OutputHandleWrapper,
+    pub(crate) handler: OutputHandleWrapper,
     pub(crate) offset: usize,
     pub(crate) max_line_width: usize,
 }
 
 impl LogTermOutput {
-    pub(crate) fn new(handler: bridge::OutputHandleWrapper) -> Self {
+    pub(crate) fn new(handler: OutputHandleWrapper) -> Self {
         Self {
             handler,
             offset: 0,
@@ -80,7 +97,7 @@ impl LogTermOutput {
 }
 
 impl core::ops::Deref for LogTermOutput {
-    type Target = bridge::OutputHandleWrapper;
+    type Target = OutputHandleWrapper;
 
     fn deref(&self) -> &Self::Target {
         &self.handler
