@@ -55,6 +55,7 @@ pub(crate) enum Selector {
 }
 
 impl Selector {
+    #[inline]
     pub unsafe fn zero_tally(&mut self) {
         match self {
             Selector::TermAndLog => {
@@ -67,9 +68,10 @@ impl Selector {
             Selector::TermOnly => {
                 rust_stdout.as_mut().unwrap().tally = 0;
             }
-            _ => {}
+            Selector::NoPrint => {}
         }
     }
+    #[inline]
     pub unsafe fn get_max_tally(&self) -> usize {
         match self {
             Selector::TermAndLog => rust_stdout
@@ -79,7 +81,7 @@ impl Selector {
                 .max(log_file.as_ref().unwrap().tally),
             Selector::LogOnly => log_file.as_ref().unwrap().tally,
             Selector::TermOnly => rust_stdout.as_ref().unwrap().tally,
-            _ => 0,
+            Selector::NoPrint => 0,
         }
     }
 }
@@ -89,11 +91,12 @@ impl WFile {
     pub(crate) fn new(handler: OutputHandleWrapper) -> Self {
         Self(handler)
     }
+    #[inline]
     pub(crate) fn write_ln(&mut self) -> std::io::Result<()> {
         use std::io::Write;
         self.write_all(b"\n")
     }
-
+    #[inline]
     fn print_char(&mut self, s: char, nl: i32) -> io::Result<()> {
         use std::io::Write;
         if (s as i32) == nl {
@@ -111,12 +114,13 @@ impl WFile {
 }
 impl core::ops::Deref for WFile {
     type Target = OutputHandleWrapper;
-
+    #[inline(always)]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 impl core::ops::DerefMut for WFile {
+    #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -138,11 +142,13 @@ impl LogTermOutput {
             tally: 0,
         }
     }
+    #[inline]
     fn write_ln(&mut self) -> std::io::Result<()> {
         use std::io::Write;
         self.offset = 0;
         self.write_all(b"\n")
     }
+    #[inline]
     fn write_chr(&mut self, c: char) -> std::io::Result<()> {
         use std::io::Write;
         write!(self, "{}", c)?;
@@ -152,6 +158,7 @@ impl LogTermOutput {
         }
         Ok(())
     }
+    #[inline]
     fn print_char(&mut self, s: char, nl: i32) -> io::Result<()> {
         if (s as i32) == nl {
             self.write_ln()?;
@@ -172,17 +179,19 @@ impl LogTermOutput {
 
 impl core::ops::Deref for LogTermOutput {
     type Target = OutputHandleWrapper;
-
+    #[inline(always)]
     fn deref(&self) -> &Self::Target {
         &self.handler
     }
 }
 impl core::ops::DerefMut for LogTermOutput {
+    #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.handler
     }
 }
 
+#[inline]
 pub(crate) unsafe fn print_ln() {
     match selector {
         Selector::TermAndLog => {
@@ -201,6 +210,7 @@ pub(crate) unsafe fn print_ln() {
 
 use std::io;
 
+#[inline]
 fn print_term_log_char(
     stdout: &mut LogTermOutput,
     lg: &mut LogTermOutput,
@@ -234,7 +244,7 @@ pub(crate) struct Pseudo {
     pub(crate) trick_count: usize,
 }
 impl Pseudo {
-    pub(crate) fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self {
             tally: 0,
             first_count: 0,
@@ -275,6 +285,7 @@ impl fmt::Write for Pseudo {
     }
 }
 
+#[inline]
 pub(crate) unsafe fn print_chr(c: char) {
     use std::fmt::Write;
     selector.write_char(c).unwrap();
@@ -396,6 +407,7 @@ impl fmt::Write for WFile {
     }
 }
 
+#[inline]
 fn replace_control(s: char) -> ([u8; 4], usize) {
     match s {
         '\u{0}'..='\u{1f}' => ([b'^', b'^', (s as u8) + 0x40, 0], 3),
@@ -427,6 +439,7 @@ fn replace_control(s: char) -> ([u8; 4], usize) {
     }
 }
 
+#[inline]
 pub(crate) unsafe fn printnl() {
     match selector {
         Selector::TermAndLog => {
@@ -464,6 +477,7 @@ impl<'a> fmt::Display for Esc<'a> {
         self.0.fmt(f)
     }
 }
+#[inline]
 pub(crate) unsafe fn print_esc_cstr(s: &str) {
     t_print!("{}", Esc(s));
 }

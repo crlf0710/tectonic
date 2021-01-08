@@ -330,34 +330,34 @@ pub(crate) unsafe fn show_token_list_pseudo(
                     | Cmd::Spacer
                     | Cmd::Letter
                     | Cmd::OtherChar => ps
-                        .write_fmt(fa!("{}", std::char::from_u32(c as u32).unwrap()))
+                        .write_char(std::char::from_u32(c as u32).unwrap())
                         .unwrap(),
                     Cmd::MacParam => {
                         let c = std::char::from_u32(c as u32).unwrap();
-                        ps.write_fmt(fa!("{0}{0}", c)).unwrap();
+                        ps.write_char(c).unwrap();
+                        ps.write_char(c).unwrap();
                     }
                     OUT_PARAM => {
-                        ps.write_fmt(fa!("{}", match_chr)).unwrap();
+                        ps.write_char(match_chr).unwrap();
                         if c <= 0x9 {
-                            ps.write_fmt(fa!("{}", char::from((c as u8) + b'0')))
-                                .unwrap();
+                            ps.write_char(char::from((c as u8) + b'0')).unwrap();
                         } else {
-                            ps.write_fmt(fa!("!")).unwrap();
+                            ps.write_char('!').unwrap();
                             return;
                         }
                     }
                     MATCH => {
                         match_chr = std::char::from_u32(c as u32).unwrap();
-                        ps.write_fmt(fa!("{}", match_chr)).unwrap();
+                        ps.write_char(match_chr).unwrap();
                         n += 1;
-                        ps.write_fmt(fa!("{}", char::from(n))).unwrap();
+                        ps.write_char(char::from(n)).unwrap();
                         if n > b'9' {
                             return;
                         }
                     }
                     END_MATCH => {
                         if c == 0 {
-                            ps.write_fmt(fa!("->")).unwrap();
+                            ps.write_str("->").unwrap();
                         }
                     }
                     _ => ps.write_fmt(fa!("{}.", Esc("BAD"))).unwrap(),
