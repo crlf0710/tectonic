@@ -382,15 +382,29 @@ fn replace_control(s: char) -> ([u8; 4], usize) {
 
 pub(crate) unsafe fn printnl() {
     match selector {
-        Selector::TERM_ONLY | Selector::TERM_AND_LOG
-            if rust_stdout.as_ref().unwrap().offset > 0 =>
-        {
-            print_ln()
+        Selector::TERM_AND_LOG => {
+            let stdout = rust_stdout.as_mut().unwrap();
+            if stdout.offset > 0 {
+                stdout.write_ln().unwrap();
+            }
+            let lg = log_file.as_mut().unwrap();
+            if lg.offset > 0 {
+                lg.write_ln().unwrap();
+            }
         }
-        Selector::LOG_ONLY | Selector::TERM_AND_LOG if log_file.as_ref().unwrap().offset > 0 => {
-            print_ln()
+        Selector::TERM_ONLY => {
+            let stdout = rust_stdout.as_mut().unwrap();
+            if stdout.offset > 0 {
+                stdout.write_ln().unwrap();
+            }
         }
-        _ => {}
+        Selector::LOG_ONLY => {
+            let lg = log_file.as_mut().unwrap();
+            if lg.offset > 0 {
+                lg.write_ln().unwrap();
+            }
+        }
+        Selector::NO_PRINT => {}
     }
 }
 pub(crate) struct Esc<'a>(pub &'a str);
