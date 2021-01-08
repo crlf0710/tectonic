@@ -37,14 +37,14 @@ use crate::xetex_ini::{
     insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
     is_in_csname, job_name, last, last_badness, last_glue, last_kern, last_leftmost_char,
     last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack, ligature_present, line,
-    lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i,
-    main_j, main_k, main_s, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num, mem_end,
+    lo_mem_max, long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j, main_k,
+    main_s, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num, mem_end,
     name_in_progress, name_of_font, no_new_control_sequence, open_parens, output_active,
     pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
     pdf_last_y_pos, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack,
-    read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status,
+    read_file, read_open, rover, rt_hit, sa_chain, sa_level, sa_root, scanner_status,
     set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, texmf_log_name,
-    total_shrink, total_stretch, trick_buf, use_err_help, used_tectonic_coda_tokens, warning_index,
+    total_shrink, total_stretch, use_err_help, used_tectonic_coda_tokens, warning_index,
     write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE,
     EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC,
     FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
@@ -65,7 +65,8 @@ use crate::xetex_math::{
     start_eq_no, sub_sup,
 };
 use crate::xetex_output::{
-    print_chr, print_esc_cstr, print_ln, selector, write_file, SaNum, Selector,
+    log_file, log_opened, print_chr, print_esc_cstr, print_ln, rust_stdout, selector, trick_buf,
+    write_file, SaNum, Selector,
 };
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};

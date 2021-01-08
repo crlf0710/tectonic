@@ -120,13 +120,17 @@ pub(crate) unsafe fn store_fmt_file() {
         if interaction == InteractionMode::ErrorStop {
             interaction = InteractionMode::Scroll;
         }
-        if log_opened {
+        if crate::xetex_output::log_opened {
             error();
         }
 
         history = TTHistory::FATAL_ERROR;
         close_files_and_terminate();
-        rust_stdout.as_mut().unwrap().flush().unwrap();
+        crate::xetex_output::rust_stdout
+            .as_mut()
+            .unwrap()
+            .flush()
+            .unwrap();
         panic!("\\dump inside a group");
     }
 

@@ -408,14 +408,6 @@ pub(crate) static mut insert_src_special_every_par: bool = false;
 pub(crate) static mut insert_src_special_every_math: bool = false;
 #[no_mangle]
 pub(crate) static mut insert_src_special_every_vbox: bool = false;
-
-use crate::xetex_output::LogTermOutput;
-#[no_mangle]
-pub(crate) static mut rust_stdout: Option<LogTermOutput> = None;
-#[no_mangle]
-pub(crate) static mut log_file: Option<LogTermOutput> = None;
-#[no_mangle]
-pub(crate) static mut trick_buf: [char; 256] = ['\u{0}'; 256];
 #[no_mangle]
 pub(crate) static mut interaction: InteractionMode = InteractionMode::Batch;
 #[no_mangle]
@@ -654,8 +646,6 @@ pub(crate) static mut TEX_format_default: String = String::new();
 pub(crate) static mut name_in_progress: bool = false;
 #[no_mangle]
 pub(crate) static mut job_name: str_number = 0;
-#[no_mangle]
-pub(crate) static mut log_opened: bool = false;
 #[no_mangle]
 pub(crate) static mut output_file_extension: String = String::new();
 #[no_mangle]
@@ -3519,7 +3509,8 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     /* Miscellaneous initializations that were mostly originally done in the
      * main() driver routines. */
     /* Get our stdout handle */
-    rust_stdout = ttstub_output_open_stdout().map(LogTermOutput::new);
+    crate::xetex_output::rust_stdout =
+        ttstub_output_open_stdout().map(crate::xetex_output::LogTermOutput::new);
     TEX_format_default = dump_name.to_string();
     /* Not sure why these get custom initializations. */
     if file_line_error_style_p < 0 {
@@ -3661,7 +3652,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     selector = Selector::TermOnly;
     job_name = 0;
     name_in_progress = false;
-    log_opened = false;
+    crate::xetex_output::log_opened = false;
 
     if semantic_pagination_enabled {
         output_file_extension = ".spx".to_string();

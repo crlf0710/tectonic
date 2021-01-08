@@ -12,10 +12,9 @@ use crate::{t_eprint, t_print, t_print_nl};
 use crate::cmd::InteractionMode;
 use crate::xetex_ini::tt_cleanup;
 use crate::xetex_ini::{
-    error_count, halt_on_error_p, help_line, help_ptr, history, interaction, job_name, log_opened,
-    rust_stdout, use_err_help,
+    error_count, halt_on_error_p, help_line, help_ptr, history, interaction, job_name, use_err_help,
 };
-use crate::xetex_output::{print_ln, selector, Selector};
+use crate::xetex_output::{log_opened, print_ln, rust_stdout, selector, Selector};
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
 use bridge::TTHistory;

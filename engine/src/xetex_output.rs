@@ -15,8 +15,8 @@ use crate::node::NativeWord;
 use crate::xetex_stringpool::{str_ptr, PoolString};
 
 use super::xetex_ini::{
-    error_line, hash_offset, line, log_file, max_print_line, rust_stdout, trick_buf, yhash,
-    EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
+    error_line, hash_offset, line, max_print_line, yhash, EQTB_TOP, FULL_SOURCE_FILENAME_STACK,
+    IN_OPEN, LINE_STACK, MEM,
 };
 
 /* Extra stuff used in various change files for various reasons.  */
@@ -34,6 +34,14 @@ pub(crate) static mut write_file: [Option<WFile>; 16] = [
 ];
 
 pub(crate) static mut selector: Selector = Selector::NoPrint;
+
+pub(crate) static mut rust_stdout: Option<LogTermOutput> = None;
+
+pub(crate) static mut log_file: Option<LogTermOutput> = None;
+
+pub(crate) static mut log_opened: bool = false;
+
+pub(crate) static mut trick_buf: [char; 256] = ['\u{0}'; 256];
 
 use bridge::OutputHandleWrapper;
 
@@ -135,7 +143,7 @@ impl LogTermOutput {
         self.offset = 0;
         self.write_all(b"\n")
     }
-    fn write_char(&mut self, c: char) -> std::io::Result<()> {
+    fn write_chr(&mut self, c: char) -> std::io::Result<()> {
         use std::io::Write;
         write!(self, "{}", c)?;
         self.offset += 1;
@@ -151,10 +159,10 @@ impl LogTermOutput {
             if s.is_control() {
                 let (buf, len) = replace_control(s);
                 for &c in &buf[..len] {
-                    self.write_char(char::from(c))?;
+                    self.write_chr(char::from(c))?;
                 }
             } else {
-                self.write_char(s)?;
+                self.write_chr(s)?;
             }
             self.tally += 1;
         }
@@ -207,12 +215,12 @@ fn print_term_log_char(
             let (buf, len) = replace_control(s);
             for &c in &buf[..len] {
                 let c = char::from(c);
-                stdout.write_char(c)?;
-                lg.write_char(c)?;
+                stdout.write_chr(c)?;
+                lg.write_chr(c)?;
             }
         } else {
-            stdout.write_char(s)?;
-            lg.write_char(s)?;
+            stdout.write_chr(s)?;
+            lg.write_chr(s)?;
         }
         stdout.tally += 1;
         lg.tally += 1;
@@ -273,14 +281,40 @@ pub(crate) unsafe fn print_chr(c: char) {
 }
 
 use std::fmt;
+impl fmt::Write for LogTermOutput {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        use std::ops::DerefMut;
+        let nl = unsafe { get_int_par(IntPar::new_line_char) };
+        let bytelen = s.len();
+        if (self.offset + bytelen < self.max_line_width)
+            && !s.contains(|c: char| (c as i32) == nl || c.is_control())
+        {
+            std::io::Write::write(self.deref_mut(), s.as_bytes()).unwrap();
+            self.offset += bytelen;
+            self.tally += bytelen;
+        } else {
+            for c in s.chars() {
+                self.print_char(c, nl).unwrap();
+            }
+        }
+        Ok(())
+    }
+    #[inline]
+    fn write_char(&mut self, s: char) -> fmt::Result {
+        let nl = unsafe { get_int_par(IntPar::new_line_char) };
+        self.print_char(s, nl).unwrap();
+        Ok(())
+    }
+}
+
 impl fmt::Write for Selector {
     #[inline]
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        use std::io::Write as IoWrite;
-        use std::ops::DerefMut;
         unsafe {
             match self {
                 Selector::TermAndLog => {
+                    use std::ops::DerefMut;
                     let stdout = rust_stdout.as_mut().unwrap();
                     let lg = log_file.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
@@ -289,9 +323,9 @@ impl fmt::Write for Selector {
                         && (stdout.offset + bytelen < stdout.max_line_width)
                         && !s.contains(|c: char| (c as i32) == nl || c.is_control())
                     {
-                        IoWrite::write(lg.deref_mut(), s.as_bytes()).unwrap();
+                        std::io::Write::write(lg.deref_mut(), s.as_bytes()).unwrap();
                         lg.offset += bytelen;
-                        IoWrite::write(stdout.deref_mut(), s.as_bytes()).unwrap();
+                        std::io::Write::write(stdout.deref_mut(), s.as_bytes()).unwrap();
                         stdout.offset += bytelen;
                         lg.tally += bytelen;
                         stdout.tally += bytelen;
@@ -302,36 +336,10 @@ impl fmt::Write for Selector {
                     }
                 }
                 Selector::LogOnly => {
-                    let lg = log_file.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    let bytelen = s.len();
-                    if (lg.offset + bytelen < lg.max_line_width)
-                        && !s.contains(|c: char| (c as i32) == nl || c.is_control())
-                    {
-                        IoWrite::write(lg.deref_mut(), s.as_bytes()).unwrap();
-                        lg.offset += bytelen;
-                        lg.tally += bytelen;
-                    } else {
-                        for c in s.chars() {
-                            lg.print_char(c, nl).unwrap();
-                        }
-                    }
+                    log_file.as_mut().unwrap().write_str(s).unwrap();
                 }
                 Selector::TermOnly => {
-                    let stdout = rust_stdout.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    let bytelen = s.len();
-                    if (stdout.offset + bytelen < stdout.max_line_width)
-                        && !s.contains(|c: char| (c as i32) == nl || c.is_control())
-                    {
-                        IoWrite::write(stdout.deref_mut(), s.as_bytes()).unwrap();
-                        stdout.offset += bytelen;
-                        stdout.tally += bytelen;
-                    } else {
-                        for c in s.chars() {
-                            stdout.print_char(c, nl).unwrap();
-                        }
-                    }
+                    rust_stdout.as_mut().unwrap().write_str(s).unwrap();
                 }
                 Selector::NoPrint => {}
             }
@@ -350,14 +358,10 @@ impl fmt::Write for Selector {
                     print_term_log_char(stdout, lg, s, nl).unwrap();
                 }
                 Selector::LogOnly => {
-                    let lg = log_file.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    lg.print_char(s, nl).unwrap();
+                    log_file.as_mut().unwrap().write_char(s).unwrap();
                 }
                 Selector::TermOnly => {
-                    let stdout = rust_stdout.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    stdout.print_char(s, nl).unwrap();
+                    rust_stdout.as_mut().unwrap().write_char(s).unwrap();
                 }
                 Selector::NoPrint => {}
             }
