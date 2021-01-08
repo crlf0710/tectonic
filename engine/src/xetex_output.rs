@@ -15,8 +15,8 @@ use crate::node::NativeWord;
 use crate::xetex_stringpool::{str_ptr, PoolString};
 
 use super::xetex_ini::{
-    error_line, hash_offset, line, log_file, max_print_line, rust_stdout, tally, trick_buf,
-    trick_count, yhash, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
+    error_line, hash_offset, line, log_file, max_print_line, rust_stdout, trick_buf, yhash,
+    EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
 };
 
 /* Extra stuff used in various change files for various reasons.  */
@@ -33,17 +33,47 @@ pub(crate) static mut write_file: [Option<WFile>; 16] = [
     None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
 ];
 
-pub(crate) static mut selector: Selector = Selector::NO_PRINT;
+pub(crate) static mut selector: Selector = Selector::NoPrint;
 
 use bridge::OutputHandleWrapper;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Selector {
-    NO_PRINT,
-    TERM_ONLY,
-    LOG_ONLY,
-    TERM_AND_LOG,
+    NoPrint,
+    TermOnly,
+    LogOnly,
+    TermAndLog,
+}
+
+impl Selector {
+    pub unsafe fn zero_tally(&mut self) {
+        match self {
+            Selector::TermAndLog => {
+                rust_stdout.as_mut().unwrap().tally = 0;
+                log_file.as_mut().unwrap().tally = 0;
+            }
+            Selector::LogOnly => {
+                log_file.as_mut().unwrap().tally = 0;
+            }
+            Selector::TermOnly => {
+                rust_stdout.as_mut().unwrap().tally = 0;
+            }
+            _ => {}
+        }
+    }
+    pub unsafe fn get_max_tally(&self) -> usize {
+        match self {
+            Selector::TermAndLog => rust_stdout
+                .as_ref()
+                .unwrap()
+                .tally
+                .max(log_file.as_ref().unwrap().tally),
+            Selector::LogOnly => log_file.as_ref().unwrap().tally,
+            Selector::TermOnly => rust_stdout.as_ref().unwrap().tally,
+            _ => 0,
+        }
+    }
 }
 
 pub(crate) struct WFile(pub(crate) OutputHandleWrapper);
@@ -88,6 +118,7 @@ pub(crate) struct LogTermOutput {
     pub(crate) handler: OutputHandleWrapper,
     pub(crate) offset: usize,
     pub(crate) max_line_width: usize,
+    pub(crate) tally: usize,
 }
 
 impl LogTermOutput {
@@ -96,6 +127,7 @@ impl LogTermOutput {
             handler,
             offset: 0,
             max_line_width: unsafe { max_print_line },
+            tally: 0,
         }
     }
     fn write_ln(&mut self) -> std::io::Result<()> {
@@ -124,9 +156,7 @@ impl LogTermOutput {
             } else {
                 self.write_char(s)?;
             }
-            unsafe {
-                tally += 1;
-            }
+            self.tally += 1;
         }
         Ok(())
     }
@@ -147,17 +177,17 @@ impl core::ops::DerefMut for LogTermOutput {
 
 pub(crate) unsafe fn print_ln() {
     match selector {
-        Selector::TERM_AND_LOG => {
+        Selector::TermAndLog => {
             rust_stdout.as_mut().unwrap().write_ln().unwrap();
             log_file.as_mut().unwrap().write_ln().unwrap();
         }
-        Selector::LOG_ONLY => {
+        Selector::LogOnly => {
             log_file.as_mut().unwrap().write_ln().unwrap();
         }
-        Selector::TERM_ONLY => {
+        Selector::TermOnly => {
             rust_stdout.as_mut().unwrap().write_ln().unwrap();
         }
-        Selector::NO_PRINT => {}
+        Selector::NoPrint => {}
     };
 }
 
@@ -184,14 +214,26 @@ fn print_term_log_char(
             stdout.write_char(s)?;
             lg.write_char(s)?;
         }
-        unsafe {
-            tally += 1;
-        }
+        stdout.tally += 1;
+        lg.tally += 1;
     }
     Ok(())
 }
 
-pub(crate) struct Pseudo;
+pub(crate) struct Pseudo {
+    pub(crate) tally: usize,
+    pub(crate) first_count: usize,
+    pub(crate) trick_count: usize,
+}
+impl Pseudo {
+    pub(crate) fn new() -> Self {
+        Self {
+            tally: 0,
+            first_count: 0,
+            trick_count: 1_000_000,
+        }
+    }
+}
 impl fmt::Write for Pseudo {
     #[inline]
     fn write_str(&mut self, s: &str) -> fmt::Result {
@@ -208,18 +250,18 @@ impl fmt::Write for Pseudo {
                 let (buf, len) = replace_control(s);
                 count = 0;
                 for &c in &buf[..len] {
-                    if tally < trick_count {
-                        trick_buf[((tally + count) % error_line) as usize] = char::from(c);
+                    if self.tally < self.trick_count {
+                        trick_buf[((self.tally + count) % error_line) as usize] = char::from(c);
                     }
                     count += 1;
                 }
             } else {
                 count = 1;
-                if tally < trick_count {
-                    trick_buf[(tally % error_line) as usize] = s;
+                if self.tally < self.trick_count {
+                    trick_buf[(self.tally % error_line) as usize] = s;
                 }
             }
-            tally += count;
+            self.tally += count;
         }
         Ok(())
     }
@@ -238,7 +280,7 @@ impl fmt::Write for Selector {
         use std::ops::DerefMut;
         unsafe {
             match self {
-                Selector::TERM_AND_LOG => {
+                Selector::TermAndLog => {
                     let stdout = rust_stdout.as_mut().unwrap();
                     let lg = log_file.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
@@ -251,14 +293,15 @@ impl fmt::Write for Selector {
                         lg.offset += bytelen;
                         IoWrite::write(stdout.deref_mut(), s.as_bytes()).unwrap();
                         stdout.offset += bytelen;
-                        tally += bytelen;
+                        lg.tally += bytelen;
+                        stdout.tally += bytelen;
                     } else {
                         for c in s.chars() {
                             print_term_log_char(stdout, lg, c, nl).unwrap();
                         }
                     }
                 }
-                Selector::LOG_ONLY => {
+                Selector::LogOnly => {
                     let lg = log_file.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
                     let bytelen = s.len();
@@ -267,14 +310,14 @@ impl fmt::Write for Selector {
                     {
                         IoWrite::write(lg.deref_mut(), s.as_bytes()).unwrap();
                         lg.offset += bytelen;
-                        tally += bytelen;
+                        lg.tally += bytelen;
                     } else {
                         for c in s.chars() {
                             lg.print_char(c, nl).unwrap();
                         }
                     }
                 }
-                Selector::TERM_ONLY => {
+                Selector::TermOnly => {
                     let stdout = rust_stdout.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
                     let bytelen = s.len();
@@ -283,14 +326,14 @@ impl fmt::Write for Selector {
                     {
                         IoWrite::write(stdout.deref_mut(), s.as_bytes()).unwrap();
                         stdout.offset += bytelen;
-                        tally += bytelen;
+                        stdout.tally += bytelen;
                     } else {
                         for c in s.chars() {
                             stdout.print_char(c, nl).unwrap();
                         }
                     }
                 }
-                Selector::NO_PRINT => {}
+                Selector::NoPrint => {}
             }
         }
         Ok(())
@@ -300,23 +343,23 @@ impl fmt::Write for Selector {
     fn write_char(&mut self, s: char) -> fmt::Result {
         unsafe {
             match selector {
-                Selector::TERM_AND_LOG => {
+                Selector::TermAndLog => {
                     let stdout = rust_stdout.as_mut().unwrap();
                     let lg = log_file.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
                     print_term_log_char(stdout, lg, s, nl).unwrap();
                 }
-                Selector::LOG_ONLY => {
+                Selector::LogOnly => {
                     let lg = log_file.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
                     lg.print_char(s, nl).unwrap();
                 }
-                Selector::TERM_ONLY => {
+                Selector::TermOnly => {
                     let stdout = rust_stdout.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
                     stdout.print_char(s, nl).unwrap();
                 }
-                Selector::NO_PRINT => {}
+                Selector::NoPrint => {}
             }
         }
         Ok(())
@@ -382,7 +425,7 @@ fn replace_control(s: char) -> ([u8; 4], usize) {
 
 pub(crate) unsafe fn printnl() {
     match selector {
-        Selector::TERM_AND_LOG => {
+        Selector::TermAndLog => {
             let stdout = rust_stdout.as_mut().unwrap();
             if stdout.offset > 0 {
                 stdout.write_ln().unwrap();
@@ -392,19 +435,19 @@ pub(crate) unsafe fn printnl() {
                 lg.write_ln().unwrap();
             }
         }
-        Selector::TERM_ONLY => {
+        Selector::TermOnly => {
             let stdout = rust_stdout.as_mut().unwrap();
             if stdout.offset > 0 {
                 stdout.write_ln().unwrap();
             }
         }
-        Selector::LOG_ONLY => {
+        Selector::LogOnly => {
             let lg = log_file.as_mut().unwrap();
             if lg.offset > 0 {
                 lg.write_ln().unwrap();
             }
         }
-        Selector::NO_PRINT => {}
+        Selector::NoPrint => {}
     }
 }
 pub(crate) struct Esc<'a>(pub &'a str);

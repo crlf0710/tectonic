@@ -131,9 +131,9 @@ pub(crate) unsafe fn store_fmt_file() {
     }
 
     selector = if interaction == InteractionMode::Batch {
-        Selector::LOG_ONLY
+        Selector::LogOnly
     } else {
-        Selector::TERM_AND_LOG
+        Selector::TermAndLog
     };
 
     let s = format!(

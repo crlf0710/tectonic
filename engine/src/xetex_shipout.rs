@@ -1748,9 +1748,9 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
             if log_opened {
                 let old_setting = selector;
                 if get_int_par(IntPar::tracing_online) <= 0 {
-                    selector = Selector::LOG_ONLY
+                    selector = Selector::LogOnly
                 } else {
-                    selector = Selector::TERM_AND_LOG
+                    selector = Selector::TermAndLog
                 }
                 t_print_nl!("\\openout{} = `{:#}\'.", j as i32, file);
                 t_print_nl!("");
@@ -2055,12 +2055,12 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
         let s = format!("{}", TokenNode(Some(def_ref)));
         flush_list(Some(def_ref));
         if get_int_par(IntPar::tracing_online) <= 0 {
-            selector = Selector::LOG_ONLY
+            selector = Selector::LogOnly
         } else {
-            selector = Selector::TERM_AND_LOG
+            selector = Selector::TermAndLog
         }
         if !log_opened {
-            selector = Selector::TERM_ONLY
+            selector = Selector::TermOnly
         }
 
         if !shell_escape_enabled {
@@ -2084,8 +2084,8 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
         flush_list(Some(def_ref));
     } else {
         let old_setting = selector;
-        if j == 17 && (selector == Selector::TERM_AND_LOG) {
-            selector = Selector::LOG_ONLY
+        if j == 17 && (selector == Selector::TermAndLog) {
+            selector = Selector::LogOnly
         }
         t_print_nl!("");
         token_show(Some(def_ref));

@@ -415,13 +415,7 @@ pub(crate) static mut rust_stdout: Option<LogTermOutput> = None;
 #[no_mangle]
 pub(crate) static mut log_file: Option<LogTermOutput> = None;
 #[no_mangle]
-pub(crate) static mut tally: usize = 0;
-#[no_mangle]
 pub(crate) static mut trick_buf: [char; 256] = ['\u{0}'; 256];
-#[no_mangle]
-pub(crate) static mut trick_count: usize = 0;
-#[no_mangle]
-pub(crate) static mut first_count: usize = 0;
 #[no_mangle]
 pub(crate) static mut interaction: InteractionMode = InteractionMode::Batch;
 #[no_mangle]
@@ -2089,11 +2083,11 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
     }
     if history != TTHistory::SPOTLESS
         && (history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop)
-        && selector == Selector::TERM_AND_LOG
+        && selector == Selector::TermAndLog
     {
-        selector = Selector::TERM_ONLY;
+        selector = Selector::TermOnly;
         t_print_nl!("(see the transcript file for additional information)");
-        selector = Selector::TERM_AND_LOG
+        selector = Selector::TermAndLog
     }
     if c == 1 {
         if in_initex_mode {
@@ -3664,8 +3658,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     initialize_pagebuilder_variables();
     initialize_shipout_variables();
 
-    selector = Selector::TERM_ONLY;
-    tally = 0;
+    selector = Selector::TermOnly;
     job_name = 0;
     name_in_progress = false;
     log_opened = false;
@@ -4254,9 +4247,9 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     font_used = vec![false; FONT_MAX + 1];
 
     selector = if interaction == InteractionMode::Batch {
-        Selector::NO_PRINT
+        Selector::NoPrint
     } else {
-        Selector::TERM_ONLY
+        Selector::TermOnly
     };
     if semantic_pagination_enabled {
         set_int_par(IntPar::xetex_generate_actual_text, 1);

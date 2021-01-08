@@ -41,17 +41,17 @@ impl<T> Confuse for Option<T> {
 unsafe fn pre_error_message() {
     /* FKA normalize_selector(): */
     if log_opened {
-        selector = Selector::TERM_AND_LOG
+        selector = Selector::TermAndLog
     } else {
-        selector = Selector::TERM_ONLY
+        selector = Selector::TermOnly
     }
     if job_name == 0 {
         open_log_file();
     }
     if interaction == InteractionMode::Batch {
         selector = match selector {
-            Selector::TERM_ONLY => Selector::NO_PRINT,
-            Selector::TERM_AND_LOG => Selector::LOG_ONLY,
+            Selector::TermOnly => Selector::NoPrint,
+            Selector::TermAndLog => Selector::LogOnly,
             _ => unreachable!(),
         };
     }
@@ -93,8 +93,8 @@ pub(crate) unsafe fn error() {
     }
     if interaction != InteractionMode::Batch {
         selector = match selector {
-            Selector::TERM_ONLY => Selector::NO_PRINT,
-            Selector::TERM_AND_LOG => Selector::LOG_ONLY,
+            Selector::TermOnly => Selector::NoPrint,
+            Selector::TermAndLog => Selector::LogOnly,
             _ => unreachable!(),
         }
     }
@@ -110,8 +110,8 @@ pub(crate) unsafe fn error() {
     print_ln();
     if interaction != InteractionMode::Batch {
         selector = match selector {
-            Selector::NO_PRINT => Selector::TERM_ONLY,
-            Selector::LOG_ONLY => Selector::TERM_AND_LOG,
+            Selector::NoPrint => Selector::TermOnly,
+            Selector::LogOnly => Selector::TermAndLog,
             _ => unreachable!(),
         }
     }
