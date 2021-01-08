@@ -383,11 +383,11 @@ pub(crate) static mut max_buf_stack: usize = 0;
 #[no_mangle]
 pub(crate) static mut in_initex_mode: bool = false;
 #[no_mangle]
-pub(crate) static mut error_line: i32 = 0;
+pub(crate) static mut error_line: usize = 0;
 #[no_mangle]
-pub(crate) static mut half_error_line: i32 = 0;
+pub(crate) static mut half_error_line: usize = 0;
 #[no_mangle]
-pub(crate) static mut max_print_line: i32 = 0;
+pub(crate) static mut max_print_line: usize = 0;
 #[no_mangle]
 pub(crate) static mut FONT_MEM_SIZE: usize = 0;
 #[no_mangle]
@@ -421,24 +421,21 @@ pub(crate) static mut insert_src_special_every_math: bool = false;
 #[no_mangle]
 pub(crate) static mut insert_src_special_every_vbox: bool = false;
 
+use crate::xetex_output::LogTermOutput;
 #[no_mangle]
-pub(crate) static mut rust_stdout: Option<OutputHandleWrapper> = None;
+pub(crate) static mut rust_stdout: Option<LogTermOutput> = None;
 #[no_mangle]
-pub(crate) static mut log_file: Option<OutputHandleWrapper> = None;
+pub(crate) static mut log_file: Option<LogTermOutput> = None;
 #[no_mangle]
 pub(crate) static mut selector: Selector = Selector::File(0);
 #[no_mangle]
-pub(crate) static mut tally: i32 = 0;
-#[no_mangle]
-pub(crate) static mut term_offset: i32 = 0;
-#[no_mangle]
-pub(crate) static mut file_offset: i32 = 0;
+pub(crate) static mut tally: usize = 0;
 #[no_mangle]
 pub(crate) static mut trick_buf: [char; 256] = ['\u{0}'; 256];
 #[no_mangle]
-pub(crate) static mut trick_count: i32 = 0;
+pub(crate) static mut trick_count: usize = 0;
 #[no_mangle]
-pub(crate) static mut first_count: i32 = 0;
+pub(crate) static mut first_count: usize = 0;
 #[no_mangle]
 pub(crate) static mut interaction: InteractionMode = InteractionMode::Batch;
 #[no_mangle]
@@ -3546,7 +3543,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     /* Miscellaneous initializations that were mostly originally done in the
      * main() driver routines. */
     /* Get our stdout handle */
-    rust_stdout = ttstub_output_open_stdout();
+    rust_stdout = ttstub_output_open_stdout().map(|h| LogTermOutput::new(h));
     TEX_format_default = dump_name.to_string();
     /* Not sure why these get custom initializations. */
     if file_line_error_style_p < 0 {
@@ -3687,8 +3684,6 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
 
     selector = Selector::TERM_ONLY;
     tally = 0;
-    term_offset = 0;
-    file_offset = 0;
     job_name = 0;
     name_in_progress = false;
     log_opened = false;

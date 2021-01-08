@@ -11,13 +11,13 @@ use crate::xetex_ini::shell_escape_enabled;
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_dir, cur_h, cur_h_offset, cur_input, cur_list, cur_page_height, cur_page_width,
-    cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, file_offset, font_used,
-    input_state_t, job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v,
-    output_file_extension, pdf_last_x_pos, pdf_last_y_pos, rule_dp, rule_ht, rule_wd, rust_stdout,
-    selector, semantic_pagination_enabled, term_offset, write_file, write_loc, write_open,
-    xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK,
-    FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING,
-    FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
+    cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, font_used, input_state_t, job_name,
+    last_bop, log_file, log_opened, max_h, max_print_line, max_push, max_v, output_file_extension,
+    pdf_last_x_pos, pdf_last_y_pos, rule_dp, rule_ht, rule_wd, rust_stdout, selector,
+    semantic_pagination_enabled, write_file, write_loc, write_open, xtx_ligature_present,
+    LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK, FONT_DSIZE, FONT_EC, FONT_GLUE,
+    FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING, FONT_NAME, FONT_PTR, FONT_SIZE,
+    MEM, TOTAL_PAGES, WIDTH_BASE,
 };
 use crate::xetex_output::{print_chr, print_ln};
 use crate::xetex_scaledmath::{tex_round, Scaled};
@@ -104,6 +104,14 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         t_print!("Completed box being shipped out");
     }
 
+    let term_offset = match &rust_stdout {
+        Some(out) => out.offset,
+        None => 0,
+    };
+    let file_offset = match &log_file {
+        Some(lg) => lg.offset,
+        None => 0,
+    };
     if term_offset > max_print_line - 9 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {

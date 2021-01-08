@@ -16,9 +16,9 @@ use crate::xetex_stringpool::{str_ptr, PoolString};
 
 use super::xetex_ini::Selector;
 use super::xetex_ini::{
-    error_line, file_offset, hash_offset, line, log_file, max_print_line, rust_stdout, selector,
-    tally, term_offset, trick_buf, trick_count, write_file, yhash, EQTB_TOP,
-    FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
+    error_line, hash_offset, line, log_file, max_print_line, rust_stdout, selector, tally,
+    trick_buf, trick_count, write_file, yhash, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN,
+    LINE_STACK, MEM,
 };
 
 /* Extra stuff used in various change files for various reasons.  */
@@ -30,22 +30,80 @@ use super::xetex_ini::{
  * Copyright 2016 the Tectonic Project
  * Licensed under the MIT License.
 */
+
+pub(crate) struct LogTermOutput {
+    pub(crate) handler: bridge::OutputHandleWrapper,
+    pub(crate) offset: usize,
+    pub(crate) max_line_width: usize,
+}
+
+impl LogTermOutput {
+    pub(crate) fn new(handler: bridge::OutputHandleWrapper) -> Self {
+        Self {
+            handler,
+            offset: 0,
+            max_line_width: unsafe { max_print_line },
+        }
+    }
+    fn write_ln(&mut self) -> std::io::Result<()> {
+        use std::io::Write;
+        self.offset = 0;
+        self.write_all(b"\n")
+    }
+    fn write_char(&mut self, c: char) -> std::io::Result<()> {
+        use std::io::Write;
+        write!(self, "{}", c)?;
+        self.offset += 1;
+        if self.offset == self.max_line_width {
+            self.write_ln()?;
+        }
+        Ok(())
+    }
+    fn print_char(&mut self, s: char, nl: i32) -> io::Result<()> {
+        if (s as i32) == nl {
+            self.write_ln()?;
+        } else {
+            if s.is_control() {
+                let (buf, len) = replace_control(s);
+                for &c in &buf[..len] {
+                    self.write_char(char::from(c))?;
+                }
+            } else {
+                self.write_char(s)?;
+            }
+            unsafe {
+                tally += 1;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl core::ops::Deref for LogTermOutput {
+    type Target = bridge::OutputHandleWrapper;
+
+    fn deref(&self) -> &Self::Target {
+        &self.handler
+    }
+}
+impl core::ops::DerefMut for LogTermOutput {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.handler
+    }
+}
+
 pub(crate) unsafe fn print_ln() {
     use io::Write;
     match selector {
         Selector::TERM_AND_LOG => {
-            let stdout = rust_stdout.as_mut().unwrap();
-            write_term_ln(stdout).unwrap();
-            let lg = log_file.as_mut().unwrap();
-            write_log_ln(lg).unwrap();
+            rust_stdout.as_mut().unwrap().write_ln().unwrap();
+            log_file.as_mut().unwrap().write_ln().unwrap();
         }
         Selector::LOG_ONLY => {
-            let lg = log_file.as_mut().unwrap();
-            write_log_ln(lg).unwrap();
+            log_file.as_mut().unwrap().write_ln().unwrap();
         }
         Selector::TERM_ONLY => {
-            let stdout = rust_stdout.as_mut().unwrap();
-            write_term_ln(stdout).unwrap();
+            rust_stdout.as_mut().unwrap().write_ln().unwrap();
         }
         Selector::NO_PRINT | Selector::PSEUDO => {}
         Selector::File(u) => {
@@ -59,92 +117,36 @@ pub(crate) unsafe fn print_ln() {
 }
 
 use std::io;
-unsafe fn write_term_ln<W: io::Write>(out: &mut W) -> io::Result<()> {
-    term_offset = 0;
-    out.write_all(b"\n")
-}
-unsafe fn write_log_ln<W: io::Write>(lg: &mut W) -> io::Result<()> {
-    file_offset = 0;
-    lg.write_all(b"\n")
-}
-unsafe fn write_term_char<W: io::Write>(out: &mut W, c: char) -> io::Result<()> {
-    write!(out, "{}", c)?;
-    term_offset += 1;
-    if term_offset == max_print_line {
-        write_term_ln(out)?;
-    }
-    Ok(())
-}
 
-unsafe fn write_log_char<W: io::Write>(lg: &mut W, c: char) -> io::Result<()> {
-    write!(lg, "{}", c)?;
-    file_offset += 1;
-    if file_offset == max_print_line {
-        write_log_ln(lg)?;
-    }
-    Ok(())
-}
-
-unsafe fn print_term_log_char<W: io::Write>(
-    stdout: &mut W,
-    lg: &mut W,
+fn print_term_log_char(
+    stdout: &mut LogTermOutput,
+    lg: &mut LogTermOutput,
     s: char,
     nl: i32,
 ) -> io::Result<()> {
     if (s as i32) == nl {
-        write_term_ln(stdout)?;
-        write_log_ln(lg)?;
+        stdout.write_ln()?;
+        lg.write_ln()?;
     } else {
         if s.is_control() {
             let (buf, len) = replace_control(s);
             for &c in &buf[..len] {
                 let c = char::from(c);
-                write_term_char(stdout, c)?;
-                write_log_char(lg, c)?;
+                stdout.write_char(c)?;
+                lg.write_char(c)?;
             }
         } else {
-            write_term_char(stdout, s)?;
-            write_log_char(lg, s)?;
+            stdout.write_char(s)?;
+            lg.write_char(s)?;
         }
-        tally += 1;
+        unsafe {
+            tally += 1;
+        }
     }
     Ok(())
 }
 
-unsafe fn print_log_char<W: io::Write>(lg: &mut W, s: char, nl: i32) -> io::Result<()> {
-    if (s as i32) == nl {
-        write_log_ln(lg)?;
-    } else {
-        if s.is_control() {
-            let (buf, len) = replace_control(s);
-            for &c in &buf[..len] {
-                write_log_char(lg, char::from(c))?;
-            }
-        } else {
-            write_log_char(lg, s)?;
-        }
-        tally += 1;
-    }
-    Ok(())
-}
-unsafe fn print_term_char<W: io::Write>(stdout: &mut W, s: char, nl: i32) -> io::Result<()> {
-    if (s as i32) == nl {
-        write_term_ln(stdout)?;
-    } else {
-        if s.is_control() {
-            let (buf, len) = replace_control(s);
-            for &c in &buf[..len] {
-                write_term_char(stdout, char::from(c))?;
-            }
-        } else {
-            write_term_char(stdout, s)?;
-        }
-        tally += 1;
-    }
-    Ok(())
-}
-
-unsafe fn print_file_char<W: io::Write>(file: &mut W, s: char, nl: i32) -> io::Result<()> {
+unsafe fn print_file_char<W: std::io::Write>(file: &mut W, s: char, nl: i32) -> io::Result<()> {
     if (s as i32) == nl {
         file.write_all(b"\n")?;
     } else if s.is_control() {
@@ -167,21 +169,23 @@ use std::fmt;
 impl fmt::Write for Selector {
     #[inline]
     fn write_str(&mut self, s: &str) -> fmt::Result {
+        use std::io::Write as IoWrite;
+        use std::ops::DerefMut;
         unsafe {
             match self {
                 Selector::TERM_AND_LOG => {
                     let stdout = rust_stdout.as_mut().unwrap();
                     let lg = log_file.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
-                    let bytelen = s.len() as i32;
-                    if (file_offset + bytelen < max_print_line)
-                        && (term_offset + bytelen < max_print_line)
+                    let bytelen = s.len();
+                    if (lg.offset + bytelen < lg.max_line_width)
+                        && (stdout.offset + bytelen < stdout.max_line_width)
                         && !s.contains(|c: char| (c as i32) == nl || c.is_control())
                     {
-                        io::Write::write(lg, s.as_bytes()).unwrap();
-                        file_offset += bytelen;
-                        io::Write::write(stdout, s.as_bytes()).unwrap();
-                        term_offset += bytelen;
+                        IoWrite::write(lg.deref_mut(), s.as_bytes()).unwrap();
+                        lg.offset += bytelen;
+                        IoWrite::write(stdout.deref_mut(), s.as_bytes()).unwrap();
+                        stdout.offset += bytelen;
                         tally += bytelen;
                     } else {
                         for c in s.chars() {
@@ -192,32 +196,32 @@ impl fmt::Write for Selector {
                 Selector::LOG_ONLY => {
                     let lg = log_file.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
-                    let bytelen = s.len() as i32;
-                    if (file_offset + bytelen < max_print_line)
+                    let bytelen = s.len();
+                    if (lg.offset + bytelen < lg.max_line_width)
                         && !s.contains(|c: char| (c as i32) == nl || c.is_control())
                     {
-                        io::Write::write(lg, s.as_bytes()).unwrap();
-                        file_offset += bytelen;
+                        IoWrite::write(lg.deref_mut(), s.as_bytes()).unwrap();
+                        lg.offset += bytelen;
                         tally += bytelen;
                     } else {
                         for c in s.chars() {
-                            print_log_char(lg, c, nl).unwrap();
+                            lg.print_char(c, nl).unwrap();
                         }
                     }
                 }
                 Selector::TERM_ONLY => {
                     let stdout = rust_stdout.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
-                    let bytelen = s.len() as i32;
-                    if (term_offset + bytelen < max_print_line)
+                    let bytelen = s.len();
+                    if (stdout.offset + bytelen < stdout.max_line_width)
                         && !s.contains(|c: char| (c as i32) == nl || c.is_control())
                     {
-                        io::Write::write(stdout, s.as_bytes()).unwrap();
-                        term_offset += bytelen;
+                        IoWrite::write(stdout.deref_mut(), s.as_bytes()).unwrap();
+                        stdout.offset += bytelen;
                         tally += bytelen;
                     } else {
                         for c in s.chars() {
-                            print_term_char(stdout, c, nl).unwrap();
+                            stdout.print_char(c, nl).unwrap();
                         }
                     }
                 }
@@ -231,7 +235,7 @@ impl fmt::Write for Selector {
                     let file = write_file[*u as usize].as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
                     if !s.contains(|c: char| (c as i32) == nl || c.is_control()) {
-                        io::Write::write(file, s.as_bytes()).unwrap();
+                        IoWrite::write(file, s.as_bytes()).unwrap();
                     } else {
                         for c in s.chars() {
                             print_file_char(file, c, nl).unwrap();
@@ -256,12 +260,12 @@ impl fmt::Write for Selector {
                 Selector::LOG_ONLY => {
                     let lg = log_file.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
-                    print_log_char(lg, s, nl).unwrap();
+                    lg.print_char(s, nl).unwrap();
                 }
                 Selector::TERM_ONLY => {
                     let stdout = rust_stdout.as_mut().unwrap();
                     let nl = get_int_par(IntPar::new_line_char);
-                    print_term_char(stdout, s, nl).unwrap();
+                    stdout.print_char(s, nl).unwrap();
                 }
                 Selector::NO_PRINT => {}
                 Selector::PSEUDO => {
@@ -294,7 +298,7 @@ impl fmt::Write for Selector {
     }
 }
 
-unsafe fn replace_control(s: char) -> ([u8; 4], usize) {
+fn replace_control(s: char) -> ([u8; 4], usize) {
     match s {
         '\u{0}'..='\u{1f}' => ([b'^', b'^', (s as u8) + 0x40, 0], 3),
         '\u{7f}' => ([b'^', b'^', b'?', 0], 3),
@@ -327,8 +331,14 @@ unsafe fn replace_control(s: char) -> ([u8; 4], usize) {
 
 pub(crate) unsafe fn printnl() {
     match selector {
-        Selector::TERM_ONLY | Selector::TERM_AND_LOG if term_offset > 0 => print_ln(),
-        Selector::LOG_ONLY | Selector::TERM_AND_LOG if file_offset > 0 => print_ln(),
+        Selector::TERM_ONLY | Selector::TERM_AND_LOG
+            if rust_stdout.as_ref().unwrap().offset > 0 =>
+        {
+            print_ln()
+        }
+        Selector::LOG_ONLY | Selector::TERM_AND_LOG if log_file.as_ref().unwrap().offset > 0 => {
+            print_ln()
+        }
         _ => {}
     }
 }

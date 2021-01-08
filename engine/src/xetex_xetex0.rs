@@ -31,26 +31,25 @@ use crate::xetex_ini::{
     cur_input, cur_l, cur_lang, cur_level, cur_list, cur_loop, cur_mark, cur_name, cur_order,
     cur_pre_head, cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail, cur_tok, dead_cycles,
     def_ref, deletions_allowed, depth_threshold, disc_ptr, error_count, error_line, expand_depth,
-    expand_depth_count, false_bchar, file_offset, first, first_count, fmem_ptr,
-    font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash_extra,
-    hash_high, hash_used, hi_mem_min, history, if_limit, if_line, ins_disc, insert_penalties,
-    insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
-    interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
-    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
-    ligature_present, line, lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set,
-    main_f, main_h, main_i, main_j, main_k, main_s, max_buf_stack, max_print_line,
-    max_reg_help_line, max_reg_num, mem_end, name_in_progress, name_of_font,
-    no_new_control_sequence, open_parens, output_active, pack_begin_line, page_contents,
-    page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos, pre_adjust_tail,
-    prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack, read_file, read_open, rover,
-    rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed,
-    shown_mode, skip_line, space_class, stop_at_space, tally, term_offset, texmf_log_name,
-    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
-    warning_index, write_file, write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr,
-    BCHAR_LABEL, BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR,
-    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING,
-    FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE,
-    FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
+    expand_depth_count, false_bchar, first, first_count, fmem_ptr, font_in_short_display,
+    force_eof, gave_char_warning_help, half_error_line, hash_extra, hash_high, hash_used,
+    hi_mem_min, history, if_limit, if_line, ins_disc, insert_penalties, insert_src_special_auto,
+    insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
+    is_in_csname, job_name, last, last_badness, last_glue, last_kern, last_leftmost_char,
+    last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack, ligature_present, line,
+    lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set, main_f, main_h, main_i,
+    main_j, main_k, main_s, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num, mem_end,
+    name_in_progress, name_of_font, no_new_control_sequence, open_parens, output_active,
+    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
+    pdf_last_y_pos, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack,
+    read_file, read_open, rover, rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status,
+    selector, set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, tally,
+    texmf_log_name, total_shrink, total_stretch, trick_buf, trick_count, use_err_help,
+    used_tectonic_coda_tokens, warning_index, write_file, write_open, xtx_ligature_present, yhash,
+    LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA,
+    FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO,
+    FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR,
+    FONT_SIZE, FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
     INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK,
     MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE,
     PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
@@ -208,7 +207,7 @@ impl<'a> fmt::Display for TokenList {
 }
 /*:112*/
 /*118:*/
-pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
+pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: usize) {
     let mut match_chr = '#'; // character used in a `match`
     let mut n = b'0'; // the highest parameter number, as an ASCII digit
     tally = 0;
@@ -7716,6 +7715,14 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     input.limit = input.start.unwrap();
     input.loc = Some(input.limit + 1);
     if get_int_par(IntPar::tracing_scan_tokens) > 0 {
+        let term_offset = match &rust_stdout {
+            Some(out) => out.offset,
+            None => 0,
+        };
+        let file_offset = match &log_file {
+            Some(lg) => lg.offset,
+            None => 0,
+        };
         if term_offset > max_print_line - 3 {
             print_ln();
         } else if term_offset > 0 || file_offset > 0 {
@@ -9021,7 +9028,8 @@ pub(crate) unsafe fn open_log_file() {
         job_name = maketexstring("texput")
     }
     let log_name = pack_job_name(".log");
-    log_file = OutputHandleWrapper::open(&log_name, 0);
+    log_file =
+        OutputHandleWrapper::open(&log_name, 0).map(|h| crate::xetex_output::LogTermOutput::new(h));
     if log_file.is_none() {
         abort!("cannot open log file output \"{}\"", log_name);
     }
@@ -9140,7 +9148,15 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
         open_log_file(); /* "really a CFDictionaryRef or *mut XeTeXLayoutEngine" */
     } /* = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55) */
     let fname = PoolString::from(FULL_SOURCE_FILENAME_STACK[IN_OPEN]);
-    if term_offset + (fname.len() as i32) > max_print_line - 2 {
+    let term_offset = match &rust_stdout {
+        Some(out) => out.offset,
+        None => 0,
+    };
+    let file_offset = match &log_file {
+        Some(lg) => lg.offset,
+        None => 0,
+    };
+    if term_offset + fname.len() > max_print_line - 2 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
         t_print!(" ");
@@ -13262,7 +13278,15 @@ pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32)
     flush_list(Some(def_ref));
     if c == 0 {
         /*1315: */
-        if term_offset + (s.len() as i32) > max_print_line - 2 {
+        let term_offset = match &rust_stdout {
+            Some(out) => out.offset,
+            None => 0,
+        };
+        let file_offset = match &log_file {
+            Some(lg) => lg.offset,
+            None => 0,
+        };
+        if term_offset + s.len() > max_print_line - 2 {
             print_ln();
         } else if term_offset > 0 || file_offset > 0 {
             t_print!(" ");
@@ -15455,7 +15479,8 @@ pub(crate) unsafe fn close_files_and_terminate() {
     synctex_terminate(log_opened);
     if log_opened {
         writeln!(log_file.as_mut().unwrap()).unwrap();
-        ttstub_output_close(log_file.take().unwrap());
+        let crate::xetex_output::LogTermOutput { handler, .. } = log_file.take().unwrap();
+        ttstub_output_close(handler);
         log_file = None;
         match selector {
             Selector::LOG_ONLY => selector = Selector::NO_PRINT,
