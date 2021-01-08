@@ -45,7 +45,6 @@ pub(crate) enum Selector {
     LOG_ONLY,
     TERM_AND_LOG,
     PSEUDO,
-    File(u8),
 }
 
 pub(crate) struct WFile(pub(crate) OutputHandleWrapper);
@@ -53,9 +52,24 @@ impl WFile {
     pub(crate) fn new(handler: OutputHandleWrapper) -> Self {
         Self(handler)
     }
-    fn write_ln(&mut self) -> std::io::Result<()> {
+    pub(crate) fn write_ln(&mut self) -> std::io::Result<()> {
         use std::io::Write;
         self.write_all(b"\n")
+    }
+
+    fn print_char(&mut self, s: char, nl: i32) -> io::Result<()> {
+        use std::io::Write;
+        if (s as i32) == nl {
+            self.write_all(b"\n")?;
+        } else if s.is_control() {
+            let (buf, len) = replace_control(s);
+            for &c in &buf[..len] {
+                write!(self, "{}", char::from(c))?;
+            }
+        } else {
+            write!(self, "{}", s)?;
+        }
+        Ok(())
     }
 }
 impl core::ops::Deref for WFile {
@@ -145,9 +159,6 @@ pub(crate) unsafe fn print_ln() {
             rust_stdout.as_mut().unwrap().write_ln().unwrap();
         }
         Selector::NO_PRINT | Selector::PSEUDO => {}
-        Selector::File(u) => {
-            write_file[u as usize].as_mut().unwrap().write_ln().unwrap();
-        }
     };
 }
 
@@ -177,21 +188,6 @@ fn print_term_log_char(
         unsafe {
             tally += 1;
         }
-    }
-    Ok(())
-}
-
-unsafe fn print_file_char(file: &mut WFile, s: char, nl: i32) -> io::Result<()> {
-    use std::io::Write;
-    if (s as i32) == nl {
-        file.write_all(b"\n")?;
-    } else if s.is_control() {
-        let (buf, len) = replace_control(s);
-        for &c in &buf[..len] {
-            write!(file, "{}", char::from(c))?;
-        }
-    } else {
-        write!(file, "{}", s)?;
     }
     Ok(())
 }
@@ -267,9 +263,6 @@ impl fmt::Write for Selector {
                         self.write_char(c)?;
                     }
                 }
-                Selector::File(u) => {
-                    write_file[*u as usize].as_mut().unwrap().write_str(s)?;
-                }
             }
         }
         Ok(())
@@ -315,9 +308,6 @@ impl fmt::Write for Selector {
                     }
                     tally += count;
                 }
-                Selector::File(u) => {
-                    write_file[u as usize].as_mut().unwrap().write_char(s)?;
-                }
             }
         }
         Ok(())
@@ -334,7 +324,7 @@ impl fmt::Write for WFile {
                 IoWrite::write(self.deref_mut(), s.as_bytes()).unwrap();
             } else {
                 for c in s.chars() {
-                    print_file_char(self, c, nl).unwrap();
+                    self.print_char(c, nl).unwrap();
                 }
             }
         }
@@ -344,7 +334,7 @@ impl fmt::Write for WFile {
     fn write_char(&mut self, s: char) -> fmt::Result {
         unsafe {
             let nl = get_int_par(IntPar::new_line_char);
-            print_file_char(self, s, nl).unwrap();
+            self.print_char(s, nl).unwrap();
         }
         Ok(())
     }

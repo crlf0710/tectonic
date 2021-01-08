@@ -2075,9 +2075,11 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
         t_print_nl!("");
         print_ln();
     } else if write_open[j as usize] {
-        selector = Selector::File(j as u8);
-        token_show(Some(def_ref));
-        print_ln();
+        use std::fmt::Write;
+        let file = write_file[j as usize].as_mut().unwrap();
+        file.write_fmt(std::format_args!("{}", TokenNode(Some(def_ref))))
+            .unwrap();
+        file.write_ln().unwrap();
         flush_list(Some(def_ref));
     } else {
         if j == 17 && (selector == Selector::TERM_AND_LOG) {
