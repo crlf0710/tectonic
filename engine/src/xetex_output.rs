@@ -210,34 +210,6 @@ pub(crate) unsafe fn print_ln() {
 
 use std::io;
 
-#[inline]
-fn print_term_log_char(
-    stdout: &mut LogTermOutput,
-    lg: &mut LogTermOutput,
-    s: char,
-    nl: i32,
-) -> io::Result<()> {
-    if (s as i32) == nl {
-        stdout.write_ln()?;
-        lg.write_ln()?;
-    } else {
-        if s.is_control() {
-            let (buf, len) = replace_control(s);
-            for &c in &buf[..len] {
-                let c = char::from(c);
-                stdout.write_chr(c)?;
-                lg.write_chr(c)?;
-            }
-        } else {
-            stdout.write_chr(s)?;
-            lg.write_chr(s)?;
-        }
-        stdout.tally += 1;
-        lg.tally += 1;
-    }
-    Ok(())
-}
-
 pub(crate) struct Pseudo {
     pub(crate) tally: usize,
     pub(crate) first_count: usize,
@@ -325,26 +297,8 @@ impl fmt::Write for Selector {
         unsafe {
             match self {
                 Selector::TermAndLog => {
-                    use std::ops::DerefMut;
-                    let stdout = rust_stdout.as_mut().unwrap();
-                    let lg = log_file.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    let bytelen = s.len();
-                    if (lg.offset + bytelen < lg.max_line_width)
-                        && (stdout.offset + bytelen < stdout.max_line_width)
-                        && !s.contains(|c: char| (c as i32) == nl || c.is_control())
-                    {
-                        std::io::Write::write(lg.deref_mut(), s.as_bytes()).unwrap();
-                        lg.offset += bytelen;
-                        std::io::Write::write(stdout.deref_mut(), s.as_bytes()).unwrap();
-                        stdout.offset += bytelen;
-                        lg.tally += bytelen;
-                        stdout.tally += bytelen;
-                    } else {
-                        for c in s.chars() {
-                            print_term_log_char(stdout, lg, c, nl).unwrap();
-                        }
-                    }
+                    rust_stdout.as_mut().unwrap().write_str(s).unwrap();
+                    log_file.as_mut().unwrap().write_str(s).unwrap();
                 }
                 Selector::LogOnly => {
                     log_file.as_mut().unwrap().write_str(s).unwrap();
@@ -363,10 +317,8 @@ impl fmt::Write for Selector {
         unsafe {
             match selector {
                 Selector::TermAndLog => {
-                    let stdout = rust_stdout.as_mut().unwrap();
-                    let lg = log_file.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    print_term_log_char(stdout, lg, s, nl).unwrap();
+                    rust_stdout.as_mut().unwrap().write_char(s).unwrap();
+                    log_file.as_mut().unwrap().write_char(s).unwrap();
                 }
                 Selector::LogOnly => {
                     log_file.as_mut().unwrap().write_char(s).unwrap();
