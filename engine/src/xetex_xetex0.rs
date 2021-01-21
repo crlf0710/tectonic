@@ -3631,37 +3631,36 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                 } else {
                     pseudo.trick_count - pseudo.first_count
                 };
-                let p;
-                let n;
-                if l + pseudo.first_count <= half_error_line {
-                    p = 0;
-                    n = l + pseudo.first_count
-                } else {
-                    t_print!("...");
-                    p = l + pseudo.first_count - half_error_line + 3;
-                    n = half_error_line
-                }
                 let nl = get_int_par(IntPar::new_line_char);
                 set_int_par(IntPar::new_line_char, -1);
-                for q in p..pseudo.first_count {
-                    print_chr(trick_buf[(q % error_line) as usize]);
+                let (first_buf, second_buf) = trick_buf.split_at(pseudo.first_count);
+                let mut n = first_buf.len() + l;
+                if n <= half_error_line {
+                    for &q in first_buf {
+                        print_chr(q);
+                    }
+                } else {
+                    t_print!("...");
+                    for &q in &first_buf[l + first_buf.len() - half_error_line + 3..] {
+                        print_chr(q);
+                    }
+                    n = half_error_line
                 }
                 print_ln();
                 for _ in 0..n {
                     print_chr(' ');
                 }
-                let p = if m + n <= error_line {
-                    pseudo.first_count + m
+                if m + n <= error_line {
+                    for &q in &second_buf[..m] {
+                        print_chr(q);
+                    }
                 } else {
-                    pseudo.first_count + (error_line - n - 3)
-                };
-                for q in pseudo.first_count..p {
-                    print_chr(trick_buf[(q % error_line) as usize]);
-                }
-                set_int_par(IntPar::new_line_char, nl);
-                if m + n > error_line {
+                    for &q in &second_buf[..error_line - n - 3] {
+                        print_chr(q);
+                    }
                     t_print!("...");
-                }
+                };
+                set_int_par(IntPar::new_line_char, nl);
                 nn += 1
             }
         } else if nn == get_int_par(IntPar::error_context_lines) {

@@ -15,8 +15,8 @@ use crate::node::NativeWord;
 use crate::xetex_stringpool::{str_ptr, PoolString};
 
 use super::xetex_ini::{
-    error_line, hash_offset, line, max_print_line, yhash, EQTB_TOP, FULL_SOURCE_FILENAME_STACK,
-    IN_OPEN, LINE_STACK, MEM,
+    hash_offset, line, max_print_line, yhash, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN,
+    LINE_STACK, MEM,
 };
 
 /* Extra stuff used in various change files for various reasons.  */
@@ -41,7 +41,7 @@ pub(crate) static mut log_file: Option<LogTermOutput> = None;
 
 pub(crate) static mut log_opened: bool = false;
 
-pub(crate) static mut trick_buf: [char; 256] = ['\u{0}'; 256];
+pub(crate) static mut trick_buf: Vec<char> = Vec::new();
 
 use bridge::OutputHandleWrapper;
 
@@ -216,7 +216,10 @@ pub(crate) struct Pseudo {
     pub(crate) trick_count: usize,
 }
 impl Pseudo {
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
+        unsafe {
+            trick_buf.clear();
+        }
         Self {
             tally: 0,
             first_count: 0,
@@ -241,14 +244,14 @@ impl fmt::Write for Pseudo {
                 count = 0;
                 for &c in &buf[..len] {
                     if self.tally < self.trick_count {
-                        trick_buf[((self.tally + count) % error_line) as usize] = char::from(c);
+                        trick_buf.push(char::from(c));
                     }
                     count += 1;
                 }
             } else {
                 count = 1;
                 if self.tally < self.trick_count {
-                    trick_buf[(self.tally % error_line) as usize] = s;
+                    trick_buf.push(s);
                 }
             }
             self.tally += count;
