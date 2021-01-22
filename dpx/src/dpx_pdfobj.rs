@@ -1242,7 +1242,7 @@ impl pdf_dict {
         error
     }
 
-    pub(crate) unsafe fn has<K>(&self, name: K) -> bool
+    pub(crate) fn has<K>(&self, name: K) -> bool
     where
         K: AsRef<[u8]>,
     {

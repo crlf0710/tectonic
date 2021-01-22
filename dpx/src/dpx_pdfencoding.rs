@@ -241,40 +241,33 @@ unsafe fn load_encoding_file(filename: &str) -> i32 {
         None
     };
     p.skip_white();
-    let encoding_array = p.parse_pdf_array(ptr::null_mut());
-    if encoding_array.is_none() {
-        pdf_release_obj(enc_name.unwrap_or(ptr::null_mut()));
+    if let Some(encoding_array) = p.parse_pdf_array(ptr::null_mut()) {
+        for code in 0..256 {
+            enc_vec[code] = (*encoding_array[code]).as_name().to_str().unwrap();
+        }
+        let enc_id = pdf_encoding_new_encoding(
+            if let Some(enc_name) = &enc_name {
+                enc_name.name.to_str().unwrap()
+            } else {
+                ""
+            },
+            filename,
+            &enc_vec,
+            None,
+            0i32,
+        );
+        if let Some(enc_name) = enc_name {
+            if verbose as i32 > 1i32 {
+                info!("[{:?}]", enc_name.name.display());
+            }
+        }
+        if verbose != 0 {
+            info!(")");
+        }
+        enc_id
+    } else {
         return -1i32;
     }
-    let encoding_array = encoding_array.unwrap();
-    for code in 0..256 {
-        enc_vec[code] = (*(*encoding_array).as_array()[code])
-            .as_name()
-            .to_str()
-            .unwrap();
-    }
-    let enc_id = pdf_encoding_new_encoding(
-        if let Some(enc_name) = enc_name {
-            (*enc_name).as_name().to_str().unwrap()
-        } else {
-            ""
-        },
-        filename,
-        &enc_vec,
-        None,
-        0i32,
-    );
-    if let Some(enc_name) = enc_name {
-        if verbose as i32 > 1i32 {
-            info!("[{:?}]", (*enc_name).as_name().display());
-        }
-        pdf_release_obj(enc_name);
-    }
-    pdf_release_obj(encoding_array);
-    if verbose != 0 {
-        info!(")");
-    }
-    enc_id
 }
 
 // Note: The elements are boxed to be able
