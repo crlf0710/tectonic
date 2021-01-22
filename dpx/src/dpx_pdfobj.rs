@@ -101,13 +101,13 @@ pub(crate) enum PdfObjVariant {
     UNDEFINED,
     NULL,
     BOOLEAN(bool),
-    NUMBER(*mut pdf_number),
-    STRING(*mut pdf_string),
-    NAME(*mut pdf_name),
-    ARRAY(*mut pdf_array),
-    DICT(*mut pdf_dict),
-    STREAM(*mut pdf_stream),
-    INDIRECT(*mut pdf_indirect),
+    NUMBER(f64),
+    STRING(pdf_string),
+    NAME(pdf_name),
+    ARRAY(Vec<*mut pdf_obj>),
+    DICT(pdf_dict),
+    STREAM(pdf_stream),
+    INDIRECT(pdf_indirect),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -159,70 +159,70 @@ impl pdf_obj {
     }
     pub(crate) unsafe fn as_f64(&self) -> f64 {
         if let PdfObjVariant::NUMBER(v) = self.data {
-            (*v).value
+            v
         } else {
             panic!("invalid pdfobj::as_f64");
         }
     }
     pub(crate) unsafe fn as_dict(&self) -> &pdf_dict {
-        if let PdfObjVariant::DICT(v) = self.data {
-            &*v
+        if let PdfObjVariant::DICT(v) = &self.data {
+            v
         } else {
             panic!("invalid pdfobj::as_dict");
         }
     }
     pub(crate) unsafe fn as_dict_mut(&mut self) -> &mut pdf_dict {
-        if let PdfObjVariant::DICT(v) = self.data {
-            &mut *v
-        } else {
-            panic!("pdfobj::as_dict_mut on {:?}", self.typ());
+        let t = self.typ();
+        if let PdfObjVariant::DICT(v) = &mut self.data {
+            return v;
         }
+        panic!("pdfobj::as_dict_mut on {:?}", t);
     }
     pub(crate) unsafe fn as_array(&self) -> &Vec<*mut Self> {
-        if let PdfObjVariant::ARRAY(v) = self.data {
-            &(*v).values
+        if let PdfObjVariant::ARRAY(v) = &self.data {
+            v
         } else {
             panic!("invalid pdfobj::as_array");
         }
     }
     pub(crate) unsafe fn as_array_mut(&mut self) -> &mut Vec<*mut Self> {
-        if let PdfObjVariant::ARRAY(v) = self.data {
-            &mut (*v).values
+        if let PdfObjVariant::ARRAY(v) = &mut self.data {
+            v
         } else {
             panic!("invalid pdfobj::as_array_mut");
         }
     }
     pub(crate) unsafe fn as_stream(&self) -> &pdf_stream {
-        if let PdfObjVariant::STREAM(v) = self.data {
-            &*v
+        if let PdfObjVariant::STREAM(v) = &self.data {
+            v
         } else {
             panic!("invalid pdfobj::as_stream");
         }
     }
     pub(crate) unsafe fn as_stream_mut(&mut self) -> &mut pdf_stream {
-        if let PdfObjVariant::STREAM(v) = self.data {
-            &mut *v
+        if let PdfObjVariant::STREAM(v) = &mut self.data {
+            v
         } else {
             panic!("invalid pdfobj::as_stream_mut");
         }
     }
     pub(crate) unsafe fn as_string(&self) -> &pdf_string {
-        if let PdfObjVariant::STRING(v) = self.data {
-            &*v
+        if let PdfObjVariant::STRING(v) = &self.data {
+            v
         } else {
             panic!("invalid pdfobj::as_string");
         }
     }
     pub(crate) unsafe fn as_name(&self) -> &CStr {
-        if let PdfObjVariant::NAME(v) = self.data {
-            (*v).name.as_c_str()
+        if let PdfObjVariant::NAME(v) = &self.data {
+            v.name.as_c_str()
         } else {
             panic!("invalid pdfobj::as_name");
         }
     }
     pub(crate) unsafe fn as_indirect(&self) -> &pdf_indirect {
-        if let PdfObjVariant::INDIRECT(v) = self.data {
-            &*v
+        if let PdfObjVariant::INDIRECT(v) = &self.data {
+            &v
         } else {
             panic!("invalid pdfobj::as_indirect");
         }
@@ -282,11 +282,12 @@ impl Default for xref_entry {
 
 use indexmap::IndexMap;
 
+#[derive(Debug)]
 #[repr(C)]
 pub(crate) struct pdf_dict {
     inner: IndexMap<pdf_name, *mut pdf_obj>,
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(C)]
 pub(crate) struct pdf_stream {
     pub(crate) dict: *mut pdf_obj,
@@ -295,7 +296,7 @@ pub(crate) struct pdf_stream {
     pub(crate) _flags: i32,
     pub(crate) decodeparms: decode_parms,
 }
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub(crate) struct decode_parms {
     pub(crate) predictor: i32,
@@ -303,7 +304,7 @@ pub(crate) struct decode_parms {
     pub(crate) bits_per_component: i32,
     pub(crate) columns: i32,
 }
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct pdf_name {
     pub(crate) name: CString,
 }
@@ -317,7 +318,7 @@ impl std::hash::Hash for pdf_name {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub(crate) struct pdf_indirect {
     pub(crate) pf: *mut pdf_file,
@@ -340,7 +341,7 @@ impl pdf_indirect {
 pub(crate) struct pdf_array {
     pub(crate) values: Vec<*mut pdf_obj>,
 }
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub(crate) struct pdf_string {
     pub(crate) string: Vec<u8>,
@@ -365,8 +366,7 @@ impl IntoObj for *mut pdf_obj {
 impl IntoObj for f64 {
     #[inline(always)]
     fn into_obj(self) -> *mut pdf_obj {
-        let data = Box::new(pdf_number { value: self });
-        pdf_new_obj(PdfObjVariant::NUMBER(Box::into_raw(data)))
+        pdf_new_obj(PdfObjVariant::NUMBER(self))
     }
 }
 
@@ -387,31 +387,27 @@ impl IntoObj for &str {
 impl IntoObj for Vec<*mut pdf_obj> {
     #[inline(always)]
     fn into_obj(self) -> *mut pdf_obj {
-        let data = Box::new(pdf_array { values: self });
-        pdf_new_obj(PdfObjVariant::ARRAY(Box::into_raw(data)))
+        pdf_new_obj(PdfObjVariant::ARRAY(self))
     }
 }
 
 impl IntoObj for pdf_name {
     #[inline(always)]
     fn into_obj(self) -> *mut pdf_obj {
-        let data = Box::into_raw(Box::new(self));
-        pdf_new_obj(PdfObjVariant::NAME(data))
+        pdf_new_obj(PdfObjVariant::NAME(self))
     }
 }
 
 impl IntoObj for pdf_string {
     #[inline(always)]
     fn into_obj(self) -> *mut pdf_obj {
-        let data = Box::into_raw(Box::new(self));
-        pdf_new_obj(PdfObjVariant::STRING(data))
+        pdf_new_obj(PdfObjVariant::STRING(self))
     }
 }
 
 impl IntoObj for pdf_stream {
     fn into_obj(self) -> *mut pdf_obj {
-        let data = Box::into_raw(Box::new(self));
-        let result = pdf_new_obj(PdfObjVariant::STREAM(data));
+        let result = pdf_new_obj(PdfObjVariant::STREAM(self));
         /*
          * Although we are using an arbitrary pdf_object here, it must have
          * type=PDF_DICT and cannot be an indirect reference.  This will be
@@ -424,15 +420,13 @@ impl IntoObj for pdf_stream {
 
 impl IntoObj for pdf_dict {
     fn into_obj(self) -> *mut pdf_obj {
-        let data = Box::into_raw(Box::new(self));
-        pdf_new_obj(PdfObjVariant::DICT(data))
+        pdf_new_obj(PdfObjVariant::DICT(self))
     }
 }
 
 impl IntoObj for pdf_indirect {
     fn into_obj(self) -> *mut pdf_obj {
-        let data = Box::new(self);
-        pdf_new_obj(PdfObjVariant::INDIRECT(Box::into_raw(data)))
+        pdf_new_obj(PdfObjVariant::INDIRECT(self))
     }
 }
 
@@ -831,9 +825,8 @@ pub(crate) unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
         return pdf_new_ref(object);
     };
 }
-unsafe fn write_indirect(indirect: *mut pdf_indirect, handle: &mut OutputHandleWrapper) {
-    assert!((*indirect).pf.is_null());
-    let (label, generation) = (*indirect).id;
+unsafe fn write_indirect(indirect: &mut pdf_indirect, handle: &mut OutputHandleWrapper) {
+    let (label, generation) = indirect.id;
     pdf_out(handle, format!("{} {} R", label, generation).as_bytes());
 }
 /* The undefined object is used as a placeholder in pdfnames.c
@@ -856,15 +849,15 @@ unsafe fn write_boolean(data: bool, handle: &mut OutputHandleWrapper) {
     pdf_out(handle, if data { b"true" } else { b"false" });
 }
 
-unsafe fn write_number(number: *mut pdf_number, handle: &mut OutputHandleWrapper) {
+unsafe fn write_number(number: f64, handle: &mut OutputHandleWrapper) {
     let mut buf = Vec::new();
-    pdf_sprint_number(&mut buf, (*number).value);
+    pdf_sprint_number(&mut buf, number);
     pdf_out(handle, &buf);
 }
 
 pub(crate) unsafe fn pdf_set_number(object: &mut pdf_obj, value: f64) {
-    if let PdfObjVariant::NUMBER(v) = object.data {
-        (*v).value = value;
+    if let PdfObjVariant::NUMBER(v) = &mut object.data {
+        *v = value;
     } else {
         panic!("pdf_set_number on type {:?}", object.typ());
     }
@@ -1056,57 +1049,24 @@ unsafe fn write_name(name: &pdf_name, handle: &mut OutputHandleWrapper) {
  * in PDF name object.
  */
 
-unsafe fn write_array(array: *mut pdf_array, handle: &mut OutputHandleWrapper) {
+unsafe fn write_array(array: &Vec<*mut pdf_obj>, handle: &mut OutputHandleWrapper) {
     pdf_out_char(handle, b'[');
-    if !(*array).values.is_empty() {
+    if !array.is_empty() {
         let mut type1 = PdfObjType::UNDEFINED;
-        for i in 0..(*array).values.len() {
-            if !(*array).values[i as usize].is_null() {
-                let type2 = (*(*array).values[i as usize]).typ();
+        for i in 0..array.len() {
+            if !array[i as usize].is_null() {
+                let type2 = (*array[i as usize]).typ();
                 if type1 != PdfObjType::UNDEFINED && pdf_need_white(type1, type2) {
                     pdf_out_white(handle);
                 }
                 type1 = type2;
-                pdf_write_obj((*array).values[i as usize], handle);
+                pdf_write_obj(array[i as usize], handle);
             } else {
                 warn!("PDF array element {} undefined.", i);
             }
         }
     }
     pdf_out_char(handle, b']');
-}
-impl pdf_array {
-    /*pub(crate) unsafe fn get(&self, idx: i32) -> Option<&pdf_obj> {
-        let len = self.values.len();
-        if idx < 0 {
-            Some(&*self.values[len - (idx.abs() as usize)])
-        } else if (idx as usize) < len {
-            Some(&*self.values[idx as usize])
-        } else {
-            None
-        }
-    }
-    pub(crate) unsafe fn get_mut(&mut self, idx: i32) -> Option<&mut pdf_obj> {
-        let len = self.values.len();
-        if idx < 0 {
-            Some(&mut *self.values[len - (idx.abs() as usize)])
-        } else if (idx as usize) < len {
-            Some(&mut *self.values[idx as usize])
-        } else {
-            None
-        }
-    }*/
-
-    pub(crate) fn len(&self) -> u32 {
-        self.values.len() as u32
-    }
-
-    pub(crate) fn push<O>(&mut self, object: O)
-    where
-        O: IntoObj,
-    {
-        self.values.push(object.into_obj());
-    }
 }
 
 impl Drop for pdf_array {
@@ -2457,27 +2417,27 @@ unsafe fn pdf_write_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) 
             (*object).typ()
         );
     }
-    match (*object).data {
+    match &mut (*object).data {
         PdfObjVariant::BOOLEAN(v) => {
-            write_boolean(v, handle);
+            write_boolean(*v, handle);
         }
         PdfObjVariant::NUMBER(v) => {
-            write_number(v, handle);
+            write_number(*v, handle);
         }
         PdfObjVariant::STRING(v) => {
-            write_string(&*v, handle);
+            write_string(v, handle);
         }
         PdfObjVariant::NAME(v) => {
-            write_name(&*v, handle);
+            write_name(v, handle);
         }
         PdfObjVariant::ARRAY(v) => {
             write_array(v, handle);
         }
         PdfObjVariant::DICT(v) => {
-            write_dict(&*v, handle);
+            write_dict(v, handle);
         }
         PdfObjVariant::STREAM(v) => {
-            write_stream(&mut *v, handle);
+            write_stream(v, handle);
         }
         PdfObjVariant::NULL => {
             write_null(handle);
@@ -2597,31 +2557,6 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
                     current_objstm = ptr::null_mut()
                 }
             }
-        }
-        match (*object).data {
-            PdfObjVariant::BOOLEAN(..) => {}
-            PdfObjVariant::NUMBER(v) => {
-                let _ = Box::from_raw(v);
-            }
-            PdfObjVariant::STRING(v) => {
-                let _ = Box::from_raw(v);
-            }
-            PdfObjVariant::NAME(v) => {
-                let _ = Box::from_raw(v);
-            }
-            PdfObjVariant::ARRAY(v) => {
-                let _ = Box::from_raw(v);
-            }
-            PdfObjVariant::DICT(v) => {
-                let _ = Box::from_raw(v);
-            }
-            PdfObjVariant::STREAM(v) => {
-                let _ = Box::from_raw(v);
-            }
-            PdfObjVariant::INDIRECT(v) => {
-                let _ = Box::from_raw(v);
-            }
-            PdfObjVariant::NULL | _ => {}
         }
         /* This might help detect freeing already freed objects */
         (*object).data = PdfObjVariant::OBJ_INVALID;
@@ -3752,16 +3687,16 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
  */
 
 pub(crate) unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
-    match (*object).data {
+    match &mut (*object).data {
         PdfObjVariant::INDIRECT(v) => {
-            if !(*v).pf.is_null() {
+            if !v.pf.is_null() {
                 pdf_import_indirect(object)
             } else {
                 pdf_link_obj(object)
             }
         }
         PdfObjVariant::STREAM(v) => {
-            let tmp = pdf_import_object((&mut *v).get_dict_obj());
+            let tmp = pdf_import_object(v.get_dict_obj());
             if tmp.is_null() {
                 return ptr::null_mut();
             }
@@ -3774,17 +3709,16 @@ pub(crate) unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
         }
         PdfObjVariant::DICT(v) => {
             let mut imported = pdf_dict::new();
-            if (&mut *v).foreach(import_dict, &mut imported) < 0i32 {
+            if v.foreach(import_dict, &mut imported) < 0 {
                 return ptr::null_mut();
             }
             imported.into_obj()
         }
         PdfObjVariant::ARRAY(v) => {
             let mut imported = vec![];
-            for i in 0..(&*v).len() {
-                let array = &mut *v;
-                let tmp = if i < (&*array).len() {
-                    pdf_import_object(array.values[i as usize])
+            for i in 0..v.len() {
+                let tmp = if i < v.len() {
+                    pdf_import_object(v[i as usize])
                 } else {
                     ptr::null_mut()
                 };

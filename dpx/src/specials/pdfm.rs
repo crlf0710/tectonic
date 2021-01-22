@@ -263,7 +263,7 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
         return -1i32;
     }
     let obj2 = obj2.unwrap();
-    match (*obj1).data {
+    match &mut (*obj1).data {
         PdfObjVariant::DICT(..) => {
             if !(*obj2).is_dict() {
                 spc_warn!(
@@ -282,7 +282,7 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
         }
         PdfObjVariant::STREAM(obj1) => {
             if (*obj2).is_dict() {
-                (*obj1).get_dict_mut().merge((*obj2).as_dict());
+                obj1.get_dict_mut().merge((*obj2).as_dict());
             } else if (*obj2).is_stream() {
                 spc_warn!(
                     spe,
@@ -297,10 +297,10 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
         }
         PdfObjVariant::ARRAY(obj1) => {
             /* dvipdfm */
-            (*obj1).push(pdf_link_obj(obj2));
+            obj1.push(pdf_link_obj(obj2));
             while !ap.cur.is_empty() {
                 if let Some(obj3) = ap.cur.parse_pdf_object(ptr::null_mut()) {
-                    (*obj1).push(obj3);
+                    obj1.push(obj3);
                     ap.cur.skip_white();
                 } else {
                     break;
@@ -429,11 +429,11 @@ unsafe fn needreencode(kp: &pdf_name, vp: &pdf_string, cd: &tounicode) -> i32 {
 }
 unsafe fn modstrings(kp: &pdf_name, vp: &mut pdf_obj, cd: &mut tounicode) -> i32 {
     let mut r: i32 = 0i32;
-    match vp.data {
+    match &mut vp.data {
         PdfObjVariant::STRING(vp) => {
             if cd.cmap_id >= 0i32 && !cd.taintkeys.is_null() {
                 let cmap: *mut CMap = CMap_cache_get(cd.cmap_id);
-                if needreencode(kp, &*vp, cd) != 0 {
+                if needreencode(kp, vp, cd) != 0 {
                     r = reencodestring(cmap, vp)
                 }
             } else if is_xdv != 0 && !cd.taintkeys.is_null() {
@@ -450,8 +450,8 @@ unsafe fn modstrings(kp: &pdf_name, vp: &mut pdf_obj, cd: &mut tounicode) -> i32
                 warn!("Failed to convert input string to UTF16...");
             }
         }
-        PdfObjVariant::DICT(vp) => r = (*vp).foreach(modstrings, cd),
-        PdfObjVariant::STREAM(vp) => r = (*vp).get_dict_mut().foreach(modstrings, cd),
+        PdfObjVariant::DICT(vp) => r = vp.foreach(modstrings, cd),
+        PdfObjVariant::STREAM(vp) => r = vp.get_dict_mut().foreach(modstrings, cd),
         _ => {}
     }
     r
