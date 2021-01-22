@@ -458,24 +458,24 @@ unsafe fn modstrings(kp: &pdf_name, vp: &mut pdf_obj, cd: &mut tounicode) -> i32
 }
 
 pub(crate) trait ParsePdfDictU {
-    fn parse_pdf_dict_with_tounicode(&mut self, cd: &mut tounicode) -> Option<*mut pdf_obj>;
+    fn parse_pdf_dict_with_tounicode(&mut self, cd: &mut tounicode) -> Option<pdf_dict>;
 }
 
 impl ParsePdfDictU for &[u8] {
-    fn parse_pdf_dict_with_tounicode(&mut self, cd: &mut tounicode) -> Option<*mut pdf_obj> {
+    fn parse_pdf_dict_with_tounicode(&mut self, cd: &mut tounicode) -> Option<pdf_dict> {
         /* disable this test for XDV files, as we do UTF8 reencoding with no cmap */
-        if unsafe { is_xdv == 0 && cd.cmap_id < 0i32 } {
+        if unsafe { is_xdv == 0 && cd.cmap_id < 0 } {
             return self.parse_pdf_dict(ptr::null_mut());
         }
         /* :( */
-        let dict = if unsafe { cd.unescape_backslash != 0 } {
+        let mut dict = if unsafe { cd.unescape_backslash != 0 } {
             self.parse_pdf_tainted_dict()
         } else {
             self.parse_pdf_dict(ptr::null_mut())
         };
-        if let Some(d) = dict {
+        if let Some(d) = &mut dict {
             unsafe {
-                (*d).as_dict_mut().foreach(modstrings, cd);
+                d.foreach(modstrings, cd);
             }
         }
         dict
@@ -509,12 +509,7 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         spc_warn!(spe, "Could not find dictionary object.");
         return -1i32;
     }
-    let annot_dict = annot_dict.unwrap();
-    if !(*annot_dict).is_dict() {
-        spc_warn!(spe, "Invalid type: not dictionary object.");
-        pdf_release_obj(annot_dict);
-        return -1i32;
-    }
+    let annot_dict = annot_dict.unwrap().into_obj();
     let mut cp = point2(spe.x_user, spe.y_user);
     pdf_dev_transform(&mut cp, None);
     if ti.flags & 1i32 << 0i32 != 0 {
@@ -540,7 +535,7 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         spc_flush_object(&i);
     }
     pdf_release_obj(annot_dict);
-    0i32
+    0
 }
 /* NOTE: This can't have ident. See "Dvipdfm User's Manual". */
 unsafe fn spc_handler_pdfm_bann(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
@@ -551,13 +546,7 @@ unsafe fn spc_handler_pdfm_bann(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     args.cur.skip_white();
     if let Some(annot_dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
-        sd.annot_dict = annot_dict;
-        if !(*sd.annot_dict).is_dict() {
-            spc_warn!(spe, "Invalid type: not a dictionary object.");
-            pdf_release_obj(sd.annot_dict);
-            sd.annot_dict = ptr::null_mut();
-            return -1i32;
-        }
+        sd.annot_dict = annot_dict.into_obj();
     } else {
         sd.annot_dict = ptr::null_mut();
         spc_warn!(spe, "Ignoring annotation with invalid dictionary.");
@@ -716,7 +705,7 @@ unsafe fn spc_handler_pdfm_outline(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
             pdf_doc_bookmarks_down();
         }
     }
-    pdf_doc_bookmarks_add(item_dict, is_open);
+    pdf_doc_bookmarks_add(&mut *item_dict.into_obj(), is_open);
     0i32
 }
 unsafe fn spc_handler_pdfm_article(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
@@ -724,6 +713,7 @@ unsafe fn spc_handler_pdfm_article(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if let Some(ident) = args.cur.parse_opt_ident() {
         if let Some(info_dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
+            let info_dict = info_dict.into_obj();
             pdf_doc_begin_article(&ident, pdf_link_obj(info_dict));
             spc_push_object(&ident, info_dict);
             0
@@ -738,7 +728,6 @@ unsafe fn spc_handler_pdfm_article(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 }
 unsafe fn spc_handler_pdfm_bead(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
-    let article_info;
     args.cur.skip_white();
     if args.cur[0] != b'@' {
         spc_warn!(spe, "Article identifier expected but not found.");
@@ -773,8 +762,9 @@ unsafe fn spc_handler_pdfm_bead(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         )
     };
     args.cur.skip_white();
+    let article_info;
     if args.cur[0] != b'<' {
-        article_info = pdf_dict::new().into_obj();
+        article_info = pdf_dict::new();
     } else {
         if let Some(ai) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
             article_info = ai;
@@ -786,15 +776,15 @@ unsafe fn spc_handler_pdfm_bead(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     /* Does this article exist yet */
     let article = spc_lookup_object(&article_name);
     if !article.is_null() {
-        (*article).as_dict_mut().merge((*article_info).as_dict());
-        pdf_release_obj(article_info);
+        (*article).as_dict_mut().merge(&article_info);
     } else {
+        let article_info = article_info.into_obj();
         pdf_doc_begin_article(&article_name, pdf_link_obj(article_info));
         spc_push_object(&article_name, article_info);
     }
     let page_no = pdf_doc_current_page_number();
     pdf_doc_add_bead(&article_name, "", page_no, &mut rect);
-    0i32
+    0
 }
 unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
@@ -995,8 +985,7 @@ unsafe fn spc_handler_pdfm_docinfo(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     if let Some(dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
         let docinfo = pdf_doc_get_dictionary("Info");
-        (*docinfo).as_dict_mut().merge((*dict).as_dict());
-        pdf_release_obj(dict);
+        (*docinfo).as_dict_mut().merge(&dict);
         0
     } else {
         spc_warn!(spe, "Dictionary object expected but not found.");
@@ -1005,17 +994,16 @@ unsafe fn spc_handler_pdfm_docinfo(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 }
 unsafe fn spc_handler_pdfm_docview(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
-    if let Some(dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
+    if let Some(mut dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
         let catalog = pdf_doc_get_dictionary("Catalog");
         /* Avoid overriding whole ViewerPreferences */
         let pref_old = (*catalog).as_dict_mut().get_mut("ViewerPreferences"); /* Close all? */
-        let pref_add = (*dict).as_dict().get("ViewerPreferences");
+        let pref_add = dict.get("ViewerPreferences");
         if let (Some(pref_old), Some(pref_add)) = (pref_old, pref_add) {
             (*pref_old).as_dict_mut().merge((*pref_add).as_dict());
-            pdf_remove_dict(&mut *dict, "ViewerPreferences");
+            pdf_remove_dict(&mut dict, "ViewerPreferences");
         }
-        (*catalog).as_dict_mut().merge((*dict).as_dict());
-        pdf_release_obj(dict);
+        (*catalog).as_dict_mut().merge(&dict);
         0
     } else {
         spc_warn!(spe, "Dictionary object expected but not found.");
@@ -1209,14 +1197,13 @@ unsafe fn spc_handler_pdfm_stream_with_type(
     args.cur.skip_white();
     if args.cur[0] == b'<' {
         let stream_dict = fstream.get_dict_mut();
-        if let Some(tmp) = args.cur.parse_pdf_dict(ptr::null_mut()) {
-            if (*tmp).as_dict().has("Length") {
-                pdf_remove_dict(&mut *tmp, "Length");
-            } else if (*tmp).as_dict().has("Filter") {
-                pdf_remove_dict(&mut *tmp, "Filter");
+        if let Some(mut tmp) = args.cur.parse_pdf_dict(ptr::null_mut()) {
+            if tmp.has("Length") {
+                pdf_remove_dict(&mut tmp, "Length");
+            } else if tmp.has("Filter") {
+                pdf_remove_dict(&mut tmp, "Filter");
             }
-            stream_dict.merge((*tmp).as_dict());
-            pdf_release_obj(tmp);
+            stream_dict.merge(&tmp);
         } else {
             spc_warn!(spe, "Parsing dictionary failed.");
             return -1i32;
@@ -1301,25 +1288,17 @@ unsafe fn spc_handler_pdfm_bform(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
  * Please use pdf:put @resources (before pdf:exobj) instead.
  */
 unsafe fn spc_handler_pdfm_eform(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let attrib: *mut pdf_obj = ptr::null_mut();
     args.cur.skip_white();
     let attrib = if !args.cur.is_empty() {
-        if let Some(attrib) = args.cur.parse_pdf_dict(ptr::null_mut()) {
-            if !(*attrib).is_dict() {
-                pdf_release_obj(attrib);
-                ptr::null_mut()
-            } else {
-                attrib
-            }
-        } else {
-            pdf_release_obj(attrib);
-            ptr::null_mut()
-        }
+        args.cur
+            .parse_pdf_dict(ptr::null_mut())
+            .map(IntoObj::into_obj)
+            .unwrap_or(ptr::null_mut())
     } else {
         ptr::null_mut()
     };
     pdf_doc_end_grabbing(attrib);
-    0i32
+    0
 }
 /* Saved XObjects can be used as follows:
  *

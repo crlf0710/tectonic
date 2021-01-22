@@ -361,8 +361,8 @@ pub(crate) trait ParsePdfObj {
     fn parse_pdf_reference(&mut self) -> Option<*mut pdf_obj>;
     fn parse_pdf_stream(&mut self, dict: *mut pdf_obj) -> Option<*mut pdf_obj>;
     fn parse_pdf_array(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj>;
-    fn parse_pdf_tainted_dict(&mut self) -> Option<*mut pdf_obj>;
-    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj>;
+    fn parse_pdf_tainted_dict(&mut self) -> Option<pdf_dict>;
+    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> Option<pdf_dict>;
     fn parse_pdf_literal_string(&mut self) -> Option<*mut pdf_obj>;
     fn parse_pdf_hex_string(&mut self) -> Option<*mut pdf_obj>;
     fn parse_pdf_string(&mut self) -> Option<*mut pdf_obj>;
@@ -385,7 +385,7 @@ impl ParsePdfObj for &[u8] {
                 if self[1] != b'<' {
                     result = self.parse_pdf_hex_string()
                 } else {
-                    result = self.parse_pdf_dict(pf);
+                    result = self.parse_pdf_dict(pf).map(IntoObj::into_obj);
                     self.skip_white();
                     if result.is_some() && self.len() >= 15 && self.starts_with(b"stream") {
                         let dict = result.unwrap();
@@ -540,7 +540,7 @@ impl ParsePdfObj for &[u8] {
         *self = &p[1..];
         Some(result.into_obj())
     }
-    fn parse_pdf_tainted_dict(&mut self) -> Option<*mut pdf_obj> {
+    fn parse_pdf_tainted_dict(&mut self) -> Option<pdf_dict> {
         unsafe {
             parser_state.tainted = 1;
         }
@@ -550,7 +550,7 @@ impl ParsePdfObj for &[u8] {
         }
         result
     }
-    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> Option<*mut pdf_obj> {
+    fn parse_pdf_dict(&mut self, pf: *mut pdf_file) -> Option<pdf_dict> {
         let mut p = *self;
         p.skip_white();
         /* At least four letter <<>>. */
@@ -586,7 +586,7 @@ impl ParsePdfObj for &[u8] {
             return None;
         }
         *self = &p[2..];
-        Some(result.into_obj())
+        Some(result)
     }
     fn parse_pdf_literal_string(&mut self) -> Option<*mut pdf_obj> {
         /*

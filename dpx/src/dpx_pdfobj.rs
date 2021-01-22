@@ -1268,11 +1268,10 @@ impl pdf_dict {
     }
 }
 
-pub(crate) unsafe fn pdf_remove_dict<K>(dict: &mut pdf_obj, name: K)
+pub(crate) unsafe fn pdf_remove_dict<K>(dict: &mut pdf_dict, name: K)
 where
     K: AsRef<[u8]>,
 {
-    let dict = dict.as_dict_mut();
     if let Some(existing_value) = dict.inner.shift_remove(name.as_ref()) {
         pdf_release_obj(existing_value);
     }
@@ -2440,7 +2439,7 @@ unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> *mut pdf_obj {
     let mut dst = pdf_stream::new(0i32);
     assert!(src.is_stream());
     dst.get_dict_mut().merge(src.as_stream().get_dict());
-    pdf_remove_dict(dst.get_dict_obj(), "Length");
+    pdf_remove_dict(dst.get_dict_obj().as_dict_mut(), "Length");
     pdf_concat_stream(&mut dst, src.as_stream_mut());
     dst.into_obj()
 }
@@ -2739,7 +2738,7 @@ unsafe fn find_xref<R: Read + Seek>(handle: &mut R, file_size: i32) -> i32 {
  * This routine must be called with the file pointer located
  * at the start of the trailer.
  */
-unsafe fn parse_trailer(pf: *mut pdf_file) -> Option<*mut pdf_obj> {
+unsafe fn parse_trailer(pf: *mut pdf_file) -> Option<pdf_dict> {
     /*
      * Fill work_buffer and hope trailer fits. This should
      * be made a bit more robust sometime.
@@ -3422,7 +3421,9 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
                     let res: i32 = parse_xref_table(pf, xref_pos);
                     if res > 0i32 {
                         /* cross-reference table */
-                        trailer = parse_trailer(pf).unwrap_or(ptr::null_mut());
+                        trailer = parse_trailer(pf)
+                            .map(IntoObj::into_obj)
+                            .unwrap_or(ptr::null_mut());
                         if trailer.is_null() {
                             current_block = 13794981049891343809;
                             continue;
