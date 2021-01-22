@@ -298,10 +298,7 @@ pub(crate) unsafe fn show_token_list_pseudo(
         if let Some(q) = q {
             if p == q {
                 ps.first_count = ps.tally;
-                ps.trick_count = ps.tally + 1 + error_line - half_error_line;
-                if ps.trick_count < error_line {
-                    ps.trick_count = error_line
-                }
+                ps.trick_count = (ps.tally + 1 + error_line - half_error_line).max(error_line);
             }
         }
         // Display token |p|, and |return|
@@ -3555,11 +3552,9 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                         for i in input.start.unwrap()..j {
                             if Some(i) == input.loc {
                                 pseudo.first_count = pseudo.tally;
-                                pseudo.trick_count =
-                                    pseudo.tally + 1 + error_line - half_error_line;
-                                if pseudo.trick_count < error_line {
-                                    pseudo.trick_count = error_line
-                                }
+                                pseudo.trick_count = (pseudo.tally + 1 + error_line
+                                    - half_error_line)
+                                    .max(error_line);
                             }
                             use std::fmt::Write;
                             pseudo
@@ -3621,10 +3616,8 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                 }
                 if pseudo.trick_count == 1_000_000 {
                     pseudo.first_count = pseudo.tally;
-                    pseudo.trick_count = pseudo.tally + 1 + error_line - half_error_line;
-                    if pseudo.trick_count < error_line {
-                        pseudo.trick_count = error_line
-                    }
+                    pseudo.trick_count =
+                        (pseudo.tally + 1 + error_line - half_error_line).max(error_line);
                 }
                 let m = if pseudo.tally < pseudo.trick_count {
                     pseudo.tally - pseudo.first_count
