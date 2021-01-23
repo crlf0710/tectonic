@@ -26,6 +26,7 @@ use super::{SpcArg, SpcEnv};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::{PdfColor, RgbPdfColor};
 use crate::dpx_pdfdev::{transform_info, Rect, TMatrix};
+use crate::dpx_pdfdoc::PdfPageBoundary;
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 use crate::SkipBlank;
@@ -609,7 +610,7 @@ pub(crate) fn spc_util_read_blahblah(
     spe: &mut SpcEnv,
     p: &mut transform_info,
     page_no: &mut Option<i32>,
-    bbox_type: &mut Option<i32>,
+    bbox_type: &mut Option<PdfPageBoundary>,
     ap: &mut SpcArg,
 ) -> i32 {
     let mut error: i32 = 0;
@@ -734,17 +735,17 @@ pub(crate) fn spc_util_read_blahblah(
                         if bbox_type.is_some() {
                             // TODO: bbox_type can probably be an enum, use try_from
                             match q.to_ascii_lowercase().as_str() {
-                                "cropbox" => *bbox_type = Some(1),
-                                "mediabox" => *bbox_type = Some(2),
-                                "artbox" => *bbox_type = Some(3),
-                                "trimbox" => *bbox_type = Some(4),
-                                "bleedbox" => *bbox_type = Some(5),
+                                "cropbox" => *bbox_type = Some(PdfPageBoundary::Cropbox),
+                                "mediabox" => *bbox_type = Some(PdfPageBoundary::Mediabox),
+                                "artbox" => *bbox_type = Some(PdfPageBoundary::Artbox),
+                                "trimbox" => *bbox_type = Some(PdfPageBoundary::Trimbox),
+                                "bleedbox" => *bbox_type = Some(PdfPageBoundary::Bleedbox),
                                 _ => {}
                             }
                         }
                     // TODO: Maybe remove is_some check
                     } else if bbox_type.is_some() {
-                        *bbox_type = Some(0);
+                        *bbox_type = Some(PdfPageBoundary::Auto);
                     }
                 }
                 _ => error = -1,

@@ -23,6 +23,7 @@
 use crate::dpx_mfileio::tt_mfgets;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
+use crate::dpx_pdfdoc::PdfPageBoundary;
 use crate::dpx_pdfparse::SkipWhite;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::spc_warn;
@@ -65,7 +66,7 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let mut ti = transform_info::new();
     let options: load_options = load_options {
         page_no: 1,
-        bbox_type: 0,
+        bbox_type: PdfPageBoundary::Auto,
         dict: ptr::null_mut(),
     };
     let mut buf: [u8; 512] = [0; 512];

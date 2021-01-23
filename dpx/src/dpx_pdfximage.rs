@@ -40,6 +40,7 @@ use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
+use crate::dpx_pdfdoc::PdfPageBoundary;
 use crate::dpx_pdfobj::{
     check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, Object,
 };
@@ -104,7 +105,7 @@ impl Default for xform_info {
 #[repr(C)]
 pub(crate) struct load_options {
     pub(crate) page_no: i32,
-    pub(crate) bbox_type: i32,
+    pub(crate) bbox_type: PdfPageBoundary,
     pub(crate) dict: *mut pdf_obj,
 }
 #[derive(Clone)]
@@ -127,7 +128,7 @@ pub(crate) struct attr_ {
     pub(crate) bbox: Rect,
     pub(crate) page_no: i32,
     pub(crate) page_count: i32,
-    pub(crate) bbox_type: i32,
+    pub(crate) bbox_type: PdfPageBoundary,
     pub(crate) dict: *mut pdf_obj,
     pub(crate) tempfile: i8,
 }
@@ -172,7 +173,7 @@ impl pdf_ximage {
                 bbox: Rect::zero(),
                 page_no: 1,
                 page_count: 1,
-                bbox_type: 0,
+                bbox_type: PdfPageBoundary::Auto,
                 dict: ptr::null_mut(),
                 tempfile: 0,
             },

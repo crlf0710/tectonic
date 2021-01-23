@@ -26,6 +26,7 @@ use std::ptr;
 use crate::warn;
 
 use super::{SpcArg, SpcEnv};
+use crate::dpx_pdfdoc::PdfPageBoundary;
 use crate::dpx_pdfdraw::pdf_dev_concat;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use bridge::{InFile, TTInputFormat};
@@ -103,7 +104,7 @@ unsafe fn parse_filename<'a>(pp: &mut &'a [u8]) -> Option<&'a str> {
 unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let options: load_options = load_options {
         page_no: 1,
-        bbox_type: 0,
+        bbox_type: PdfPageBoundary::Auto,
         dict: ptr::null_mut(),
     };
     args.cur.skip_white();
@@ -136,7 +137,7 @@ unsafe fn spc_handler_ps_plotfile(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut p = transform_info::new();
     let options: load_options = load_options {
         page_no: 1,
-        bbox_type: 0,
+        bbox_type: PdfPageBoundary::Auto,
         dict: ptr::null_mut(),
     };
     spc_warn!(spe, "\"ps: plotfile\" found (not properly implemented)");

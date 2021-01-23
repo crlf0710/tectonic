@@ -192,6 +192,17 @@ pub(crate) struct BreakingState {
     pub(crate) annot_dict: *mut pdf_obj,
     pub(crate) rect: Rect,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum PdfPageBoundary {
+    Auto = 0,
+    Mediabox = 2,
+    Cropbox = 1,
+    Artbox = 3,
+    Trimbox = 4,
+    Bleedbox = 5,
+}
+
 /* quasi-hack to get the primary input */
 /* tectonic/core-strutils.h: miscellaneous C string utilities
    Copyright 2016-2018 the Tectonic Project
@@ -212,7 +223,7 @@ static mut thumb_basename: String = String::new();
 unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
     let options: load_options = load_options {
         page_no: 1,
-        bbox_type: 0,
+        bbox_type: PdfPageBoundary::Auto,
         dict: ptr::null_mut(),
     };
     let handle = InFile::open(thumb_filename, TTInputFormat::PICT, 0);
@@ -531,7 +542,7 @@ unsafe fn doc_flush_page(p: *mut pdf_doc, page: &mut pdf_page, parent_ref: *mut 
      * does not have enough size to cover all page's imaging area, using
      * CropBox here gives incorrect result.
      */
-    if page.flags & 1 << 0 != 0 {
+    if page.flags & 1i32 << 0i32 != 0 {
         let mut mediabox = vec![];
         mediabox.push_obj((page.cropbox.min.x / 0.01 + 0.5).floor() * 0.01);
         mediabox.push_obj((page.cropbox.min.y / 0.01 + 0.5).floor() * 0.01);
@@ -760,6 +771,167 @@ pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
         0
     }
 }
+
+unsafe fn set_bounding_box(
+    opt_bbox: PdfPageBoundary,
+    media_box: *mut pdf_obj,
+    mut crop_box: *mut pdf_obj,
+    mut art_box: *mut pdf_obj,
+    mut trim_box: *mut pdf_obj,
+    mut bleed_box: *mut pdf_obj,
+) -> Option<Rect> {
+    if media_box.is_null() {
+        warn!("MediaBox not found in included PDF...");
+        return None;
+    }
+    unsafe fn VALIDATE_BOX(o: *mut pdf_obj) -> Option<()> {
+        if let Some(o) = o.as_ref() {
+            match &o.data {
+                Object::Array(a) if a.len() == 4 => Some(()),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+    if !media_box.is_null() {
+        VALIDATE_BOX(media_box)?;
+    }
+    if !crop_box.is_null() {
+        VALIDATE_BOX(crop_box)?;
+    }
+    if !art_box.is_null() {
+        VALIDATE_BOX(art_box)?;
+    }
+    if !trim_box.is_null() {
+        VALIDATE_BOX(trim_box)?;
+    }
+    if !bleed_box.is_null() {
+        VALIDATE_BOX(bleed_box)?;
+    }
+
+    let box_0 = if opt_bbox == PdfPageBoundary::Auto {
+        if !crop_box.is_null() {
+            pdf_link_obj(crop_box)
+        } else if !art_box.is_null() {
+            pdf_link_obj(art_box)
+        } else if !trim_box.is_null() {
+            pdf_link_obj(trim_box)
+        } else if !bleed_box.is_null() {
+            pdf_link_obj(bleed_box)
+        } else {
+            pdf_link_obj(media_box)
+        }
+    } else {
+        if crop_box.is_null() {
+            crop_box = pdf_link_obj(media_box);
+        }
+        if art_box.is_null() {
+            art_box = pdf_link_obj(crop_box);
+        }
+        if trim_box.is_null() {
+            trim_box = pdf_link_obj(crop_box);
+        }
+        if bleed_box.is_null() {
+            bleed_box = pdf_link_obj(crop_box);
+        }
+        /* At this point all boxes must be defined. */
+        match opt_bbox {
+            PdfPageBoundary::Cropbox => pdf_link_obj(crop_box),
+            PdfPageBoundary::Mediabox => pdf_link_obj(media_box),
+            PdfPageBoundary::Artbox => pdf_link_obj(art_box),
+            PdfPageBoundary::Trimbox => pdf_link_obj(trim_box),
+            PdfPageBoundary::Bleedbox => pdf_link_obj(bleed_box),
+            _ => pdf_link_obj(crop_box),
+        }
+    };
+
+    let mut bbox = Rect::zero();
+    if box_0.is_null() {
+        /* Impossible */
+        warn!("No appropriate page boudary box found???");
+        return None;
+    } else {
+        let mut i = 4;
+        loop {
+            if i == 0 {
+                break;
+            }
+            i -= 1;
+
+            let array = (*box_0).as_array_mut();
+            if let Some(tmp) = DerefObj::new(Some(&mut *array[i])) {
+                if let Object::Number(x) = tmp.data {
+                    match i {
+                        0 => bbox.min.x = x,
+                        1 => bbox.min.y = x,
+                        2 => bbox.max.x = x,
+                        3 => bbox.max.y = x,
+                        _ => {}
+                    }
+                } else {
+                    pdf_release_obj(box_0);
+                    return None;
+                }
+            } else {
+                pdf_release_obj(box_0);
+                return None;
+            }
+        }
+
+        /* New scheme only for XDV files */
+        if
+        /*dpx_conf.compat_mode == dpx_mode_xdv_mode*/
+        is_xdv != 0 || opt_bbox != PdfPageBoundary::Auto {
+            let mut i = 4;
+            loop {
+                if i == 0 {
+                    break;
+                }
+                i -= 1;
+
+                let array = (*media_box).as_array_mut();
+                if let Some(tmp) = DerefObj::new(Some(&mut *array[i])) {
+                    if let Object::Number(x) = tmp.data {
+                        match i {
+                            0 => {
+                                if bbox.min.x < x {
+                                    bbox.min.x = x
+                                }
+                            }
+                            1 => {
+                                if bbox.min.y < x {
+                                    bbox.min.y = x
+                                }
+                            }
+                            2 => {
+                                if bbox.max.x > x {
+                                    bbox.max.x = x
+                                }
+                            }
+                            3 => {
+                                if bbox.max.y > x {
+                                    bbox.max.y = x
+                                }
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        pdf_release_obj(box_0);
+                        return None;
+                    }
+                } else {
+                    pdf_release_obj(box_0);
+                    return None;
+                }
+            }
+        }
+    }
+    pdf_release_obj(box_0);
+
+    Some(bbox)
+}
+
 unsafe fn set_transform_matrix(bbox: Rect, rotate: Option<&pdf_obj>) -> Option<TMatrix> {
     let mut matrix = TMatrix::identity();
     /* Handle Rotate */
@@ -879,7 +1051,7 @@ unsafe fn set_transform_matrix(bbox: Rect, rotate: Option<&pdf_obj>) -> Option<T
 pub unsafe fn pdf_doc_get_page(
     pf: &pdf_file,
     page_no: i32,
-    options: i32,
+    opt_bbox: PdfPageBoundary,
     resources_p: *mut *mut pdf_obj,
 ) -> Option<(DerefObj, Rect, TMatrix)>
 /* returned values */ {
@@ -888,31 +1060,46 @@ pub unsafe fn pdf_doc_get_page(
         if let Object::Dict(_) = page_tree.data {
             let mut resources: *mut pdf_obj = ptr::null_mut();
             let mut rotate = None;
+            let mut art_box: *mut pdf_obj = ptr::null_mut();
+            let mut trim_box: *mut pdf_obj = ptr::null_mut();
+            let mut bleed_box: *mut pdf_obj = ptr::null_mut();
+            let mut media_box: *mut pdf_obj = ptr::null_mut();
+            let mut crop_box: *mut pdf_obj = ptr::null_mut();
+
+            let error_silent = move || -> Option<(DerefObj, Rect, TMatrix)> {
+                pdf_release_obj(crop_box);
+                pdf_release_obj(bleed_box);
+                pdf_release_obj(trim_box);
+                pdf_release_obj(art_box);
+                pdf_release_obj(media_box);
+                pdf_release_obj(resources);
+                None
+            };
+
+            let error_exit = || -> Option<(DerefObj, Rect, TMatrix)> {
+                warn!("Error found in including PDF image.");
+                error_silent()
+            };
             let count = {
                 if let Some(tmp) = DerefObj::new(page_tree.as_dict_mut().get_mut("Count")) {
                     if let Object::Number(count) = tmp.data {
                         count as i32
                     } else {
-                        return error_exit(resources);
+                        return error_exit();
                     }
                 } else {
-                    return error_exit(resources);
+                    return error_exit();
                 }
             };
             if page_no <= 0 || page_no > count {
                 warn!("Page {} does not exist.", page_no);
-                return error_silent(resources);
+                return error_silent();
             }
 
             /*
              * Seek correct page. Get MediaBox, CropBox and Resources.
              * (Note that these entries can be inherited.)
              */
-            let mut art_box: *mut pdf_obj = ptr::null_mut();
-            let mut trim_box: *mut pdf_obj = ptr::null_mut();
-            let mut bleed_box: *mut pdf_obj = ptr::null_mut();
-            let mut media_box: *mut pdf_obj = ptr::null_mut();
-            let mut crop_box: *mut pdf_obj = ptr::null_mut();
             let mut depth: i32 = 30;
             let mut page_idx: i32 = page_no - 1;
             let mut kids_length = 1;
@@ -980,7 +1167,7 @@ pub unsafe fn pdf_doc_get_page(
                                             /* Pages object */
                                             count_0 = v as i32;
                                         } else {
-                                            return error_exit(resources);
+                                            return error_exit();
                                         }
                                     } else {
                                         /* Page object */
@@ -992,15 +1179,15 @@ pub unsafe fn pdf_doc_get_page(
                                     }
                                     page_idx -= count_0;
                                 } else {
-                                    return error_exit(resources);
+                                    return error_exit();
                                 }
                             } else {
-                                return error_exit(resources);
+                                return error_exit();
                             }
                             i += 1;
                         }
                     } else {
-                        return error_exit(resources);
+                        return error_exit();
                     }
                 } else {
                     break;
@@ -1008,150 +1195,23 @@ pub unsafe fn pdf_doc_get_page(
             }
 
             if depth == 0 || kids_length == i {
-                pdf_release_obj(media_box);
-                pdf_release_obj(crop_box);
-                return error_exit(resources);
+                return error_exit();
             }
 
-            /* Nasty BBox selection... */
-            let box_0 = match options {
-                0 | 1 => crop_box
-                    .as_mut()
-                    .or_else(|| media_box.as_mut())
-                    .or_else(|| bleed_box.as_mut())
-                    .or_else(|| trim_box.as_mut())
-                    .or_else(|| art_box.as_mut()),
-                2 => media_box
-                    .as_mut()
-                    .or_else(|| crop_box.as_mut())
-                    .or_else(|| bleed_box.as_mut())
-                    .or_else(|| trim_box.as_mut())
-                    .or_else(|| art_box.as_mut()),
-                3 => art_box
-                    .as_mut()
-                    .or_else(|| crop_box.as_mut())
-                    .or_else(|| media_box.as_mut())
-                    .or_else(|| bleed_box.as_mut())
-                    .or_else(|| trim_box.as_mut()),
-                4 => trim_box
-                    .as_mut()
-                    .or_else(|| crop_box.as_mut())
-                    .or_else(|| media_box.as_mut())
-                    .or_else(|| bleed_box.as_mut())
-                    .or_else(|| art_box.as_mut()),
-                5 => bleed_box
-                    .as_mut()
-                    .or_else(|| crop_box.as_mut())
-                    .or_else(|| media_box.as_mut())
-                    .or_else(|| trim_box.as_mut())
-                    .or_else(|| art_box.as_mut()),
-                _ => None,
-            };
-            let box_0 = if let Some(box_0) = box_0 {
-                box_0 as *mut pdf_obj
-            } else {
-                ptr::null_mut()
-            };
-            let medbox = media_box;
-
-            if !((!box_0.is_null() && matches!((*box_0).data, Object::Array(_)))
-                && (*box_0).as_array().len() == 4
-                && (!resources.is_null() && matches!((*resources).data, Object::Dict(_))))
+            /* Select page boundary box */
+            let bbox = if let Some(b) =
+                set_bounding_box(opt_bbox, media_box, crop_box, art_box, trim_box, bleed_box)
             {
-                pdf_release_obj(box_0);
-                return error_exit(resources);
-            }
-
-            let mut bbox = Rect::zero();
-            let mut i_0 = 4;
-            loop {
-                if i_0 == 0 {
-                    break;
-                }
-                i_0 -= 1;
-
-                let array = (*box_0).as_array_mut();
-                if let Some(tmp_1) = if i_0 < array.len() {
-                    DerefObj::new(Some(&mut *array[i_0]))
-                } else {
-                    None
-                } {
-                    match tmp_1.data {
-                        Object::Number(x) => match i_0 {
-                            0 => bbox.min.x = x,
-                            1 => bbox.min.y = x,
-                            2 => bbox.max.x = x,
-                            3 => bbox.max.y = x,
-                            _ => {}
-                        },
-                        _ => {
-                            pdf_release_obj(box_0);
-                            return error_exit(resources);
-                        }
-                    }
-                } else {
-                    pdf_release_obj(box_0);
-                    return error_exit(resources);
-                }
-            }
-
-            if !medbox.is_null() && (is_xdv != 0 || options != 0) {
-                let mut i_0 = 4;
-                loop {
-                    if i_0 == 0 {
-                        break;
-                    }
-                    i_0 -= 1;
-
-                    let array = (*medbox).as_array_mut();
-                    if let Some(tmp_2) = if i_0 < array.len() {
-                        DerefObj::new(Some(&mut *array[i_0]))
-                    } else {
-                        None
-                    } {
-                        match tmp_2.data {
-                            Object::Number(x) => match i_0 {
-                                0 => {
-                                    if bbox.min.x < x {
-                                        bbox.min.x = x
-                                    }
-                                }
-                                1 => {
-                                    if bbox.min.y < x {
-                                        bbox.min.y = x
-                                    }
-                                }
-                                2 => {
-                                    if bbox.max.x > x {
-                                        bbox.max.x = x
-                                    }
-                                }
-                                3 => {
-                                    if bbox.max.y > x {
-                                        bbox.max.y = x
-                                    }
-                                }
-                                _ => {}
-                            },
-                            _ => {
-                                pdf_release_obj(box_0);
-                                return error_exit(resources);
-                            }
-                        }
-                    } else {
-                        pdf_release_obj(box_0);
-                        return error_exit(resources);
-                    }
-                }
-            }
-
-            pdf_release_obj(box_0);
+                b
+            } else {
+                return error_exit();
+            };
 
             /* Set transformation matrix */
             let matrix = if let Some(m) = set_transform_matrix(bbox, rotate.as_deref()) {
                 m
             } else {
-                return error_exit(resources);
+                return error_exit();
             };
 
             if !resources_p.is_null() {
@@ -1160,22 +1220,12 @@ pub unsafe fn pdf_doc_get_page(
                 pdf_release_obj(resources);
             }
             return Some((page_tree, bbox, matrix));
-
-            unsafe fn error_exit(resources: *mut pdf_obj) -> Option<(DerefObj, Rect, TMatrix)> {
-                warn!("Cannot parse document. Broken PDF file?");
-                error_silent(resources)
-            }
-
-            unsafe fn error_silent(resources: *mut pdf_obj) -> Option<(DerefObj, Rect, TMatrix)> {
-                pdf_release_obj(resources);
-                None
-            }
         } else {
-            warn!("Cannot parse document. Broken PDF file?");
+            warn!("Error found in including PDF image.");
             return None;
         }
     } else {
-        warn!("Cannot parse document. Broken PDF file?");
+        warn!("Error found in including PDF image.");
         return None;
     }
 }

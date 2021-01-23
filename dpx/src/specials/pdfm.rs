@@ -58,7 +58,7 @@ use crate::dpx_pdfdoc::{
     pdf_doc_begin_article, pdf_doc_begin_grabbing, pdf_doc_bookmarks_add, pdf_doc_bookmarks_depth,
     pdf_doc_bookmarks_down, pdf_doc_bookmarks_up, pdf_doc_current_page_number,
     pdf_doc_end_grabbing, pdf_doc_get_dictionary, pdf_doc_set_bgcolor, pdf_doc_set_bop_content,
-    pdf_doc_set_eop_content,
+    pdf_doc_set_eop_content, PdfPageBoundary,
 };
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
@@ -797,7 +797,7 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let mut ti = transform_info::new();
     let mut options: load_options = load_options {
         page_no: 1,
-        bbox_type: 0,
+        bbox_type: PdfPageBoundary::Auto,
         dict: ptr::null_mut(),
     };
     args.cur.skip_white();
@@ -1326,7 +1326,7 @@ unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     let options: load_options = load_options {
         page_no: 1,
-        bbox_type: 0,
+        bbox_type: PdfPageBoundary::Auto,
         dict: ptr::null_mut(),
     };
     args.cur.skip_white();

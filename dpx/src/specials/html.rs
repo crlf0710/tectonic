@@ -25,6 +25,7 @@ use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
 use std::ptr;
 
+use crate::dpx_pdfdoc::PdfPageBoundary;
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_transform};
 use crate::dpx_pdfximage::{
     pdf_ximage_findresource, pdf_ximage_get_reference, pdf_ximage_get_resname,
@@ -472,7 +473,7 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
     let mut ti = transform_info::new();
     let options: load_options = load_options {
         page_no: 1,
-        bbox_type: 0,
+        bbox_type: PdfPageBoundary::Auto,
         dict: ptr::null_mut(),
     };
     let mut error: i32 = 0;

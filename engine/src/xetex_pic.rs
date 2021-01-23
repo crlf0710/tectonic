@@ -19,7 +19,7 @@ use dpx::Corner;
 use dpx::{bmp_get_bbox, check_for_bmp};
 use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
-use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
+use dpx::{pdf_doc_get_page, pdf_doc_get_page_count, PdfPageBoundary};
 
 use euclid::{point2, size2, Angle};
 type Transform = euclid::Transform2D<f64, (), ()>;
@@ -64,11 +64,11 @@ unsafe fn pdf_get_rect(
      * xdvipdfmx code (dpx-pdfdoc.c:pdf_doc_get_page) and XeTeX/Apple's
      * pdfbox_* definitions (xetex-ext.h). */
     let dpx_options = match pdf_box {
-        2 => 2,
-        3 => 5,
-        4 => 4,
-        5 => 3,
-        _ => 1,
+        2 => PdfPageBoundary::Mediabox,
+        3 => PdfPageBoundary::Bleedbox,
+        4 => PdfPageBoundary::Trimbox,
+        5 => PdfPageBoundary::Artbox,
+        _ => PdfPageBoundary::Cropbox,
     };
     if let Some((_, mut bbox, matrix)) =
         pdf_doc_get_page(pf, page_num, dpx_options, ptr::null_mut())
