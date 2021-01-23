@@ -35,7 +35,7 @@ use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_new_null, pdf_obj,
-    pdf_release_obj, pdf_stream, pdf_string, IntoObj, STREAM_COMPRESS,
+    pdf_release_obj, pdf_stream, pdf_string, IntoObj, PdfObjVariant, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::memcpy;
@@ -464,14 +464,18 @@ impl ParsePdfObj for &[u8] {
         }
         /* Stream length */
         if let Some(tmp) = unsafe { dict.get_mut("Length") } {
-            let tmp2 = unsafe { pdf_deref_obj(Some(tmp)) };
-            if unsafe { !(*tmp2).is_number() } {
-                stream_length = -1
-            } else {
-                stream_length = unsafe { (*tmp2).as_f64() as i32 }
-            }
             unsafe {
-                pdf_release_obj(tmp2);
+                stream_length = if let Some(tmp2) = pdf_deref_obj(Some(tmp)).as_mut() {
+                    let l = if let PdfObjVariant::NUMBER(v) = tmp2.data {
+                        v as i32
+                    } else {
+                        -1
+                    };
+                    pdf_release_obj(tmp2);
+                    l
+                } else {
+                    -1
+                }
             }
         } else {
             return None;

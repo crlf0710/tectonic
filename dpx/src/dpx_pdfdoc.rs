@@ -740,16 +740,21 @@ unsafe fn pdf_doc_close_page_tree(p: &mut pdf_doc) {
 
 pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
     let catalog = pdf_file_get_catalog(pf);
-    let page_tree = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages"));
-    if !(!page_tree.is_null() && (*page_tree).is_dict()) {
-        return 0i32;
-    }
-    if let Some(tmp) = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count")).as_mut() {
-        if let PdfObjVariant::NUMBER(count) = tmp.data {
-            pdf_release_obj(tmp);
-            count as i32
+    // TODO: check `page_tree` release
+    if let Some(page_tree) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages")).as_mut() {
+        if let PdfObjVariant::DICT(page_tree) = &mut page_tree.data {
+            if let Some(tmp) = pdf_deref_obj(page_tree.get_mut("Count")).as_mut() {
+                if let PdfObjVariant::NUMBER(count) = tmp.data {
+                    pdf_release_obj(tmp);
+                    count as i32
+                } else {
+                    pdf_release_obj(tmp);
+                    0
+                }
+            } else {
+                0
+            }
         } else {
-            pdf_release_obj(tmp);
             0
         }
     } else {
@@ -818,403 +823,375 @@ pub unsafe fn pdf_doc_get_page(
     resources_p: *mut *mut pdf_obj,
 ) -> Option<(*mut pdf_obj, Rect, TMatrix)>
 /* returned values */ {
-    let mut resources: *mut pdf_obj = ptr::null_mut();
-    let mut box_0: *mut pdf_obj = ptr::null_mut();
-    let mut rotate: *mut pdf_obj = ptr::null_mut();
     let catalog = pdf_file_get_catalog(pf);
-    let mut page_tree = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages"));
-    if !(!page_tree.is_null() && (*page_tree).is_dict()) {
-        return error(box_0, rotate, resources, page_tree);
-    }
-    let tmp: *mut pdf_obj = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count"));
-    if !(!tmp.is_null() && (*tmp).is_number()) {
-        pdf_release_obj(tmp);
-        return error(box_0, rotate, resources, page_tree);
-    }
-    let count = (*tmp).as_f64() as i32;
-    pdf_release_obj(tmp);
-    if page_no <= 0i32 || page_no > count {
-        warn!("Page {} does not exist.", page_no);
-        return error_silent(box_0, rotate, resources, page_tree);
-    }
-
-    /*
-     * Seek correct page. Get MediaBox, CropBox and Resources.
-     * (Note that these entries can be inherited.)
-     */
-    let mut art_box: *mut pdf_obj = ptr::null_mut();
-    let mut trim_box: *mut pdf_obj = ptr::null_mut();
-    let mut bleed_box: *mut pdf_obj = ptr::null_mut();
-    let mut media_box: *mut pdf_obj = ptr::null_mut();
-    let mut crop_box: *mut pdf_obj = ptr::null_mut();
-    let mut depth: i32 = 30;
-    let mut page_idx: i32 = page_no - 1;
-    let mut kids_length = 1;
-    let i = 0;
-    loop {
-        depth -= 1;
-        if !(depth != 0 && i != kids_length) {
-            break;
-        }
-        if let Some(tmp_0) = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("MediaBox")).as_mut()
-        {
-            pdf_release_obj(media_box);
-            media_box = tmp_0
-        }
-        if let Some(tmp_0) = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("CropBox")).as_mut() {
-            pdf_release_obj(crop_box);
-            crop_box = tmp_0
-        }
-        if let Some(tmp_0) = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("ArtBox")).as_mut() {
-            pdf_release_obj(art_box);
-            art_box = tmp_0
-        }
-        if let Some(tmp_0) = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("TrimBox")).as_mut() {
-            pdf_release_obj(trim_box);
-            trim_box = tmp_0
-        }
-        if let Some(tmp_0) = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("BleedBox")).as_mut()
-        {
-            pdf_release_obj(bleed_box);
-            bleed_box = tmp_0
-        }
-        if let Some(tmp_0) = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Rotate")).as_mut() {
-            pdf_release_obj(rotate);
-            rotate = tmp_0
-        }
-        if let Some(tmp_0) = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Resources")).as_mut()
-        {
-            pdf_release_obj(resources);
-            resources = tmp_0
-        }
-        if let Some(kids) = pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Kids")).as_mut() {
-            if let PdfObjVariant::ARRAY(array) = &mut kids.data {
-                kids_length = array.len();
-                for i in 0..kids_length {
-                    let count_0;
-                    pdf_release_obj(page_tree);
-
-                    page_tree = if i < array.len() {
-                        pdf_deref_obj(Some(&mut *array[i]))
+    if let Some(page_tree) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages")).as_mut() {
+        if let PdfObjVariant::DICT(_) = page_tree.data {
+            let mut page_tree = page_tree as *mut pdf_obj;
+            let mut resources: *mut pdf_obj = ptr::null_mut();
+            let mut rotate: *mut pdf_obj = ptr::null_mut();
+            let count = {
+                if let Some(tmp) =
+                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count")).as_mut()
+                {
+                    if let PdfObjVariant::NUMBER(count) = tmp.data {
+                        pdf_release_obj(tmp);
+                        count as i32
                     } else {
-                        0 as *mut pdf_obj
-                    };
-                    if !(!page_tree.is_null() && (*page_tree).is_dict()) {
-                        return error(box_0, rotate, resources, page_tree);
+                        pdf_release_obj(tmp);
+                        return error(rotate, resources, page_tree);
                     }
-                    if let Some(tmp_0) =
-                        pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count")).as_mut()
-                    {
-                        if let PdfObjVariant::NUMBER(v) = tmp_0.data {
-                            /* Pages object */
-                            count_0 = v as i32;
-                            pdf_release_obj(tmp_0);
-                        } else {
-                            pdf_release_obj(tmp_0);
-                            return error(box_0, rotate, resources, page_tree);
+                } else {
+                    return error(rotate, resources, page_tree);
+                }
+            };
+            if page_no <= 0i32 || page_no > count {
+                warn!("Page {} does not exist.", page_no);
+                return error_silent(rotate, resources, page_tree);
+            }
+
+            /*
+             * Seek correct page. Get MediaBox, CropBox and Resources.
+             * (Note that these entries can be inherited.)
+             */
+            let mut art_box: *mut pdf_obj = ptr::null_mut();
+            let mut trim_box: *mut pdf_obj = ptr::null_mut();
+            let mut bleed_box: *mut pdf_obj = ptr::null_mut();
+            let mut media_box: *mut pdf_obj = ptr::null_mut();
+            let mut crop_box: *mut pdf_obj = ptr::null_mut();
+            let mut depth: i32 = 30;
+            let mut page_idx: i32 = page_no - 1;
+            let mut kids_length = 1;
+            let i = 0;
+            loop {
+                depth -= 1;
+                if !(depth != 0 && i != kids_length) {
+                    break;
+                }
+                if let Some(tmp_0) =
+                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("MediaBox")).as_mut()
+                {
+                    pdf_release_obj(media_box);
+                    media_box = tmp_0
+                }
+                if let Some(tmp_0) =
+                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("CropBox")).as_mut()
+                {
+                    pdf_release_obj(crop_box);
+                    crop_box = tmp_0
+                }
+                if let Some(tmp_0) =
+                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("ArtBox")).as_mut()
+                {
+                    pdf_release_obj(art_box);
+                    art_box = tmp_0
+                }
+                if let Some(tmp_0) =
+                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("TrimBox")).as_mut()
+                {
+                    pdf_release_obj(trim_box);
+                    trim_box = tmp_0
+                }
+                if let Some(tmp_0) =
+                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("BleedBox")).as_mut()
+                {
+                    pdf_release_obj(bleed_box);
+                    bleed_box = tmp_0
+                }
+                if let Some(tmp_0) =
+                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Rotate")).as_mut()
+                {
+                    pdf_release_obj(rotate);
+                    rotate = tmp_0
+                }
+                if let Some(tmp_0) =
+                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Resources")).as_mut()
+                {
+                    pdf_release_obj(resources);
+                    resources = tmp_0
+                }
+                if let Some(kids) =
+                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Kids")).as_mut()
+                {
+                    if let PdfObjVariant::ARRAY(array) = &mut kids.data {
+                        kids_length = array.len();
+                        for i in 0..kids_length {
+                            let count_0;
+                            pdf_release_obj(page_tree);
+
+                            page_tree = if i < array.len() {
+                                pdf_deref_obj(Some(&mut *array[i]))
+                            } else {
+                                0 as *mut pdf_obj
+                            };
+                            if !(!page_tree.is_null() && (*page_tree).is_dict()) {
+                                return error(rotate, resources, page_tree);
+                            }
+                            if let Some(tmp_0) =
+                                pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count")).as_mut()
+                            {
+                                if let PdfObjVariant::NUMBER(v) = tmp_0.data {
+                                    /* Pages object */
+                                    count_0 = v as i32;
+                                    pdf_release_obj(tmp_0);
+                                } else {
+                                    pdf_release_obj(tmp_0);
+                                    return error(rotate, resources, page_tree);
+                                }
+                            } else {
+                                /* Page object */
+                                count_0 = 1;
+                            }
+                            if page_idx < count_0 {
+                                break;
+                            }
+                            page_idx -= count_0;
                         }
+                        pdf_release_obj(kids);
                     } else {
-                        /* Page object */
-                        count_0 = 1;
+                        pdf_release_obj(kids);
+                        return error(rotate, resources, page_tree);
                     }
-                    if page_idx < count_0 {
+                } else {
+                    break;
+                }
+            }
+
+            if depth == 0 || kids_length == i {
+                pdf_release_obj(media_box);
+                pdf_release_obj(crop_box);
+                return error(rotate, resources, page_tree);
+            }
+
+            /* Nasty BBox selection... */
+            let box_0 = match options {
+                0 | 1 => crop_box
+                    .as_mut()
+                    .or_else(|| media_box.as_mut())
+                    .or_else(|| bleed_box.as_mut())
+                    .or_else(|| trim_box.as_mut())
+                    .or_else(|| art_box.as_mut()),
+                2 => media_box
+                    .as_mut()
+                    .or_else(|| crop_box.as_mut())
+                    .or_else(|| bleed_box.as_mut())
+                    .or_else(|| trim_box.as_mut())
+                    .or_else(|| art_box.as_mut()),
+                3 => art_box
+                    .as_mut()
+                    .or_else(|| crop_box.as_mut())
+                    .or_else(|| media_box.as_mut())
+                    .or_else(|| bleed_box.as_mut())
+                    .or_else(|| trim_box.as_mut()),
+                4 => trim_box
+                    .as_mut()
+                    .or_else(|| crop_box.as_mut())
+                    .or_else(|| media_box.as_mut())
+                    .or_else(|| bleed_box.as_mut())
+                    .or_else(|| art_box.as_mut()),
+                5 => bleed_box
+                    .as_mut()
+                    .or_else(|| crop_box.as_mut())
+                    .or_else(|| media_box.as_mut())
+                    .or_else(|| trim_box.as_mut())
+                    .or_else(|| art_box.as_mut()),
+                _ => None,
+            };
+            let box_0 = if let Some(box_0) = box_0 {
+                box_0 as *mut pdf_obj
+            } else {
+                ptr::null_mut()
+            };
+            let medbox = media_box;
+
+            if !(!box_0.is_null() && (*box_0).is_array())
+                || (*box_0).as_array().len() != 4
+                || !(!resources.is_null() && (*resources).is_dict())
+            {
+                pdf_release_obj(box_0);
+                return error(rotate, resources, page_tree);
+            }
+
+            let mut bbox = Rect::zero();
+            let mut i_0 = 4;
+            loop {
+                if i_0 == 0 {
+                    break;
+                }
+                i_0 -= 1;
+
+                let array = (*box_0).as_array_mut();
+                if let Some(tmp_1) = if i_0 < array.len() {
+                    pdf_deref_obj(Some(&mut *array[i_0])).as_mut()
+                } else {
+                    None
+                } {
+                    match tmp_1.data {
+                        PdfObjVariant::NUMBER(x) => {
+                            match i_0 {
+                                0 => bbox.min.x = x,
+                                1 => bbox.min.y = x,
+                                2 => bbox.max.x = x,
+                                3 => bbox.max.y = x,
+                                _ => {}
+                            }
+                            pdf_release_obj(tmp_1);
+                        }
+                        _ => {
+                            pdf_release_obj(tmp_1);
+                            pdf_release_obj(box_0);
+                            return error(rotate, resources, page_tree);
+                        }
+                    }
+                } else {
+                    pdf_release_obj(box_0);
+                    return error(rotate, resources, page_tree);
+                }
+            }
+
+            if !medbox.is_null() && (is_xdv != 0 || options != 0) {
+                let mut i_0 = 4;
+                loop {
+                    if i_0 == 0 {
                         break;
                     }
-                    page_idx -= count_0;
-                }
-                pdf_release_obj(kids);
-            } else {
-                pdf_release_obj(kids);
-                return error(box_0, rotate, resources, page_tree);
-            }
-        } else {
-            break;
-        }
-    }
+                    i_0 -= 1;
 
-    if depth == 0 || kids_length == i {
-        pdf_release_obj(media_box);
-        pdf_release_obj(crop_box);
-        return error(box_0, rotate, resources, page_tree);
-    }
-
-    /* Nasty BBox selection... */
-    if options == 0i32 || options == 1i32 {
-        if !crop_box.is_null() {
-            box_0 = crop_box
-        } else {
-            box_0 = media_box;
-            if box_0.is_null()
-                && {
-                    box_0 = bleed_box;
-                    box_0.is_null()
-                }
-                && {
-                    box_0 = trim_box;
-                    box_0.is_null()
-                }
-                && !art_box.is_null()
-            {
-                box_0 = art_box
-            }
-        }
-    } else if options == 2i32 {
-        if !media_box.is_null() {
-            box_0 = media_box
-        } else {
-            box_0 = crop_box;
-            if box_0.is_null()
-                && {
-                    box_0 = bleed_box;
-                    box_0.is_null()
-                }
-                && {
-                    box_0 = trim_box;
-                    box_0.is_null()
-                }
-                && !art_box.is_null()
-            {
-                box_0 = art_box
-            }
-        }
-    } else if options == 3i32 {
-        if !art_box.is_null() {
-            box_0 = art_box
-        } else {
-            box_0 = crop_box;
-            if box_0.is_null()
-                && {
-                    box_0 = media_box;
-                    box_0.is_null()
-                }
-                && {
-                    box_0 = bleed_box;
-                    box_0.is_null()
-                }
-                && !trim_box.is_null()
-            {
-                box_0 = trim_box
-            }
-        }
-    } else if options == 4i32 {
-        if !trim_box.is_null() {
-            box_0 = trim_box
-        } else {
-            box_0 = crop_box;
-            if box_0.is_null()
-                && {
-                    box_0 = media_box;
-                    box_0.is_null()
-                }
-                && {
-                    box_0 = bleed_box;
-                    box_0.is_null()
-                }
-                && !art_box.is_null()
-            {
-                box_0 = art_box
-            }
-        }
-    } else if options == 5i32 {
-        if !bleed_box.is_null() {
-            box_0 = bleed_box
-        } else {
-            box_0 = crop_box;
-            if box_0.is_null()
-                && {
-                    box_0 = media_box;
-                    box_0.is_null()
-                }
-                && {
-                    box_0 = trim_box;
-                    box_0.is_null()
-                }
-                && !art_box.is_null()
-            {
-                box_0 = art_box
-            }
-        }
-    }
-    let medbox = media_box;
-
-    if !(!box_0.is_null() && (*box_0).is_array())
-        || (*box_0).as_array().len() != 4
-        || !(!resources.is_null() && (*resources).is_dict())
-    {
-        return error(box_0, rotate, resources, page_tree);
-    }
-
-    let mut bbox = Rect::zero();
-    let mut i_0 = 4;
-    loop {
-        if i_0 == 0 {
-            break;
-        }
-        i_0 -= 1;
-
-        let array = (*box_0).as_array_mut();
-        if let Some(tmp_1) = if i_0 < array.len() {
-            pdf_deref_obj(Some(&mut *array[i_0])).as_mut()
-        } else {
-            None
-        } {
-            match tmp_1.data {
-                PdfObjVariant::NUMBER(x) => {
-                    match i_0 {
-                        0 => bbox.min.x = x,
-                        1 => bbox.min.y = x,
-                        2 => bbox.max.x = x,
-                        3 => bbox.max.y = x,
-                        _ => {}
+                    let array = (*medbox).as_array_mut();
+                    if let Some(tmp_2) = if i_0 < array.len() {
+                        pdf_deref_obj(Some(&mut *array[i_0])).as_mut()
+                    } else {
+                        None
+                    } {
+                        match tmp_2.data {
+                            PdfObjVariant::NUMBER(x) => {
+                                match i_0 {
+                                    0 => {
+                                        if bbox.min.x < x {
+                                            bbox.min.x = x
+                                        }
+                                    }
+                                    1 => {
+                                        if bbox.min.y < x {
+                                            bbox.min.y = x
+                                        }
+                                    }
+                                    2 => {
+                                        if bbox.max.x > x {
+                                            bbox.max.x = x
+                                        }
+                                    }
+                                    3 => {
+                                        if bbox.max.y > x {
+                                            bbox.max.y = x
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                                pdf_release_obj(tmp_2);
+                            }
+                            _ => {
+                                pdf_release_obj(tmp_2);
+                                pdf_release_obj(box_0);
+                                return error(rotate, resources, page_tree);
+                            }
+                        }
+                    } else {
+                        pdf_release_obj(box_0);
+                        return error(rotate, resources, page_tree);
                     }
-                    pdf_release_obj(tmp_1);
-                }
-                _ => {
-                    pdf_release_obj(tmp_1);
-                    return error(box_0, rotate, resources, page_tree);
                 }
             }
-        } else {
-            return error(box_0, rotate, resources, page_tree);
-        }
-    }
 
-    if !medbox.is_null() && (is_xdv != 0 || options != 0) {
-        let mut i_0 = 4;
-        loop {
-            if i_0 == 0 {
-                break;
-            }
-            i_0 -= 1;
+            pdf_release_obj(box_0);
 
-            let array = (*medbox).as_array_mut();
-            if let Some(tmp_2) = if i_0 < array.len() {
-                pdf_deref_obj(Some(&mut *array[i_0])).as_mut()
-            } else {
-                None
-            } {
-                match tmp_2.data {
-                    PdfObjVariant::NUMBER(x) => {
-                        match i_0 {
-                            0 => {
-                                if bbox.min.x < x {
-                                    bbox.min.x = x
-                                }
+            let mut matrix = TMatrix::identity();
+            if !rotate.is_null() && (*rotate).is_number() {
+                let deg: f64 = (*rotate).as_f64();
+                if deg - deg as i32 as f64 != 0.0f64 {
+                    warn!("Invalid value specified for /Rotate: {}", deg);
+                } else if deg != 0.0f64 {
+                    let mut rot: i32 = deg as i32;
+                    if (rot % 90i32) as f64 != 0.0f64 {
+                        warn!("Invalid value specified for /Rotate: {}", deg);
+                    } else {
+                        rot = rot % 360i32;
+                        if rot < 0i32 {
+                            rot += 360i32
+                        }
+                        match rot {
+                            90 => {
+                                matrix = TMatrix::row_major(
+                                    0.,
+                                    -1.,
+                                    1.,
+                                    0.,
+                                    bbox.min.x - bbox.min.y,
+                                    bbox.min.y + bbox.max.x,
+                                );
                             }
-                            1 => {
-                                if bbox.min.y < x {
-                                    bbox.min.y = x
-                                }
+                            180 => {
+                                matrix = TMatrix::row_major(
+                                    -1.,
+                                    0.,
+                                    0.,
+                                    -1.,
+                                    bbox.min.x + bbox.max.x,
+                                    bbox.min.y + bbox.max.y,
+                                );
                             }
-                            2 => {
-                                if bbox.max.x > x {
-                                    bbox.max.x = x
-                                }
-                            }
-                            3 => {
-                                if bbox.max.y > x {
-                                    bbox.max.y = x
-                                }
+                            270 => {
+                                matrix = TMatrix::row_major(
+                                    0.,
+                                    1.,
+                                    -1.,
+                                    0.,
+                                    bbox.min.x + bbox.max.y,
+                                    bbox.min.y - bbox.min.x,
+                                );
                             }
                             _ => {}
                         }
-                        pdf_release_obj(tmp_2);
-                    }
-                    _ => {
-                        pdf_release_obj(tmp_2);
-                        return error(box_0, rotate, resources, page_tree);
                     }
                 }
-            } else {
-                return error(box_0, rotate, resources, page_tree);
+                pdf_release_obj(rotate);
+            } else if !rotate.is_null() {
+                return error(rotate, resources, page_tree);
             }
-        }
-    }
 
-    pdf_release_obj(box_0);
-
-    let mut matrix = TMatrix::identity();
-    if !rotate.is_null() && (*rotate).is_number() {
-        let deg: f64 = (*rotate).as_f64();
-        if deg - deg as i32 as f64 != 0.0f64 {
-            warn!("Invalid value specified for /Rotate: {}", deg);
-        } else if deg != 0.0f64 {
-            let mut rot: i32 = deg as i32;
-            if (rot % 90i32) as f64 != 0.0f64 {
-                warn!("Invalid value specified for /Rotate: {}", deg);
+            if !resources_p.is_null() {
+                *resources_p = resources;
             } else {
-                rot = rot % 360i32;
-                if rot < 0i32 {
-                    rot += 360i32
-                }
-                match rot {
-                    90 => {
-                        matrix = TMatrix::row_major(
-                            0.,
-                            -1.,
-                            1.,
-                            0.,
-                            bbox.min.x - bbox.min.y,
-                            bbox.min.y + bbox.max.x,
-                        );
-                    }
-                    180 => {
-                        matrix = TMatrix::row_major(
-                            -1.,
-                            0.,
-                            0.,
-                            -1.,
-                            bbox.min.x + bbox.max.x,
-                            bbox.min.y + bbox.max.y,
-                        );
-                    }
-                    270 => {
-                        matrix = TMatrix::row_major(
-                            0.,
-                            1.,
-                            -1.,
-                            0.,
-                            bbox.min.x + bbox.max.y,
-                            bbox.min.y - bbox.min.x,
-                        );
-                    }
-                    _ => {}
-                }
+                pdf_release_obj(resources);
             }
-        }
-        pdf_release_obj(rotate);
-    } else if !rotate.is_null() {
-        return error(box_0, rotate, resources, page_tree);
-    }
+            return Some((page_tree, bbox, matrix));
 
-    if !resources_p.is_null() {
-        *resources_p = resources;
+            unsafe fn error(
+                rotate: *mut pdf_obj,
+                resources: *mut pdf_obj,
+                page_tree: *mut pdf_obj,
+            ) -> Option<(*mut pdf_obj, Rect, TMatrix)> {
+                warn!("Cannot parse document. Broken PDF file?");
+                error_silent(rotate, resources, page_tree)
+            }
+
+            unsafe fn error_silent(
+                rotate: *mut pdf_obj,
+                resources: *mut pdf_obj,
+                page_tree: *mut pdf_obj,
+            ) -> Option<(*mut pdf_obj, Rect, TMatrix)> {
+                pdf_release_obj(rotate);
+                pdf_release_obj(resources);
+                pdf_release_obj(page_tree);
+                None
+            }
+        } else {
+            pdf_release_obj(page_tree);
+            warn!("Cannot parse document. Broken PDF file?");
+            return None;
+        }
     } else {
-        pdf_release_obj(resources);
-    }
-    return Some((page_tree, bbox, matrix));
-
-    unsafe fn error(
-        box_0: *mut pdf_obj,
-        rotate: *mut pdf_obj,
-        resources: *mut pdf_obj,
-        page_tree: *mut pdf_obj,
-    ) -> Option<(*mut pdf_obj, Rect, TMatrix)> {
         warn!("Cannot parse document. Broken PDF file?");
-        error_silent(box_0, rotate, resources, page_tree)
-    }
-
-    unsafe fn error_silent(
-        box_0: *mut pdf_obj,
-        rotate: *mut pdf_obj,
-        resources: *mut pdf_obj,
-        page_tree: *mut pdf_obj,
-    ) -> Option<(*mut pdf_obj, Rect, TMatrix)> {
-        pdf_release_obj(box_0);
-        pdf_release_obj(rotate);
-        pdf_release_obj(resources);
-        pdf_release_obj(page_tree);
-        None
+        return None;
     }
 }
 

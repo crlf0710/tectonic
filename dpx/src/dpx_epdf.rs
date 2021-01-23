@@ -77,8 +77,6 @@ pub(crate) unsafe fn pdf_include_page(
     ident: &str,
     mut options: load_options,
 ) -> i32 {
-    let mut contents: *mut pdf_obj = ptr::null_mut();
-    let mut resources: *mut pdf_obj = ptr::null_mut();
     let pf = pdf_open(ident, handle);
     if pf.is_none() {
         return -1;
@@ -94,9 +92,9 @@ pub(crate) unsafe fn pdf_include_page(
         options.page_no = 1i32
     }
 
+    let mut resources: *mut pdf_obj = ptr::null_mut();
     let error_silent = move || {
         pdf_release_obj(resources);
-        pdf_release_obj(contents);
     };
     let error = || {
         warn!("Cannot parse document. Broken PDF file?");
@@ -111,7 +109,8 @@ pub(crate) unsafe fn pdf_include_page(
         info.bbox = bbox;
         info.matrix = matrix;
         let catalog = pdf_file_get_catalog(pf);
-        if let Some(markinfo) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("MarkInfo")).as_mut() {
+        if let Some(markinfo) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("MarkInfo")).as_mut()
+        {
             let tmp = pdf_deref_obj(markinfo.as_dict_mut().get_mut("Marked")).as_mut();
             pdf_release_obj(markinfo);
             if let Some(tmp) = tmp {
@@ -133,7 +132,7 @@ pub(crate) unsafe fn pdf_include_page(
             }
         }
 
-        contents = pdf_deref_obj((*page).as_dict_mut().get_mut("Contents"));
+        let contents = pdf_deref_obj((*page).as_dict_mut().get_mut("Contents"));
         pdf_release_obj(page);
         /*
          * Handle page content stream.
@@ -168,21 +167,25 @@ pub(crate) unsafe fn pdf_include_page(
                             pdf_release_obj(content_seg);
                         } else {
                             pdf_release_obj(content_seg);
+                            pdf_release_obj(contents);
                             error();
                             return -1;
                         }
                     } else {
                         pdf_release_obj(content_seg);
+                        pdf_release_obj(contents);
                         error();
                         return -1;
                     }
                 } else {
+                    pdf_release_obj(contents);
                     error();
                     return -1;
                 }
             }
             content_new.into_obj()
         } else {
+            pdf_release_obj(contents);
             error();
             return -1;
         };
