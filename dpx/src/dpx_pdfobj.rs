@@ -126,9 +126,6 @@ pub(crate) enum PdfObjType {
 }
 
 impl pdf_obj {
-    pub(crate) fn is_bool(&self) -> bool {
-        self.typ() == PdfObjType::BOOLEAN
-    }
     pub(crate) fn is_number(&self) -> bool {
         self.typ() == PdfObjType::NUMBER
     }
@@ -149,13 +146,6 @@ impl pdf_obj {
     }
     pub(crate) fn is_indirect(&self) -> bool {
         self.typ() == PdfObjType::INDIRECT
-    }
-    pub(crate) unsafe fn as_bool(&self) -> bool {
-        if let PdfObjVariant::BOOLEAN(v) = self.data {
-            v
-        } else {
-            panic!("invalid pdfobj::as_bool");
-        }
     }
     pub(crate) unsafe fn as_f64(&self) -> f64 {
         if let PdfObjVariant::NUMBER(v) = self.data {
@@ -2032,21 +2022,17 @@ unsafe fn get_decode_parms(parms: &mut decode_parms, dict: &mut pdf_obj) -> libc
     parms.colors = 1i32;
     parms.bits_per_component = 8i32;
     parms.columns = 1i32;
-    let tmp = pdf_deref_obj(dict.as_dict_mut().get_mut("Predictor"));
-    if !tmp.is_null() {
-        parms.predictor = (*tmp).as_f64() as libc::c_int
+    if let Some(tmp) = pdf_deref_obj(dict.as_dict_mut().get_mut("Predictor")).as_ref() {
+        parms.predictor = tmp.as_f64() as i32;
     }
-    let tmp = pdf_deref_obj(dict.as_dict_mut().get_mut("Colors"));
-    if !tmp.is_null() {
-        parms.colors = (*tmp).as_f64() as libc::c_int
+    if let Some(tmp) = pdf_deref_obj(dict.as_dict_mut().get_mut("Colors")).as_ref() {
+        parms.colors = tmp.as_f64() as i32;
     }
-    let tmp = pdf_deref_obj(dict.as_dict_mut().get_mut("BitsPerComponent"));
-    if !tmp.is_null() {
-        parms.bits_per_component = (*tmp).as_f64() as libc::c_int
+    if let Some(tmp) = pdf_deref_obj(dict.as_dict_mut().get_mut("BitsPerComponent")).as_ref() {
+        parms.bits_per_component = tmp.as_f64() as i32;
     }
-    let tmp = pdf_deref_obj(dict.as_dict_mut().get_mut("Columns"));
-    if !tmp.is_null() {
-        parms.columns = (*tmp).as_f64() as i32
+    if let Some(tmp) = pdf_deref_obj(dict.as_dict_mut().get_mut("Columns")).as_ref() {
+        parms.columns = tmp.as_f64() as i32;
     }
     if parms.bits_per_component != 1i32
         && parms.bits_per_component != 2i32
@@ -2341,29 +2327,36 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
             let mut have_parms: libc::c_int = 0i32;
             if stream_dict.has("DecodeParms") {
                 /* Dictionary or array */
-                let mut tmp = pdf_deref_obj(stream_dict.get_mut("DecodeParms"));
-                if !tmp.is_null() && (*tmp).is_array() {
-                    if (*tmp).as_array().len() > 1 {
-                        warn!("Unexpected size for DecodeParms array.");
-                        return -1i32;
-                    }
+                let tmp = pdf_deref_obj(stream_dict.get_mut("DecodeParms"));
+                let tmp = match tmp.as_mut() {
+                    Some(tmp) if tmp.is_array() => {
+                        if tmp.as_array().len() > 1 {
+                            warn!("Unexpected size for DecodeParms array.");
+                            return -1i32;
+                        }
 
-                    let array = (*tmp).as_array_mut();
-                    tmp = if !array.is_empty() {
-                        pdf_deref_obj(Some(&mut *array[0]))
-                    } else {
-                        0 as *mut pdf_obj
-                    };
+                        let array = tmp.as_array_mut();
+                        if !array.is_empty() {
+                            pdf_deref_obj(Some(&mut *array[0]))
+                        } else {
+                            0 as *mut pdf_obj
+                        }
+                    }
+                    _ => tmp,
+                };
+                match tmp.as_mut() {
+                    Some(tmp) if tmp.is_dict() => {
+                        error = get_decode_parms(&mut parms, &mut *tmp);
+                        if error != 0 {
+                            panic!("Invalid value(s) in DecodeParms dictionary.");
+                        }
+                        have_parms = 1;
+                    }
+                    _ => {
+                        warn!("PDF dict expected for DecodeParms...");
+                        return -1;
+                    }
                 }
-                if !(!tmp.is_null() && (*tmp).is_dict()) {
-                    warn!("PDF dict expected for DecodeParms...");
-                    return -1i32;
-                }
-                error = get_decode_parms(&mut parms, &mut *tmp);
-                if error != 0 {
-                    panic!("Invalid value(s) in DecodeParms dictionary.");
-                }
-                have_parms = 1i32
             }
             let mut filter = stream_dict.get("Filter").unwrap();
             if (*filter).is_array() {
@@ -3553,15 +3546,19 @@ pub unsafe fn pdf_open(ident: &str, mut handle: InFile) -> Option<&mut Box<pdf_f
             return None;
         }
         pf.catalog = pdf_deref_obj((*pf.trailer).as_dict_mut().get_mut("Root"));
-        if !(!pf.catalog.is_null() && (*pf.catalog).is_dict()) {
-            warn!("Cannot read PDF document catalog. Broken PDF file?");
-            return None;
+        match pf.catalog.as_ref() {
+            Some(cat) if cat.is_dict() => {}
+            _ => {
+                warn!("Cannot read PDF document catalog. Broken PDF file?");
+                return None;
+            }
         }
-        let new_version = pdf_deref_obj((*pf.catalog).as_dict_mut().get_mut("Version"));
-        if !new_version.is_null() {
+        if let Some(new_version) =
+            pdf_deref_obj((*pf.catalog).as_dict_mut().get_mut("Version")).as_mut()
+        {
             let mut minor: u32 = 0;
-            if (&*new_version).is_name() {
-                let new_version_str = (*new_version).as_name().to_bytes();
+            if new_version.is_name() {
+                let new_version_str = new_version.as_name().to_bytes();
                 let minor_num_str = if new_version_str.starts_with(b"1.") {
                     std::str::from_utf8(&new_version_str[2..]).unwrap_or("")
                 } else {

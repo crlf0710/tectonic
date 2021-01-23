@@ -35,8 +35,8 @@ use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_concat_stream, pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version, pdf_get_version,
-    pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, IntoObj, PushObj,
-    STREAM_COMPRESS,
+    pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, IntoObj, PdfObjVariant,
+    PushObj, STREAM_COMPRESS,
 };
 pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
@@ -79,7 +79,6 @@ pub(crate) unsafe fn pdf_include_page(
 ) -> i32 {
     let mut contents: *mut pdf_obj = ptr::null_mut();
     let mut resources: *mut pdf_obj = ptr::null_mut();
-    let mut markinfo: *mut pdf_obj = ptr::null_mut();
     let pf = pdf_open(ident, handle);
     if pf.is_none() {
         return -1;
@@ -97,7 +96,6 @@ pub(crate) unsafe fn pdf_include_page(
 
     let error_silent = move || {
         pdf_release_obj(resources);
-        pdf_release_obj(markinfo);
         pdf_release_obj(contents);
     };
     let error = || {
@@ -113,19 +111,26 @@ pub(crate) unsafe fn pdf_include_page(
         info.bbox = bbox;
         info.matrix = matrix;
         let catalog = pdf_file_get_catalog(pf);
-        markinfo = pdf_deref_obj((*catalog).as_dict_mut().get_mut("MarkInfo"));
-        if !markinfo.is_null() {
-            let tmp: *mut pdf_obj = pdf_deref_obj((*markinfo).as_dict_mut().get_mut("Marked"));
+        if let Some(markinfo) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("MarkInfo")).as_mut() {
+            let tmp = pdf_deref_obj(markinfo.as_dict_mut().get_mut("Marked")).as_mut();
             pdf_release_obj(markinfo);
-            if tmp.is_null() || !(*tmp).is_bool() {
-                pdf_release_obj(tmp);
+            if let Some(tmp) = tmp {
+                if let PdfObjVariant::BOOLEAN(b) = tmp.data {
+                    if b {
+                        warn!("PDF file is tagged... Ignoring tags.");
+                    }
+                    pdf_release_obj(tmp);
+                } else {
+                    pdf_release_obj(tmp);
+                    pdf_release_obj(page);
+                    error();
+                    return -1;
+                }
+            } else {
                 pdf_release_obj(page);
                 error();
                 return -1;
-            } else if (*tmp).as_bool() {
-                warn!("PDF file is tagged... Ignoring tags.");
             }
-            pdf_release_obj(tmp);
         }
 
         contents = pdf_deref_obj((*page).as_dict_mut().get_mut("Contents"));
@@ -153,20 +158,28 @@ pub(crate) unsafe fn pdf_include_page(
             let mut content_new = pdf_stream::new(STREAM_COMPRESS);
             for idx in 0..len {
                 let array = (*contents).as_array_mut();
-                let content_seg = if idx < array.len() {
-                    pdf_deref_obj(Some(&mut *array[idx]))
+                if let Some(content_seg) = if idx < array.len() {
+                    pdf_deref_obj(Some(&mut *array[idx])).as_mut()
                 } else {
-                    0 as *mut pdf_obj
-                };
-                if content_seg.is_null()
-                    || !(*content_seg).is_stream()
-                    || pdf_concat_stream(&mut content_new, (*content_seg).as_stream_mut()) < 0
-                {
-                    pdf_release_obj(content_seg);
+                    None
+                } {
+                    if let PdfObjVariant::STREAM(s) = &mut content_seg.data {
+                        if pdf_concat_stream(&mut content_new, s) >= 0 {
+                            pdf_release_obj(content_seg);
+                        } else {
+                            pdf_release_obj(content_seg);
+                            error();
+                            return -1;
+                        }
+                    } else {
+                        pdf_release_obj(content_seg);
+                        error();
+                        return -1;
+                    }
+                } else {
                     error();
                     return -1;
                 }
-                pdf_release_obj(content_seg);
             }
             content_new.into_obj()
         } else {
@@ -175,7 +188,7 @@ pub(crate) unsafe fn pdf_include_page(
         };
 
         pdf_release_obj(contents);
-        contents = content_new;
+        let contents = content_new;
 
         /*
          * Add entries to contents stream dictionary.
