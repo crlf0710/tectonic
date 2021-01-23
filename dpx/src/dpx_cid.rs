@@ -29,6 +29,7 @@
 use crate::bridge::DisplayExt;
 use std::ptr;
 
+use crate::dpx_pdfobj::IntoObj;
 use crate::dpx_pdfparse::ParsePdfObj;
 use crate::{info, warn};
 
@@ -555,30 +556,31 @@ unsafe fn CIDFont_base_open(
             _ => "",
         };
     let mut start = basefont.fontdict.as_bytes();
-    let fontdict = start.parse_pdf_dict(ptr::null_mut()).unwrap();
+    let mut fontdict = start.parse_pdf_dict(ptr::null_mut()).unwrap();
     let mut start = basefont.descriptor.as_bytes();
-    let descriptor = start.parse_pdf_dict(ptr::null_mut()).unwrap();
-    let tmp = (*fontdict)
-        .as_dict()
+    let mut descriptor = start.parse_pdf_dict(ptr::null_mut()).unwrap();
+    let tmp = fontdict
         .get("CIDSystemInfo")
         .filter(|&tmp| (*tmp).is_dict())
         .unwrap();
-    let registry = String::from_utf8_lossy(
+    let registry = std::str::from_utf8(
         tmp.as_dict()
             .get("Registry")
             .unwrap()
             .as_string()
             .to_bytes(),
     )
-    .to_owned();
-    let ordering = String::from_utf8_lossy(
+    .unwrap()
+    .to_string();
+    let ordering = std::str::from_utf8(
         tmp.as_dict()
             .get("Ordering")
             .unwrap()
             .as_string()
             .to_bytes(),
     )
-    .to_owned();
+    .unwrap()
+    .to_string();
     let supplement = tmp.as_dict().get("Supplement").unwrap().as_f64() as i32;
     if !cmap_csi.is_null() {
         /* NULL for accept any */
@@ -602,8 +604,7 @@ unsafe fn CIDFont_base_open(
         ordering: ordering.into(),
         supplement,
     }));
-    let tmp = (*fontdict)
-        .as_dict()
+    let tmp = fontdict
         .get("Subtype")
         .filter(|&tmp| (*tmp).is_name())
         .unwrap();
@@ -616,21 +617,17 @@ unsafe fn CIDFont_base_open(
         panic!("Unknown CIDFontType \"{}\"", typ.display());
     };
     if cidoptflags & 1i32 << 1i32 != 0 {
-        if (*fontdict).as_dict().has("W") {
-            pdf_remove_dict(&mut *fontdict, "W");
+        if fontdict.has("W") {
+            pdf_remove_dict(&mut fontdict, "W");
         }
-        if (*fontdict).as_dict().has("W2") {
-            pdf_remove_dict(&mut *fontdict, "W2");
+        if fontdict.has("W2") {
+            pdf_remove_dict(&mut fontdict, "W2");
         }
     }
-    (*fontdict).as_dict_mut().set("Type", "Font");
-    (*fontdict)
-        .as_dict_mut()
-        .set("BaseFont", pdf_name::new(fontname.as_bytes()));
-    (*descriptor).as_dict_mut().set("Type", "FontDescriptor");
-    (*descriptor)
-        .as_dict_mut()
-        .set("FontName", pdf_name::new(fontname.as_bytes()));
+    fontdict.set("Type", "Font");
+    fontdict.set("BaseFont", pdf_name::new(fontname.as_bytes()));
+    descriptor.set("Type", "FontDescriptor");
+    descriptor.set("FontName", pdf_name::new(fontname.as_bytes()));
     (*opt).embed = 0i32;
     Some(Box::new(CIDFont {
         ident: name.to_string(),
@@ -642,8 +639,8 @@ unsafe fn CIDFont_base_open(
         csi,
         options: opt,
         indirect: ptr::null_mut(),
-        fontdict,
-        descriptor,
+        fontdict: fontdict.into_obj(),
+        descriptor: descriptor.into_obj(),
     }))
 }
 

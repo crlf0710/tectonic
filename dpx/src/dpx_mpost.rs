@@ -1260,7 +1260,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
             && start
                 .parse_pdf_array(ptr::null_mut())
                 .map(|o| {
-                    obj = o;
+                    obj = o.into_obj();
                     ()
                 })
                 .is_some()
@@ -1275,7 +1275,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
             && start
                 .parse_pdf_dict(ptr::null_mut())
                 .map(|o| {
-                    obj = o;
+                    obj = o.into_obj();
                     ()
                 })
                 .is_some()
@@ -1288,7 +1288,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
             && start
                 .parse_pdf_string()
                 .map(|o| {
-                    obj = o;
+                    obj = o.into_obj();
                     ()
                 })
                 .is_some()
@@ -1301,7 +1301,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
             && start
                 .parse_pdf_name()
                 .map(|o| {
-                    obj = o;
+                    obj = o.into_obj();
                     ()
                 })
                 .is_some()
