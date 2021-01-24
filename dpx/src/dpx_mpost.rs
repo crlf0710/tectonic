@@ -58,7 +58,7 @@ use super::dpx_pdfparse::dump;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_obj, pdf_release_obj, pdf_set_number, IntoObj, PushObj,
+    pdf_dict, pdf_name, pdf_release_obj, pdf_set_number, IntoObj, PdfObjVariant, PushObj,
 };
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
@@ -396,19 +396,19 @@ unsafe fn get_opcode(token: &[u8]) -> Result<Opcode, ()> {
     }
     Err(())
 }
-static mut STACK: Vec<*mut pdf_obj> = Vec::new();
+static mut STACK: Vec<PdfObjVariant> = Vec::new();
 trait PushChecked {
     fn push_checked<T>(&mut self, val: T) -> Result<(), ()>
     where
         T: IntoObj;
 }
-impl PushChecked for Vec<*mut pdf_obj> {
+impl PushChecked for Vec<PdfObjVariant> {
     fn push_checked<T>(&mut self, val: T) -> Result<(), ()>
     where
         T: IntoObj,
     {
         if self.len() < 1024 {
-            self.push(val.into_obj());
+            self.push(val.into_obj_variant());
             Ok(())
         } else {
             warn!("PS stack overflow including MetaPost file or inline PS code");
@@ -420,20 +420,14 @@ impl PushChecked for Vec<*mut pdf_obj> {
 unsafe fn do_exch() -> i32 {
     let len = STACK.len();
     if len < 2 {
-        return -1i32;
+        return -1;
     }
-    let tmp = STACK[len - 1];
-    STACK[len - 1] = STACK[len - 2];
-    STACK[len - 2] = tmp;
-    0i32
+    STACK.swap(len - 1, len - 2);
+    0
 }
 unsafe fn do_clear() -> i32 {
-    while !STACK.is_empty() {
-        if let Some(tmp) = STACK.pop() {
-            pdf_release_obj(tmp);
-        }
-    }
-    0i32
+    STACK.clear();
+    0
 }
 unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
     let mut count = values.len();
@@ -443,14 +437,12 @@ unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
         }
         count -= 1;
         if let Some(tmp) = STACK.pop() {
-            if !(*tmp).is_number() {
+            if !tmp.is_number() {
                 warn!("mpost: Not a number!");
-                pdf_release_obj(tmp);
                 count += 1;
                 break;
             } else {
-                values[count] = (*tmp).as_f64();
-                pdf_release_obj(tmp);
+                values[count] = tmp.as_f64();
             }
         } else {
             warn!("mpost: Stack underflow.");
@@ -460,9 +452,9 @@ unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
     }
     count as i32
 }
-unsafe fn cvr_array(array: *mut pdf_obj, values: &mut [f64]) -> i32 {
+unsafe fn cvr_array(array: PdfObjVariant, values: &mut [f64]) -> i32 {
     let mut count = values.len();
-    if !(!array.is_null() && (*array).is_array()) {
+    if !array.is_array() {
         warn!("mpost: Not an array!");
     } else {
         loop {
@@ -471,7 +463,7 @@ unsafe fn cvr_array(array: *mut pdf_obj, values: &mut [f64]) -> i32 {
             if !(fresh2 > 0) {
                 break;
             }
-            let tmp = (*array).as_array()[count];
+            let tmp = array.as_array()[count];
             if !(*tmp).is_number() {
                 warn!("mpost: Not a number!");
                 break;
@@ -480,10 +472,9 @@ unsafe fn cvr_array(array: *mut pdf_obj, values: &mut [f64]) -> i32 {
             }
         }
     }
-    pdf_release_obj(array);
     (count + 1) as i32
 }
-unsafe fn is_fontdict(dict: &pdf_obj) -> bool {
+unsafe fn is_fontdict(dict: &PdfObjVariant) -> bool {
     if !dict.is_dict() {
         return false;
     }
@@ -509,19 +500,18 @@ unsafe fn is_fontdict(dict: &pdf_obj) -> bool {
 unsafe fn do_findfont() -> i32 {
     let mut error: i32 = 0i32;
     if let Some(font_name) = STACK.pop() {
-        if (*font_name).is_string() || (*font_name).is_name() {
+        if font_name.is_string() || font_name.is_name() {
             /* Do not check the existence...
              * The reason for this is that we cannot locate PK font without
              * font scale.
              */
             let mut font_dict = pdf_dict::new();
             font_dict.set("Type", "Font");
-            if (*font_name).is_string() {
+            if font_name.is_string() {
                 font_dict.set(
                     "FontName",
-                    pdf_name::new((*font_name).as_string().to_bytes_without_nul()),
+                    pdf_name::new(font_name.as_string().to_bytes_without_nul()),
                 );
-                pdf_release_obj(font_name);
             } else {
                 font_dict.set("FontName", font_name);
             }
@@ -545,13 +535,12 @@ unsafe fn do_scalefont() -> i32 {
     if error != 0 {
         return error;
     }
-    if let Some(font_dict) = STACK.pop() {
-        if is_fontdict(&*font_dict) {
-            let font_scale = (*font_dict).as_dict_mut().get_mut("FontScale").unwrap();
+    if let Some(mut font_dict) = STACK.pop() {
+        if is_fontdict(&font_dict) {
+            let font_scale = font_dict.as_dict_mut().get_mut("FontScale").unwrap();
             let val = (*font_scale).as_f64() * scale[0];
             pdf_set_number(&mut *font_scale, val);
             if STACK.push_checked(font_dict).is_err() {
-                pdf_release_obj(font_dict);
                 error = 1i32
             }
         } else {
@@ -564,17 +553,16 @@ unsafe fn do_scalefont() -> i32 {
 }
 unsafe fn do_setfont() -> i32 {
     if let Some(font_dict) = STACK.pop() {
-        let error = if !is_fontdict(&*font_dict) {
+        let error = if !is_fontdict(&font_dict) {
             1
         } else {
             /* Subfont support prevent us from managing
              * font in a single place...
              */
-            let font_name = ((*font_dict).as_dict().get("FontName").unwrap()).as_name();
-            let font_scale = (*font_dict).as_dict().get("FontScale").unwrap().as_f64();
+            let font_name = (font_dict.as_dict().get("FontName").unwrap()).as_name();
+            let font_scale = font_dict.as_dict().get("FontScale").unwrap().as_f64();
             mp_setfont(font_name.to_str().unwrap(), font_scale)
         };
-        pdf_release_obj(font_dict);
         error
     } else {
         1
@@ -623,16 +611,14 @@ unsafe fn do_show() -> i32 {
         return 1i32;
     }
     let text_str = text_str.unwrap();
-    if !(*text_str).is_string() {
-        pdf_release_obj(text_str);
+    if !text_str.is_string() {
         return 1i32;
     }
     if (*font).font_id < 0i32 {
         warn!("mpost: not set.");
-        pdf_release_obj(text_str);
         return 1i32;
     }
-    let text = (*text_str).as_string().to_bytes();
+    let text = text_str.as_string().to_bytes();
     if (*font).tfm_id < 0i32 {
         warn!("mpost: TFM not found for \"{}\".", (*font).font_name);
         warn!("mpost: Text width not calculated...");
@@ -679,7 +665,6 @@ unsafe fn do_show() -> i32 {
         pdf_dev_rmoveto(text_width, 0.0f64);
     }
     graphics_mode();
-    pdf_release_obj(text_str);
     0i32
 }
 unsafe fn do_mpost_bind_def(ps_code: *const i8, x_user: f64, y_user: f64) -> i32 {
@@ -831,9 +816,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             error = do_clear()
         }
         Opcode::Pop => {
-            if let Some(tmp) = STACK.pop() {
-                pdf_release_obj(tmp);
-            }
+            STACK.pop();
         }
         Opcode::ExCh => error = do_exch(),
         Opcode::MoveTo => {
@@ -973,19 +956,17 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                 let mut dash_values: [f64; 16] = [0.; 16];
                 let offset = values[0];
                 if let Some(pattern) = STACK.pop() {
-                    if !(*pattern).is_array() {
-                        pdf_release_obj(pattern);
+                    if !pattern.is_array() {
                         error = 1
                     } else {
-                        num_dashes = (*pattern).as_array().len() as usize;
+                        num_dashes = pattern.as_array().len() as usize;
                         if num_dashes > 16 {
                             warn!("Too many dashes...");
-                            pdf_release_obj(pattern);
                             error = 1i32
                         } else {
                             let mut i = 0;
                             while i < num_dashes && error == 0 {
-                                let dash = (*pattern).as_array()[i];
+                                let dash = pattern.as_array()[i];
                                 if !(*dash).is_number() {
                                     error = 1i32
                                 } else {
@@ -993,7 +974,6 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                                 }
                                 i += 1
                             }
-                            pdf_release_obj(pattern);
                             if error == 0 {
                                 error = pdf_dev_setdash(&dash_values[..num_dashes], offset)
                             }
@@ -1079,7 +1059,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             let mut values = [0.; 6];
             let mut matrix = None;
             if let Some(tmp2) = STACK.pop() {
-                if (*tmp2).is_array() {
+                if tmp2.is_array() {
                     error = cvr_array(tmp2, values.as_mut());
                     tmp = None;
                     if error == 0 {
@@ -1091,12 +1071,10 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                 }
             }
             if error == 0 {
-                if let Some(tmp) = tmp.filter(|&o| (*o).is_number()) {
-                    cp.y = (*tmp).as_f64();
-                    pdf_release_obj(tmp);
-                    if let Some(tmp) = STACK.pop().filter(|&o| (*o).is_number()) {
-                        cp.x = (*tmp).as_f64();
-                        pdf_release_obj(tmp);
+                if let Some(tmp) = tmp.filter(|o| o.is_number()) {
+                    cp.y = tmp.as_f64();
+                    if let Some(tmp) = STACK.pop().filter(|o| o.is_number()) {
+                        cp.x = tmp.as_f64();
                         /* Here, we need real PostScript CTM */
                         let mut matrix = matrix.unwrap_or_else(|| ps_dev_CTM());
                         /* This does pdf_release_obj() */
@@ -1120,7 +1098,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             let mut matrix = None;
             let mut values = [0.; 6];
             if let Some(tmp2) = STACK.pop() {
-                if (*tmp2).is_array() {
+                if tmp2.is_array() {
                     error = cvr_array(tmp2, values.as_mut());
                     tmp = None;
                     if error == 0 {
@@ -1132,12 +1110,10 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                 }
             }
             if error == 0 {
-                if let Some(tmp) = tmp.filter(|&o| (*o).is_number()) {
-                    cp.y = (*tmp).as_f64();
-                    pdf_release_obj(tmp);
-                    if let Some(tmp) = STACK.pop().filter(|&o| (*o).is_number()) {
-                        cp.x = (*tmp).as_f64();
-                        pdf_release_obj(tmp);
+                if let Some(tmp) = tmp.filter(|o| o.is_number()) {
+                    cp.y = tmp.as_f64();
+                    if let Some(tmp) = STACK.pop().filter(|o| o.is_number()) {
+                        cp.x = tmp.as_f64();
                         /* Here, we need real PostScript CTM */
                         let matrix = matrix.unwrap_or_else(|| ps_dev_CTM());
                         pdf_dev_idtransform(&mut cp, Some(&matrix));
@@ -1229,8 +1205,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
  * dealing with texfig.
  */
 unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
-    let mut obj = ptr::null_mut();
-    let mut error: i32 = 0i32;
+    let mut error = 0;
     start.skip_white();
     while !start.is_empty() && error == 0 {
         if start[0].is_ascii_digit()
@@ -1245,76 +1220,59 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
             {
                 warn!("Unkown PostScript operator.");
                 dump(&start[..pos]);
-                error = 1i32
+                error = 1
             } else if STACK.push_checked(value).is_ok() {
                 *start = &start[pos..];
             } else {
-                error = 1i32;
+                error = 1;
                 break;
             }
         /*
          * PDF parser can't handle PS operator inside arrays.
          * This shouldn't use parse_pdf_array().
          */
-        } else if start[0] == b'['
-            && start
-                .parse_pdf_array(ptr::null_mut())
-                .map(|o| {
-                    obj = o.into_obj();
-                    ()
-                })
-                .is_some()
-        {
-            if STACK.push_checked(obj).is_err() {
-                error = 1i32;
-                break;
-            }
-        /* This cannot handle ASCII85 string. */
-        } else if start.len() > 1
-            && (start[0] == b'<' && start[1] == b'<')
-            && start
-                .parse_pdf_dict(ptr::null_mut())
-                .map(|o| {
-                    obj = o.into_obj();
-                    ()
-                })
-                .is_some()
-        {
-            if STACK.push_checked(obj).is_err() {
-                error = 1i32;
-                break;
-            }
-        } else if (start[0] == b'(' || start[0] == b'<')
-            && start
-                .parse_pdf_string()
-                .map(|o| {
-                    obj = o.into_obj();
-                    ()
-                })
-                .is_some()
-        {
-            if STACK.push_checked(obj).is_err() {
-                error = 1i32;
-                break;
-            }
-        } else if start[0] == b'/'
-            && start
-                .parse_pdf_name()
-                .map(|o| {
-                    obj = o.into_obj();
-                    ()
-                })
-                .is_some()
-        {
-            if STACK.push_checked(obj).is_err() {
-                error = 1i32;
-                break;
-            }
         } else {
-            if let Some(token) = start.parse_ident() {
-                error = do_operator(token.as_bytes(), x_user, y_user);
-            } else {
-                error = 1i32
+            let mut parsed = false;
+            if start[0] == b'[' {
+                if let Some(array) = start.parse_pdf_array(ptr::null_mut()) {
+                    parsed = true;
+                    if STACK.push_checked(array).is_err() {
+                        error = 1;
+                        break;
+                    }
+                }
+            } else if start.len() > 1 && (start[0] == b'<' && start[1] == b'<') {
+                /* This cannot handle ASCII85 string. */
+                if let Some(dict) = start.parse_pdf_dict(ptr::null_mut()) {
+                    parsed = true;
+                    if STACK.push_checked(dict).is_err() {
+                        error = 1;
+                        break;
+                    }
+                }
+            } else if start[0] == b'(' || start[0] == b'<' {
+                if let Some(string) = start.parse_pdf_string() {
+                    parsed = true;
+                    if STACK.push_checked(string).is_err() {
+                        error = 1;
+                        break;
+                    }
+                }
+            } else if start[0] == b'/' {
+                if let Some(name) = start.parse_pdf_name() {
+                    parsed = true;
+                    if STACK.push_checked(name).is_err() {
+                        error = 1;
+                        break;
+                    }
+                }
+            }
+            if !parsed {
+                error = if let Some(token) = start.parse_ident() {
+                    do_operator(token.as_bytes(), x_user, y_user)
+                } else {
+                    1
+                };
             }
         }
         start.skip_white();
