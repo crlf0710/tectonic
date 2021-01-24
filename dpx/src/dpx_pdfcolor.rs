@@ -22,20 +22,15 @@
 
 #![allow(non_snake_case)]
 
-use super::dpx_mem::{new, renew};
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
-use crate::bridge::DisplayExt;
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
     PushObj, STREAM_COMPRESS,
 };
-use crate::mfree;
 use crate::shims::sprintf;
 use crate::{info, warn, FromBEByteSlice};
-use libc::{free, memcmp, memcpy, memset, strcmp, strcpy, strlen};
 use md5::{Digest, Md5};
 use std::error::Error;
-use std::ffi::CStr;
 use std::fmt;
 use std::ptr;
 
@@ -385,14 +380,14 @@ const COLORDEFS: [Colordef; 68] = [
     Colordef::new("White", PdfColor::Gray(1.0)),
 ];
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct pdf_colorspace {
-    pub(crate) ident: *mut i8,
+    pub(crate) ident: String,
     pub(crate) subtype: i32,
     pub(crate) resource: *mut pdf_obj,
     pub(crate) reference: *mut pdf_obj,
-    pub(crate) cdata: *mut iccbased_cdata,
+    pub(crate) cdata: Option<Box<iccbased_cdata>>,
 }
 #[allow(non_camel_case_types)]
 pub(crate) type iccSig = u32;
@@ -411,13 +406,6 @@ pub(crate) struct iccbased_cdata {
     pub(crate) alternate: i32,
     /* alternate colorspace (id), unused */
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct CspcCache {
-    pub(crate) count: u32,
-    pub(crate) capacity: u32,
-    pub(crate) colorspaces: *mut pdf_colorspace,
-}
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct iccHeader {
@@ -430,10 +418,10 @@ pub(crate) struct iccHeader {
     pub(crate) creationDate: [u8; 12],
     pub(crate) acsp: iccSig,
     pub(crate) platform: iccSig,
-    pub(crate) flags: [i8; 4],
+    pub(crate) flags: [u8; 4],
     pub(crate) devMnfct: iccSig,
     pub(crate) devModel: iccSig,
-    pub(crate) devAttr: [i8; 8],
+    pub(crate) devAttr: [u8; 8],
     pub(crate) intent: i32,
     pub(crate) illuminant: iccXYZNumber,
     pub(crate) creator: iccSig,
@@ -470,7 +458,7 @@ pub(crate) struct ColorStack {
 */
 /* No page independence here...
  */
-static mut VERBOSE: i32 = 0i32;
+static mut VERBOSE: i32 = 0;
 
 pub(crate) unsafe fn pdf_color_set_verbose(level: i32) {
     VERBOSE = level;
@@ -518,7 +506,7 @@ pub(crate) unsafe fn pdf_color_pop() {
         warn!("Color stack underflow. Just ignore.");
     } else {
         COLOR_STACK.current -= 1;
-        pdf_dev_reset_color(0i32);
+        pdf_dev_reset_color(0);
     };
 }
 /* Color special
@@ -533,7 +521,6 @@ pub(crate) unsafe fn pdf_color_get_current() -> (&'static mut PdfColor, &'static
         &mut COLOR_STACK.fill[COLOR_STACK.current as usize],
     )
 }
-static mut NULLBYTES16: [u8; 16] = [0; 16];
 const ICC_VERSIONS: [IccVersion; 8] = [
     IccVersion::new(0, 0),
     IccVersion::new(0, 0),
@@ -547,18 +534,18 @@ const ICC_VERSIONS: [IccVersion; 8] = [
 
 unsafe fn iccp_version_supported(major: i32, minor: i32) -> i32 {
     let pdf_ver = pdf_get_version() as i32;
-    if pdf_ver < 8i32 {
+    if pdf_ver < 8 {
         if ICC_VERSIONS[pdf_ver as usize].major < major {
-            return 0i32;
+            return 0;
         } else if ICC_VERSIONS[pdf_ver as usize].major == major
             && ICC_VERSIONS[pdf_ver as usize].minor < minor
         {
-            return 0i32;
+            return 0;
         } else {
-            return 1i32;
+            return 1;
         }
     }
-    0i32
+    0
 }
 
 fn str2iccSig(p: &[u8]) -> iccSig {
@@ -566,110 +553,96 @@ fn str2iccSig(p: &[u8]) -> iccSig {
 }
 
 unsafe fn iccp_init_iccHeader(icch: &mut iccHeader) {
-    icch.size = 0i32;
-    icch.CMMType = 0i32 as iccSig;
-    icch.version = 0xffffffi32;
-    icch.devClass = 0i32 as iccSig;
-    icch.colorSpace = 0i32 as iccSig;
-    icch.PCS = 0i32 as iccSig;
+    icch.size = 0;
+    icch.CMMType = 0;
+    icch.version = 0xffffff;
+    icch.devClass = 0;
+    icch.colorSpace = 0;
+    icch.PCS = 0;
     icch.creationDate = [0; 12];
     icch.acsp = str2iccSig(b"ascp");
-    icch.platform = 0i32 as iccSig;
-    memset(icch.flags.as_mut_ptr() as *mut libc::c_void, 0i32, 4);
-    icch.devMnfct = 0i32 as iccSig;
-    icch.devModel = 0i32 as iccSig;
-    memset(icch.devAttr.as_mut_ptr() as *mut libc::c_void, 0i32, 8);
-    icch.intent = 0i32;
-    icch.illuminant.X = 0i32;
-    icch.illuminant.Y = 0i32;
-    icch.illuminant.Z = 0i32;
-    icch.creator = 0i32 as iccSig;
-    memset(icch.ID.as_mut_ptr() as *mut libc::c_void, 0i32, 16);
+    icch.platform = 0;
+    icch.flags = [0; 4];
+    icch.devMnfct = 0;
+    icch.devModel = 0;
+    icch.devAttr = [0; 8];
+    icch.intent = 0;
+    icch.illuminant.X = 0;
+    icch.illuminant.Y = 0;
+    icch.illuminant.Z = 0;
+    icch.creator = 0;
+    icch.ID = [0; 16];
 }
-unsafe fn init_iccbased_cdata(cdata: &mut iccbased_cdata) {
-    cdata.sig = i32::from_be_bytes(*b"iccb");
-    memset(cdata.checksum.as_mut_ptr() as *mut libc::c_void, 0i32, 16);
-    cdata.colorspace = 0i32;
-    cdata.alternate = -1i32;
-}
-unsafe fn release_iccbased_cdata(cdata: &mut iccbased_cdata) {
-    assert!(cdata.sig == i32::from_be_bytes(*b"iccb"));
-    free(cdata as *mut iccbased_cdata as *mut libc::c_void);
+impl iccbased_cdata {
+    fn new() -> Self {
+        Self {
+            sig: i32::from_be_bytes(*b"iccb"),
+            checksum: [0; 16],
+            colorspace: 0,
+            alternate: -1,
+        }
+    }
 }
 unsafe fn get_num_components_iccbased(cdata: &iccbased_cdata) -> i32 {
-    let mut num_components: i32 = 0i32;
+    let mut num_components = 0;
     assert!(cdata.sig == i32::from_be_bytes(*b"iccb"));
     match (*cdata).colorspace {
-        -3 => num_components = 3i32,
-        -4 => num_components = 4i32,
-        -1 => num_components = 1i32,
-        2 => num_components = 3i32,
+        -3 => num_components = 3,
+        -4 => num_components = 4,
+        -1 => num_components = 1,
+        2 => num_components = 3,
         _ => {}
     }
     num_components
 }
 unsafe fn compare_iccbased(
-    ident1: *const i8,
+    ident1: &str,
     cdata1: Option<&iccbased_cdata>,
-    ident2: *const i8,
+    ident2: &str,
     cdata2: Option<&iccbased_cdata>,
-) -> i32 {
+) -> bool {
     if let (Some(cdata1), Some(cdata2)) = (cdata1, cdata2) {
         assert!(cdata1.sig == i32::from_be_bytes(*b"iccb"));
         assert!(cdata2.sig == i32::from_be_bytes(*b"iccb"));
-        if memcmp(
-            (*cdata1).checksum.as_ptr() as *const libc::c_void,
-            NULLBYTES16.as_mut_ptr() as *const libc::c_void,
-            16,
-        ) != 0
-            && memcmp(
-                cdata2.checksum.as_ptr() as *const libc::c_void,
-                NULLBYTES16.as_mut_ptr() as *const libc::c_void,
-                16,
-            ) != 0
-        {
-            return memcmp(
-                cdata1.checksum.as_ptr() as *const libc::c_void,
-                cdata2.checksum.as_ptr() as *const libc::c_void,
-                16,
-            );
+        if cdata1.checksum != [0; 16] && cdata2.checksum != [0; 16] {
+            return cdata1.checksum == cdata2.checksum;
         }
         if cdata1.colorspace != cdata2.colorspace {
-            return cdata1.colorspace - cdata2.colorspace;
+            return false;
         }
         /* Continue if checksum unknown and colorspace is same. */
     }
-    if !ident1.is_null() && !ident2.is_null() {
-        return strcmp(ident1, ident2);
+    if !ident1.is_empty() && !ident2.is_empty() {
+        return ident1 == ident2;
     }
     /* No way to compare */
-    return -1i32; /* acsp */
+    return false; /* acsp */
 }
 
 pub(crate) unsafe fn iccp_check_colorspace(colortype: i32, profile: &[u8]) -> i32 {
     if profile.len() < 128 {
-        return -1i32;
+        return -1;
     }
     let colorspace = str2iccSig(&profile[16..20]);
     match colortype {
         3 | -3 => {
             if colorspace != str2iccSig(b"RGB ") {
-                return -1i32;
+                return -1;
             }
         }
         1 | -1 => {
             if colorspace != str2iccSig(b"GRAY") {
-                return -1i32;
+                return -1;
             }
         }
         -4 => {
             if colorspace != str2iccSig(b"CMYK") {
-                return -1i32;
+                return -1;
             }
         }
-        _ => return -1i32,
+        _ => return -1,
     }
-    0i32
+    0
 }
 
 pub(crate) unsafe fn iccp_get_rendering_intent(profile: &[u8]) -> *mut pdf_obj {
@@ -677,20 +650,17 @@ pub(crate) unsafe fn iccp_get_rendering_intent(profile: &[u8]) -> *mut pdf_obj {
         return ptr::null_mut();
     }
     let p = profile.as_ptr();
-    let intent = (*p.offset(64) as i32) << 24i32
-        | (*p.offset(65) as i32) << 16i32
-        | (*p.offset(66) as i32) << 8i32
+    let intent = (*p.offset(64) as i32) << 24
+        | (*p.offset(65) as i32) << 16
+        | (*p.offset(66) as i32) << 8
         | *p.offset(67) as i32;
-    match intent >> 16i32 & 0xffi32 {
+    match intent >> 16 & 0xff {
         2 => "Saturation".into_obj(),
         0 => "Perceptual".into_obj(),
         3 => "AbsoluteColorimetric".into_obj(),
         1 => "RelativeColorimetric".into_obj(),
         _ => {
-            warn!(
-                "Invalid rendering intent type: {}",
-                intent >> 16i32 & 0xffi32
-            );
+            warn!("Invalid rendering intent type: {}", intent >> 16 & 0xff);
             ptr::null_mut()
         }
     }
@@ -700,7 +670,7 @@ unsafe fn iccp_unpack_header(icch: &mut iccHeader, profile: &[u8], check_size: i
     if check_size != 0 {
         if proflen < 128 || proflen % 4 != 0 {
             warn!("Profile size: {}", proflen);
-            return -1i32;
+            return -1;
         }
     }
     let mut p = &profile[..128];
@@ -708,7 +678,7 @@ unsafe fn iccp_unpack_header(icch: &mut iccHeader, profile: &[u8], check_size: i
     if check_size != 0 {
         if icch.size != proflen as i32 {
             warn!("ICC Profile size: {}(header) != {}", icch.size, proflen);
-            return -1i32;
+            return -1;
         }
     }
     p = &p[4..];
@@ -733,26 +703,18 @@ unsafe fn iccp_unpack_header(icch: &mut iccHeader, profile: &[u8], check_size: i
             char::from(p[2]),
             char::from(p[3]),
         );
-        return -1i32;
+        return -1;
     }
     p = &p[4..];
     icch.platform = str2iccSig(&p[..4]);
     p = &p[4..];
-    memcpy(
-        icch.flags.as_mut_ptr() as *mut libc::c_void,
-        p.as_ptr() as *const libc::c_void,
-        4,
-    );
+    icch.flags.copy_from_slice(&p[..4]);
     p = &p[4..];
     icch.devMnfct = str2iccSig(&p[..4]);
     p = &p[4..];
     icch.devModel = str2iccSig(&p[..4]);
     p = &p[4..];
-    memcpy(
-        icch.devAttr.as_mut_ptr() as *mut libc::c_void,
-        p.as_ptr() as *const libc::c_void,
-        8,
-    );
+    icch.devAttr.copy_from_slice(&p[..8]);
     p = &p[8..];
     icch.intent = u32::from_be_byte_slice(&p[..4]) as i32;
     p = &p[4..];
@@ -764,11 +726,7 @@ unsafe fn iccp_unpack_header(icch: &mut iccHeader, profile: &[u8], check_size: i
     p = &p[4..];
     icch.creator = str2iccSig(&p[..4]);
     p = &p[4..];
-    memcpy(
-        icch.ID.as_mut_ptr() as *mut libc::c_void,
-        p.as_ptr() as *const libc::c_void,
-        16,
-    );
+    icch.ID.copy_from_slice(&p[..16]);
     p = &p[16..];
     /* 28 bytes reserved - must be set to zeros */
     while !p.is_empty() {
@@ -778,11 +736,11 @@ unsafe fn iccp_unpack_header(icch: &mut iccHeader, profile: &[u8], check_size: i
                 p[0],
                 128 - p.len(),
             );
-            return -1i32;
+            return -1;
         }
         p = &p[1..];
     }
-    0i32
+    0
 }
 unsafe fn iccp_get_checksum(profile: &[u8]) -> [u8; 16] {
     let mut md5 = Md5::new();
@@ -822,11 +780,11 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
     }
     info!(
         "pdf_color>> Profile Version:\t{}.{:01}.{:01}\n",
-        icch.version >> 24i32 & 0xffi32,
-        icch.version >> 20i32 & 0xfi32,
-        icch.version >> 16i32 & 0xfi32,
+        icch.version >> 24 & 0xff,
+        icch.version >> 20 & 0xf,
+        icch.version >> 16 & 0xf,
     );
-    if icch.devClass == 0_u32 {
+    if icch.devClass == 0 {
         info!("pdf_color>> {}:\t(null)\n", "Device Class");
     } else if icch
         .devClass
@@ -972,7 +930,7 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
     }
     info!("\n");
     info!("pdf_color>> Rendering Intent:\t");
-    match icch.intent >> 16i32 & 0xffi32 {
+    match icch.intent >> 16 & 0xff {
         2 => {
             info!("Saturation");
         }
@@ -1013,17 +971,12 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
     info!("pdf_color>> Illuminant (XYZ):\t");
     info!(
         "{:.3} {:.3} {:.3}\n",
-        icch.illuminant.X as f64 / 0x10000i32 as f64,
-        icch.illuminant.Y as f64 / 0x10000i32 as f64,
-        icch.illuminant.Z as f64 / 0x10000i32 as f64,
+        icch.illuminant.X as f64 / 0x10000 as f64,
+        icch.illuminant.Y as f64 / 0x10000 as f64,
+        icch.illuminant.Z as f64 / 0x10000 as f64,
     );
     info!("pdf_color>> Checksum:\t");
-    if memcmp(
-        icch.ID.as_mut_ptr() as *const libc::c_void,
-        NULLBYTES16.as_mut_ptr() as *const libc::c_void,
-        16,
-    ) == 0
-    {
+    if icch.ID == [0; 16] {
         info!("(null)");
     } else {
         for i in 0..16 {
@@ -1048,95 +1001,71 @@ unsafe fn print_iccp_header(icch: &mut iccHeader, checksum: *mut u8) {
     };
 }
 unsafe fn iccp_devClass_allowed(dev_class: i32) -> i32 {
-    let _colormode = pdf_dev_get_param(2i32); // TODO: check
+    let _colormode = pdf_dev_get_param(2); // TODO: check
     if dev_class as u32 != str2iccSig(b"scnr")
         && dev_class as u32 != str2iccSig(b"mntr")
         && dev_class as u32 != str2iccSig(b"prtr")
         && dev_class as u32 != str2iccSig(b"spac")
     {
-        return 0i32;
+        return 0;
     }
-    1i32
+    1
 }
 
-pub(crate) unsafe fn iccp_load_profile(ident: *const i8, profile: &[u8]) -> i32 {
+pub(crate) unsafe fn iccp_load_profile(ident: &str, profile: &[u8]) -> i32 {
     let mut cspc_id;
     let mut icch = iccHeader::default();
     let colorspace;
     iccp_init_iccHeader(&mut icch);
-    if iccp_unpack_header(&mut icch, profile, 1i32) < 0i32 {
+    if iccp_unpack_header(&mut icch, profile, 1) < 0 {
         /* check size */
-        warn!(
-            "Invalid ICC profile header in \"{}\"",
-            CStr::from_ptr(ident).display()
-        );
+        warn!("Invalid ICC profile header in \"{}\"", ident);
         print_iccp_header(&mut icch, ptr::null_mut());
-        return -1i32;
+        return -1;
     }
-    if iccp_version_supported(
-        icch.version >> 24i32 & 0xffi32,
-        icch.version >> 16i32 & 0xffi32,
-    ) == 0
-    {
+    if iccp_version_supported(icch.version >> 24 & 0xff, icch.version >> 16 & 0xff) == 0 {
         warn!("ICC profile format spec. version {}.{:01}.{:01} not supported in current PDF version setting.",
-                    icch.version >> 24i32 & 0xffi32,
-                    icch.version >> 20i32 & 0xfi32,
-                    icch.version >> 16i32 & 0xfi32);
+                    icch.version >> 24 & 0xff,
+                    icch.version >> 20 & 0xf,
+                    icch.version >> 16 & 0xf);
         warn!("ICC profile not embedded.");
         print_iccp_header(&mut icch, ptr::null_mut());
-        return -1i32;
+        return -1;
     }
     if iccp_devClass_allowed(icch.devClass as i32) == 0 {
         warn!("Unsupported ICC Profile Device Class:");
         print_iccp_header(&mut icch, ptr::null_mut());
-        return -1i32;
+        return -1;
     }
     if icch.colorSpace == str2iccSig(b"RGB ") {
-        colorspace = -3i32
+        colorspace = -3
     } else if icch.colorSpace == str2iccSig(b"GRAY") {
-        colorspace = -1i32
+        colorspace = -1
     } else if icch.colorSpace == str2iccSig(b"CMYK") {
-        colorspace = -4i32
+        colorspace = -4
     } else {
         warn!("Unsupported input color space.");
         print_iccp_header(&mut icch, ptr::null_mut());
-        return -1i32;
+        return -1;
     }
     let mut checksum = iccp_get_checksum(profile);
-    if memcmp(
-        icch.ID.as_mut_ptr() as *const libc::c_void,
-        NULLBYTES16.as_mut_ptr() as *const libc::c_void,
-        16,
-    ) != 0
-        && memcmp(
-            icch.ID.as_mut_ptr() as *const libc::c_void,
-            checksum.as_mut_ptr() as *const libc::c_void,
-            16,
-        ) != 0
-    {
+    if icch.ID != [0; 16] && icch.ID != checksum {
         warn!("Invalid ICC profile: Inconsistent checksum.");
         print_iccp_header(&mut icch, checksum.as_mut_ptr());
-        return -1i32;
+        return -1;
     }
-    let cdata =
-        &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<iccbased_cdata>() as u64) as u32)
-            as *mut iccbased_cdata);
-    init_iccbased_cdata(cdata);
+    let mut cdata = Box::new(iccbased_cdata::new());
     cdata.colorspace = colorspace;
-    memcpy(
-        cdata.checksum.as_mut_ptr() as *mut libc::c_void,
-        checksum.as_mut_ptr() as *const libc::c_void,
-        16,
-    );
-    cspc_id = pdf_colorspace_findresource(ident, 4i32, cdata);
-    if cspc_id >= 0i32 {
+    cdata.checksum = checksum;
+    cspc_id = pdf_colorspace_findresource(ident, 4, &cdata);
+    if cspc_id >= 0 {
         if VERBOSE != 0 {
             info!("(ICCP:[id={}])", cspc_id);
         }
-        release_iccbased_cdata(cdata);
+        assert!(cdata.sig == i32::from_be_bytes(*b"iccb"));
         return cspc_id;
     }
-    if VERBOSE > 1i32 {
+    if VERBOSE > 1 {
         print_iccp_header(&mut icch, checksum.as_mut_ptr());
     }
     let mut resource = vec![];
@@ -1144,70 +1073,67 @@ pub(crate) unsafe fn iccp_load_profile(ident: *const i8, profile: &[u8]) -> i32 
     resource.push_obj("ICCBased");
     resource.push(pdf_ref_obj(stream));
     let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    stream_dict.set("N", get_num_components_iccbased(cdata) as f64);
+    stream_dict.set("N", get_num_components_iccbased(&cdata) as f64);
     (*stream).as_stream_mut().add_slice(profile);
     pdf_release_obj(stream);
-    cspc_id = pdf_colorspace_defineresource(ident, 4i32, cdata, resource.into_obj());
+    cspc_id = pdf_colorspace_defineresource(ident, 4, cdata, resource.into_obj());
     cspc_id
 }
-static mut CSPC_CACHE: CspcCache = CspcCache {
-    count: 0_u32,
-    capacity: 0_u32,
-    colorspaces: std::ptr::null_mut(),
-};
-unsafe fn pdf_colorspace_findresource(
-    ident: *const i8,
-    type_0: i32,
-    cdata: &iccbased_cdata,
-) -> i32 {
-    let mut cmp: i32 = -1i32;
-    let mut cspc_id = 0i32;
-    while cmp != 0 && (cspc_id as u32) < CSPC_CACHE.count {
-        let colorspace = &mut *CSPC_CACHE.colorspaces.offset(cspc_id as isize);
+static mut CSPC_CACHE: Vec<pdf_colorspace> = Vec::new();
+
+unsafe fn pdf_colorspace_findresource(ident: &str, type_0: i32, cdata: &iccbased_cdata) -> i32 {
+    let mut cmp = false;
+    let mut cspc_id = 0;
+    while !cmp && cspc_id < CSPC_CACHE.len() {
+        let colorspace = &mut CSPC_CACHE[cspc_id];
         if !(colorspace.subtype != type_0) {
             match colorspace.subtype {
                 4 => {
                     cmp = compare_iccbased(
                         ident,
                         Some(cdata),
-                        colorspace.ident,
-                        Some(&*colorspace.cdata),
+                        &colorspace.ident,
+                        colorspace.cdata.as_deref(),
                     )
                 }
                 _ => {}
             }
-            if cmp == 0 {
-                return cspc_id;
+            if cmp {
+                return cspc_id as i32;
             }
         }
         cspc_id += 1
     }
-    return -1i32;
+    return -1;
     /* not found */
 }
-unsafe fn pdf_init_colorspace_struct(colorspace: &mut pdf_colorspace) {
-    colorspace.ident = ptr::null_mut();
-    colorspace.subtype = 0i32;
-    colorspace.resource = ptr::null_mut();
-    colorspace.reference = ptr::null_mut();
-    colorspace.cdata = ptr::null_mut();
+
+impl pdf_colorspace {
+    fn new() -> Self {
+        Self {
+            ident: String::new(),
+            subtype: 0,
+            resource: ptr::null_mut(),
+            reference: ptr::null_mut(),
+            cdata: None,
+        }
+    }
 }
 unsafe fn pdf_clean_colorspace_struct(colorspace: &mut pdf_colorspace) {
-    free(colorspace.ident as *mut libc::c_void);
     pdf_release_obj(colorspace.resource);
     pdf_release_obj(colorspace.reference);
     colorspace.resource = ptr::null_mut();
     colorspace.reference = ptr::null_mut();
-    if !colorspace.cdata.is_null() {
+    if let Some(cdata) = colorspace.cdata.as_ref() {
         match colorspace.subtype {
             4 => {
-                release_iccbased_cdata(&mut *(colorspace.cdata as *mut iccbased_cdata));
+                assert!(cdata.sig == i32::from_be_bytes(*b"iccb"));
             }
             _ => {}
         }
     }
-    colorspace.cdata = ptr::null_mut();
-    colorspace.subtype = 0i32;
+    colorspace.cdata = None;
+    colorspace.subtype = 0;
 }
 unsafe fn pdf_flush_colorspace(colorspace: &mut pdf_colorspace) {
     pdf_release_obj(colorspace.resource);
@@ -1217,34 +1143,22 @@ unsafe fn pdf_flush_colorspace(colorspace: &mut pdf_colorspace) {
 }
 /* **************************** COLOR SPACE *****************************/
 unsafe fn pdf_colorspace_defineresource(
-    ident: *const i8,
+    ident: &str,
     subtype: i32,
-    cdata: &mut iccbased_cdata,
+    cdata: Box<iccbased_cdata>,
     resource: *mut pdf_obj,
 ) -> i32 {
-    if CSPC_CACHE.count >= CSPC_CACHE.capacity {
-        CSPC_CACHE.capacity = CSPC_CACHE.capacity.wrapping_add(16_u32);
-        CSPC_CACHE.colorspaces = renew(
-            CSPC_CACHE.colorspaces as *mut libc::c_void,
-            (CSPC_CACHE.capacity as u64)
-                .wrapping_mul(::std::mem::size_of::<pdf_colorspace>() as u64) as u32,
-        ) as *mut pdf_colorspace
+    let cspc_id = CSPC_CACHE.len() as i32;
+    let mut colorspace = pdf_colorspace::new();
+    if !ident.is_empty() {
+        colorspace.ident = ident.to_string();
     }
-    let cspc_id = CSPC_CACHE.count as i32;
-    let colorspace = &mut *CSPC_CACHE.colorspaces.offset(cspc_id as isize);
-    pdf_init_colorspace_struct(colorspace);
-    if !ident.is_null() {
-        (*colorspace).ident =
-            new((strlen(ident).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                as *mut i8;
-        strcpy((*colorspace).ident, ident);
-    }
-    (*colorspace).subtype = subtype;
-    (*colorspace).cdata = cdata;
-    (*colorspace).resource = resource;
+    colorspace.subtype = subtype;
+    colorspace.cdata = Some(cdata);
+    colorspace.resource = resource;
     if VERBOSE != 0 {
-        info!("(ColorSpace:{}", CStr::from_ptr(ident).display());
-        if VERBOSE > 1i32 {
+        info!("(ColorSpace:{}", ident);
+        if VERBOSE > 1 {
             match subtype {
                 4 => {
                     info!("[ICCBased]");
@@ -1260,39 +1174,37 @@ unsafe fn pdf_colorspace_defineresource(
         }
         info!(")");
     }
-    CSPC_CACHE.count = CSPC_CACHE.count.wrapping_add(1);
+    CSPC_CACHE.push(colorspace);
     cspc_id
 }
 
 pub(crate) unsafe fn pdf_get_colorspace_reference(cspc_id: i32) -> *mut pdf_obj {
-    let mut colorspace =
-        &mut *CSPC_CACHE.colorspaces.offset(cspc_id as isize) as *mut pdf_colorspace;
-    if (*colorspace).reference.is_null() {
-        (*colorspace).reference = pdf_ref_obj((*colorspace).resource);
-        pdf_release_obj((*colorspace).resource);
-        (*colorspace).resource = ptr::null_mut()
+    let colorspace = &mut CSPC_CACHE[cspc_id as usize];
+    if colorspace.reference.is_null() {
+        colorspace.reference = pdf_ref_obj(colorspace.resource);
+        pdf_release_obj(colorspace.resource);
+        colorspace.resource = ptr::null_mut()
     }
-    pdf_link_obj((*colorspace).reference)
+    pdf_link_obj(colorspace.reference)
 }
 
 pub(crate) unsafe fn pdf_init_colors() {
-    CSPC_CACHE.count = 0_u32;
-    CSPC_CACHE.capacity = 0_u32;
-    CSPC_CACHE.colorspaces = ptr::null_mut();
+    CSPC_CACHE = Vec::new();
 }
 /* Not check size */
 /* returns colorspace ID */
 
-pub(crate) unsafe fn pdf_close_colors() {
-    for i in 0..CSPC_CACHE.count {
-        let colorspace = &mut *CSPC_CACHE.colorspaces.offset(i as isize);
-        pdf_flush_colorspace(colorspace);
-        pdf_clean_colorspace_struct(colorspace);
+impl Drop for pdf_colorspace {
+    fn drop(&mut self) {
+        unsafe {
+            pdf_flush_colorspace(self);
+            pdf_clean_colorspace_struct(self);
+        }
     }
-    CSPC_CACHE.colorspaces =
-        mfree(CSPC_CACHE.colorspaces as *mut libc::c_void) as *mut pdf_colorspace;
-    CSPC_CACHE.capacity = 0_u32;
-    CSPC_CACHE.count = CSPC_CACHE.capacity;
+}
+
+pub(crate) unsafe fn pdf_close_colors() {
+    CSPC_CACHE = Vec::new();
 }
 
 #[cfg(test)]

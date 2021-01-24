@@ -238,17 +238,16 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
         stream.add_slice(&stream_data[..(rowbytes * info.height) as usize]);
     }
     /* Predictor is usually not so efficient for indexed images. */
-    let stream = stream.into_obj();
     if hdr.bit_count as i32 >= 24 && info.bits_per_component >= 8 && info.height > 64 {
         pdf_stream_set_predictor(
-            stream,
+            &mut stream,
             15i32,
             info.width,
             info.bits_per_component,
             info.num_components,
         );
     }
-    pdf_ximage_set_image(ximage, &mut info, stream);
+    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
     Ok(())
 }
 

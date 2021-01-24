@@ -88,9 +88,8 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
 pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InFile) -> i32 {
     /* Libpng stuff */
     let mut info = ximage_info::init();
-    let mut intent = ptr::null_mut();
-    let mut mask = intent;
-    let mut colorspace = mask;
+    let mut mask = ptr::null_mut();
+    let mut colorspace = ptr::null_mut();
     handle.seek(SeekFrom::Start(0)).unwrap();
 
     let png = if let Some(png) = png_create_read_struct(
@@ -176,14 +175,14 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     if yppm > 0 {
         info.ydensity = 72. / 0.0254 / yppm as f64
     }
-    let stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
-    let stream_dict = (*stream).as_stream_mut().get_dict_mut();
+    let mut stream = pdf_stream::new(STREAM_COMPRESS);
+    let stream_dict = stream.get_dict_mut();
     let stream_data_ptr = new((rowbytes.wrapping_mul(height) as u64)
         .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
         as u32) as *mut png_byte;
     read_image_data(png, stream_data_ptr, height, rowbytes);
     /* Non-NULL intent means there is valid sRGB chunk. */
-    intent = get_rendering_intent(png, png_info);
+    let intent = get_rendering_intent(png, png_info);
     if !intent.is_null() {
         stream_dict.set("Intent", intent);
     }
@@ -269,17 +268,24 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
         }
     }
     stream_dict.set("ColorSpace", colorspace);
-    (*stream).as_stream_mut().add(
+    stream.add(
         stream_data_ptr as *const libc::c_void,
         rowbytes.wrapping_mul(height) as i32,
     );
     free(stream_data_ptr as *mut libc::c_void);
+    let stream_dict = stream.get_dict_mut();
     if !mask.is_null() {
         if trans_type == 1i32 {
             stream_dict.set("Mask", mask);
         } else if trans_type == 2i32 {
             if info.bits_per_component >= 8i32 && info.width > 64i32 {
-                pdf_stream_set_predictor(mask, 2i32, info.width, info.bits_per_component, 1i32);
+                pdf_stream_set_predictor(
+                    (*mask).as_stream_mut(),
+                    2i32,
+                    info.width,
+                    info.bits_per_component,
+                    1i32,
+                );
             }
             stream_dict.set("SMask", pdf_ref_obj(mask));
             pdf_release_obj(mask);
@@ -357,14 +363,14 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
         && info.height > 64i32
     {
         pdf_stream_set_predictor(
-            stream,
+            &mut stream,
             15i32,
             info.width,
             info.bits_per_component,
             info.num_components,
         );
     }
-    pdf_ximage_set_image(ximage, &mut info, stream);
+    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
     0i32
 }
 /* Transparency */
@@ -556,6 +562,11 @@ unsafe fn create_cspace_ICCBased(png: &mut png_struct, png_info: &mut png_info) 
     {
         return ptr::null_mut();
     }
+    let name = if name.is_null() {
+        ""
+    } else {
+        std::ffi::CStr::from_ptr(name).to_str().unwrap()
+    };
     let profile = core::slice::from_raw_parts(profile, proflen as usize);
     let color_type = png_get_color_type(png, png_info);
     let colortype = if color_type as libc::c_int & 2i32 != 0 {
@@ -568,7 +579,7 @@ unsafe fn create_cspace_ICCBased(png: &mut png_struct, png_info: &mut png_info) 
                          * clarify whether profile data is inflated by libpng.
                          */
     } else {
-        let csp_id = iccp_load_profile(name as *const i8, profile);
+        let csp_id = iccp_load_profile(name, profile);
         if csp_id < 0i32 {
             ptr::null_mut()
         } else {

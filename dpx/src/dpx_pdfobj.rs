@@ -1245,20 +1245,15 @@ impl pdf_stream {
 }
 
 pub(crate) unsafe fn pdf_stream_set_predictor(
-    stream: *mut pdf_obj,
+    stream: &mut pdf_stream,
     predictor: i32,
     columns: i32,
     bpc: i32,
     colors: i32,
 ) {
-    if !(*stream).is_stream() {
+    if columns < 0i32 || bpc < 0i32 || colors < 0i32 {
         return;
-    } else {
-        if columns < 0i32 || bpc < 0i32 || colors < 0i32 {
-            return;
-        }
     }
-    let stream = (*stream).as_stream_mut();
     stream.decodeparms.predictor = predictor;
     stream.decodeparms.columns = columns;
     stream.decodeparms.bits_per_component = bpc;

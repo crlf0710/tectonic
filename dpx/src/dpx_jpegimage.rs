@@ -217,7 +217,7 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
             if iccp_check_colorspace(colortype, &icc_stream.content) < 0 {
                 colorspace = ptr::null_mut()
             } else {
-                let cspc_id = iccp_load_profile(std::ptr::null(), &icc_stream.content);
+                let cspc_id = iccp_load_profile("", &icc_stream.content);
                 if cspc_id < 0 {
                     colorspace = ptr::null_mut()
                 } else {
