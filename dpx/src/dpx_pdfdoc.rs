@@ -68,7 +68,7 @@ use crate::bridge::{InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
-    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, IntoObj, PdfObjVariant, PushObj,
+    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, PdfObjVariant, PushObj,
     STREAM_COMPRESS,
 };
 use libc::{free, strcmp, strcpy, strlen};
@@ -743,12 +743,10 @@ pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
     // TODO: check `page_tree` release
     if let Some(page_tree) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages")).as_mut() {
         if let PdfObjVariant::DICT(page_tree) = &mut page_tree.data {
-            if let Some(tmp) = pdf_deref_obj(page_tree.get_mut("Count")).as_mut() {
+            if let Some(tmp) = DerefObj::new(page_tree.get_mut("Count")) {
                 if let PdfObjVariant::NUMBER(count) = tmp.data {
-                    pdf_release_obj(tmp);
                     count as i32
                 } else {
-                    pdf_release_obj(tmp);
                     0
                 }
             } else {

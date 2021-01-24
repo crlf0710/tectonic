@@ -2959,6 +2959,32 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
         obj
     }
 }
+
+pub(crate) struct DerefObj(std::ptr::NonNull<pdf_obj>);
+impl DerefObj {
+    pub(crate) unsafe fn new(obj: Option<&mut pdf_obj>) -> Option<Self> {
+        std::ptr::NonNull::new(pdf_deref_obj(obj)).map(DerefObj)
+    }
+}
+impl Drop for DerefObj {
+    fn drop(&mut self) {
+        unsafe { pdf_release_obj(self.0.as_ptr()) }
+    }
+}
+
+impl std::ops::Deref for DerefObj {
+    type Target = pdf_obj;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.0.as_ref() }
+    }
+}
+impl std::ops::DerefMut for DerefObj {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { self.0.as_mut() }
+    }
+}
+
 unsafe fn extend_xref(pf: &mut pdf_file, new_size: i32) {
     pf.xref_table = renew(
         pf.xref_table as *mut libc::c_void,

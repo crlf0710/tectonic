@@ -34,8 +34,8 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_deref_obj, pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_new_null, pdf_obj,
-    pdf_release_obj, pdf_stream, pdf_string, IntoObj, PdfObjVariant, STREAM_COMPRESS,
+    pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_new_null, pdf_obj, pdf_stream, pdf_string,
+    DerefObj, IntoObj, PdfObjVariant, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::memcpy;
@@ -465,13 +465,12 @@ impl ParsePdfObj for &[u8] {
         /* Stream length */
         if let Some(tmp) = unsafe { dict.get_mut("Length") } {
             unsafe {
-                stream_length = if let Some(tmp2) = pdf_deref_obj(Some(tmp)).as_mut() {
+                stream_length = if let Some(tmp2) = DerefObj::new(Some(tmp)) {
                     let l = if let PdfObjVariant::NUMBER(v) = tmp2.data {
                         v as i32
                     } else {
                         -1
                     };
-                    pdf_release_obj(tmp2);
                     l
                 } else {
                     -1
