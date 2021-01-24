@@ -40,7 +40,7 @@ use super::dpx_dpxutil::{
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_undefined, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjType, PdfObjVariant, PushObj,
+    pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjVariant, PushObj,
 };
 use libc::free;
 
@@ -117,7 +117,7 @@ unsafe fn check_objects_defined(ht_tab: *mut ht_table) {
             let key = ht_iter_getkey(&mut iter, &mut keylen);
             let value = ht_iter_getval(&mut iter) as *mut obj_data;
             assert!(!(*value).object.is_null());
-            if !(*value).object.is_null() && (&*(*value).object).typ() == PdfObjType::UNDEFINED {
+            if !(*value).object.is_null() && (*(*value).object).is_undefined() {
                 pdf_names_add_object(ht_tab, key as *const libc::c_void, keylen, pdf_new_null());
                 warn!(
                     "Object @{} used, but not defined. Replaced by null.",
@@ -159,7 +159,7 @@ pub(crate) unsafe fn pdf_names_add_object(
         ht_append_table(names, key, keylen, value as *mut libc::c_void);
     } else {
         assert!(!(*value).object.is_null());
-        if !(*value).object.is_null() && (&*(*value).object).typ() == PdfObjType::UNDEFINED {
+        if !(*value).object.is_null() && (*(*value).object).is_undefined() {
             pdf_transfer_label(object, (*value).object);
             pdf_release_obj((*value).object);
             (*value).object = object
@@ -207,9 +207,7 @@ pub(crate) unsafe fn pdf_names_lookup_object(
 ) -> *mut pdf_obj {
     assert!(!names.is_null());
     let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
-    if value.is_null()
-        || !(*value).object.is_null() && (&*(*value).object).typ() == PdfObjType::UNDEFINED
-    {
+    if value.is_null() || !(*value).object.is_null() && (*(*value).object).is_undefined() {
         return ptr::null_mut();
     }
     assert!(!(*value).object.is_null());
@@ -223,9 +221,7 @@ pub(crate) unsafe fn pdf_names_close_object(
 ) -> i32 {
     assert!(!names.is_null());
     let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
-    if value.is_null()
-        || !(*value).object.is_null() && (&*(*value).object).typ() == PdfObjType::UNDEFINED
-    {
+    if value.is_null() || !(*value).object.is_null() && (*(*value).object).is_undefined() {
         warn!(
             "Cannot close undefined object @{}.",
             printable_key(key as *const i8, keylen),
@@ -289,11 +285,14 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
                 cur.key as *const libc::c_void,
                 cur.keylen as size_t,
             ));
-            match (&*cur.value).typ() {
-                PdfObjType::ARRAY | PdfObjType::DICT | PdfObjType::STREAM | PdfObjType::STRING => {
+            match (&*cur.value).data {
+                PdfObjVariant::ARRAY(_)
+                | PdfObjVariant::DICT(_)
+                | PdfObjVariant::STREAM(_)
+                | PdfObjVariant::STRING(_) => {
                     names.push(pdf_ref_obj(cur.value));
                 }
-                PdfObjType::OBJ_INVALID => {
+                PdfObjVariant::OBJ_INVALID => {
                     panic!("Invalid object...: {}", printable_key(cur.key, cur.keylen));
                 }
                 _ => {

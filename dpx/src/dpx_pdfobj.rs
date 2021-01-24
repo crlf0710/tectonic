@@ -71,9 +71,9 @@ pub struct pdf_obj {
     pub(crate) data: PdfObjVariant,
 }
 
-impl pdf_obj {
+impl PdfObjVariant {
     pub(crate) fn typ(&self) -> PdfObjType {
-        match self.data {
+        match self {
             PdfObjVariant::BOOLEAN(_) => PdfObjType::BOOLEAN,
             PdfObjVariant::NUMBER(_) => PdfObjType::NUMBER,
             PdfObjVariant::STRING(_) => PdfObjType::STRING,
@@ -87,6 +87,8 @@ impl pdf_obj {
             PdfObjVariant::OBJ_INVALID => PdfObjType::OBJ_INVALID,
         }
     }
+}
+impl pdf_obj {
     pub(crate) fn label(&self) -> u32 {
         self.id.0
     }
@@ -127,25 +129,34 @@ pub(crate) enum PdfObjType {
 
 impl pdf_obj {
     pub(crate) fn is_number(&self) -> bool {
-        self.typ() == PdfObjType::NUMBER
+        matches!(self.data, PdfObjVariant::NUMBER(_))
     }
     pub(crate) fn is_string(&self) -> bool {
-        self.typ() == PdfObjType::STRING
+        matches!(self.data, PdfObjVariant::STRING(_))
     }
     pub(crate) fn is_name(&self) -> bool {
-        self.typ() == PdfObjType::NAME
+        matches!(self.data, PdfObjVariant::NAME(_))
     }
     pub(crate) fn is_array(&self) -> bool {
-        self.typ() == PdfObjType::ARRAY
+        matches!(self.data, PdfObjVariant::ARRAY(_))
     }
     pub(crate) fn is_dict(&self) -> bool {
-        self.typ() == PdfObjType::DICT
+        matches!(self.data, PdfObjVariant::DICT(_))
     }
     pub(crate) fn is_stream(&self) -> bool {
-        self.typ() == PdfObjType::STREAM
+        matches!(self.data, PdfObjVariant::STREAM(_))
     }
     pub(crate) fn is_indirect(&self) -> bool {
-        self.typ() == PdfObjType::INDIRECT
+        matches!(self.data, PdfObjVariant::INDIRECT(_))
+    }
+    pub(crate) fn is_invalid(&self) -> bool {
+        matches!(self.data, PdfObjVariant::OBJ_INVALID)
+    }
+    pub(crate) fn is_undefined(&self) -> bool {
+        matches!(self.data, PdfObjVariant::UNDEFINED)
+    }
+    pub(crate) fn is_obj_null(&self) -> bool {
+        matches!(self.data, PdfObjVariant::NULL)
     }
     pub(crate) unsafe fn as_f64(&self) -> f64 {
         if let PdfObjVariant::NUMBER(v) = self.data {
@@ -162,11 +173,11 @@ impl pdf_obj {
         }
     }
     pub(crate) unsafe fn as_dict_mut(&mut self) -> &mut pdf_dict {
-        let t = self.typ();
-        if let PdfObjVariant::DICT(v) = &mut self.data {
+        let data = &mut self.data;
+        if let PdfObjVariant::DICT(v) = data {
             return v;
         }
-        panic!("pdfobj::as_dict_mut on {:?}", t);
+        panic!("pdfobj::as_dict_mut on {:?}", data.typ());
     }
     pub(crate) unsafe fn as_array(&self) -> &Vec<*mut Self> {
         if let PdfObjVariant::ARRAY(v) = &self.data {
@@ -344,9 +355,34 @@ pub(crate) struct pdf_number {
 
 // Must be replaced with std::convert::From
 pub(crate) trait IntoObj {
-    fn into_obj(self) -> *mut pdf_obj;
+    fn into_obj_variant(self) -> PdfObjVariant;
+    #[inline(always)]
+    fn into_obj_box(self) -> Box<pdf_obj>
+    where
+        Self: Sized,
+    {
+        Box::new(pdf_obj {
+            data: self.into_obj_variant(),
+            id: (0, 0),
+            refcount: 1,
+            flags: 0,
+        })
+    }
+    #[inline(always)]
+    fn into_obj(self) -> *mut pdf_obj
+    where
+        Self: Sized,
+    {
+        Box::into_raw(self.into_obj_box())
+    }
 }
 impl IntoObj for *mut pdf_obj {
+    fn into_obj_variant(self) -> PdfObjVariant {
+        unreachable!()
+    }
+    fn into_obj_box(self) -> Box<pdf_obj> {
+        unreachable!()
+    }
     #[inline(always)]
     fn into_obj(self) -> Self {
         self
@@ -355,68 +391,78 @@ impl IntoObj for *mut pdf_obj {
 
 impl IntoObj for f64 {
     #[inline(always)]
-    fn into_obj(self) -> *mut pdf_obj {
-        pdf_new_obj(PdfObjVariant::NUMBER(self))
+    fn into_obj_variant(self) -> PdfObjVariant {
+        PdfObjVariant::NUMBER(self)
     }
 }
 
 impl IntoObj for bool {
     #[inline(always)]
-    fn into_obj(self) -> *mut pdf_obj {
-        pdf_new_obj(PdfObjVariant::BOOLEAN(self))
+    fn into_obj_variant(self) -> PdfObjVariant {
+        PdfObjVariant::BOOLEAN(self)
     }
 }
 
 impl IntoObj for &str {
     #[inline(always)]
-    fn into_obj(self) -> *mut pdf_obj {
-        pdf_name::new(self).into_obj()
+    fn into_obj_variant(self) -> PdfObjVariant {
+        pdf_name::new(self).into_obj_variant()
     }
 }
 
 impl IntoObj for Vec<*mut pdf_obj> {
     #[inline(always)]
-    fn into_obj(self) -> *mut pdf_obj {
-        pdf_new_obj(PdfObjVariant::ARRAY(self))
+    fn into_obj_variant(self) -> PdfObjVariant {
+        PdfObjVariant::ARRAY(self)
     }
 }
 
 impl IntoObj for pdf_name {
     #[inline(always)]
-    fn into_obj(self) -> *mut pdf_obj {
-        pdf_new_obj(PdfObjVariant::NAME(self))
+    fn into_obj_variant(self) -> PdfObjVariant {
+        PdfObjVariant::NAME(self)
     }
 }
 
 impl IntoObj for pdf_string {
     #[inline(always)]
-    fn into_obj(self) -> *mut pdf_obj {
-        pdf_new_obj(PdfObjVariant::STRING(self))
+    fn into_obj_variant(self) -> PdfObjVariant {
+        PdfObjVariant::STRING(self)
     }
 }
 
 impl IntoObj for pdf_stream {
-    fn into_obj(self) -> *mut pdf_obj {
-        let result = pdf_new_obj(PdfObjVariant::STREAM(self));
+    #[inline(always)]
+    fn into_obj_variant(self) -> PdfObjVariant {
+        PdfObjVariant::STREAM(self)
+    }
+    #[inline(always)]
+    fn into_obj_box(self) -> Box<pdf_obj> {
+        let mut result = Box::new(pdf_obj {
+            data: self.into_obj_variant(),
+            id: (0, 0),
+            refcount: 1,
+            flags: 0,
+        });
         /*
          * Although we are using an arbitrary pdf_object here, it must have
          * type=PDF_DICT and cannot be an indirect reference.  This will be
          * checked by the output routine.
          */
-        unsafe { (*result).flags |= OBJ_NO_OBJSTM };
+        result.flags |= OBJ_NO_OBJSTM;
         result
     }
 }
 
 impl IntoObj for pdf_dict {
-    fn into_obj(self) -> *mut pdf_obj {
-        pdf_new_obj(PdfObjVariant::DICT(self))
+    fn into_obj_variant(self) -> PdfObjVariant {
+        PdfObjVariant::DICT(self)
     }
 }
 
 impl IntoObj for pdf_indirect {
-    fn into_obj(self) -> *mut pdf_obj {
-        pdf_new_obj(PdfObjVariant::INDIRECT(self))
+    fn into_obj_variant(self) -> PdfObjVariant {
+        PdfObjVariant::INDIRECT(self)
     }
 }
 
@@ -760,13 +806,13 @@ fn pdf_new_obj(data: PdfObjVariant) -> *mut pdf_obj {
     Box::into_raw(Box::new(pdf_obj {
         data: data,
         id: (0, 0),
-        refcount: 1_u32,
-        flags: 0i32,
+        refcount: 1,
+        flags: 0,
     }))
 }
 
 unsafe fn pdf_label_obj(mut object: *mut pdf_obj) {
-    if object.is_null() || (*object).typ() == PdfObjType::OBJ_INVALID {
+    if object.is_null() || (*object).is_invalid() {
         panic!("pdf_label_obj(): passed invalid object.");
     }
     /*
@@ -793,7 +839,7 @@ pub(crate) unsafe fn pdf_transfer_label(mut dst: *mut pdf_obj, mut src: *mut pdf
  */
 
 pub(crate) unsafe fn pdf_link_obj(mut object: *mut pdf_obj) -> *mut pdf_obj {
-    if object.is_null() || (*object).typ() == PdfObjType::OBJ_INVALID {
+    if object.is_null() || (*object).is_invalid() {
         panic!("pdf_link_obj(): passed invalid object.");
     }
     (*object).refcount += 1;
@@ -801,7 +847,7 @@ pub(crate) unsafe fn pdf_link_obj(mut object: *mut pdf_obj) -> *mut pdf_obj {
 }
 
 pub(crate) unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
-    if object.is_null() || (*object).typ() == PdfObjType::OBJ_INVALID {
+    if object.is_null() || (*object).is_invalid() {
         panic!("pdf_ref_obj(): passed invalid object.");
     }
     if (*object).refcount == 0_u32 {
@@ -849,7 +895,7 @@ pub(crate) unsafe fn pdf_set_number(object: &mut pdf_obj, value: f64) {
     if let PdfObjVariant::NUMBER(v) = &mut object.data {
         *v = value;
     } else {
-        panic!("pdf_set_number on type {:?}", object.typ());
+        panic!("pdf_set_number on type {:?}", object.data.typ());
     }
 }
 
@@ -1045,7 +1091,7 @@ unsafe fn write_array(array: &Vec<*mut pdf_obj>, handle: &mut OutputHandleWrappe
         let mut type1 = PdfObjType::UNDEFINED;
         for i in 0..array.len() {
             if !array[i as usize].is_null() {
-                let type2 = (*array[i as usize]).typ();
+                let type2 = (*array[i as usize]).data.typ();
                 if type1 != PdfObjType::UNDEFINED && pdf_need_white(type1, type2) {
                     pdf_out_white(handle);
                 }
@@ -1093,7 +1139,7 @@ unsafe fn write_dict(dict: &pdf_dict, handle: &mut OutputHandleWrapper) {
     pdf_out(handle, b"<<");
     for (k, &v) in dict.inner.iter() {
         write_name(k, handle);
-        if pdf_need_white(PdfObjType::NAME, (*v).typ()) {
+        if pdf_need_white(PdfObjType::NAME, (*v).data.typ()) {
             pdf_out_white(handle);
         }
         pdf_write_obj(v, handle);
@@ -1129,7 +1175,7 @@ impl pdf_dict {
     {
         let value = value.into_obj();
         /* It seems that NULL is sometimes used for null object... */
-        if !value.is_null() && (*value).typ() == PdfObjType::OBJ_INVALID {
+        if !value.is_null() && (*value).is_invalid() {
             panic!("pdf_add_dict(): Passed invalid value");
         }
         /* If this key already exists, simply replace the value */
@@ -2029,23 +2075,23 @@ unsafe fn get_decode_parms(parms: &mut decode_parms, dict: &mut pdf_obj) -> libc
     if let Some(tmp) = pdf_deref_obj(dict.as_dict_mut().get_mut("Columns")).as_ref() {
         parms.columns = tmp.as_f64() as i32;
     }
-    if parms.bits_per_component != 1i32
-        && parms.bits_per_component != 2i32
-        && parms.bits_per_component != 4i32
-        && parms.bits_per_component != 8i32
-        && parms.bits_per_component != 16i32
+    if parms.bits_per_component != 1
+        && parms.bits_per_component != 2
+        && parms.bits_per_component != 4
+        && parms.bits_per_component != 8
+        && parms.bits_per_component != 16
     {
         warn!(
             "Invalid BPC value in DecodeParms: {}",
             parms.bits_per_component,
         );
-        return -1i32;
+        return -1;
     } else {
-        if parms.predictor <= 0i32 || parms.colors <= 0i32 || parms.columns <= 0i32 {
-            return -1i32;
+        if parms.predictor <= 0 || parms.colors <= 0 || parms.columns <= 0 {
+            return -1;
         }
     }
-    return 0i32;
+    return 0;
 }
 /* From Xpdf version 3.04
  * I'm not sure if I properly ported... Untested.
@@ -2058,14 +2104,14 @@ unsafe fn filter_row_TIFF2(
 ) -> libc::c_int {
     let p: *const libc::c_uchar = src;
     /* bits_per_component < 8 here */
-    let mask: libc::c_int = (1i32 << parms.bits_per_component) - 1i32; /* 2 bytes buffer */
+    let mask: libc::c_int = (1 << parms.bits_per_component) - 1; /* 2 bytes buffer */
     let col = new((parms.colors as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<libc::c_uchar>() as u64) as u32)
         as *mut libc::c_uchar;
-    memset(col as *mut libc::c_void, 0i32, parms.colors as _);
-    let mut outbuf = 0i32;
+    memset(col as *mut libc::c_void, 0, parms.colors as _);
+    let mut outbuf = 0;
     let mut inbuf = outbuf;
-    let mut outbits = 0i32;
+    let mut outbits = 0;
     let mut inbits = outbits;
     let mut k = 0;
     let mut j = k;
@@ -2074,7 +2120,7 @@ unsafe fn filter_row_TIFF2(
         for ci in 0..parms.colors {
             if inbits < parms.bits_per_component {
                 /* need more byte */
-                inbuf = inbuf << 8i32 | *p.offset(j as isize) as libc::c_int;
+                inbuf = inbuf << 8 | *p.offset(j as isize) as libc::c_int;
                 j += 1;
                 inbits += 8;
             }
@@ -2098,7 +2144,7 @@ unsafe fn filter_row_TIFF2(
         dst[k as usize] = (outbuf << 8 - outbits) as u8
     }
     free(col as *mut libc::c_void);
-    return 0i32;
+    return 0;
 }
 /* This routine is inefficient. Length is typically 4 for Xref streams.
  * Especially, calling pdf_add_stream() for each 4 bytes append is highly
@@ -2397,12 +2443,14 @@ unsafe fn pdf_write_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) 
         return;
     }
     if object.is_null()
-        || (*object).typ() == PdfObjType::OBJ_INVALID
-        || (*object).typ() == PdfObjType::UNDEFINED
+        || matches!(
+            (*object).data,
+            PdfObjVariant::OBJ_INVALID | PdfObjVariant::UNDEFINED
+        )
     {
         panic!(
             "pdf_write_obj: Invalid object, type = {:?}\n",
-            (*object).typ()
+            (*object).data.typ()
         );
     }
     match &mut (*object).data {
@@ -2505,11 +2553,11 @@ pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
     if object.is_null() {
         return;
     }
-    if object.is_null() || (*object).typ() == PdfObjType::OBJ_INVALID || (*object).refcount <= 0 {
+    if object.is_null() || (*object).is_invalid() || (*object).refcount <= 0 {
         info!(
             "\npdf_release_obj: object={:p}, type={:?}, refcount={}\n",
             object,
-            (*object).typ(),
+            (*object).data.typ(),
             (*object).refcount,
         );
         pdf_write_obj(object, ttstub_output_open_stdout().as_mut().unwrap());
@@ -2952,7 +3000,7 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
     if count == 0 {
         panic!("Loop in object hierarchy detected. Broken PDF file?");
     }
-    if !obj.is_null() && (&*obj).typ() == PdfObjType::NULL {
+    if !obj.is_null() && (*obj).is_obj_null() {
         pdf_release_obj(obj);
         ptr::null_mut()
     } else {
@@ -3574,12 +3622,10 @@ pub unsafe fn pdf_open(ident: &str, mut handle: InFile) -> Option<&mut Box<pdf_f
                 return None;
             }
         }
-        if let Some(new_version) =
-            pdf_deref_obj((*pf.catalog).as_dict_mut().get_mut("Version")).as_mut()
-        {
+        if let Some(new_version) = DerefObj::new((*pf.catalog).as_dict_mut().get_mut("Version")) {
             let mut minor: u32 = 0;
-            if new_version.is_name() {
-                let new_version_str = new_version.as_name().to_bytes();
+            if let PdfObjVariant::NAME(n) = &new_version.data {
+                let new_version_str = n.to_bytes();
                 let minor_num_str = if new_version_str.starts_with(b"1.") {
                     std::str::from_utf8(&new_version_str[2..]).unwrap_or("")
                 } else {
@@ -3588,7 +3634,6 @@ pub unsafe fn pdf_open(ident: &str, mut handle: InFile) -> Option<&mut Box<pdf_f
                 if let Ok(minor_) = minor_num_str.parse::<u32>() {
                     minor = minor_;
                 } else {
-                    pdf_release_obj(new_version);
                     warn!("Illegal Version entry in document catalog. Broken PDF file?");
                     return None;
                 }
@@ -3596,7 +3641,6 @@ pub unsafe fn pdf_open(ident: &str, mut handle: InFile) -> Option<&mut Box<pdf_f
             if pf.version < minor {
                 pf.version = minor
             }
-            pdf_release_obj(new_version);
         }
         pdf_files.insert(ident.as_bytes().to_owned(), pf);
         pdf_files.get_mut(ident.as_bytes())
