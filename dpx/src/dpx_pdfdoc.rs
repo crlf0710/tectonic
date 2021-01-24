@@ -740,8 +740,7 @@ unsafe fn pdf_doc_close_page_tree(p: &mut pdf_doc) {
 
 pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
     let catalog = pdf_file_get_catalog(pf);
-    // TODO: check `page_tree` release
-    if let Some(page_tree) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages")).as_mut() {
+    if let Some(mut page_tree) = DerefObj::new((*catalog).as_dict_mut().get_mut("Pages")) {
         if let PdfObjVariant::DICT(page_tree) = &mut page_tree.data {
             if let Some(tmp) = DerefObj::new(page_tree.get_mut("Count")) {
                 if let PdfObjVariant::NUMBER(count) = tmp.data {
