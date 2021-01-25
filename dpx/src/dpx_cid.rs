@@ -43,7 +43,8 @@ use super::dpx_cidtype2::{
 };
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_remove_dict,
+    pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_remove_dict, PdfObjVariant,
 };
 use libc::free;
 use std::borrow::Cow;
@@ -604,44 +605,48 @@ unsafe fn CIDFont_base_open(
         ordering: ordering.into(),
         supplement,
     }));
-    let tmp = fontdict
-        .get("Subtype")
-        .filter(|&tmp| (*tmp).is_name())
-        .unwrap();
-    let typ = (*tmp).as_name().to_bytes();
-    let subtype = if typ == b"CIDFontType0" {
-        1
-    } else if typ == b"CIDFontType2" {
-        2
+    if let Some(tmp) = fontdict.get("Subtype") {
+        if let PdfObjVariant::NAME(typ) = &(*tmp).data {
+            let typ = typ.to_bytes();
+            let subtype = if typ == b"CIDFontType0" {
+                1
+            } else if typ == b"CIDFontType2" {
+                2
+            } else {
+                panic!("Unknown CIDFontType \"{}\"", typ.display());
+            };
+            if cidoptflags & 1i32 << 1i32 != 0 {
+                if fontdict.has("W") {
+                    pdf_remove_dict(&mut fontdict, "W");
+                }
+                if fontdict.has("W2") {
+                    pdf_remove_dict(&mut fontdict, "W2");
+                }
+            }
+            fontdict.set("Type", "Font");
+            fontdict.set("BaseFont", pdf_name::new(fontname.as_bytes()));
+            descriptor.set("Type", "FontDescriptor");
+            descriptor.set("FontName", pdf_name::new(fontname.as_bytes()));
+            (*opt).embed = 0i32;
+            Some(Box::new(CIDFont {
+                ident: name.to_string(),
+                name: name.to_string(),
+                fontname,
+                subtype,
+                flags: 1i32 << 0i32,
+                parent: [-1, -1],
+                csi,
+                options: opt,
+                indirect: ptr::null_mut(),
+                fontdict: fontdict.into_obj(),
+                descriptor: descriptor.into_obj(),
+            }))
+        } else {
+            panic!();
+        }
     } else {
-        panic!("Unknown CIDFontType \"{}\"", typ.display());
-    };
-    if cidoptflags & 1i32 << 1i32 != 0 {
-        if fontdict.has("W") {
-            pdf_remove_dict(&mut fontdict, "W");
-        }
-        if fontdict.has("W2") {
-            pdf_remove_dict(&mut fontdict, "W2");
-        }
+        panic!();
     }
-    fontdict.set("Type", "Font");
-    fontdict.set("BaseFont", pdf_name::new(fontname.as_bytes()));
-    descriptor.set("Type", "FontDescriptor");
-    descriptor.set("FontName", pdf_name::new(fontname.as_bytes()));
-    (*opt).embed = 0i32;
-    Some(Box::new(CIDFont {
-        ident: name.to_string(),
-        name: name.to_string(),
-        fontname,
-        subtype,
-        flags: 1i32 << 0i32,
-        parent: [-1, -1],
-        csi,
-        options: opt,
-        indirect: ptr::null_mut(),
-        fontdict: fontdict.into_obj(),
-        descriptor: descriptor.into_obj(),
-    }))
 }
 
 // Note: The elements are boxed to be able

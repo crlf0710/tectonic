@@ -478,54 +478,50 @@ unsafe fn is_fontdict(dict: &PdfObjVariant) -> bool {
     if !dict.is_dict() {
         return false;
     }
-    let tmp = dict
-        .as_dict()
-        .get("Type")
-        .filter(|&tmp| (*tmp).is_name() && (*tmp).as_name().to_bytes() == b"Font");
-    if tmp.is_none() {
-        return false;
+    if let Some(typ) = dict.as_dict().get("Type") {
+        if matches!(&typ.data, PdfObjVariant::NAME(typ) if typ.to_bytes() == b"Font") {
+            if let Some(name) = dict.as_dict().get("FontName") {
+                if let PdfObjVariant::NAME(_) = name.data {
+                    if let Some(scale) = dict.as_dict().get("FontScale") {
+                        return matches!(scale.data, PdfObjVariant::NUMBER(_));
+                    }
+                }
+            }
+        }
     }
-    let tmp = dict
-        .as_dict()
-        .get("FontName")
-        .filter(|&tmp| (*tmp).is_name());
-    if tmp.is_none() {
-        return false;
-    }
-    dict.as_dict()
-        .get("FontScale")
-        .filter(|&tmp| (*tmp).is_number())
-        .is_some()
+    false
 }
 unsafe fn do_findfont() -> i32 {
-    let mut error: i32 = 0i32;
+    let mut error = 0;
     if let Some(font_name) = STACK.pop() {
-        if font_name.is_string() || font_name.is_name() {
-            /* Do not check the existence...
-             * The reason for this is that we cannot locate PK font without
-             * font scale.
-             */
-            let mut font_dict = pdf_dict::new();
-            font_dict.set("Type", "Font");
-            if font_name.is_string() {
-                font_dict.set(
-                    "FontName",
-                    pdf_name::new(font_name.as_string().to_bytes_without_nul()),
-                );
-            } else {
-                font_dict.set("FontName", font_name);
+        match &font_name {
+            PdfObjVariant::STRING(_) | PdfObjVariant::NAME(_) => {
+                /* Do not check the existence...
+                 * The reason for this is that we cannot locate PK font without
+                 * font scale.
+                 */
+                let mut font_dict = pdf_dict::new();
+                font_dict.set("Type", "Font");
+                match &font_name {
+                    PdfObjVariant::STRING(font_name) => {
+                        font_dict.set("FontName", pdf_name::new(font_name.to_bytes_without_nul()));
+                    }
+                    PdfObjVariant::NAME(_) => {
+                        font_dict.set("FontName", font_name);
+                    }
+                    _ => unreachable!(),
+                }
+                font_dict.set("FontScale", 1_f64);
+                let font_dict = font_dict.into_obj();
+                if STACK.push_checked(font_dict).is_err() {
+                    pdf_release_obj(font_dict);
+                    error = 1
+                }
             }
-            font_dict.set("FontScale", 1_f64);
-            let font_dict = font_dict.into_obj();
-            if STACK.push_checked(font_dict).is_err() {
-                pdf_release_obj(font_dict);
-                error = 1i32
-            }
-        } else {
-            error = 1i32
+            _ => error = 1,
         }
     } else {
-        return 1i32;
+        return 1;
     }
     error
 }
@@ -606,66 +602,67 @@ unsafe fn do_show() -> i32 {
         return 1i32;
     }
     pdf_dev_currentpoint(&mut cp);
-    let text_str = STACK.pop();
-    if text_str.is_none() {
-        return 1i32;
-    }
-    let text_str = text_str.unwrap();
-    if !text_str.is_string() {
-        return 1i32;
-    }
-    if (*font).font_id < 0i32 {
-        warn!("mpost: not set.");
-        return 1i32;
-    }
-    let text = text_str.as_string().to_bytes();
-    if (*font).tfm_id < 0i32 {
-        warn!("mpost: TFM not found for \"{}\".", (*font).font_name);
-        warn!("mpost: Text width not calculated...");
-    }
-    let mut text_width = 0_f64;
-    if (*font).subfont_id >= 0i32 {
-        let mut ustr = Vec::with_capacity(text.len() * 2);
-        for i in 0..text.len() {
-            let uch = lookup_sfd_record((*font).subfont_id, text[i]);
-            ustr.push((uch as i32 >> 8) as u8);
-            ustr.push((uch as i32 & 0xff) as u8);
-            if (*font).tfm_id >= 0 {
-                text_width += tfm_get_width((*font).tfm_id, text[i] as i32)
+    if let Some(text) = STACK.pop() {
+        if let PdfObjVariant::STRING(text) = &text {
+            if (*font).font_id < 0 {
+                warn!("mpost: not set.");
+                return 1i32;
             }
+            let text = text.to_bytes();
+            if (*font).tfm_id < 0 {
+                warn!("mpost: TFM not found for \"{}\".", (*font).font_name);
+                warn!("mpost: Text width not calculated...");
+            }
+            let mut text_width = 0_f64;
+            if (*font).subfont_id >= 0 {
+                let mut ustr = Vec::with_capacity(text.len() * 2);
+                for i in 0..text.len() {
+                    let uch = lookup_sfd_record((*font).subfont_id, text[i]);
+                    ustr.push((uch as i32 >> 8) as u8);
+                    ustr.push((uch as i32 & 0xff) as u8);
+                    if (*font).tfm_id >= 0 {
+                        text_width += tfm_get_width((*font).tfm_id, text[i] as i32)
+                    }
+                }
+                text_width *= (*font).pt_size;
+                pdf_dev_set_string(
+                    (cp.x * dev_unit_dviunit()) as spt_t,
+                    (cp.y * dev_unit_dviunit()) as spt_t,
+                    ustr.as_ptr() as *const libc::c_void,
+                    ustr.len() as size_t,
+                    (text_width * dev_unit_dviunit()) as spt_t,
+                    (*font).font_id,
+                    0i32,
+                );
+            } else {
+                if (*font).tfm_id >= 0i32 {
+                    text_width =
+                        tfm_string_width((*font).tfm_id, text) as f64 / (1i32 << 20i32) as f64;
+                    text_width *= (*font).pt_size
+                }
+                pdf_dev_set_string(
+                    (cp.x * dev_unit_dviunit()) as spt_t,
+                    (cp.y * dev_unit_dviunit()) as spt_t,
+                    text.as_ptr() as *const libc::c_void,
+                    text.len() as size_t,
+                    (text_width * dev_unit_dviunit()) as spt_t,
+                    (*font).font_id,
+                    0i32,
+                );
+            }
+            if pdf_dev_get_font_wmode((*font).font_id) != 0 {
+                pdf_dev_rmoveto(0.0f64, -text_width);
+            } else {
+                pdf_dev_rmoveto(text_width, 0.0f64);
+            }
+            graphics_mode();
+            0
+        } else {
+            -1
         }
-        text_width *= (*font).pt_size;
-        pdf_dev_set_string(
-            (cp.x * dev_unit_dviunit()) as spt_t,
-            (cp.y * dev_unit_dviunit()) as spt_t,
-            ustr.as_ptr() as *const libc::c_void,
-            ustr.len() as size_t,
-            (text_width * dev_unit_dviunit()) as spt_t,
-            (*font).font_id,
-            0i32,
-        );
     } else {
-        if (*font).tfm_id >= 0i32 {
-            text_width = tfm_string_width((*font).tfm_id, text) as f64 / (1i32 << 20i32) as f64;
-            text_width *= (*font).pt_size
-        }
-        pdf_dev_set_string(
-            (cp.x * dev_unit_dviunit()) as spt_t,
-            (cp.y * dev_unit_dviunit()) as spt_t,
-            text.as_ptr() as *const libc::c_void,
-            text.len() as size_t,
-            (text_width * dev_unit_dviunit()) as spt_t,
-            (*font).font_id,
-            0i32,
-        );
+        -1
     }
-    if pdf_dev_get_font_wmode((*font).font_id) != 0 {
-        pdf_dev_rmoveto(0.0f64, -text_width);
-    } else {
-        pdf_dev_rmoveto(text_width, 0.0f64);
-    }
-    graphics_mode();
-    0i32
 }
 unsafe fn do_mpost_bind_def(ps_code: *const i8, x_user: f64, y_user: f64) -> i32 {
     let mut start = CStr::from_ptr(ps_code).to_bytes();

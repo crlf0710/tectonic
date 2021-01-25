@@ -30,7 +30,6 @@ use euclid::point2;
 
 use crate::bridge::DisplayExt;
 use crate::mfree;
-use crate::streq_ptr;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -432,13 +431,15 @@ unsafe fn pdf_doc_close_docinfo(p: &mut pdf_doc) {
     ];
     for key in KEYS.iter() {
         if let Some(value) = docinfo.as_dict().get(*key) {
-            if !value.is_string() {
+            if let PdfObjVariant::STRING(value) = &value.data {
+                if value.len() == 0 {
+                    /* The hyperref package often uses emtpy strings. */
+                    pdf_remove_dict(docinfo.as_dict_mut(), key);
+                }
+            } else {
                 warn!("\"{}\" in DocInfo dictionary not string type.", key);
                 pdf_remove_dict(docinfo.as_dict_mut(), key);
                 warn!("\"{}\" removed from DocInfo.", key);
-            } else if value.as_string().len() == 0 {
-                /* The hyperref package often uses emtpy strings. */
-                pdf_remove_dict(docinfo.as_dict_mut(), key);
             }
         }
     }
@@ -1437,15 +1438,11 @@ unsafe fn pdf_doc_init_names(p: &mut pdf_doc, check_gotos: i32) {
     );
 }
 
-pub(crate) unsafe fn pdf_doc_add_names(
-    category: *const i8,
-    key: &[u8],
-    value: *mut pdf_obj,
-) -> i32 {
+pub(crate) unsafe fn pdf_doc_add_names(category: &[u8], key: &[u8], value: *mut pdf_obj) -> i32 {
     let p = &mut pdoc;
     let mut i = 0;
     while !(*p.names.offset(i as isize)).category.is_null() {
-        if streq_ptr((*p.names.offset(i as isize)).category, category) {
+        if CStr::from_ptr((*p.names.offset(i as isize)).category).to_bytes() == category {
             break;
         }
         i += 1;
@@ -1453,7 +1450,7 @@ pub(crate) unsafe fn pdf_doc_add_names(
     if (*p.names.offset(i as isize)).category.is_null() {
         warn!(
             "Unknown name dictionary category \"{}\".",
-            CStr::from_ptr(category).display()
+            category.display()
         );
         return -1i32;
     }

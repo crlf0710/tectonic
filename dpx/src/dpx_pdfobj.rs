@@ -131,12 +131,6 @@ impl PdfObjVariant {
     pub(crate) fn is_number(&self) -> bool {
         matches!(self, Self::NUMBER(_))
     }
-    pub(crate) fn is_string(&self) -> bool {
-        matches!(self, Self::STRING(_))
-    }
-    pub(crate) fn is_name(&self) -> bool {
-        matches!(self, Self::NAME(_))
-    }
     pub(crate) fn is_array(&self) -> bool {
         matches!(self, Self::ARRAY(_))
     }
@@ -2422,15 +2416,15 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
                 }
             }
             let mut filter = stream_dict.get("Filter").unwrap();
-            if (*filter).is_array() {
-                if (*filter).as_array().len() > 1 {
+            if let PdfObjVariant::ARRAY(filter_array) = &(*filter).data {
+                if filter_array.len() > 1 {
                     warn!("Multiple DecodeFilter not supported.");
                     return -1;
                 }
-                filter = &**(*filter).as_array().get(0).expect("Broken PDF file?");
+                filter = &**filter_array.get(0).expect("Broken PDF file?");
             }
-            if (*filter).is_name() {
-                let filter_name = (*filter).as_name().to_bytes();
+            if let PdfObjVariant::NAME(filter_name) = &(*filter).data {
+                let filter_name = filter_name.to_bytes();
                 if filter_name == b"FlateDecode" {
                     if have_parms != 0 {
                         error = pdf_add_stream_flate_filtered(dst, stream_data, &mut parms)
@@ -2836,60 +2830,66 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
             objstm = tmp;
             let dict = (*objstm).as_stream().get_dict();
             let typ = dict.get("Type").unwrap();
-            if !(!typ.is_name() || typ.as_name().to_bytes() != b"ObjStm") {
-                if let Some(n_obj) = dict.get("N").filter(|&no| (*no).is_number()) {
-                    let n = n_obj.as_f64() as i32;
-                    if let Some(first_obj) = dict.get("First").filter(|&fo| (*fo).is_number()) {
-                        let first = first_obj.as_f64() as i32;
-                        /* reject object streams without object data */
-                        if !(first >= (*objstm).as_stream().len() as i32) {
-                            let mut header = new(((2 * (n + 1)) as u32 as u64)
-                                .wrapping_mul(::std::mem::size_of::<i32>() as u64)
-                                as u32) as *mut i32;
-                            set_objstm_data(&mut *objstm, header);
-                            *header = n;
-                            header = header.offset(1);
-                            *header = first;
-                            header = header.offset(1);
-                            /* avoid parsing beyond offset table */
-                            data = new(((first + 1) as u32 as u64)
-                                .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-                                as u32) as *mut i8;
-                            libc::memcpy(
-                                data as *mut libc::c_void,
-                                pdf_stream_dataptr(&*objstm),
-                                first as usize,
-                            );
-                            *data.offset(first as isize) = 0_i8;
-                            let mut p = data as *const i8;
-                            let endptr = p.offset(first as isize);
-                            let mut i = 2 * n;
-                            loop {
-                                let fresh22 = i;
-                                i = i - 1;
-                                if !(fresh22 != 0) {
-                                    current_block = 3275366147856559585;
-                                    break;
-                                }
-                                *header = strtoul(p, &mut q, 10) as i32;
-                                header = header.offset(1);
-                                if q == p as *mut i8 {
-                                    current_block = 13429587009686472387;
-                                    break;
-                                }
-                                p = q
-                            }
-                            match current_block {
-                                13429587009686472387 => {}
-                                _ => {
-                                    /* Any garbage after last entry? */
-                                    skip_white(&mut p, endptr);
-                                    if !(p != endptr) {
-                                        free(data as *mut libc::c_void);
-                                        let ref mut fresh24 =
-                                            (*(*pf).xref_table.offset(num as isize)).direct;
-                                        *fresh24 = objstm;
-                                        return *fresh24;
+            if matches!(&typ.data, PdfObjVariant::NAME(name) if name.to_bytes() == b"ObjStm") {
+                if let Some(n_obj) = dict.get("N") {
+                    if let PdfObjVariant::NUMBER(n) = n_obj.data {
+                        let n = n as i32;
+                        if let Some(first_obj) = dict.get("First") {
+                            if let PdfObjVariant::NUMBER(first) = first_obj.data {
+                                let first = first as i32;
+                                /* reject object streams without object data */
+                                if !(first >= (*objstm).as_stream().len() as i32) {
+                                    let mut header = new(((2 * (n + 1)) as u32 as u64)
+                                        .wrapping_mul(::std::mem::size_of::<i32>() as u64)
+                                        as u32)
+                                        as *mut i32;
+                                    set_objstm_data(&mut *objstm, header);
+                                    *header = n;
+                                    header = header.offset(1);
+                                    *header = first;
+                                    header = header.offset(1);
+                                    /* avoid parsing beyond offset table */
+                                    data = new(((first + 1) as u32 as u64)
+                                        .wrapping_mul(::std::mem::size_of::<i8>() as u64)
+                                        as u32)
+                                        as *mut i8;
+                                    libc::memcpy(
+                                        data as *mut libc::c_void,
+                                        pdf_stream_dataptr(&*objstm),
+                                        first as usize,
+                                    );
+                                    *data.offset(first as isize) = 0_i8;
+                                    let mut p = data as *const i8;
+                                    let endptr = p.offset(first as isize);
+                                    let mut i = 2 * n;
+                                    loop {
+                                        let fresh22 = i;
+                                        i = i - 1;
+                                        if !(fresh22 != 0) {
+                                            current_block = 3275366147856559585;
+                                            break;
+                                        }
+                                        *header = strtoul(p, &mut q, 10) as i32;
+                                        header = header.offset(1);
+                                        if q == p as *mut i8 {
+                                            current_block = 13429587009686472387;
+                                            break;
+                                        }
+                                        p = q
+                                    }
+                                    match current_block {
+                                        13429587009686472387 => {}
+                                        _ => {
+                                            /* Any garbage after last entry? */
+                                            skip_white(&mut p, endptr);
+                                            if !(p != endptr) {
+                                                free(data as *mut libc::c_void);
+                                                let ref mut fresh24 =
+                                                    (*(*pf).xref_table.offset(num as isize)).direct;
+                                                *fresh24 = objstm;
+                                                return *fresh24;
+                                            }
+                                        }
                                     }
                                 }
                             }

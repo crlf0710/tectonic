@@ -42,7 +42,8 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string, IntoObj,
+    pdf_dict, pdf_get_version, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
+    IntoObj, PdfObjVariant,
 };
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
@@ -614,11 +615,8 @@ unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: &mut pdf_obj, tp: &mut spc_tpic
     let mut error: i32 = 0i32;
     let k = kp.to_bytes();
     if k == b"fill-mode" {
-        if !vp.is_string() {
-            warn!("Invalid value for TPIC option fill-mode...");
-            error = -1i32
-        } else {
-            let v = vp.as_string().to_bytes();
+        if let PdfObjVariant::STRING(v) = &vp.data {
+            let v = v.to_bytes();
             match v {
                 b"shape" => tp.mode.fill = 2,
                 b"opacity" => tp.mode.fill = 1,
@@ -628,6 +626,9 @@ unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: &mut pdf_obj, tp: &mut spc_tpic
                     error = -1;
                 }
             }
+        } else {
+            warn!("Invalid value for TPIC option fill-mode...");
+            error = -1
         }
     } else {
         warn!(

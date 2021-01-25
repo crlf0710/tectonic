@@ -324,11 +324,7 @@ unsafe fn html_open_dest(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
     array.push(pdf_new_null());
     array.push_obj(cp.y + 24.);
     array.push(pdf_new_null());
-    let error = pdf_doc_add_names(
-        b"Dests\x00" as *const u8 as *const i8,
-        name,
-        array.into_obj(),
-    );
+    let error = pdf_doc_add_names(b"Dests", name, array.into_obj());
     if error != 0 {
         spc_warn!(spe, "Failed to add named destination: {}", name.display());
     }
