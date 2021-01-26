@@ -454,16 +454,14 @@ unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
 }
 unsafe fn cvr_array(array: PdfObjVariant, values: &mut [f64]) -> i32 {
     let mut count = values.len();
-    if !array.is_array() {
-        warn!("mpost: Not an array!");
-    } else {
+    if let PdfObjVariant::ARRAY(array) = array {
         loop {
             let fresh2 = count;
             count -= 1;
             if !(fresh2 > 0) {
                 break;
             }
-            let tmp = array.as_array()[count];
+            let tmp = array[count];
             if !(*tmp).is_number() {
                 warn!("mpost: Not a number!");
                 break;
@@ -471,6 +469,8 @@ unsafe fn cvr_array(array: PdfObjVariant, values: &mut [f64]) -> i32 {
                 values[count] = (*tmp).as_f64()
             }
         }
+    } else {
+        warn!("mpost: Not an array!");
     }
     (count + 1) as i32
 }
@@ -953,17 +953,15 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                 let mut dash_values: [f64; 16] = [0.; 16];
                 let offset = values[0];
                 if let Some(pattern) = STACK.pop() {
-                    if !pattern.is_array() {
-                        error = 1
-                    } else {
-                        num_dashes = pattern.as_array().len() as usize;
+                    if let PdfObjVariant::ARRAY(pattern) = pattern {
+                        num_dashes = pattern.len();
                         if num_dashes > 16 {
                             warn!("Too many dashes...");
                             error = 1i32
                         } else {
                             let mut i = 0;
                             while i < num_dashes && error == 0 {
-                                let dash = pattern.as_array()[i];
+                                let dash = pattern[i];
                                 if !(*dash).is_number() {
                                     error = 1i32
                                 } else {
@@ -975,6 +973,8 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                                 error = pdf_dev_setdash(&dash_values[..num_dashes], offset)
                             }
                         }
+                    } else {
+                        error = 1
                     }
                 } else {
                     error = 1;
@@ -1056,7 +1056,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             let mut values = [0.; 6];
             let mut matrix = None;
             if let Some(tmp2) = STACK.pop() {
-                if tmp2.is_array() {
+                if let PdfObjVariant::ARRAY(_) = &tmp2 {
                     error = cvr_array(tmp2, values.as_mut());
                     tmp = None;
                     if error == 0 {
@@ -1095,7 +1095,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             let mut matrix = None;
             let mut values = [0.; 6];
             if let Some(tmp2) = STACK.pop() {
-                if tmp2.is_array() {
+                if let PdfObjVariant::ARRAY(_) = &tmp2 {
                     error = cvr_array(tmp2, values.as_mut());
                     tmp = None;
                     if error == 0 {

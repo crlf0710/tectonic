@@ -131,14 +131,8 @@ impl PdfObjVariant {
     pub(crate) fn is_number(&self) -> bool {
         matches!(self, Self::NUMBER(_))
     }
-    pub(crate) fn is_array(&self) -> bool {
-        matches!(self, Self::ARRAY(_))
-    }
     pub(crate) fn is_dict(&self) -> bool {
         matches!(self, Self::DICT(_))
-    }
-    pub(crate) fn is_stream(&self) -> bool {
-        matches!(self, Self::STREAM(_))
     }
     pub(crate) fn is_indirect(&self) -> bool {
         matches!(self, Self::INDIRECT(_))
@@ -2385,21 +2379,23 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
             if stream_dict.has("DecodeParms") {
                 /* Dictionary or array */
                 let tmp = pdf_deref_obj(stream_dict.get_mut("DecodeParms"));
-                let tmp = match tmp.as_mut() {
-                    Some(tmp) if tmp.is_array() => {
-                        if tmp.as_array().len() > 1 {
+                let tmp = if let Some(tmp) = tmp.as_mut() {
+                    if let PdfObjVariant::ARRAY(array) = &mut tmp.data {
+                        if array.len() > 1 {
                             warn!("Unexpected size for DecodeParms array.");
                             return -1;
                         }
 
-                        let array = tmp.as_array_mut();
                         if !array.is_empty() {
                             pdf_deref_obj(Some(&mut *array[0]))
                         } else {
                             0 as *mut pdf_obj
                         }
+                    } else {
+                        tmp
                     }
-                    _ => tmp,
+                } else {
+                    tmp
                 };
                 match tmp.as_mut() {
                     Some(tmp) if tmp.is_dict() => {
@@ -2445,13 +2441,12 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
     /* HAVE_ZLIB */
     error
 }
-unsafe fn pdf_stream_uncompress(src: &mut pdf_obj) -> *mut pdf_obj {
+unsafe fn pdf_stream_uncompress(src: &mut pdf_stream) -> pdf_stream {
     let mut dst = pdf_stream::new(0);
-    assert!(src.is_stream());
-    dst.get_dict_mut().merge(src.as_stream().get_dict());
+    dst.get_dict_mut().merge(src.get_dict());
     pdf_remove_dict(dst.get_dict_obj().as_dict_mut(), "Length");
-    pdf_concat_stream(&mut dst, src.as_stream_mut());
-    dst.into_obj()
+    pdf_concat_stream(&mut dst, src);
+    dst
 }
 unsafe fn pdf_write_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) {
     if object.is_null() {
@@ -2520,7 +2515,7 @@ unsafe fn pdf_flush_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) 
     pdf_out(handle, b"\nendobj\n");
 }
 unsafe fn pdf_add_objstm(objstm: &mut pdf_obj, object: &mut pdf_obj) -> i32 {
-    assert!(objstm.is_stream());
+    assert!(matches!(objstm.data, PdfObjVariant::STREAM(_)));
     let data = get_objstm_data(objstm);
     let ref mut fresh15 = *data.offset(0);
     *fresh15 += 1;
@@ -2773,10 +2768,10 @@ unsafe fn pdf_read_object(
     pf: *mut pdf_file,
     offset: i32,
     limit: i32,
-) -> *mut pdf_obj {
+) -> Option<*mut pdf_obj> {
     let length = (limit - offset) as usize;
     if length <= 0 {
-        return ptr::null_mut();
+        return None;
     }
     let mut buffer = vec![0u8; length + 1];
     (*pf).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
@@ -2787,31 +2782,33 @@ unsafe fn pdf_read_object(
     q.skip_white();
     let sp = q.parse_unsigned();
     if sp.is_none() {
-        return ptr::null_mut();
+        return None;
     }
     let n = sp.unwrap().to_str().unwrap().parse::<u32>().unwrap();
     q.skip_white();
     let sp = q.parse_unsigned();
     if sp.is_none() {
-        return ptr::null_mut();
+        return None;
     }
     let g = sp.unwrap().to_str().unwrap().parse::<u32>().unwrap();
     if obj_num != 0 && (n != obj_num || g != obj_gen as u32) {
-        return ptr::null_mut();
+        return None;
     }
     let mut p = q;
     p.skip_white();
     if !p.starts_with(b"obj") {
         warn!("Didn\'t find \"obj\".");
-        return ptr::null_mut();
+        return None;
     }
     p = &p[b"obj".len()..];
-    let result = p.parse_pdf_object(pf).unwrap_or(ptr::null_mut());
+    let result = p.parse_pdf_object(pf);
     p.skip_white();
     if !p.starts_with(b"endobj") {
         warn!("Didn\'t find \"endobj\".");
-        pdf_release_obj(result);
-        ptr::null_mut()
+        if let Some(res) = result {
+            pdf_release_obj(res);
+        }
+        None
     } else {
         result
     }
@@ -2822,72 +2819,74 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
     let limit: i32 = next_object_offset(pf, num);
     let mut data: *mut i8 = ptr::null_mut();
     let mut q: *mut i8 = ptr::null_mut();
-    let mut objstm = pdf_read_object(num, gen, pf, offset as i32, limit);
-    if !objstm.is_null() && (*objstm).is_stream() {
-        let tmp: *mut pdf_obj = pdf_stream_uncompress(&mut *objstm);
-        if !tmp.is_null() {
-            pdf_release_obj(objstm);
-            objstm = tmp;
-            let dict = (*objstm).as_stream().get_dict();
-            let typ = dict.get("Type").unwrap();
-            if matches!(&typ.data, PdfObjVariant::NAME(name) if name.to_bytes() == b"ObjStm") {
-                if let Some(n_obj) = dict.get("N") {
-                    if let PdfObjVariant::NUMBER(n) = n_obj.data {
-                        let n = n as i32;
-                        if let Some(first_obj) = dict.get("First") {
-                            if let PdfObjVariant::NUMBER(first) = first_obj.data {
-                                let first = first as i32;
-                                /* reject object streams without object data */
-                                if !(first >= (*objstm).as_stream().len() as i32) {
-                                    let mut header = new(((2 * (n + 1)) as u32 as u64)
-                                        .wrapping_mul(::std::mem::size_of::<i32>() as u64)
-                                        as u32)
-                                        as *mut i32;
-                                    set_objstm_data(&mut *objstm, header);
-                                    *header = n;
-                                    header = header.offset(1);
-                                    *header = first;
-                                    header = header.offset(1);
-                                    /* avoid parsing beyond offset table */
-                                    data = new(((first + 1) as u32 as u64)
-                                        .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-                                        as u32)
-                                        as *mut i8;
-                                    libc::memcpy(
-                                        data as *mut libc::c_void,
-                                        pdf_stream_dataptr(&*objstm),
-                                        first as usize,
-                                    );
-                                    *data.offset(first as isize) = 0_i8;
-                                    let mut p = data as *const i8;
-                                    let endptr = p.offset(first as isize);
-                                    let mut i = 2 * n;
-                                    loop {
-                                        let fresh22 = i;
-                                        i = i - 1;
-                                        if !(fresh22 != 0) {
-                                            current_block = 3275366147856559585;
-                                            break;
-                                        }
-                                        *header = strtoul(p, &mut q, 10) as i32;
+    if let Some(mut objstm) = pdf_read_object(num, gen, pf, offset as i32, limit) {
+        if let PdfObjVariant::STREAM(stream) = &mut (*objstm).data {
+            let tmp: *mut pdf_obj = pdf_stream_uncompress(stream).into_obj();
+            if !tmp.is_null() {
+                pdf_release_obj(objstm);
+                objstm = tmp;
+                let dict = (*objstm).as_stream().get_dict();
+                let typ = dict.get("Type").unwrap();
+                if matches!(&typ.data, PdfObjVariant::NAME(name) if name.to_bytes() == b"ObjStm") {
+                    if let Some(n_obj) = dict.get("N") {
+                        if let PdfObjVariant::NUMBER(n) = n_obj.data {
+                            let n = n as i32;
+                            if let Some(first_obj) = dict.get("First") {
+                                if let PdfObjVariant::NUMBER(first) = first_obj.data {
+                                    let first = first as i32;
+                                    /* reject object streams without object data */
+                                    if !(first >= (*objstm).as_stream().len() as i32) {
+                                        let mut header = new(((2 * (n + 1)) as u32 as u64)
+                                            .wrapping_mul(::std::mem::size_of::<i32>() as u64)
+                                            as u32)
+                                            as *mut i32;
+                                        set_objstm_data(&mut *objstm, header);
+                                        *header = n;
                                         header = header.offset(1);
-                                        if q == p as *mut i8 {
-                                            current_block = 13429587009686472387;
-                                            break;
+                                        *header = first;
+                                        header = header.offset(1);
+                                        /* avoid parsing beyond offset table */
+                                        data = new(((first + 1) as u32 as u64)
+                                            .wrapping_mul(::std::mem::size_of::<i8>() as u64)
+                                            as u32)
+                                            as *mut i8;
+                                        libc::memcpy(
+                                            data as *mut libc::c_void,
+                                            pdf_stream_dataptr(&*objstm),
+                                            first as usize,
+                                        );
+                                        *data.offset(first as isize) = 0_i8;
+                                        let mut p = data as *const i8;
+                                        let endptr = p.offset(first as isize);
+                                        let mut i = 2 * n;
+                                        loop {
+                                            let fresh22 = i;
+                                            i = i - 1;
+                                            if !(fresh22 != 0) {
+                                                current_block = 3275366147856559585;
+                                                break;
+                                            }
+                                            *header = strtoul(p, &mut q, 10) as i32;
+                                            header = header.offset(1);
+                                            if q == p as *mut i8 {
+                                                current_block = 13429587009686472387;
+                                                break;
+                                            }
+                                            p = q
                                         }
-                                        p = q
-                                    }
-                                    match current_block {
-                                        13429587009686472387 => {}
-                                        _ => {
-                                            /* Any garbage after last entry? */
-                                            skip_white(&mut p, endptr);
-                                            if !(p != endptr) {
-                                                free(data as *mut libc::c_void);
-                                                let ref mut fresh24 =
-                                                    (*(*pf).xref_table.offset(num as isize)).direct;
-                                                *fresh24 = objstm;
-                                                return *fresh24;
+                                        match current_block {
+                                            13429587009686472387 => {}
+                                            _ => {
+                                                /* Any garbage after last entry? */
+                                                skip_white(&mut p, endptr);
+                                                if !(p != endptr) {
+                                                    free(data as *mut libc::c_void);
+                                                    let ref mut fresh24 =
+                                                        (*(*pf).xref_table.offset(num as isize))
+                                                            .direct;
+                                                    *fresh24 = objstm;
+                                                    return *fresh24;
+                                                }
                                             }
                                         }
                                     }
@@ -2897,11 +2896,11 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                     }
                 }
             }
+            pdf_release_obj(objstm);
         }
     }
     warn!("Cannot parse object stream.");
     free(data as *mut libc::c_void);
-    pdf_release_obj(objstm);
     ptr::null_mut()
 }
 /* Label without corresponding object definition are replaced by the
@@ -2931,7 +2930,7 @@ unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
         /* type == 1 */
         let offset = (*pf.xref_table.offset(obj_num as isize)).id.0;
         let limit = next_object_offset(pf, obj_num);
-        result = Some(pdf_read_object(obj_num, obj_gen, pf, offset as i32, limit))
+        result = pdf_read_object(obj_num, obj_gen, pf, offset as i32, limit);
     } else {
         /* type == 2 */
         let (objstm_num, index) = (*pf.xref_table.offset(obj_num as isize)).id;
@@ -3300,120 +3299,119 @@ unsafe fn parse_xrefstm_subsec(
     0
 }
 unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut pdf_obj) -> i32 {
-    let mut current_block: u64;
     let mut W: [i32; 3] = [0; 3];
     let mut wsum: i32 = 0;
-    let mut xrefstm = pdf_read_object(0_u32, 0_u16, pf, xref_pos, pf.file_size);
-    if !xrefstm.is_null() && (*xrefstm).is_stream() {
-        let tmp: *mut pdf_obj = pdf_stream_uncompress(&mut *xrefstm);
-        if !tmp.is_null() {
-            pdf_release_obj(xrefstm);
-            xrefstm = tmp;
-            *trailer = pdf_link_obj((*xrefstm).as_stream_mut().get_dict_obj());
-            if let Some(size_obj) = (**trailer)
-                .as_dict()
-                .get("Size")
-                .filter(|&so| (*so).is_number())
-            {
-                let size = size_obj.as_f64() as u32;
-                let mut length = (*xrefstm).as_stream().len() as i32;
-                let W_obj = (**trailer).as_dict().get("W").unwrap();
-                if !(!W_obj.is_array() || W_obj.as_array().len() != 3) {
-                    let mut i = 0;
-                    loop {
-                        if !(i < 3) {
-                            current_block = 12147880666119273379;
-                            break;
-                        }
-                        let tmp_0 = W_obj.as_array()[i];
-                        if !(*tmp_0).is_number() {
-                            current_block = 5131529843719913080;
-                            break;
-                        }
-                        W[i] = (*tmp_0).as_f64() as i32;
-                        wsum += W[i];
-                        i += 1
-                    }
-                    match current_block {
-                        5131529843719913080 => {}
-                        _ => {
-                            let mut p = pdf_stream_dataptr(&*xrefstm) as *const i8;
-                            if let Some(index_obj) = (**trailer).as_dict().get("Index") {
-                                let mut index_len = 0;
-                                if !index_obj.is_array() || {
-                                    index_len = index_obj.as_array().len();
-                                    index_len.wrapping_rem(2) != 0
-                                } {
-                                    current_block = 5131529843719913080;
-                                } else {
-                                    let mut i = 0;
-                                    loop {
-                                        if !(i < index_len) {
-                                            current_block = 652864300344834934;
-                                            break;
-                                        }
-                                        let first = index_obj
-                                            .as_array()
-                                            .get(i)
-                                            .filter(|&&o| (*o).is_number());
-                                        i += 1;
-                                        let size_obj = index_obj
-                                            .as_array()
-                                            .get(i)
-                                            .filter(|&&o| (*o).is_number());
-                                        i += 1;
-                                        if let (Some(&first), Some(&size_obj)) = (first, size_obj) {
-                                            if parse_xrefstm_subsec(
-                                                pf,
-                                                &mut p,
-                                                &mut length,
-                                                W.as_mut_ptr(),
-                                                wsum,
-                                                (*first).as_f64() as i32,
-                                                (*size_obj).as_f64() as i32,
-                                            ) != 0
-                                            {
-                                                current_block = 5131529843719913080;
-                                                break;
-                                            }
-                                        } else {
-                                            current_block = 5131529843719913080;
-                                            break;
-                                        }
-                                    }
+    if let Some(mut xrefstm) = pdf_read_object(0_u32, 0_u16, pf, xref_pos, pf.file_size) {
+        if let PdfObjVariant::STREAM(stream) = &mut (*xrefstm).data {
+            let tmp: *mut pdf_obj = pdf_stream_uncompress(stream).into_obj();
+            if !tmp.is_null() {
+                pdf_release_obj(xrefstm);
+                xrefstm = tmp;
+                *trailer = pdf_link_obj((*xrefstm).as_stream_mut().get_dict_obj());
+                if let Some(size_obj) = (**trailer)
+                    .as_dict()
+                    .get("Size")
+                    .filter(|&so| (*so).is_number())
+                {
+                    let size = size_obj.as_f64() as u32;
+                    let mut length = (*xrefstm).as_stream().len() as i32;
+                    match &(**trailer).as_dict().get("W").unwrap().data {
+                        PdfObjVariant::ARRAY(W_obj) if W_obj.len() == 3 => {
+                            let current_block: u64;
+                            let mut i = 0;
+                            loop {
+                                if !(i < 3) {
+                                    current_block = 12147880666119273379;
+                                    break;
                                 }
-                            } else if parse_xrefstm_subsec(
-                                pf,
-                                &mut p,
-                                &mut length,
-                                W.as_mut_ptr(),
-                                wsum,
-                                0,
-                                size as i32,
-                            ) != 0
-                            {
-                                current_block = 5131529843719913080;
-                            } else {
-                                current_block = 652864300344834934;
+                                let tmp_0 = W_obj[i];
+                                if (*tmp_0).is_number() {
+                                    W[i] = (*tmp_0).as_f64() as i32;
+                                    wsum += W[i];
+                                    i += 1
+                                } else {
+                                    current_block = 5131529843719913080;
+                                    break;
+                                }
                             }
                             match current_block {
                                 5131529843719913080 => {}
                                 _ => {
-                                    if length != 0 {
-                                        warn!("Garbage in xref stream.");
+                                    let mut p = pdf_stream_dataptr(&*xrefstm) as *const i8;
+                                    if let Some(index_obj) = (**trailer).as_dict().get("Index") {
+                                        match &index_obj.data {
+                                            PdfObjVariant::ARRAY(index) if index.len() % 2 == 0 => {
+                                                let index_len = index.len();
+                                                let mut i = 0;
+                                                loop {
+                                                    if !(i < index_len) {
+                                                        if length != 0 {
+                                                            warn!("Garbage in xref stream.");
+                                                        }
+                                                        pdf_release_obj(xrefstm);
+                                                        return 1;
+                                                    }
+                                                    let first = index.get(i);
+                                                    i += 1;
+                                                    let size_obj = index.get(i);
+                                                    i += 1;
+                                                    if let (Some(first), Some(size_obj)) =
+                                                        (first, size_obj)
+                                                    {
+                                                        if let (
+                                                            PdfObjVariant::NUMBER(first),
+                                                            PdfObjVariant::NUMBER(size),
+                                                        ) = (&(**first).data, &(**size_obj).data)
+                                                        {
+                                                            if parse_xrefstm_subsec(
+                                                                pf,
+                                                                &mut p,
+                                                                &mut length,
+                                                                W.as_mut_ptr(),
+                                                                wsum,
+                                                                *first as i32,
+                                                                *size as i32,
+                                                            ) != 0
+                                                            {
+                                                                break;
+                                                            }
+                                                        } else {
+                                                            break;
+                                                        }
+                                                    } else {
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            _ => {}
+                                        }
+                                    } else if parse_xrefstm_subsec(
+                                        pf,
+                                        &mut p,
+                                        &mut length,
+                                        W.as_mut_ptr(),
+                                        wsum,
+                                        0,
+                                        size as i32,
+                                    ) == 0
+                                    {
+                                        if length != 0 {
+                                            warn!("Garbage in xref stream.");
+                                        }
+                                        pdf_release_obj(xrefstm);
+                                        return 1;
                                     }
-                                    pdf_release_obj(xrefstm);
-                                    return 1;
                                 }
                             }
                         }
+                        _ => {}
                     }
                 }
             }
         }
+        pdf_release_obj(xrefstm);
     }
     warn!("Cannot parse cross-reference stream.");
-    pdf_release_obj(xrefstm);
     if !(*trailer).is_null() {
         pdf_release_obj(*trailer);
         *trailer = ptr::null_mut()

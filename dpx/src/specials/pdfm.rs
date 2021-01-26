@@ -264,37 +264,39 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     }
     let obj2 = obj2.unwrap();
     match &mut (*obj1).data {
-        PdfObjVariant::DICT(..) => {
-            if !(*obj2).is_dict() {
+        PdfObjVariant::DICT(d1) => {
+            if let PdfObjVariant::DICT(d2) = &mut (*obj2).data {
+                if ident == "resources" {
+                    error = d2.foreach(safeputresdict, d1);
+                } else {
+                    d1.merge(d2);
+                }
+            } else {
                 spc_warn!(
                     spe,
                     "Inconsistent object type for \"put\" (expecting DICT): {}",
                     ident,
                 );
                 error = -1i32
-            } else if ident == "resources" {
-                error = (*obj2)
-                    .as_dict_mut()
-                    .foreach(safeputresdict, (*obj1).as_dict_mut())
-            } else {
-                (*obj1).as_dict_mut().merge((*obj2).as_dict());
             }
         }
-        PdfObjVariant::STREAM(obj1) => {
-            if (*obj2).is_dict() {
-                obj1.get_dict_mut().merge((*obj2).as_dict());
-            } else if (*obj2).is_stream() {
+        PdfObjVariant::STREAM(obj1) => match &(*obj2).data {
+            PdfObjVariant::DICT(d) => {
+                obj1.get_dict_mut().merge(d);
+            }
+            PdfObjVariant::STREAM(_) => {
                 spc_warn!(
                     spe,
                     "\"put\" operation not supported for STREAM <- STREAM: {}",
                     ident,
                 );
-                error = -1i32
-            } else {
-                spc_warn!(spe, "Invalid type: expecting a DICT or STREAM: {}", ident);
-                error = -1i32
+                error = -1;
             }
-        }
+            _ => {
+                spc_warn!(spe, "Invalid type: expecting a DICT or STREAM: {}", ident);
+                error = -1;
+            }
+        },
         PdfObjVariant::ARRAY(obj1) => {
             /* dvipdfm */
             obj1.push(pdf_link_obj(obj2));

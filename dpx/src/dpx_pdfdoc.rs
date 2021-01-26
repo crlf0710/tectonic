@@ -991,9 +991,9 @@ pub unsafe fn pdf_doc_get_page(
             };
             let medbox = media_box;
 
-            if !(!box_0.is_null() && (*box_0).is_array())
-                || (*box_0).as_array().len() != 4
-                || !(!resources.is_null() && (*resources).is_dict())
+            if !((!box_0.is_null() && matches!((*box_0).data, PdfObjVariant::ARRAY(_)))
+                && (*box_0).as_array().len() == 4
+                && (!resources.is_null() && (*resources).is_dict()))
             {
                 pdf_release_obj(box_0);
                 return error(rotate, resources, page_tree);
