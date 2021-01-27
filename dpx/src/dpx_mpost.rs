@@ -475,21 +475,22 @@ unsafe fn cvr_array(array: PdfObjVariant, values: &mut [f64]) -> i32 {
     (count + 1) as i32
 }
 unsafe fn is_fontdict(dict: &PdfObjVariant) -> bool {
-    if !dict.is_dict() {
-        return false;
-    }
-    if let Some(typ) = dict.as_dict().get("Type") {
-        if matches!(&typ.data, PdfObjVariant::NAME(typ) if typ.to_bytes() == b"Font") {
-            if let Some(name) = dict.as_dict().get("FontName") {
-                if let PdfObjVariant::NAME(_) = name.data {
-                    if let Some(scale) = dict.as_dict().get("FontScale") {
-                        return matches!(scale.data, PdfObjVariant::NUMBER(_));
+    if let PdfObjVariant::DICT(d) = &dict {
+        if let Some(typ) = d.get("Type") {
+            if matches!(&typ.data, PdfObjVariant::NAME(typ) if typ.to_bytes() == b"Font") {
+                if let Some(name) = d.get("FontName") {
+                    if let PdfObjVariant::NAME(_) = name.data {
+                        if let Some(scale) = d.get("FontScale") {
+                            return matches!(scale.data, PdfObjVariant::NUMBER(_));
+                        }
                     }
                 }
             }
         }
+        false
+    } else {
+        false
     }
-    false
 }
 unsafe fn do_findfont() -> i32 {
     let mut error = 0;

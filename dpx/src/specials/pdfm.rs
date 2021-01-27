@@ -220,20 +220,24 @@ unsafe fn safeputresdent(kp: &pdf_name, vp: &mut pdf_obj, dp: &mut pdf_dict) -> 
 unsafe fn safeputresdict(kp: &pdf_name, vp: &mut pdf_obj, dp: &mut pdf_dict) -> i32 {
     let key = kp.to_bytes();
     let dict = dp.get_mut(key);
-    if vp.is_indirect() {
-        dp.set(key, pdf_link_obj(vp));
-    } else if vp.is_dict() {
-        if let Some(dict) = dict {
-            vp.as_dict_mut().foreach(safeputresdent, dict.as_dict_mut());
-        } else {
+    match &mut vp.data {
+        PdfObjVariant::INDIRECT(_) => {
             dp.set(key, pdf_link_obj(vp));
         }
-    } else {
-        warn!(
-            "Invalid type (not DICT) for page/form resource dict entry: key=\"{}\"",
-            key.display(),
-        );
-        return -1i32;
+        PdfObjVariant::DICT(vpd) => {
+            if let Some(dict) = dict {
+                vpd.foreach(safeputresdent, dict.as_dict_mut());
+            } else {
+                dp.set(key, pdf_link_obj(vp));
+            }
+        }
+        _ => {
+            warn!(
+                "Invalid type (not DICT) for page/form resource dict entry: key=\"{}\"",
+                key.display(),
+            );
+            return -1i32;
+        }
     }
     0i32
 }

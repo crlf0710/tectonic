@@ -915,26 +915,27 @@ pub unsafe fn pdf_doc_get_page(
                             } else {
                                 0 as *mut pdf_obj
                             };
-                            if !(!page_tree.is_null() && (*page_tree).is_dict()) {
+                            if !page_tree.is_null() && (*page_tree).is_dict() {
+                                if let Some(tmp_0) =
+                                    DerefObj::new((*page_tree).as_dict_mut().get_mut("Count"))
+                                {
+                                    if let PdfObjVariant::NUMBER(v) = tmp_0.data {
+                                        /* Pages object */
+                                        count_0 = v as i32;
+                                    } else {
+                                        return error(rotate, resources, page_tree);
+                                    }
+                                } else {
+                                    /* Page object */
+                                    count_0 = 1;
+                                }
+                                if page_idx < count_0 {
+                                    break;
+                                }
+                                page_idx -= count_0;
+                            } else {
                                 return error(rotate, resources, page_tree);
                             }
-                            if let Some(tmp_0) =
-                                DerefObj::new((*page_tree).as_dict_mut().get_mut("Count"))
-                            {
-                                if let PdfObjVariant::NUMBER(v) = tmp_0.data {
-                                    /* Pages object */
-                                    count_0 = v as i32;
-                                } else {
-                                    return error(rotate, resources, page_tree);
-                                }
-                            } else {
-                                /* Page object */
-                                count_0 = 1;
-                            }
-                            if page_idx < count_0 {
-                                break;
-                            }
-                            page_idx -= count_0;
                         }
                     } else {
                         return error(rotate, resources, page_tree);

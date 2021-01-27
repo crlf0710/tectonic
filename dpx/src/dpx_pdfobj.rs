@@ -2066,23 +2066,22 @@ pub(crate) unsafe fn pdf_add_stream_flate(dst: &mut pdf_stream, data: &[u8]) -> 
 }
 
 #[cfg(feature = "libz-sys")]
-unsafe fn get_decode_parms(parms: &mut decode_parms, dict: &mut pdf_obj) -> libc::c_int {
-    assert!(dict.is_dict());
+unsafe fn get_decode_parms(parms: &mut decode_parms, dict: &mut pdf_dict) -> libc::c_int {
     /* Fill with default values */
     parms.predictor = 1;
     parms.colors = 1;
     parms.bits_per_component = 8;
     parms.columns = 1;
-    if let Some(tmp) = pdf_deref_obj(dict.as_dict_mut().get_mut("Predictor")).as_ref() {
+    if let Some(tmp) = pdf_deref_obj(dict.get_mut("Predictor")).as_ref() {
         parms.predictor = tmp.as_f64() as i32;
     }
-    if let Some(tmp) = pdf_deref_obj(dict.as_dict_mut().get_mut("Colors")).as_ref() {
+    if let Some(tmp) = pdf_deref_obj(dict.get_mut("Colors")).as_ref() {
         parms.colors = tmp.as_f64() as i32;
     }
-    if let Some(tmp) = pdf_deref_obj(dict.as_dict_mut().get_mut("BitsPerComponent")).as_ref() {
+    if let Some(tmp) = pdf_deref_obj(dict.get_mut("BitsPerComponent")).as_ref() {
         parms.bits_per_component = tmp.as_f64() as i32;
     }
-    if let Some(tmp) = pdf_deref_obj(dict.as_dict_mut().get_mut("Columns")).as_ref() {
+    if let Some(tmp) = pdf_deref_obj(dict.get_mut("Columns")).as_ref() {
         parms.columns = tmp.as_f64() as i32;
     }
     if parms.bits_per_component != 1
@@ -2397,18 +2396,20 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
                 } else {
                     tmp
                 };
-                match tmp.as_mut() {
-                    Some(tmp) if tmp.is_dict() => {
-                        error = get_decode_parms(&mut parms, &mut *tmp);
+                if let Some(tmp) = tmp.as_mut() {
+                    if let PdfObjVariant::DICT(d) = &mut tmp.data {
+                        error = get_decode_parms(&mut parms, d);
                         if error != 0 {
                             panic!("Invalid value(s) in DecodeParms dictionary.");
                         }
                         have_parms = 1;
-                    }
-                    _ => {
+                    } else {
                         warn!("PDF dict expected for DecodeParms...");
                         return -1;
                     }
+                } else {
+                    warn!("PDF dict expected for DecodeParms...");
+                    return -1;
                 }
             }
             let mut filter = stream_dict.get("Filter").unwrap();
