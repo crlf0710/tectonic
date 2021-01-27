@@ -3028,7 +3028,7 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
     }
 }
 
-pub(crate) struct DerefObj(std::ptr::NonNull<pdf_obj>);
+pub struct DerefObj(std::ptr::NonNull<pdf_obj>);
 impl DerefObj {
     pub(crate) unsafe fn new(obj: Option<&mut pdf_obj>) -> Option<Self> {
         std::ptr::NonNull::new(pdf_deref_obj(obj)).map(DerefObj)

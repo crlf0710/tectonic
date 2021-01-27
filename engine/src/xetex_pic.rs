@@ -15,12 +15,12 @@ use crate::xetex_xetexd::{LLIST_link, TeXInt};
 
 use bridge::{InFile, TTInputFormat};
 use dpx::pdf_dev_transform;
+use dpx::pdf_open;
 use dpx::Corner;
 use dpx::{bmp_get_bbox, check_for_bmp};
 use dpx::{check_for_jpeg, jpeg_get_bbox};
 use dpx::{check_for_png, png_get_bbox};
 use dpx::{pdf_doc_get_page, pdf_doc_get_page_count};
-use dpx::{pdf_open, pdf_release_obj};
 
 use euclid::{point2, size2, Angle};
 type Transform = euclid::Transform2D<f64, (), ()>;
@@ -71,10 +71,9 @@ unsafe fn pdf_get_rect(
         5 => 3,
         _ => 1,
     };
-    if let Some((page, mut bbox, matrix)) =
+    if let Some((_, mut bbox, matrix)) =
         pdf_doc_get_page(pf, page_num, dpx_options, ptr::null_mut())
     {
-        pdf_release_obj(page);
         /* Image's attribute "bbox" here is affected by /Rotate entry of included
          * PDF page.
          */

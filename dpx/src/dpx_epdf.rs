@@ -102,7 +102,7 @@ pub(crate) unsafe fn pdf_include_page(
         error_silent()
     };
 
-    if let Some((page, bbox, matrix)) =
+    if let Some((mut page, bbox, matrix)) =
         pdf_doc_get_page(pf, options.page_no, options.bbox_type, &mut resources)
     {
         let mut info = xform_info::default();
@@ -118,17 +118,14 @@ pub(crate) unsafe fn pdf_include_page(
                         warn!("PDF file is tagged... Ignoring tags.");
                     }
                 } else {
-                    pdf_release_obj(page);
                     return error();
                 }
             } else {
-                pdf_release_obj(page);
                 return error();
             }
         }
 
-        let contents = DerefObj::new((*page).as_dict_mut().get_mut("Contents"));
-        pdf_release_obj(page);
+        let contents = DerefObj::new(page.as_dict_mut().get_mut("Contents"));
         /*
          * Handle page content stream.
          */
