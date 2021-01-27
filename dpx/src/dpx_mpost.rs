@@ -437,12 +437,12 @@ unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
         }
         count -= 1;
         if let Some(tmp) = STACK.pop() {
-            if !tmp.is_number() {
+            if let PdfObjVariant::NUMBER(tmp) = tmp {
+                values[count] = tmp;
+            } else {
                 warn!("mpost: Not a number!");
                 count += 1;
                 break;
-            } else {
-                values[count] = tmp.as_f64();
             }
         } else {
             warn!("mpost: Stack underflow.");
@@ -461,12 +461,11 @@ unsafe fn cvr_array(array: PdfObjVariant, values: &mut [f64]) -> i32 {
             if !(fresh2 > 0) {
                 break;
             }
-            let tmp = array[count];
-            if !(*tmp).is_number() {
+            if let PdfObjVariant::NUMBER(tmp) = (*array[count]).data {
+                values[count] = tmp;
+            } else {
                 warn!("mpost: Not a number!");
                 break;
-            } else {
-                values[count] = (*tmp).as_f64()
             }
         }
     } else {
@@ -962,11 +961,10 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                         } else {
                             let mut i = 0;
                             while i < num_dashes && error == 0 {
-                                let dash = pattern[i];
-                                if !(*dash).is_number() {
-                                    error = 1i32
+                                if let PdfObjVariant::NUMBER(dash) = (*pattern[i]).data {
+                                    dash_values[i] = dash;
                                 } else {
-                                    dash_values[i] = (*dash).as_f64()
+                                    error = 1
                                 }
                                 i += 1
                             }
@@ -1069,26 +1067,26 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                 }
             }
             if error == 0 {
-                if let Some(tmp) = tmp.filter(|o| o.is_number()) {
-                    cp.y = tmp.as_f64();
-                    if let Some(tmp) = STACK.pop().filter(|o| o.is_number()) {
-                        cp.x = tmp.as_f64();
+                if let Some(PdfObjVariant::NUMBER(tmp)) = tmp {
+                    cp.y = tmp;
+                    if let Some(PdfObjVariant::NUMBER(tmp)) = STACK.pop() {
+                        cp.x = tmp;
                         /* Here, we need real PostScript CTM */
                         let mut matrix = matrix.unwrap_or_else(|| ps_dev_CTM());
                         /* This does pdf_release_obj() */
                         pdf_dev_dtransform(&mut cp, Some(&mut matrix));
                         if STACK.push_checked(cp.x).is_ok() {
                             if STACK.push_checked(cp.y).is_err() {
-                                error = 1i32
+                                error = 1;
                             }
                         } else {
-                            error = 1i32
+                            error = 1;
                         }
                     } else {
-                        error = 1i32
+                        error = 1;
                     }
                 } else {
-                    error = 1i32
+                    error = 1;
                 }
             }
         }
@@ -1108,19 +1106,19 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                 }
             }
             if error == 0 {
-                if let Some(tmp) = tmp.filter(|o| o.is_number()) {
-                    cp.y = tmp.as_f64();
-                    if let Some(tmp) = STACK.pop().filter(|o| o.is_number()) {
-                        cp.x = tmp.as_f64();
+                if let Some(PdfObjVariant::NUMBER(tmp)) = tmp {
+                    cp.y = tmp;
+                    if let Some(PdfObjVariant::NUMBER(tmp)) = STACK.pop() {
+                        cp.x = tmp;
                         /* Here, we need real PostScript CTM */
                         let matrix = matrix.unwrap_or_else(|| ps_dev_CTM());
                         pdf_dev_idtransform(&mut cp, Some(&matrix));
                         if STACK.push_checked(cp.x).is_ok() {
                             if STACK.push_checked(cp.y).is_err() {
-                                error = 1i32
+                                error = 1
                             }
                         } else {
-                            error = 1i32
+                            error = 1
                         }
                     } else {
                         error = 1;

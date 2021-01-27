@@ -128,12 +128,6 @@ pub(crate) enum PdfObjType {
 }
 
 impl PdfObjVariant {
-    pub(crate) fn is_number(&self) -> bool {
-        matches!(self, Self::NUMBER(_))
-    }
-    pub(crate) fn is_dict(&self) -> bool {
-        matches!(self, Self::DICT(_))
-    }
     pub(crate) fn is_indirect(&self) -> bool {
         matches!(self, Self::INDIRECT(_))
     }
@@ -142,9 +136,6 @@ impl PdfObjVariant {
     }
     pub(crate) fn is_undefined(&self) -> bool {
         matches!(self, Self::UNDEFINED)
-    }
-    pub(crate) fn is_obj_null(&self) -> bool {
-        matches!(self, Self::NULL)
     }
     pub(crate) unsafe fn as_f64(&self) -> f64 {
         if let Self::NUMBER(v) = self {
@@ -3020,7 +3011,7 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
     if count == 0 {
         panic!("Loop in object hierarchy detected. Broken PDF file?");
     }
-    if !obj.is_null() && (*obj).is_obj_null() {
+    if !obj.is_null() && matches!((*obj).data, PdfObjVariant::NULL) {
         pdf_release_obj(obj);
         ptr::null_mut()
     } else {
@@ -3309,103 +3300,104 @@ unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut
                 pdf_release_obj(xrefstm);
                 xrefstm = tmp;
                 *trailer = pdf_link_obj((*xrefstm).as_stream_mut().get_dict_obj());
-                if let Some(size_obj) = (**trailer)
-                    .as_dict()
-                    .get("Size")
-                    .filter(|&so| (*so).is_number())
-                {
-                    let size = size_obj.as_f64() as u32;
-                    let mut length = (*xrefstm).as_stream().len() as i32;
-                    match &(**trailer).as_dict().get("W").unwrap().data {
-                        PdfObjVariant::ARRAY(W_obj) if W_obj.len() == 3 => {
-                            let current_block: u64;
-                            let mut i = 0;
-                            loop {
-                                if !(i < 3) {
-                                    current_block = 12147880666119273379;
-                                    break;
+                if let Some(size_obj) = (**trailer).as_dict().get("Size") {
+                    if let PdfObjVariant::NUMBER(size) = size_obj.data {
+                        let mut length = (*xrefstm).as_stream().len() as i32;
+                        match &(**trailer).as_dict().get("W").unwrap().data {
+                            PdfObjVariant::ARRAY(W_obj) if W_obj.len() == 3 => {
+                                let current_block: u64;
+                                let mut i = 0;
+                                loop {
+                                    if !(i < 3) {
+                                        current_block = 12147880666119273379;
+                                        break;
+                                    }
+                                    if let PdfObjVariant::NUMBER(tmp_0) = (*W_obj[i]).data {
+                                        W[i] = tmp_0 as i32;
+                                        wsum += W[i];
+                                        i += 1
+                                    } else {
+                                        current_block = 5131529843719913080;
+                                        break;
+                                    }
                                 }
-                                let tmp_0 = W_obj[i];
-                                if (*tmp_0).is_number() {
-                                    W[i] = (*tmp_0).as_f64() as i32;
-                                    wsum += W[i];
-                                    i += 1
-                                } else {
-                                    current_block = 5131529843719913080;
-                                    break;
-                                }
-                            }
-                            match current_block {
-                                5131529843719913080 => {}
-                                _ => {
-                                    let mut p = pdf_stream_dataptr(&*xrefstm) as *const i8;
-                                    if let Some(index_obj) = (**trailer).as_dict().get("Index") {
-                                        match &index_obj.data {
-                                            PdfObjVariant::ARRAY(index) if index.len() % 2 == 0 => {
-                                                let index_len = index.len();
-                                                let mut i = 0;
-                                                loop {
-                                                    if !(i < index_len) {
-                                                        if length != 0 {
-                                                            warn!("Garbage in xref stream.");
+                                match current_block {
+                                    5131529843719913080 => {}
+                                    _ => {
+                                        let mut p = pdf_stream_dataptr(&*xrefstm) as *const i8;
+                                        if let Some(index_obj) = (**trailer).as_dict().get("Index")
+                                        {
+                                            match &index_obj.data {
+                                                PdfObjVariant::ARRAY(index)
+                                                    if index.len() % 2 == 0 =>
+                                                {
+                                                    let index_len = index.len();
+                                                    let mut i = 0;
+                                                    loop {
+                                                        if !(i < index_len) {
+                                                            if length != 0 {
+                                                                warn!("Garbage in xref stream.");
+                                                            }
+                                                            pdf_release_obj(xrefstm);
+                                                            return 1;
                                                         }
-                                                        pdf_release_obj(xrefstm);
-                                                        return 1;
-                                                    }
-                                                    let first = index.get(i);
-                                                    i += 1;
-                                                    let size_obj = index.get(i);
-                                                    i += 1;
-                                                    if let (Some(first), Some(size_obj)) =
-                                                        (first, size_obj)
-                                                    {
-                                                        if let (
-                                                            PdfObjVariant::NUMBER(first),
-                                                            PdfObjVariant::NUMBER(size),
-                                                        ) = (&(**first).data, &(**size_obj).data)
+                                                        let first = index.get(i);
+                                                        i += 1;
+                                                        let size_obj = index.get(i);
+                                                        i += 1;
+                                                        if let (Some(first), Some(size_obj)) =
+                                                            (first, size_obj)
                                                         {
-                                                            if parse_xrefstm_subsec(
-                                                                pf,
-                                                                &mut p,
-                                                                &mut length,
-                                                                W.as_mut_ptr(),
-                                                                wsum,
-                                                                *first as i32,
-                                                                *size as i32,
-                                                            ) != 0
-                                                            {
+                                                            if let (
+                                                                PdfObjVariant::NUMBER(first),
+                                                                PdfObjVariant::NUMBER(size),
+                                                            ) = (
+                                                                &(**first).data,
+                                                                &(**size_obj).data,
+                                                            ) {
+                                                                if parse_xrefstm_subsec(
+                                                                    pf,
+                                                                    &mut p,
+                                                                    &mut length,
+                                                                    W.as_mut_ptr(),
+                                                                    wsum,
+                                                                    *first as i32,
+                                                                    *size as i32,
+                                                                ) != 0
+                                                                {
+                                                                    break;
+                                                                }
+                                                            } else {
                                                                 break;
                                                             }
                                                         } else {
                                                             break;
                                                         }
-                                                    } else {
-                                                        break;
                                                     }
                                                 }
+                                                _ => {}
                                             }
-                                            _ => {}
+                                        } else if parse_xrefstm_subsec(
+                                            pf,
+                                            &mut p,
+                                            &mut length,
+                                            W.as_mut_ptr(),
+                                            wsum,
+                                            0,
+                                            size as i32,
+                                        ) == 0
+                                        {
+                                            if length != 0 {
+                                                warn!("Garbage in xref stream.");
+                                            }
+                                            pdf_release_obj(xrefstm);
+                                            return 1;
                                         }
-                                    } else if parse_xrefstm_subsec(
-                                        pf,
-                                        &mut p,
-                                        &mut length,
-                                        W.as_mut_ptr(),
-                                        wsum,
-                                        0,
-                                        size as i32,
-                                    ) == 0
-                                    {
-                                        if length != 0 {
-                                            warn!("Garbage in xref stream.");
-                                        }
-                                        pdf_release_obj(xrefstm);
-                                        return 1;
                                     }
                                 }
                             }
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
             }
@@ -3449,13 +3441,14 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
                         }
                         if let Some(xrefstm) = (*trailer).as_dict().get("XRefStm") {
                             let mut new_trailer: *mut pdf_obj = ptr::null_mut();
-                            if xrefstm.is_number()
-                                && parse_xref_stream(pf, xrefstm.as_f64() as i32, &mut new_trailer)
-                                    != 0
-                            {
-                                pdf_release_obj(new_trailer);
-                            } else {
-                                warn!("Skipping hybrid reference section.");
+                            match xrefstm.data {
+                                PdfObjVariant::NUMBER(xrefstm)
+                                    if parse_xref_stream(pf, xrefstm as i32, &mut new_trailer)
+                                        != 0 =>
+                                {
+                                    pdf_release_obj(new_trailer);
+                                }
+                                _ => warn!("Skipping hybrid reference section."),
                             }
                             /* Many PDF 1.5 xref streams use DecodeParms, which we cannot
                                parse. This way we can use at least xref tables in hybrid
@@ -3473,11 +3466,12 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
                         }
                     }
                     if let Some(prev) = (*trailer).as_dict().get("Prev") {
-                        if !prev.is_number() {
+                        if let PdfObjVariant::NUMBER(prev) = prev.data {
+                            xref_pos = prev as i32;
+                        } else {
                             current_block = 13794981049891343809;
                             continue;
                         }
-                        xref_pos = prev.as_f64() as i32
                     } else {
                         xref_pos = 0
                     }
@@ -3635,7 +3629,7 @@ pub unsafe fn pdf_open(ident: &str, mut handle: InFile) -> Option<&mut Box<pdf_f
         }
         pf.catalog = pdf_deref_obj((*pf.trailer).as_dict_mut().get_mut("Root"));
         match pf.catalog.as_ref() {
-            Some(cat) if cat.is_dict() => {}
+            Some(cat) if matches!(cat.data, PdfObjVariant::DICT(_)) => {}
             _ => {
                 warn!("Cannot read PDF document catalog. Broken PDF file?");
                 return None;

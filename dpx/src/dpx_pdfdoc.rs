@@ -287,20 +287,21 @@ unsafe fn pdf_doc_init_catalog(p: &mut pdf_doc) {
 }
 unsafe fn pdf_doc_close_catalog(p: &mut pdf_doc) {
     if !p.root.viewerpref.is_null() {
-        let tmp = (*p.root.dict).as_dict().get("ViewerPreferences");
-        if tmp.is_none() {
-            (*p.root.dict)
-                .as_dict_mut()
-                .set("ViewerPreferences", pdf_ref_obj(p.root.viewerpref));
-        } else if let Some(tmp) = tmp.filter(|&tmp| (*tmp).is_dict()) {
-            (*p.root.viewerpref).as_dict_mut().merge((*tmp).as_dict());
-            (*p.root.dict)
-                .as_dict_mut()
-                .set("ViewerPreferences", pdf_ref_obj(p.root.viewerpref));
+        if let Some(tmp) = (*p.root.dict).as_dict().get("ViewerPreferences") {
+            if let PdfObjVariant::DICT(tmp) = &tmp.data {
+                (*p.root.viewerpref).as_dict_mut().merge(&tmp);
+                (*p.root.dict)
+                    .as_dict_mut()
+                    .set("ViewerPreferences", pdf_ref_obj(p.root.viewerpref));
+            } else {
+                /* What should I do? */
+                warn!("Could not modify ViewerPreferences.");
+                /* Maybe reference */
+            }
         } else {
-            /* What should I do? */
-            warn!("Could not modify ViewerPreferences.");
-            /* Maybe reference */
+            (*p.root.dict)
+                .as_dict_mut()
+                .set("ViewerPreferences", pdf_ref_obj(p.root.viewerpref));
         }
         pdf_release_obj(p.root.viewerpref);
         p.root.viewerpref = ptr::null_mut()
@@ -997,7 +998,7 @@ pub unsafe fn pdf_doc_get_page(
 
             if !((!box_0.is_null() && matches!((*box_0).data, PdfObjVariant::ARRAY(_)))
                 && (*box_0).as_array().len() == 4
-                && (!resources.is_null() && (*resources).is_dict()))
+                && (!resources.is_null() && matches!((*resources).data, PdfObjVariant::DICT(_))))
             {
                 pdf_release_obj(box_0);
                 return error(rotate, resources);
@@ -1089,7 +1090,7 @@ pub unsafe fn pdf_doc_get_page(
             pdf_release_obj(box_0);
 
             let mut matrix = TMatrix::identity();
-            if !rotate.is_null() && (*rotate).is_number() {
+            if !rotate.is_null() && matches!((*rotate).data, PdfObjVariant::NUMBER(_)) {
                 let deg: f64 = (*rotate).as_f64();
                 if deg - deg as i32 as f64 != 0.0f64 {
                     warn!("Invalid value specified for /Rotate: {}", deg);
@@ -1647,19 +1648,20 @@ unsafe fn pdf_doc_close_names(p: &mut pdf_doc) {
         i += 1;
     }
     if !p.root.names.is_null() {
-        let tmp = (*p.root.dict).as_dict().get("Names");
-        if tmp.is_none() {
-            (*p.root.dict)
-                .as_dict_mut()
-                .set("Names", pdf_ref_obj(p.root.names));
-        } else if let Some(tmp) = tmp.filter(|&tmp| (*tmp).is_dict()) {
-            (*p.root.names).as_dict_mut().merge((*tmp).as_dict());
-            (*p.root.dict)
-                .as_dict_mut()
-                .set("Names", pdf_ref_obj(p.root.names));
+        if let Some(tmp) = (*p.root.dict).as_dict().get("Names") {
+            if let PdfObjVariant::DICT(tmp) = &tmp.data {
+                (*p.root.names).as_dict_mut().merge(tmp);
+                (*p.root.dict)
+                    .as_dict_mut()
+                    .set("Names", pdf_ref_obj(p.root.names));
+            } else {
+                /* What should I do? */
+                warn!("Could not modify Names dictionary.");
+            }
         } else {
-            /* What should I do? */
-            warn!("Could not modify Names dictionary.");
+            (*p.root.dict)
+                .as_dict_mut()
+                .set("Names", pdf_ref_obj(p.root.names));
         }
         pdf_release_obj(p.root.names);
         p.root.names = ptr::null_mut()

@@ -95,14 +95,15 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> pdf_dict
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
     let dict1 = pdf_doc_current_page_resources();
     if dict1.is_null() {
-        return 0i32;
+        return 0;
     }
     if let Some(dict2) = (*dict1).as_dict().get(category) {
-        if dict2.is_dict() && dict2.as_dict().has(resname) {
-            return 1i32;
+        match &dict2.data {
+            PdfObjVariant::DICT(d2) if d2.has(resname) => return 1,
+            _ => {}
         }
     }
-    0i32
+    0
 }
 unsafe fn set_linestyle(pn: f64, da: f64) -> i32 {
     let mut dp: [f64; 2] = [0.; 2];

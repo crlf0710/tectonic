@@ -560,51 +560,39 @@ unsafe fn CIDFont_base_open(
     let mut fontdict = start.parse_pdf_dict(ptr::null_mut()).unwrap();
     let mut start = basefont.descriptor.as_bytes();
     let mut descriptor = start.parse_pdf_dict(ptr::null_mut()).unwrap();
-    let tmp = fontdict
-        .get("CIDSystemInfo")
-        .filter(|&tmp| (*tmp).is_dict())
-        .unwrap();
-    let registry = std::str::from_utf8(
-        tmp.as_dict()
-            .get("Registry")
+    let csi = if let PdfObjVariant::DICT(tmp) = &fontdict.get("CIDSystemInfo").unwrap().data {
+        let registry = std::str::from_utf8(tmp.get("Registry").unwrap().as_string().to_bytes())
             .unwrap()
-            .as_string()
-            .to_bytes(),
-    )
-    .unwrap()
-    .to_string();
-    let ordering = std::str::from_utf8(
-        tmp.as_dict()
-            .get("Ordering")
+            .to_string();
+        let ordering = std::str::from_utf8(tmp.get("Ordering").unwrap().as_string().to_bytes())
             .unwrap()
-            .as_string()
-            .to_bytes(),
-    )
-    .unwrap()
-    .to_string();
-    let supplement = tmp.as_dict().get("Supplement").unwrap().as_f64() as i32;
-    if !cmap_csi.is_null() {
-        /* NULL for accept any */
-        if registry != (*cmap_csi).registry || ordering != (*cmap_csi).ordering {
-            panic!(
-                "Inconsistent CMap used for CID-keyed font {}.",
-                basefont.fontname
-            );
-        } else {
-            if supplement < (*cmap_csi).supplement {
-                warn!(
-                    "CMap has higher supplement number than CIDFont: {}",
-                    fontname,
+            .to_string();
+        let supplement = tmp.get("Supplement").unwrap().as_f64() as i32;
+        if !cmap_csi.is_null() {
+            /* NULL for accept any */
+            if registry != (*cmap_csi).registry || ordering != (*cmap_csi).ordering {
+                panic!(
+                    "Inconsistent CMap used for CID-keyed font {}.",
+                    basefont.fontname
                 );
-                warn!("Some chracters may not be displayed or printed.");
+            } else {
+                if supplement < (*cmap_csi).supplement {
+                    warn!(
+                        "CMap has higher supplement number than CIDFont: {}",
+                        fontname,
+                    );
+                    warn!("Some chracters may not be displayed or printed.");
+                }
             }
         }
-    }
-    let csi = Box::into_raw(Box::new(CIDSysInfo {
-        registry: registry.into(),
-        ordering: ordering.into(),
-        supplement,
-    }));
+        Box::into_raw(Box::new(CIDSysInfo {
+            registry: registry.into(),
+            ordering: ordering.into(),
+            supplement,
+        }))
+    } else {
+        panic!();
+    };
     if let Some(tmp) = fontdict.get("Subtype") {
         if let PdfObjVariant::NAME(typ) = &(*tmp).data {
             let typ = typ.to_bytes();
