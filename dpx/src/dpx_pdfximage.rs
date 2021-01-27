@@ -40,7 +40,9 @@ use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
-use crate::dpx_pdfobj::{check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj};
+use crate::dpx_pdfobj::{
+    check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, Object,
+};
 use crate::shims::sprintf;
 
 use std::io::{Read, Seek, SeekFrom};
@@ -461,29 +463,35 @@ pub(crate) unsafe fn pdf_ximage_set_image(
     resource: *mut pdf_obj,
 ) {
     let info = image_info;
-    if !(!resource.is_null() && (*resource).is_stream()) {
+    if let Some(resource) = resource.as_mut() {
+        if let Object::Stream(_) = (*resource).data {
+            I.subtype = PdfXObjectType::Image;
+            I.attr.width = info.width;
+            I.attr.height = info.height;
+            I.attr.xdensity = info.xdensity;
+            I.attr.ydensity = info.ydensity;
+            I.reference = pdf_ref_obj(resource);
+            let dict = (*resource).as_stream_mut().get_dict_mut();
+            dict.set("Type", "XObject");
+            dict.set("Subtype", "Image");
+            dict.set("Width", (*info).width as f64);
+            dict.set("Height", (*info).height as f64);
+            if (*info).bits_per_component > 0i32 {
+                /* Ignored for JPXDecode filter. FIXME */
+                dict.set("BitsPerComponent", (*info).bits_per_component as f64);
+                /* Caller don't know we are using reference. */
+            }
+            if !I.attr.dict.is_null() {
+                dict.merge((*I.attr.dict).as_dict());
+            }
+            pdf_release_obj(resource);
+            I.resource = ptr::null_mut();
+        } else {
+            panic!("Image XObject must be of stream type.");
+        }
+    } else {
         panic!("Image XObject must be of stream type.");
     }
-    I.subtype = PdfXObjectType::Image;
-    I.attr.width = info.width;
-    I.attr.height = info.height;
-    I.attr.xdensity = info.xdensity;
-    I.attr.ydensity = info.ydensity;
-    I.reference = pdf_ref_obj(resource);
-    let dict = (*resource).as_stream_mut().get_dict_mut();
-    dict.set("Type", "XObject");
-    dict.set("Subtype", "Image");
-    dict.set("Width", (*info).width as f64);
-    dict.set("Height", (*info).height as f64);
-    if (*info).bits_per_component > 0i32 {
-        /* Ignored for JPXDecode filter. FIXME */
-        dict.set("BitsPerComponent", (*info).bits_per_component as f64); /* Caller don't know we are using reference. */
-    }
-    if !I.attr.dict.is_null() {
-        dict.merge((*I.attr.dict).as_dict());
-    }
-    pdf_release_obj(resource);
-    I.resource = ptr::null_mut();
 }
 
 pub(crate) unsafe fn pdf_ximage_set_form(

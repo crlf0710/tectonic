@@ -52,7 +52,7 @@ use super::dpx_type0::{
 use super::dpx_type1::{pdf_font_load_type1, pdf_font_open_type1};
 use super::dpx_type1c::{pdf_font_load_type1c, pdf_font_open_type1c};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, Object,
 };
 use crate::{info, warn};
 use libc::{free, memset, rand, srand};
@@ -459,7 +459,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
             if !enc_obj.is_null() {
                 (*(*font_0).resource).as_dict_mut().set(
                     "Encoding",
-                    if !enc_obj.is_null() && (*enc_obj).is_name() {
+                    if let Object::Name(_) = &(*enc_obj).data {
                         pdf_link_obj(enc_obj)
                     } else {
                         pdf_ref_obj(enc_obj)

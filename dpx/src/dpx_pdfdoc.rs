@@ -30,7 +30,6 @@ use euclid::point2;
 
 use crate::bridge::DisplayExt;
 use crate::mfree;
-use crate::streq_ptr;
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
@@ -68,7 +67,7 @@ use crate::bridge::{InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
-    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, IntoObj, PdfObjVariant, PushObj,
+    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, Object, PushObj,
     STREAM_COMPRESS,
 };
 use libc::{free, strcmp, strcpy, strlen};
@@ -288,20 +287,21 @@ unsafe fn pdf_doc_init_catalog(p: &mut pdf_doc) {
 }
 unsafe fn pdf_doc_close_catalog(p: &mut pdf_doc) {
     if !p.root.viewerpref.is_null() {
-        let tmp = (*p.root.dict).as_dict().get("ViewerPreferences");
-        if tmp.is_none() {
-            (*p.root.dict)
-                .as_dict_mut()
-                .set("ViewerPreferences", pdf_ref_obj(p.root.viewerpref));
-        } else if let Some(tmp) = tmp.filter(|&tmp| (*tmp).is_dict()) {
-            (*p.root.viewerpref).as_dict_mut().merge((*tmp).as_dict());
-            (*p.root.dict)
-                .as_dict_mut()
-                .set("ViewerPreferences", pdf_ref_obj(p.root.viewerpref));
+        if let Some(tmp) = (*p.root.dict).as_dict().get("ViewerPreferences") {
+            if let Object::Dict(tmp) = &tmp.data {
+                (*p.root.viewerpref).as_dict_mut().merge(&tmp);
+                (*p.root.dict)
+                    .as_dict_mut()
+                    .set("ViewerPreferences", pdf_ref_obj(p.root.viewerpref));
+            } else {
+                /* What should I do? */
+                warn!("Could not modify ViewerPreferences.");
+                /* Maybe reference */
+            }
         } else {
-            /* What should I do? */
-            warn!("Could not modify ViewerPreferences.");
-            /* Maybe reference */
+            (*p.root.dict)
+                .as_dict_mut()
+                .set("ViewerPreferences", pdf_ref_obj(p.root.viewerpref));
         }
         pdf_release_obj(p.root.viewerpref);
         p.root.viewerpref = ptr::null_mut()
@@ -432,13 +432,15 @@ unsafe fn pdf_doc_close_docinfo(p: &mut pdf_doc) {
     ];
     for key in KEYS.iter() {
         if let Some(value) = docinfo.as_dict().get(*key) {
-            if !value.is_string() {
+            if let Object::String(value) = &value.data {
+                if value.len() == 0 {
+                    /* The hyperref package often uses emtpy strings. */
+                    pdf_remove_dict(docinfo.as_dict_mut(), key);
+                }
+            } else {
                 warn!("\"{}\" in DocInfo dictionary not string type.", key);
                 pdf_remove_dict(docinfo.as_dict_mut(), key);
                 warn!("\"{}\" removed from DocInfo.", key);
-            } else if value.as_string().len() == 0 {
-                /* The hyperref package often uses emtpy strings. */
-                pdf_remove_dict(docinfo.as_dict_mut(), key);
             }
         }
     }
@@ -740,15 +742,12 @@ unsafe fn pdf_doc_close_page_tree(p: &mut pdf_doc) {
 
 pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
     let catalog = pdf_file_get_catalog(pf);
-    // TODO: check `page_tree` release
-    if let Some(page_tree) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages")).as_mut() {
-        if let PdfObjVariant::DICT(page_tree) = &mut page_tree.data {
-            if let Some(tmp) = pdf_deref_obj(page_tree.get_mut("Count")).as_mut() {
-                if let PdfObjVariant::NUMBER(count) = tmp.data {
-                    pdf_release_obj(tmp);
+    if let Some(mut page_tree) = DerefObj::new((*catalog).as_dict_mut().get_mut("Pages")) {
+        if let Object::Dict(page_tree) = &mut page_tree.data {
+            if let Some(tmp) = DerefObj::new(page_tree.get_mut("Count")) {
+                if let Object::Number(count) = tmp.data {
                     count as i32
                 } else {
-                    pdf_release_obj(tmp);
                     0
                 }
             } else {
@@ -821,32 +820,27 @@ pub unsafe fn pdf_doc_get_page(
     page_no: i32,
     options: i32,
     resources_p: *mut *mut pdf_obj,
-) -> Option<(*mut pdf_obj, Rect, TMatrix)>
+) -> Option<(DerefObj, Rect, TMatrix)>
 /* returned values */ {
     let catalog = pdf_file_get_catalog(pf);
-    if let Some(page_tree) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("Pages")).as_mut() {
-        if let PdfObjVariant::DICT(_) = page_tree.data {
-            let mut page_tree = page_tree as *mut pdf_obj;
+    if let Some(mut page_tree) = DerefObj::new((*catalog).as_dict_mut().get_mut("Pages")) {
+        if let Object::Dict(_) = page_tree.data {
             let mut resources: *mut pdf_obj = ptr::null_mut();
             let mut rotate: *mut pdf_obj = ptr::null_mut();
             let count = {
-                if let Some(tmp) =
-                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count")).as_mut()
-                {
-                    if let PdfObjVariant::NUMBER(count) = tmp.data {
-                        pdf_release_obj(tmp);
+                if let Some(tmp) = DerefObj::new(page_tree.as_dict_mut().get_mut("Count")) {
+                    if let Object::Number(count) = tmp.data {
                         count as i32
                     } else {
-                        pdf_release_obj(tmp);
-                        return error(rotate, resources, page_tree);
+                        return error(rotate, resources);
                     }
                 } else {
-                    return error(rotate, resources, page_tree);
+                    return error(rotate, resources);
                 }
             };
             if page_no <= 0i32 || page_no > count {
                 warn!("Page {} does not exist.", page_no);
-                return error_silent(rotate, resources, page_tree);
+                return error_silent(rotate, resources);
             }
 
             /*
@@ -861,95 +855,94 @@ pub unsafe fn pdf_doc_get_page(
             let mut depth: i32 = 30;
             let mut page_idx: i32 = page_no - 1;
             let mut kids_length = 1;
-            let i = 0;
+            let mut i = 0;
             loop {
                 depth -= 1;
                 if !(depth != 0 && i != kids_length) {
                     break;
                 }
                 if let Some(tmp_0) =
-                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("MediaBox")).as_mut()
+                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("MediaBox")).as_mut()
                 {
                     pdf_release_obj(media_box);
                     media_box = tmp_0
                 }
                 if let Some(tmp_0) =
-                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("CropBox")).as_mut()
+                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("CropBox")).as_mut()
                 {
                     pdf_release_obj(crop_box);
                     crop_box = tmp_0
                 }
                 if let Some(tmp_0) =
-                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("ArtBox")).as_mut()
+                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("ArtBox")).as_mut()
                 {
                     pdf_release_obj(art_box);
                     art_box = tmp_0
                 }
                 if let Some(tmp_0) =
-                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("TrimBox")).as_mut()
+                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("TrimBox")).as_mut()
                 {
                     pdf_release_obj(trim_box);
                     trim_box = tmp_0
                 }
                 if let Some(tmp_0) =
-                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("BleedBox")).as_mut()
+                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("BleedBox")).as_mut()
                 {
                     pdf_release_obj(bleed_box);
                     bleed_box = tmp_0
                 }
                 if let Some(tmp_0) =
-                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Rotate")).as_mut()
+                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("Rotate")).as_mut()
                 {
                     pdf_release_obj(rotate);
                     rotate = tmp_0
                 }
                 if let Some(tmp_0) =
-                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Resources")).as_mut()
+                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("Resources")).as_mut()
                 {
                     pdf_release_obj(resources);
                     resources = tmp_0
                 }
-                if let Some(kids) =
-                    pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Kids")).as_mut()
-                {
-                    if let PdfObjVariant::ARRAY(array) = &mut kids.data {
+                if let Some(mut kids) = DerefObj::new(page_tree.as_dict_mut().get_mut("Kids")) {
+                    if let Object::Array(array) = &mut kids.data {
+                        i = 0;
                         kids_length = array.len();
-                        for i in 0..kids_length {
+                        while i < kids_length {
                             let count_0;
-                            pdf_release_obj(page_tree);
 
-                            page_tree = if i < array.len() {
-                                pdf_deref_obj(Some(&mut *array[i]))
+                            let pt = if i < array.len() {
+                                DerefObj::new(Some(&mut *array[i]))
                             } else {
-                                0 as *mut pdf_obj
+                                None
                             };
-                            if !(!page_tree.is_null() && (*page_tree).is_dict()) {
-                                return error(rotate, resources, page_tree);
-                            }
-                            if let Some(tmp_0) =
-                                pdf_deref_obj((*page_tree).as_dict_mut().get_mut("Count")).as_mut()
-                            {
-                                if let PdfObjVariant::NUMBER(v) = tmp_0.data {
-                                    /* Pages object */
-                                    count_0 = v as i32;
-                                    pdf_release_obj(tmp_0);
+                            if let Some(mut pt) = pt {
+                                if let Object::Dict(ptdata) = &mut pt.data {
+                                    if let Some(tmp_0) = DerefObj::new(ptdata.get_mut("Count")) {
+                                        if let Object::Number(v) = tmp_0.data {
+                                            /* Pages object */
+                                            count_0 = v as i32;
+                                        } else {
+                                            return error(rotate, resources);
+                                        }
+                                    } else {
+                                        /* Page object */
+                                        count_0 = 1;
+                                    }
+                                    page_tree = pt;
+                                    if page_idx < count_0 {
+                                        break;
+                                    }
+                                    page_idx -= count_0;
                                 } else {
-                                    pdf_release_obj(tmp_0);
-                                    return error(rotate, resources, page_tree);
+                                    return error(rotate, resources);
                                 }
                             } else {
-                                /* Page object */
-                                count_0 = 1;
+                                return error(rotate, resources);
                             }
-                            if page_idx < count_0 {
-                                break;
-                            }
-                            page_idx -= count_0;
+                            i += 1;
                         }
-                        pdf_release_obj(kids);
                     } else {
-                        pdf_release_obj(kids);
-                        return error(rotate, resources, page_tree);
+                        return error(rotate, resources);
                     }
                 } else {
                     break;
@@ -959,7 +952,7 @@ pub unsafe fn pdf_doc_get_page(
             if depth == 0 || kids_length == i {
                 pdf_release_obj(media_box);
                 pdf_release_obj(crop_box);
-                return error(rotate, resources, page_tree);
+                return error(rotate, resources);
             }
 
             /* Nasty BBox selection... */
@@ -1003,12 +996,12 @@ pub unsafe fn pdf_doc_get_page(
             };
             let medbox = media_box;
 
-            if !(!box_0.is_null() && (*box_0).is_array())
-                || (*box_0).as_array().len() != 4
-                || !(!resources.is_null() && (*resources).is_dict())
+            if !((!box_0.is_null() && matches!((*box_0).data, Object::Array(_)))
+                && (*box_0).as_array().len() == 4
+                && (!resources.is_null() && matches!((*resources).data, Object::Dict(_))))
             {
                 pdf_release_obj(box_0);
-                return error(rotate, resources, page_tree);
+                return error(rotate, resources);
             }
 
             let mut bbox = Rect::zero();
@@ -1021,30 +1014,26 @@ pub unsafe fn pdf_doc_get_page(
 
                 let array = (*box_0).as_array_mut();
                 if let Some(tmp_1) = if i_0 < array.len() {
-                    pdf_deref_obj(Some(&mut *array[i_0])).as_mut()
+                    DerefObj::new(Some(&mut *array[i_0]))
                 } else {
                     None
                 } {
                     match tmp_1.data {
-                        PdfObjVariant::NUMBER(x) => {
-                            match i_0 {
-                                0 => bbox.min.x = x,
-                                1 => bbox.min.y = x,
-                                2 => bbox.max.x = x,
-                                3 => bbox.max.y = x,
-                                _ => {}
-                            }
-                            pdf_release_obj(tmp_1);
-                        }
+                        Object::Number(x) => match i_0 {
+                            0 => bbox.min.x = x,
+                            1 => bbox.min.y = x,
+                            2 => bbox.max.x = x,
+                            3 => bbox.max.y = x,
+                            _ => {}
+                        },
                         _ => {
-                            pdf_release_obj(tmp_1);
                             pdf_release_obj(box_0);
-                            return error(rotate, resources, page_tree);
+                            return error(rotate, resources);
                         }
                     }
                 } else {
                     pdf_release_obj(box_0);
-                    return error(rotate, resources, page_tree);
+                    return error(rotate, resources);
                 }
             }
 
@@ -1058,46 +1047,42 @@ pub unsafe fn pdf_doc_get_page(
 
                     let array = (*medbox).as_array_mut();
                     if let Some(tmp_2) = if i_0 < array.len() {
-                        pdf_deref_obj(Some(&mut *array[i_0])).as_mut()
+                        DerefObj::new(Some(&mut *array[i_0]))
                     } else {
                         None
                     } {
                         match tmp_2.data {
-                            PdfObjVariant::NUMBER(x) => {
-                                match i_0 {
-                                    0 => {
-                                        if bbox.min.x < x {
-                                            bbox.min.x = x
-                                        }
+                            Object::Number(x) => match i_0 {
+                                0 => {
+                                    if bbox.min.x < x {
+                                        bbox.min.x = x
                                     }
-                                    1 => {
-                                        if bbox.min.y < x {
-                                            bbox.min.y = x
-                                        }
-                                    }
-                                    2 => {
-                                        if bbox.max.x > x {
-                                            bbox.max.x = x
-                                        }
-                                    }
-                                    3 => {
-                                        if bbox.max.y > x {
-                                            bbox.max.y = x
-                                        }
-                                    }
-                                    _ => {}
                                 }
-                                pdf_release_obj(tmp_2);
-                            }
+                                1 => {
+                                    if bbox.min.y < x {
+                                        bbox.min.y = x
+                                    }
+                                }
+                                2 => {
+                                    if bbox.max.x > x {
+                                        bbox.max.x = x
+                                    }
+                                }
+                                3 => {
+                                    if bbox.max.y > x {
+                                        bbox.max.y = x
+                                    }
+                                }
+                                _ => {}
+                            },
                             _ => {
-                                pdf_release_obj(tmp_2);
                                 pdf_release_obj(box_0);
-                                return error(rotate, resources, page_tree);
+                                return error(rotate, resources);
                             }
                         }
                     } else {
                         pdf_release_obj(box_0);
-                        return error(rotate, resources, page_tree);
+                        return error(rotate, resources);
                     }
                 }
             }
@@ -1105,7 +1090,7 @@ pub unsafe fn pdf_doc_get_page(
             pdf_release_obj(box_0);
 
             let mut matrix = TMatrix::identity();
-            if !rotate.is_null() && (*rotate).is_number() {
+            if !rotate.is_null() && matches!((*rotate).data, Object::Number(_)) {
                 let deg: f64 = (*rotate).as_f64();
                 if deg - deg as i32 as f64 != 0.0f64 {
                     warn!("Invalid value specified for /Rotate: {}", deg);
@@ -1155,7 +1140,7 @@ pub unsafe fn pdf_doc_get_page(
                 }
                 pdf_release_obj(rotate);
             } else if !rotate.is_null() {
-                return error(rotate, resources, page_tree);
+                return error(rotate, resources);
             }
 
             if !resources_p.is_null() {
@@ -1168,24 +1153,20 @@ pub unsafe fn pdf_doc_get_page(
             unsafe fn error(
                 rotate: *mut pdf_obj,
                 resources: *mut pdf_obj,
-                page_tree: *mut pdf_obj,
-            ) -> Option<(*mut pdf_obj, Rect, TMatrix)> {
+            ) -> Option<(DerefObj, Rect, TMatrix)> {
                 warn!("Cannot parse document. Broken PDF file?");
-                error_silent(rotate, resources, page_tree)
+                error_silent(rotate, resources)
             }
 
             unsafe fn error_silent(
                 rotate: *mut pdf_obj,
                 resources: *mut pdf_obj,
-                page_tree: *mut pdf_obj,
-            ) -> Option<(*mut pdf_obj, Rect, TMatrix)> {
+            ) -> Option<(DerefObj, Rect, TMatrix)> {
                 pdf_release_obj(rotate);
                 pdf_release_obj(resources);
-                pdf_release_obj(page_tree);
                 None
             }
         } else {
-            pdf_release_obj(page_tree);
             warn!("Cannot parse document. Broken PDF file?");
             return None;
         }
@@ -1458,15 +1439,11 @@ unsafe fn pdf_doc_init_names(p: &mut pdf_doc, check_gotos: i32) {
     );
 }
 
-pub(crate) unsafe fn pdf_doc_add_names(
-    category: *const i8,
-    key: &[u8],
-    value: *mut pdf_obj,
-) -> i32 {
+pub(crate) unsafe fn pdf_doc_add_names(category: &[u8], key: &[u8], value: *mut pdf_obj) -> i32 {
     let p = &mut pdoc;
     let mut i = 0;
     while !(*p.names.offset(i as isize)).category.is_null() {
-        if streq_ptr((*p.names.offset(i as isize)).category, category) {
+        if CStr::from_ptr((*p.names.offset(i as isize)).category).to_bytes() == category {
             break;
         }
         i += 1;
@@ -1474,7 +1451,7 @@ pub(crate) unsafe fn pdf_doc_add_names(
     if (*p.names.offset(i as isize)).category.is_null() {
         warn!(
             "Unknown name dictionary category \"{}\".",
-            CStr::from_ptr(category).display()
+            category.display()
         );
         return -1i32;
     }
@@ -1496,19 +1473,16 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
      * must have a "Subtype". An annotation dictionary coming from
      * an outline special has none.
      */
-    if let Some(subtype) = pdf_deref_obj(annot_dict.get_mut("Subtype")).as_mut() {
+    if let Some(subtype) = DerefObj::new(annot_dict.get_mut("Subtype")) {
         match &subtype.data {
-            PdfObjVariant::UNDEFINED => {
-                pdf_release_obj(subtype);
+            Object::Undefined => {
                 return undefined(A, D);
             }
-            PdfObjVariant::NAME(n) if n.to_bytes() == b"Link" => pdf_release_obj(subtype),
-            PdfObjVariant::NAME(_) => {
-                pdf_release_obj(subtype);
+            Object::Name(n) if n.to_bytes() == b"Link" => {}
+            Object::Name(_) => {
                 return cleanup(A, D);
             }
             _ => {
-                pdf_release_obj(subtype);
                 return error(A, D);
             }
         }
@@ -1518,7 +1492,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
     D = pdf_deref_obj(annot_dict.get_mut(key));
     let mut dict = annot_dict;
     match D.as_mut() {
-        Some(D) if matches!(D.data, PdfObjVariant::UNDEFINED) => {
+        Some(D) if matches!(D.data, Object::Undefined) => {
             return undefined(A, D);
         }
         _ => {}
@@ -1526,25 +1500,22 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
 
     A = pdf_deref_obj(dict.get_mut("A"));
     if let Some(A) = A.as_mut() {
-        if let PdfObjVariant::UNDEFINED = A.data {
+        if let Object::Undefined = A.data {
             return undefined(A, D);
         } else if D.as_ref().is_some() {
             return error(A, D);
         } else {
-            if let PdfObjVariant::DICT(a) = &mut A.data {
-                if let Some(S) = pdf_deref_obj(a.get_mut("S")).as_mut() {
+            if let Object::Dict(a) = &mut A.data {
+                if let Some(S) = DerefObj::new(a.get_mut("S")) {
                     match &S.data {
-                        PdfObjVariant::UNDEFINED => {
-                            pdf_release_obj(S);
+                        Object::Undefined => {
                             return undefined(A, D);
                         }
-                        PdfObjVariant::NAME(n) if n.to_bytes() == b"GoTo" => pdf_release_obj(S),
-                        PdfObjVariant::NAME(_) => {
-                            pdf_release_obj(S);
+                        Object::Name(n) if n.to_bytes() == b"GoTo" => {}
+                        Object::Name(_) => {
                             return cleanup(A, D);
                         }
                         _ => {
-                            pdf_release_obj(S);
                             return error(A, D);
                         }
                     }
@@ -1563,9 +1534,9 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
 
     let dest = if let Some(D) = D.as_mut() {
         match &D.data {
-            PdfObjVariant::STRING(s) => s.to_bytes(),
-            PdfObjVariant::ARRAY(_) => return cleanup(A, D),
-            PdfObjVariant::UNDEFINED => return undefined(A, D),
+            Object::String(s) => s.to_bytes(),
+            Object::Array(_) => return cleanup(A, D),
+            Object::Undefined => return undefined(A, D),
             _ => return error(A, D),
         }
     } else {
@@ -1677,19 +1648,20 @@ unsafe fn pdf_doc_close_names(p: &mut pdf_doc) {
         i += 1;
     }
     if !p.root.names.is_null() {
-        let tmp = (*p.root.dict).as_dict().get("Names");
-        if tmp.is_none() {
-            (*p.root.dict)
-                .as_dict_mut()
-                .set("Names", pdf_ref_obj(p.root.names));
-        } else if let Some(tmp) = tmp.filter(|&tmp| (*tmp).is_dict()) {
-            (*p.root.names).as_dict_mut().merge((*tmp).as_dict());
-            (*p.root.dict)
-                .as_dict_mut()
-                .set("Names", pdf_ref_obj(p.root.names));
+        if let Some(tmp) = (*p.root.dict).as_dict().get("Names") {
+            if let Object::Dict(tmp) = &tmp.data {
+                (*p.root.names).as_dict_mut().merge(tmp);
+                (*p.root.dict)
+                    .as_dict_mut()
+                    .set("Names", pdf_ref_obj(p.root.names));
+            } else {
+                /* What should I do? */
+                warn!("Could not modify Names dictionary.");
+            }
         } else {
-            /* What should I do? */
-            warn!("Could not modify Names dictionary.");
+            (*p.root.dict)
+                .as_dict_mut()
+                .set("Names", pdf_ref_obj(p.root.names));
         }
         pdf_release_obj(p.root.names);
         p.root.names = ptr::null_mut()

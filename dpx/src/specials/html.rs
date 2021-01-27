@@ -42,7 +42,7 @@ use crate::dpx_pdfdoc::{
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
-    IntoObj, PushObj,
+    IntoObj, Object, PushObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcpy};
@@ -324,11 +324,7 @@ unsafe fn html_open_dest(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
     array.push(pdf_new_null());
     array.push_obj(cp.y + 24.);
     array.push(pdf_new_null());
-    let error = pdf_doc_add_names(
-        b"Dests\x00" as *const u8 as *const i8,
-        name,
-        array.into_obj(),
-    );
+    let error = pdf_doc_add_names(b"Dests", name, array.into_obj());
     if error != 0 {
         spc_warn!(spe, "Failed to add named destination: {}", name.display());
     }
@@ -459,14 +455,17 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> pdf_dict
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
     let dict1 = pdf_doc_current_page_resources();
     if dict1.is_null() {
-        return 0i32;
+        return 0;
     }
     if let Some(dict2) = (*dict1).as_dict().get(category) {
-        if dict2.is_dict() && dict2.as_dict().has(resname) {
-            return 1i32;
+        match &dict2.data {
+            Object::Dict(d2) if d2.has(resname) => {
+                return 1;
+            }
+            _ => {}
         }
     }
-    0i32
+    0
 }
 /* ENABLE_HTML_SVG_OPACITY */
 unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {

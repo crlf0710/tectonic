@@ -43,7 +43,8 @@ use super::dpx_cidtype2::{
 };
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_remove_dict,
+    pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
+    pdf_remove_dict, Object,
 };
 use libc::free;
 use std::borrow::Cow;
@@ -559,89 +560,81 @@ unsafe fn CIDFont_base_open(
     let mut fontdict = start.parse_pdf_dict(ptr::null_mut()).unwrap();
     let mut start = basefont.descriptor.as_bytes();
     let mut descriptor = start.parse_pdf_dict(ptr::null_mut()).unwrap();
-    let tmp = fontdict
-        .get("CIDSystemInfo")
-        .filter(|&tmp| (*tmp).is_dict())
-        .unwrap();
-    let registry = std::str::from_utf8(
-        tmp.as_dict()
-            .get("Registry")
+    let csi = if let Object::Dict(tmp) = &fontdict.get("CIDSystemInfo").unwrap().data {
+        let registry = std::str::from_utf8(tmp.get("Registry").unwrap().as_string().to_bytes())
             .unwrap()
-            .as_string()
-            .to_bytes(),
-    )
-    .unwrap()
-    .to_string();
-    let ordering = std::str::from_utf8(
-        tmp.as_dict()
-            .get("Ordering")
+            .to_string();
+        let ordering = std::str::from_utf8(tmp.get("Ordering").unwrap().as_string().to_bytes())
             .unwrap()
-            .as_string()
-            .to_bytes(),
-    )
-    .unwrap()
-    .to_string();
-    let supplement = tmp.as_dict().get("Supplement").unwrap().as_f64() as i32;
-    if !cmap_csi.is_null() {
-        /* NULL for accept any */
-        if registry != (*cmap_csi).registry || ordering != (*cmap_csi).ordering {
-            panic!(
-                "Inconsistent CMap used for CID-keyed font {}.",
-                basefont.fontname
-            );
-        } else {
-            if supplement < (*cmap_csi).supplement {
-                warn!(
-                    "CMap has higher supplement number than CIDFont: {}",
-                    fontname,
+            .to_string();
+        let supplement = tmp.get("Supplement").unwrap().as_f64() as i32;
+        if !cmap_csi.is_null() {
+            /* NULL for accept any */
+            if registry != (*cmap_csi).registry || ordering != (*cmap_csi).ordering {
+                panic!(
+                    "Inconsistent CMap used for CID-keyed font {}.",
+                    basefont.fontname
                 );
-                warn!("Some chracters may not be displayed or printed.");
+            } else {
+                if supplement < (*cmap_csi).supplement {
+                    warn!(
+                        "CMap has higher supplement number than CIDFont: {}",
+                        fontname,
+                    );
+                    warn!("Some chracters may not be displayed or printed.");
+                }
             }
         }
-    }
-    let csi = Box::into_raw(Box::new(CIDSysInfo {
-        registry: registry.into(),
-        ordering: ordering.into(),
-        supplement,
-    }));
-    let tmp = fontdict
-        .get("Subtype")
-        .filter(|&tmp| (*tmp).is_name())
-        .unwrap();
-    let typ = (*tmp).as_name().to_bytes();
-    let subtype = if typ == b"CIDFontType0" {
-        1
-    } else if typ == b"CIDFontType2" {
-        2
+        Box::into_raw(Box::new(CIDSysInfo {
+            registry: registry.into(),
+            ordering: ordering.into(),
+            supplement,
+        }))
     } else {
-        panic!("Unknown CIDFontType \"{}\"", typ.display());
+        panic!();
     };
-    if cidoptflags & 1i32 << 1i32 != 0 {
-        if fontdict.has("W") {
-            pdf_remove_dict(&mut fontdict, "W");
+    if let Some(tmp) = fontdict.get("Subtype") {
+        if let Object::Name(typ) = &(*tmp).data {
+            let typ = typ.to_bytes();
+            let subtype = if typ == b"CIDFontType0" {
+                1
+            } else if typ == b"CIDFontType2" {
+                2
+            } else {
+                panic!("Unknown CIDFontType \"{}\"", typ.display());
+            };
+            if cidoptflags & 1i32 << 1i32 != 0 {
+                if fontdict.has("W") {
+                    pdf_remove_dict(&mut fontdict, "W");
+                }
+                if fontdict.has("W2") {
+                    pdf_remove_dict(&mut fontdict, "W2");
+                }
+            }
+            fontdict.set("Type", "Font");
+            fontdict.set("BaseFont", pdf_name::new(fontname.as_bytes()));
+            descriptor.set("Type", "FontDescriptor");
+            descriptor.set("FontName", pdf_name::new(fontname.as_bytes()));
+            (*opt).embed = 0i32;
+            Some(Box::new(CIDFont {
+                ident: name.to_string(),
+                name: name.to_string(),
+                fontname,
+                subtype,
+                flags: 1i32 << 0i32,
+                parent: [-1, -1],
+                csi,
+                options: opt,
+                indirect: ptr::null_mut(),
+                fontdict: fontdict.into_obj(),
+                descriptor: descriptor.into_obj(),
+            }))
+        } else {
+            panic!();
         }
-        if fontdict.has("W2") {
-            pdf_remove_dict(&mut fontdict, "W2");
-        }
+    } else {
+        panic!();
     }
-    fontdict.set("Type", "Font");
-    fontdict.set("BaseFont", pdf_name::new(fontname.as_bytes()));
-    descriptor.set("Type", "FontDescriptor");
-    descriptor.set("FontName", pdf_name::new(fontname.as_bytes()));
-    (*opt).embed = 0i32;
-    Some(Box::new(CIDFont {
-        ident: name.to_string(),
-        name: name.to_string(),
-        fontname,
-        subtype,
-        flags: 1i32 << 0i32,
-        parent: [-1, -1],
-        csi,
-        options: opt,
-        indirect: ptr::null_mut(),
-        fontdict: fontdict.into_obj(),
-        descriptor: descriptor.into_obj(),
-    }))
 }
 
 // Note: The elements are boxed to be able

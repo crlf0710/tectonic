@@ -34,8 +34,8 @@ use crate::warn;
 use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
-    pdf_concat_stream, pdf_deref_obj, pdf_file_get_catalog, pdf_file_get_version, pdf_get_version,
-    pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, IntoObj, PdfObjVariant,
+    pdf_concat_stream, pdf_file_get_catalog, pdf_file_get_version, pdf_get_version,
+    pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, DerefObj, IntoObj, Object,
     PushObj, STREAM_COMPRESS,
 };
 pub(crate) type __off_t = i64;
@@ -93,15 +93,16 @@ pub(crate) unsafe fn pdf_include_page(
     }
 
     let mut resources: *mut pdf_obj = ptr::null_mut();
-    let error_silent = move || {
+    let error_silent = move || -> i32 {
         pdf_release_obj(resources);
+        -1
     };
-    let error = || {
+    let error = || -> i32 {
         warn!("Cannot parse document. Broken PDF file?");
-        error_silent();
+        error_silent()
     };
 
-    if let Some((page, bbox, matrix)) =
+    if let Some((mut page, bbox, matrix)) =
         pdf_doc_get_page(pf, options.page_no, options.bbox_type, &mut resources)
     {
         let mut info = xform_info::default();
@@ -109,88 +110,72 @@ pub(crate) unsafe fn pdf_include_page(
         info.bbox = bbox;
         info.matrix = matrix;
         let catalog = pdf_file_get_catalog(pf);
-        if let Some(markinfo) = pdf_deref_obj((*catalog).as_dict_mut().get_mut("MarkInfo")).as_mut()
-        {
-            let tmp = pdf_deref_obj(markinfo.as_dict_mut().get_mut("Marked")).as_mut();
-            pdf_release_obj(markinfo);
+        if let Some(mut markinfo) = DerefObj::new((*catalog).as_dict_mut().get_mut("MarkInfo")) {
+            let tmp = DerefObj::new(markinfo.as_dict_mut().get_mut("Marked"));
             if let Some(tmp) = tmp {
-                if let PdfObjVariant::BOOLEAN(b) = tmp.data {
+                if let Object::Boolean(b) = tmp.data {
                     if b {
                         warn!("PDF file is tagged... Ignoring tags.");
                     }
-                    pdf_release_obj(tmp);
                 } else {
-                    pdf_release_obj(tmp);
-                    pdf_release_obj(page);
-                    error();
-                    return -1;
+                    return error();
                 }
             } else {
-                pdf_release_obj(page);
-                error();
-                return -1;
+                return error();
             }
         }
 
-        let contents = pdf_deref_obj((*page).as_dict_mut().get_mut("Contents"));
-        pdf_release_obj(page);
+        let contents = DerefObj::new(page.as_dict_mut().get_mut("Contents"));
         /*
          * Handle page content stream.
          */
-        let content_new = if contents.is_null() {
+        let content_new = if let Some(mut contents) = contents {
+            /* TODO: better don't include anything if the page is empty */
+            match &mut contents.data {
+                Object::Stream(_) => {
+                    /*
+                     * We must import the stream because its dictionary
+                     * may contain indirect references.
+                     */
+                    use std::ops::DerefMut;
+                    pdf_import_object(contents.deref_mut())
+                }
+                Object::Array(array) => {
+                    /*
+                     * Concatenate all content streams.
+                     */
+                    let len = array.len();
+                    let mut content_new = pdf_stream::new(STREAM_COMPRESS);
+                    for idx in 0..len {
+                        if let Some(mut content_seg) = if idx < array.len() {
+                            DerefObj::new(Some(&mut *array[idx]))
+                        } else {
+                            None
+                        } {
+                            if let Object::Stream(s) = &mut content_seg.data {
+                                if pdf_concat_stream(&mut content_new, s) >= 0 {
+                                } else {
+                                    return error();
+                                }
+                            } else {
+                                return error();
+                            }
+                        } else {
+                            return error();
+                        }
+                    }
+                    content_new.into_obj()
+                }
+                _ => {
+                    return error();
+                }
+            }
+        } else {
             /*
              * Empty page
              */
             pdf_stream::new(0i32).into_obj()
-        /* TODO: better don't include anything if the page is empty */
-        } else if !contents.is_null() && (*contents).is_stream() {
-            /*
-             * We must import the stream because its dictionary
-             * may contain indirect references.
-             */
-            pdf_import_object(contents)
-        } else if !contents.is_null() && (*contents).is_array() {
-            /*
-             * Concatenate all content streams.
-             */
-            let len = (*contents).as_array().len();
-            let mut content_new = pdf_stream::new(STREAM_COMPRESS);
-            for idx in 0..len {
-                let array = (*contents).as_array_mut();
-                if let Some(content_seg) = if idx < array.len() {
-                    pdf_deref_obj(Some(&mut *array[idx])).as_mut()
-                } else {
-                    None
-                } {
-                    if let PdfObjVariant::STREAM(s) = &mut content_seg.data {
-                        if pdf_concat_stream(&mut content_new, s) >= 0 {
-                            pdf_release_obj(content_seg);
-                        } else {
-                            pdf_release_obj(content_seg);
-                            pdf_release_obj(contents);
-                            error();
-                            return -1;
-                        }
-                    } else {
-                        pdf_release_obj(content_seg);
-                        pdf_release_obj(contents);
-                        error();
-                        return -1;
-                    }
-                } else {
-                    pdf_release_obj(contents);
-                    error();
-                    return -1;
-                }
-            }
-            content_new.into_obj()
-        } else {
-            pdf_release_obj(contents);
-            error();
-            return -1;
         };
-
-        pdf_release_obj(contents);
         let contents = content_new;
 
         /*
@@ -218,7 +203,6 @@ pub(crate) unsafe fn pdf_include_page(
 
         0
     } else {
-        error_silent();
-        return -1;
+        error_silent()
     }
 }
