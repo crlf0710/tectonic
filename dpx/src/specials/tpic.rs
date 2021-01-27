@@ -43,7 +43,7 @@ use crate::dpx_pdfdraw::{
 };
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
-    IntoObj, PdfObjVariant,
+    IntoObj, Object,
 };
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
@@ -99,7 +99,7 @@ unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
     }
     if let Some(dict2) = (*dict1).as_dict().get(category) {
         match &dict2.data {
-            PdfObjVariant::DICT(d2) if d2.has(resname) => return 1,
+            Object::Dict(d2) if d2.has(resname) => return 1,
             _ => {}
         }
     }
@@ -616,7 +616,7 @@ unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: &mut pdf_obj, tp: &mut spc_tpic
     let mut error: i32 = 0i32;
     let k = kp.to_bytes();
     if k == b"fill-mode" {
-        if let PdfObjVariant::STRING(v) = &vp.data {
+        if let Object::String(v) = &vp.data {
             let v = v.to_bytes();
             match v {
                 b"shape" => tp.mode.fill = 2,

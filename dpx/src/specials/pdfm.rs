@@ -63,7 +63,7 @@ use crate::dpx_pdfdoc::{
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_remove_dict, pdf_stream,
-    pdf_string, IntoObj, PdfObjVariant, STREAM_COMPRESS,
+    pdf_string, IntoObj, Object, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -221,10 +221,10 @@ unsafe fn safeputresdict(kp: &pdf_name, vp: &mut pdf_obj, dp: &mut pdf_dict) -> 
     let key = kp.to_bytes();
     let dict = dp.get_mut(key);
     match &mut vp.data {
-        PdfObjVariant::INDIRECT(_) => {
+        Object::Indirect(_) => {
             dp.set(key, pdf_link_obj(vp));
         }
-        PdfObjVariant::DICT(vpd) => {
+        Object::Dict(vpd) => {
             if let Some(dict) = dict {
                 vpd.foreach(safeputresdent, dict.as_dict_mut());
             } else {
@@ -268,8 +268,8 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     }
     let obj2 = obj2.unwrap();
     match &mut (*obj1).data {
-        PdfObjVariant::DICT(d1) => {
-            if let PdfObjVariant::DICT(d2) = &mut (*obj2).data {
+        Object::Dict(d1) => {
+            if let Object::Dict(d2) = &mut (*obj2).data {
                 if ident == "resources" {
                     error = d2.foreach(safeputresdict, d1);
                 } else {
@@ -284,11 +284,11 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
                 error = -1i32
             }
         }
-        PdfObjVariant::STREAM(obj1) => match &(*obj2).data {
-            PdfObjVariant::DICT(d) => {
+        Object::Stream(obj1) => match &(*obj2).data {
+            Object::Dict(d) => {
                 obj1.get_dict_mut().merge(d);
             }
-            PdfObjVariant::STREAM(_) => {
+            Object::Stream(_) => {
                 spc_warn!(
                     spe,
                     "\"put\" operation not supported for STREAM <- STREAM: {}",
@@ -301,7 +301,7 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
                 error = -1;
             }
         },
-        PdfObjVariant::ARRAY(obj1) => {
+        Object::Array(obj1) => {
             /* dvipdfm */
             obj1.push(pdf_link_obj(obj2));
             while !ap.cur.is_empty() {
@@ -419,7 +419,7 @@ unsafe fn needreencode(kp: &pdf_name, vp: &pdf_string, cd: &tounicode) -> i32 {
     assert!(!cd.taintkeys.is_null());
     for i in 0..(*cd.taintkeys).as_array().len() {
         let tk = (*cd.taintkeys).as_array()[i];
-        if let PdfObjVariant::NAME(tk) = &(*tk).data {
+        if let Object::Name(tk) = &(*tk).data {
             if kp.to_bytes() == tk.to_bytes() {
                 r = 1;
                 break;
@@ -439,7 +439,7 @@ unsafe fn needreencode(kp: &pdf_name, vp: &pdf_string, cd: &tounicode) -> i32 {
 unsafe fn modstrings(kp: &pdf_name, vp: &mut pdf_obj, cd: &mut tounicode) -> i32 {
     let mut r: i32 = 0i32;
     match &mut vp.data {
-        PdfObjVariant::STRING(vp) => {
+        Object::String(vp) => {
             if cd.cmap_id >= 0i32 && !cd.taintkeys.is_null() {
                 let cmap: *mut CMap = CMap_cache_get(cd.cmap_id);
                 if needreencode(kp, vp, cd) != 0 {
@@ -459,8 +459,8 @@ unsafe fn modstrings(kp: &pdf_name, vp: &mut pdf_obj, cd: &mut tounicode) -> i32
                 warn!("Failed to convert input string to UTF16...");
             }
         }
-        PdfObjVariant::DICT(vp) => r = vp.foreach(modstrings, cd),
-        PdfObjVariant::STREAM(vp) => r = vp.get_dict_mut().foreach(modstrings, cd),
+        Object::Dict(vp) => r = vp.foreach(modstrings, cd),
+        Object::Stream(vp) => r = vp.get_dict_mut().foreach(modstrings, cd),
         _ => {}
     }
     r
@@ -670,7 +670,7 @@ unsafe fn spc_handler_pdfm_outline(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     args.cur.skip_white();
     let mut level = if let Some(tmp) = args.cur.parse_pdf_object(ptr::null_mut()) {
-        if let PdfObjVariant::NUMBER(level) = (*tmp).data {
+        if let Object::Number(level) = (*tmp).data {
             pdf_release_obj(tmp);
             level as i32
         } else {
@@ -835,7 +835,7 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     options.bbox_type = bbox_type.unwrap();
     args.cur.skip_white();
     if let Some(fspec) = args.cur.parse_pdf_object(ptr::null_mut()) {
-        if let PdfObjVariant::STRING(string) = &mut (*fspec).data {
+        if let Object::String(string) = &mut (*fspec).data {
             args.cur.skip_white();
             if !args.cur.is_empty() {
                 options.dict = if let Some(obj) = args.cur.parse_pdf_object(ptr::null_mut()) {
@@ -873,9 +873,9 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 unsafe fn spc_handler_pdfm_dest(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if let Some(name) = args.cur.parse_pdf_object(ptr::null_mut()) {
-        if let PdfObjVariant::STRING(name_str) = &(*name).data {
+        if let Object::String(name_str) = &(*name).data {
             if let Some(array) = args.cur.parse_pdf_object(ptr::null_mut()) {
-                if let PdfObjVariant::ARRAY(_) = (*array).data {
+                if let Object::Array(_) = (*array).data {
                     pdf_doc_add_names(b"Dests", name_str.to_bytes(), array);
                 } else {
                     spc_warn!(spe, "Destination not specified as an array object!");
@@ -908,10 +908,10 @@ unsafe fn spc_handler_pdfm_dest(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 }
 unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if let Some(category) = args.cur.parse_pdf_object(ptr::null_mut()) {
-        if let PdfObjVariant::NAME(cat_name) = &(*category).data {
+        if let Object::Name(cat_name) = &(*category).data {
             if let Some(tmp) = args.cur.parse_pdf_object(ptr::null_mut()) {
                 match &mut (*tmp).data {
-                    PdfObjVariant::ARRAY(array) => {
+                    Object::Array(array) => {
                         let size = array.len() as i32;
                         if size % 2 != 0 {
                             spc_warn!(spe, "Array size not multiple of 2 for pdf:names.");
@@ -922,7 +922,7 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
                         for i in 0..(size / 2) as usize {
                             let key = array[2 * i];
                             let value = array[2 * i + 1];
-                            if let PdfObjVariant::STRING(key) = &(*key).data {
+                            if let Object::String(key) = &(*key).data {
                                 if pdf_doc_add_names(
                                     cat_name.to_bytes(),
                                     key.to_bytes(),
@@ -943,7 +943,7 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
                         }
                         pdf_release_obj(tmp);
                     }
-                    PdfObjVariant::STRING(string) => {
+                    Object::String(string) => {
                         if let Some(value) = args.cur.parse_pdf_object(ptr::null_mut()) {
                             if pdf_doc_add_names(cat_name.to_bytes(), string.to_bytes(), value) < 0
                             {
@@ -1130,7 +1130,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
     if let Some(ident) = args.cur.parse_opt_ident() {
         args.cur.skip_white();
         if let Some(tmp) = args.cur.parse_pdf_object(ptr::null_mut()) {
-            if let PdfObjVariant::STRING(instring) = &(*tmp).data {
+            if let Object::String(instring) = &(*tmp).data {
                 let instring = instring.to_bytes();
                 let mut fstream = match type_0 {
                     1 => {

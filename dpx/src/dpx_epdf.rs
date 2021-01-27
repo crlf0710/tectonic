@@ -35,8 +35,8 @@ use super::dpx_pdfdoc::pdf_doc_get_page;
 use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_concat_stream, pdf_file_get_catalog, pdf_file_get_version, pdf_get_version,
-    pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, DerefObj, IntoObj,
-    PdfObjVariant, PushObj, STREAM_COMPRESS,
+    pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, DerefObj, IntoObj, Object,
+    PushObj, STREAM_COMPRESS,
 };
 pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
@@ -113,7 +113,7 @@ pub(crate) unsafe fn pdf_include_page(
         if let Some(mut markinfo) = DerefObj::new((*catalog).as_dict_mut().get_mut("MarkInfo")) {
             let tmp = DerefObj::new(markinfo.as_dict_mut().get_mut("Marked"));
             if let Some(tmp) = tmp {
-                if let PdfObjVariant::BOOLEAN(b) = tmp.data {
+                if let Object::Boolean(b) = tmp.data {
                     if b {
                         warn!("PDF file is tagged... Ignoring tags.");
                     }
@@ -132,7 +132,7 @@ pub(crate) unsafe fn pdf_include_page(
         let content_new = if let Some(mut contents) = contents {
             /* TODO: better don't include anything if the page is empty */
             match &mut contents.data {
-                PdfObjVariant::STREAM(_) => {
+                Object::Stream(_) => {
                     /*
                      * We must import the stream because its dictionary
                      * may contain indirect references.
@@ -140,7 +140,7 @@ pub(crate) unsafe fn pdf_include_page(
                     use std::ops::DerefMut;
                     pdf_import_object(contents.deref_mut())
                 }
-                PdfObjVariant::ARRAY(array) => {
+                Object::Array(array) => {
                     /*
                      * Concatenate all content streams.
                      */
@@ -152,7 +152,7 @@ pub(crate) unsafe fn pdf_include_page(
                         } else {
                             None
                         } {
-                            if let PdfObjVariant::STREAM(s) = &mut content_seg.data {
+                            if let Object::Stream(s) = &mut content_seg.data {
                                 if pdf_concat_stream(&mut content_new, s) >= 0 {
                                 } else {
                                     return error();

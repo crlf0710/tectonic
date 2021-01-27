@@ -42,7 +42,7 @@ use crate::dpx_pdfdoc::{
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
-    IntoObj, PdfObjVariant, PushObj,
+    IntoObj, Object, PushObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcpy};
@@ -459,7 +459,7 @@ unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
     }
     if let Some(dict2) = (*dict1).as_dict().get(category) {
         match &dict2.data {
-            PdfObjVariant::DICT(d2) if d2.has(resname) => {
+            Object::Dict(d2) if d2.has(resname) => {
                 return 1;
             }
             _ => {}

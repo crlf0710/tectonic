@@ -41,7 +41,7 @@ use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfobj::{
-    check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, PdfObjVariant,
+    check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, Object,
 };
 use crate::shims::sprintf;
 
@@ -464,7 +464,7 @@ pub(crate) unsafe fn pdf_ximage_set_image(
 ) {
     let info = image_info;
     if let Some(resource) = resource.as_mut() {
-        if let PdfObjVariant::STREAM(_) = (*resource).data {
+        if let Object::Stream(_) = (*resource).data {
             I.subtype = PdfXObjectType::Image;
             I.attr.width = info.width;
             I.attr.height = info.height;

@@ -67,7 +67,7 @@ use crate::bridge::{InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
     pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
-    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, PdfObjVariant, PushObj,
+    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, Object, PushObj,
     STREAM_COMPRESS,
 };
 use libc::{free, strcmp, strcpy, strlen};
@@ -288,7 +288,7 @@ unsafe fn pdf_doc_init_catalog(p: &mut pdf_doc) {
 unsafe fn pdf_doc_close_catalog(p: &mut pdf_doc) {
     if !p.root.viewerpref.is_null() {
         if let Some(tmp) = (*p.root.dict).as_dict().get("ViewerPreferences") {
-            if let PdfObjVariant::DICT(tmp) = &tmp.data {
+            if let Object::Dict(tmp) = &tmp.data {
                 (*p.root.viewerpref).as_dict_mut().merge(&tmp);
                 (*p.root.dict)
                     .as_dict_mut()
@@ -432,7 +432,7 @@ unsafe fn pdf_doc_close_docinfo(p: &mut pdf_doc) {
     ];
     for key in KEYS.iter() {
         if let Some(value) = docinfo.as_dict().get(*key) {
-            if let PdfObjVariant::STRING(value) = &value.data {
+            if let Object::String(value) = &value.data {
                 if value.len() == 0 {
                     /* The hyperref package often uses emtpy strings. */
                     pdf_remove_dict(docinfo.as_dict_mut(), key);
@@ -743,9 +743,9 @@ unsafe fn pdf_doc_close_page_tree(p: &mut pdf_doc) {
 pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
     let catalog = pdf_file_get_catalog(pf);
     if let Some(mut page_tree) = DerefObj::new((*catalog).as_dict_mut().get_mut("Pages")) {
-        if let PdfObjVariant::DICT(page_tree) = &mut page_tree.data {
+        if let Object::Dict(page_tree) = &mut page_tree.data {
             if let Some(tmp) = DerefObj::new(page_tree.get_mut("Count")) {
-                if let PdfObjVariant::NUMBER(count) = tmp.data {
+                if let Object::Number(count) = tmp.data {
                     count as i32
                 } else {
                     0
@@ -824,12 +824,12 @@ pub unsafe fn pdf_doc_get_page(
 /* returned values */ {
     let catalog = pdf_file_get_catalog(pf);
     if let Some(mut page_tree) = DerefObj::new((*catalog).as_dict_mut().get_mut("Pages")) {
-        if let PdfObjVariant::DICT(_) = page_tree.data {
+        if let Object::Dict(_) = page_tree.data {
             let mut resources: *mut pdf_obj = ptr::null_mut();
             let mut rotate: *mut pdf_obj = ptr::null_mut();
             let count = {
                 if let Some(tmp) = DerefObj::new(page_tree.as_dict_mut().get_mut("Count")) {
-                    if let PdfObjVariant::NUMBER(count) = tmp.data {
+                    if let Object::Number(count) = tmp.data {
                         count as i32
                     } else {
                         return error(rotate, resources);
@@ -904,7 +904,7 @@ pub unsafe fn pdf_doc_get_page(
                     resources = tmp_0
                 }
                 if let Some(mut kids) = DerefObj::new(page_tree.as_dict_mut().get_mut("Kids")) {
-                    if let PdfObjVariant::ARRAY(array) = &mut kids.data {
+                    if let Object::Array(array) = &mut kids.data {
                         i = 0;
                         kids_length = array.len();
                         while i < kids_length {
@@ -916,9 +916,9 @@ pub unsafe fn pdf_doc_get_page(
                                 None
                             };
                             if let Some(mut pt) = pt {
-                                if let PdfObjVariant::DICT(ptdata) = &mut pt.data {
+                                if let Object::Dict(ptdata) = &mut pt.data {
                                     if let Some(tmp_0) = DerefObj::new(ptdata.get_mut("Count")) {
-                                        if let PdfObjVariant::NUMBER(v) = tmp_0.data {
+                                        if let Object::Number(v) = tmp_0.data {
                                             /* Pages object */
                                             count_0 = v as i32;
                                         } else {
@@ -996,9 +996,9 @@ pub unsafe fn pdf_doc_get_page(
             };
             let medbox = media_box;
 
-            if !((!box_0.is_null() && matches!((*box_0).data, PdfObjVariant::ARRAY(_)))
+            if !((!box_0.is_null() && matches!((*box_0).data, Object::Array(_)))
                 && (*box_0).as_array().len() == 4
-                && (!resources.is_null() && matches!((*resources).data, PdfObjVariant::DICT(_))))
+                && (!resources.is_null() && matches!((*resources).data, Object::Dict(_))))
             {
                 pdf_release_obj(box_0);
                 return error(rotate, resources);
@@ -1019,7 +1019,7 @@ pub unsafe fn pdf_doc_get_page(
                     None
                 } {
                     match tmp_1.data {
-                        PdfObjVariant::NUMBER(x) => match i_0 {
+                        Object::Number(x) => match i_0 {
                             0 => bbox.min.x = x,
                             1 => bbox.min.y = x,
                             2 => bbox.max.x = x,
@@ -1052,7 +1052,7 @@ pub unsafe fn pdf_doc_get_page(
                         None
                     } {
                         match tmp_2.data {
-                            PdfObjVariant::NUMBER(x) => match i_0 {
+                            Object::Number(x) => match i_0 {
                                 0 => {
                                     if bbox.min.x < x {
                                         bbox.min.x = x
@@ -1090,7 +1090,7 @@ pub unsafe fn pdf_doc_get_page(
             pdf_release_obj(box_0);
 
             let mut matrix = TMatrix::identity();
-            if !rotate.is_null() && matches!((*rotate).data, PdfObjVariant::NUMBER(_)) {
+            if !rotate.is_null() && matches!((*rotate).data, Object::Number(_)) {
                 let deg: f64 = (*rotate).as_f64();
                 if deg - deg as i32 as f64 != 0.0f64 {
                     warn!("Invalid value specified for /Rotate: {}", deg);
@@ -1475,11 +1475,11 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
      */
     if let Some(subtype) = DerefObj::new(annot_dict.get_mut("Subtype")) {
         match &subtype.data {
-            PdfObjVariant::UNDEFINED => {
+            Object::Undefined => {
                 return undefined(A, D);
             }
-            PdfObjVariant::NAME(n) if n.to_bytes() == b"Link" => {}
-            PdfObjVariant::NAME(_) => {
+            Object::Name(n) if n.to_bytes() == b"Link" => {}
+            Object::Name(_) => {
                 return cleanup(A, D);
             }
             _ => {
@@ -1492,7 +1492,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
     D = pdf_deref_obj(annot_dict.get_mut(key));
     let mut dict = annot_dict;
     match D.as_mut() {
-        Some(D) if matches!(D.data, PdfObjVariant::UNDEFINED) => {
+        Some(D) if matches!(D.data, Object::Undefined) => {
             return undefined(A, D);
         }
         _ => {}
@@ -1500,19 +1500,19 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
 
     A = pdf_deref_obj(dict.get_mut("A"));
     if let Some(A) = A.as_mut() {
-        if let PdfObjVariant::UNDEFINED = A.data {
+        if let Object::Undefined = A.data {
             return undefined(A, D);
         } else if D.as_ref().is_some() {
             return error(A, D);
         } else {
-            if let PdfObjVariant::DICT(a) = &mut A.data {
+            if let Object::Dict(a) = &mut A.data {
                 if let Some(S) = DerefObj::new(a.get_mut("S")) {
                     match &S.data {
-                        PdfObjVariant::UNDEFINED => {
+                        Object::Undefined => {
                             return undefined(A, D);
                         }
-                        PdfObjVariant::NAME(n) if n.to_bytes() == b"GoTo" => {}
-                        PdfObjVariant::NAME(_) => {
+                        Object::Name(n) if n.to_bytes() == b"GoTo" => {}
+                        Object::Name(_) => {
                             return cleanup(A, D);
                         }
                         _ => {
@@ -1534,9 +1534,9 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
 
     let dest = if let Some(D) = D.as_mut() {
         match &D.data {
-            PdfObjVariant::STRING(s) => s.to_bytes(),
-            PdfObjVariant::ARRAY(_) => return cleanup(A, D),
-            PdfObjVariant::UNDEFINED => return undefined(A, D),
+            Object::String(s) => s.to_bytes(),
+            Object::Array(_) => return cleanup(A, D),
+            Object::Undefined => return undefined(A, D),
             _ => return error(A, D),
         }
     } else {
@@ -1649,7 +1649,7 @@ unsafe fn pdf_doc_close_names(p: &mut pdf_doc) {
     }
     if !p.root.names.is_null() {
         if let Some(tmp) = (*p.root.dict).as_dict().get("Names") {
-            if let PdfObjVariant::DICT(tmp) = &tmp.data {
+            if let Object::Dict(tmp) = &tmp.data {
                 (*p.root.names).as_dict_mut().merge(tmp);
                 (*p.root.dict)
                     .as_dict_mut()

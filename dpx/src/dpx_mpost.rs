@@ -58,7 +58,7 @@ use super::dpx_pdfparse::dump;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_release_obj, pdf_set_number, IntoObj, PdfObjVariant, PushObj,
+    pdf_dict, pdf_name, pdf_release_obj, pdf_set_number, IntoObj, Object, PushObj,
 };
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
@@ -396,13 +396,13 @@ unsafe fn get_opcode(token: &[u8]) -> Result<Opcode, ()> {
     }
     Err(())
 }
-static mut STACK: Vec<PdfObjVariant> = Vec::new();
+static mut STACK: Vec<Object> = Vec::new();
 trait PushChecked {
     fn push_checked<T>(&mut self, val: T) -> Result<(), ()>
     where
         T: IntoObj;
 }
-impl PushChecked for Vec<PdfObjVariant> {
+impl PushChecked for Vec<Object> {
     fn push_checked<T>(&mut self, val: T) -> Result<(), ()>
     where
         T: IntoObj,
@@ -437,7 +437,7 @@ unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
         }
         count -= 1;
         if let Some(tmp) = STACK.pop() {
-            if let PdfObjVariant::NUMBER(tmp) = tmp {
+            if let Object::Number(tmp) = tmp {
                 values[count] = tmp;
             } else {
                 warn!("mpost: Not a number!");
@@ -452,16 +452,16 @@ unsafe fn pop_get_numbers(values: &mut [f64]) -> i32 {
     }
     count as i32
 }
-unsafe fn cvr_array(array: PdfObjVariant, values: &mut [f64]) -> i32 {
+unsafe fn cvr_array(array: Object, values: &mut [f64]) -> i32 {
     let mut count = values.len();
-    if let PdfObjVariant::ARRAY(array) = array {
+    if let Object::Array(array) = array {
         loop {
             let fresh2 = count;
             count -= 1;
             if !(fresh2 > 0) {
                 break;
             }
-            if let PdfObjVariant::NUMBER(tmp) = (*array[count]).data {
+            if let Object::Number(tmp) = (*array[count]).data {
                 values[count] = tmp;
             } else {
                 warn!("mpost: Not a number!");
@@ -473,14 +473,14 @@ unsafe fn cvr_array(array: PdfObjVariant, values: &mut [f64]) -> i32 {
     }
     (count + 1) as i32
 }
-unsafe fn is_fontdict(dict: &PdfObjVariant) -> bool {
-    if let PdfObjVariant::DICT(d) = &dict {
+unsafe fn is_fontdict(dict: &Object) -> bool {
+    if let Object::Dict(d) = &dict {
         if let Some(typ) = d.get("Type") {
-            if matches!(&typ.data, PdfObjVariant::NAME(typ) if typ.to_bytes() == b"Font") {
+            if matches!(&typ.data, Object::Name(typ) if typ.to_bytes() == b"Font") {
                 if let Some(name) = d.get("FontName") {
-                    if let PdfObjVariant::NAME(_) = name.data {
+                    if let Object::Name(_) = name.data {
                         if let Some(scale) = d.get("FontScale") {
-                            return matches!(scale.data, PdfObjVariant::NUMBER(_));
+                            return matches!(scale.data, Object::Number(_));
                         }
                     }
                 }
@@ -495,7 +495,7 @@ unsafe fn do_findfont() -> i32 {
     let mut error = 0;
     if let Some(font_name) = STACK.pop() {
         match &font_name {
-            PdfObjVariant::STRING(_) | PdfObjVariant::NAME(_) => {
+            Object::String(_) | Object::Name(_) => {
                 /* Do not check the existence...
                  * The reason for this is that we cannot locate PK font without
                  * font scale.
@@ -503,10 +503,10 @@ unsafe fn do_findfont() -> i32 {
                 let mut font_dict = pdf_dict::new();
                 font_dict.set("Type", "Font");
                 match &font_name {
-                    PdfObjVariant::STRING(font_name) => {
+                    Object::String(font_name) => {
                         font_dict.set("FontName", pdf_name::new(font_name.to_bytes_without_nul()));
                     }
-                    PdfObjVariant::NAME(_) => {
+                    Object::Name(_) => {
                         font_dict.set("FontName", font_name);
                     }
                     _ => unreachable!(),
@@ -603,7 +603,7 @@ unsafe fn do_show() -> i32 {
     }
     pdf_dev_currentpoint(&mut cp);
     if let Some(text) = STACK.pop() {
-        if let PdfObjVariant::STRING(text) = &text {
+        if let Object::String(text) = &text {
             if (*font).font_id < 0 {
                 warn!("mpost: not set.");
                 return 1i32;
@@ -953,7 +953,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                 let mut dash_values: [f64; 16] = [0.; 16];
                 let offset = values[0];
                 if let Some(pattern) = STACK.pop() {
-                    if let PdfObjVariant::ARRAY(pattern) = pattern {
+                    if let Object::Array(pattern) = pattern {
                         num_dashes = pattern.len();
                         if num_dashes > 16 {
                             warn!("Too many dashes...");
@@ -961,7 +961,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                         } else {
                             let mut i = 0;
                             while i < num_dashes && error == 0 {
-                                if let PdfObjVariant::NUMBER(dash) = (*pattern[i]).data {
+                                if let Object::Number(dash) = (*pattern[i]).data {
                                     dash_values[i] = dash;
                                 } else {
                                     error = 1
@@ -1055,7 +1055,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             let mut values = [0.; 6];
             let mut matrix = None;
             if let Some(tmp2) = STACK.pop() {
-                if let PdfObjVariant::ARRAY(_) = &tmp2 {
+                if let Object::Array(_) = &tmp2 {
                     error = cvr_array(tmp2, values.as_mut());
                     tmp = None;
                     if error == 0 {
@@ -1067,9 +1067,9 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                 }
             }
             if error == 0 {
-                if let Some(PdfObjVariant::NUMBER(tmp)) = tmp {
+                if let Some(Object::Number(tmp)) = tmp {
                     cp.y = tmp;
-                    if let Some(PdfObjVariant::NUMBER(tmp)) = STACK.pop() {
+                    if let Some(Object::Number(tmp)) = STACK.pop() {
                         cp.x = tmp;
                         /* Here, we need real PostScript CTM */
                         let mut matrix = matrix.unwrap_or_else(|| ps_dev_CTM());
@@ -1094,7 +1094,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             let mut matrix = None;
             let mut values = [0.; 6];
             if let Some(tmp2) = STACK.pop() {
-                if let PdfObjVariant::ARRAY(_) = &tmp2 {
+                if let Object::Array(_) = &tmp2 {
                     error = cvr_array(tmp2, values.as_mut());
                     tmp = None;
                     if error == 0 {
@@ -1106,9 +1106,9 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                 }
             }
             if error == 0 {
-                if let Some(PdfObjVariant::NUMBER(tmp)) = tmp {
+                if let Some(Object::Number(tmp)) = tmp {
                     cp.y = tmp;
-                    if let Some(PdfObjVariant::NUMBER(tmp)) = STACK.pop() {
+                    if let Some(Object::Number(tmp)) = STACK.pop() {
                         cp.x = tmp;
                         /* Here, we need real PostScript CTM */
                         let matrix = matrix.unwrap_or_else(|| ps_dev_CTM());

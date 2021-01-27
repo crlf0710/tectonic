@@ -40,7 +40,7 @@ use super::dpx_dpxutil::{
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_undefined, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, PdfObjVariant, PushObj,
+    pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, Object, PushObj,
 };
 use libc::free;
 
@@ -286,13 +286,10 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
                 cur.keylen as size_t,
             ));
             match (&*cur.value).data {
-                PdfObjVariant::ARRAY(_)
-                | PdfObjVariant::DICT(_)
-                | PdfObjVariant::STREAM(_)
-                | PdfObjVariant::STRING(_) => {
+                Object::Array(_) | Object::Dict(_) | Object::Stream(_) | Object::String(_) => {
                     names.push(pdf_ref_obj(cur.value));
                 }
-                PdfObjVariant::OBJ_INVALID => {
+                Object::Invalid => {
                     panic!("Invalid object...: {}", printable_key(cur.key, cur.keylen));
                 }
                 _ => {
@@ -345,7 +342,7 @@ unsafe fn flat_table(ht_tab: *mut ht_table, filter: *mut ht_table) -> Vec<named_
 
             let value = ht_iter_getval(&mut iter) as *mut obj_data;
             assert!(!(*value).object.is_null());
-            objects.push(if let PdfObjVariant::UNDEFINED = (*(*value).object).data {
+            objects.push(if let Object::Undefined = (*(*value).object).data {
                 warn!(
                     "Object @{}\" not defined. Replaced by null.",
                     printable_key(key, keylen),

@@ -35,7 +35,7 @@ use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_new_null, pdf_obj, pdf_stream, pdf_string,
-    DerefObj, IntoObj, PdfObjVariant, STREAM_COMPRESS,
+    DerefObj, IntoObj, Object, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::memcpy;
@@ -466,7 +466,7 @@ impl ParsePdfObj for &[u8] {
         if let Some(tmp) = unsafe { dict.get_mut("Length") } {
             unsafe {
                 stream_length = if let Some(tmp2) = DerefObj::new(Some(tmp)) {
-                    let l = if let PdfObjVariant::NUMBER(v) = tmp2.data {
+                    let l = if let Object::Number(v) = tmp2.data {
                         v as i32
                     } else {
                         -1

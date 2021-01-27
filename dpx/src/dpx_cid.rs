@@ -44,7 +44,7 @@ use super::dpx_cidtype2::{
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_remove_dict, PdfObjVariant,
+    pdf_remove_dict, Object,
 };
 use libc::free;
 use std::borrow::Cow;
@@ -560,7 +560,7 @@ unsafe fn CIDFont_base_open(
     let mut fontdict = start.parse_pdf_dict(ptr::null_mut()).unwrap();
     let mut start = basefont.descriptor.as_bytes();
     let mut descriptor = start.parse_pdf_dict(ptr::null_mut()).unwrap();
-    let csi = if let PdfObjVariant::DICT(tmp) = &fontdict.get("CIDSystemInfo").unwrap().data {
+    let csi = if let Object::Dict(tmp) = &fontdict.get("CIDSystemInfo").unwrap().data {
         let registry = std::str::from_utf8(tmp.get("Registry").unwrap().as_string().to_bytes())
             .unwrap()
             .to_string();
@@ -594,7 +594,7 @@ unsafe fn CIDFont_base_open(
         panic!();
     };
     if let Some(tmp) = fontdict.get("Subtype") {
-        if let PdfObjVariant::NAME(typ) = &(*tmp).data {
+        if let Object::Name(typ) = &(*tmp).data {
             let typ = typ.to_bytes();
             let subtype = if typ == b"CIDFontType0" {
                 1
