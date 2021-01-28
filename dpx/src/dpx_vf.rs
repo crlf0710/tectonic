@@ -146,7 +146,7 @@ unsafe fn read_a_font_def<R: Read>(vf_handle: &mut R, font_id: i32, thisfont: i3
     });
     let dev_font = vf_fonts[thisfont as usize].dev_fonts.last_mut().unwrap();
 
-    dev_font.tfm_id = tfm_open(&dev_font.name, 1i32);
+    dev_font.tfm_id = tfm_open(&dev_font.name, 1);
     dev_font.dev_id = dvi_locate_font(
         &dev_font.name,
         sqxfw(vf_fonts[thisfont as usize].ptsize, dev_font.size as fixword),
@@ -213,10 +213,10 @@ pub(crate) unsafe fn vf_locate_font(tex_name: &str, ptsize: spt_t) -> i32 {
     if i != vf_fonts.len() {
         return i as i32;
     }
-    if let Some(vf_handle) = InFile::open(tex_name, TTInputFormat::VF, 0i32)
-        .or_else(|| InFile::open(tex_name, TTInputFormat::OVF, 0i32))
+    if let Some(vf_handle) = InFile::open(tex_name, TTInputFormat::VF, 0)
+        .or_else(|| InFile::open(tex_name, TTInputFormat::OVF, 0))
     {
-        if verbose as i32 == 1i32 {
+        if verbose as i32 == 1 {
             eprint!("(VF:{}", tex_name);
         }
         let thisfont = vf_fonts.len();
@@ -354,7 +354,7 @@ unsafe fn vf_xxx(len: usize, slice: &mut &[u8]) {
 }
 
 pub(crate) unsafe fn vf_set_char(ch: i32, vf_font: i32) {
-    let mut default_font: i32 = -1i32;
+    let mut default_font: i32 = -1;
     if (vf_font as usize) < vf_fonts.len() {
         /* Initialize to the first font or -1 if undefined */
         let ptsize = vf_fonts[vf_font as usize].ptsize;

@@ -58,7 +58,7 @@ fn istokensep(c: &u8) -> bool {
 pub(crate) struct ParserState {
     pub(crate) tainted: i32,
 }
-static mut parser_state: ParserState = ParserState { tainted: 0i32 };
+static mut parser_state: ParserState = ParserState { tainted: 0 };
 
 pub(crate) fn dump(buf: &[u8]) {
     info!("\nCurrent input buffer is -->");
@@ -146,10 +146,10 @@ impl SkipWhite for &[u8] {
 unsafe fn parsed_string(start: *const i8, end: *const i8) -> *mut i8 {
     let mut result: *mut i8 = ptr::null_mut();
     let len = end.offset_from(start) as i64 as i32;
-    if len > 0i32 {
-        result = new(
-            ((len + 1i32) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
-        ) as *mut i8;
+    if len > 0 {
+        result =
+            new(((len + 1) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
+                as *mut i8;
         memcpy(
             result as *mut libc::c_void,
             start as *const libc::c_void,
@@ -634,7 +634,7 @@ impl ParsePdfObj for &[u8] {
                         ch = p[0] as i32;
                         p = &p[1..];
                     } else if p[0] >= b'0' && p[0] <= b'7' {
-                        ch = 0i32;
+                        ch = 0;
                         /* Ignore overflow. */
                         let mut i = 0;
                         while i < 3 && !p.is_empty() && (p[0] >= b'0' && p[0] <= b'7') {
@@ -653,7 +653,7 @@ impl ParsePdfObj for &[u8] {
             *pp = p;
             ch
         }
-        let mut op_count: i32 = 0i32;
+        let mut op_count: i32 = 0;
         let mut len = 0;
         let mut p = *self;
         p.skip_white();
@@ -702,7 +702,7 @@ impl ParsePdfObj for &[u8] {
             match ch as u8 {
                 b'\\' => {
                     ch = ps_getescc(&mut p);
-                    if ch >= 0i32 {
+                    if ch >= 0 {
                         unsafe {
                             sbuf[len] = (ch & 0xff) as u8;
                         }
@@ -733,7 +733,7 @@ impl ParsePdfObj for &[u8] {
                 }
             }
         }
-        if op_count > 0i32 || p.is_empty() || p[0] != b')' {
+        if op_count > 0 || p.is_empty() || p[0] != b')' {
             warn!("Unbalanced parens/truncated PDF literal string.");
             return None;
         }
@@ -761,7 +761,7 @@ impl ParsePdfObj for &[u8] {
             if p.is_empty() || p[0] == b'>' {
                 break;
             }
-            let mut ch = xtoi(p[0]) << 4i32;
+            let mut ch = xtoi(p[0]) << 4;
             p = &p[1..];
             p.skip_white();
             if !p.is_empty() && p[0] != b'>' {

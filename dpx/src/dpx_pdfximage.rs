@@ -204,11 +204,11 @@ pub(crate) unsafe fn pdf_close_images() {
              * We also use this to convert a PS file only once if multiple
              * pages are imported from that file.
              */
-            if _opts.verbose > 1i32 && keep_cache != 1i32 {
+            if _opts.verbose > 1 && keep_cache != 1 {
                 info!("pdf_image>> deleting temporary file \"{}\"\n", I.filename);
                 /* temporary filename freed here */
             }
-            dpx_delete_temp_file(&I.filename, 0i32);
+            dpx_delete_temp_file(&I.filename, 0);
             I.filename = String::new();
         }
     }
@@ -372,10 +372,10 @@ pub(crate) unsafe fn pdf_ximage_findresource(ident: &str, options: load_options)
      *   strcpy(fullname, f);
      * } else { kpse_find_file() }
      */
-    let handle = InFile::open(ident, TTInputFormat::PICT, 0i32);
+    let handle = InFile::open(ident, TTInputFormat::PICT, 0);
     if handle.is_none() {
         warn!("Error locating image file \"{}\"", ident);
-        return -1i32;
+        return -1;
     }
     let mut handle = handle.unwrap();
     if _opts.verbose != 0 {
@@ -476,7 +476,7 @@ pub(crate) unsafe fn pdf_ximage_set_image(
             dict.set("Subtype", "Image");
             dict.set("Width", (*info).width as f64);
             dict.set("Height", (*info).height as f64);
-            if (*info).bits_per_component > 0i32 {
+            if (*info).bits_per_component > 0 {
                 /* Ignored for JPXDecode filter. FIXME */
                 dict.set("BitsPerComponent", (*info).bits_per_component as f64);
                 /* Caller don't know we are using reference. */
@@ -762,7 +762,7 @@ pub(crate) unsafe fn pdf_ximage_scale_image(id: i32, p: &transform_info) -> (Rec
              * way as pdfTeX. Furthermore, it takes care of density information too.
              */
             scale_to_fit_I(&mut M, p, I);
-            if p.flags & 1i32 << 0i32 != 0 {
+            if p.flags & 1 << 0 != 0 {
                 r.min.x = p.bbox.min.x / (I.attr.width as f64 * I.attr.xdensity);
                 r.min.y = p.bbox.min.y / (I.attr.height as f64 * I.attr.ydensity);
                 r.max.x = p.bbox.max.x / (I.attr.width as f64 * I.attr.xdensity);
@@ -775,7 +775,7 @@ pub(crate) unsafe fn pdf_ximage_scale_image(id: i32, p: &transform_info) -> (Rec
             /* User-defined transformation and clipping are controlled by
              * the cm operator and W operator, explicitly */
             scale_to_fit_F(&mut M, p, I); /* I->attr.bbox from the image bounding box */
-            if p.flags & 1i32 << 0i32 != 0 {
+            if p.flags & 1 << 0 != 0 {
                 r = p.bbox;
             } else {
                 r = I.attr.bbox;
@@ -812,14 +812,14 @@ pub(crate) unsafe fn pdf_ximage_scale_image(id: i32, p: &transform_info) -> (Rec
 }*/
 unsafe fn check_for_ps<R: Read + Seek>(handle: &mut R) -> i32 {
     handle.seek(SeekFrom::Start(0)).unwrap();
-    tt_mfgets(work_buffer.as_mut_ptr(), 1024i32, handle);
+    tt_mfgets(work_buffer.as_mut_ptr(), 1024, handle);
     if !strstartswith(
         work_buffer.as_mut_ptr(),
         b"%!\x00" as *const u8 as *const i8,
     )
     .is_null()
     {
-        return 1i32;
+        return 1;
     }
-    0i32
+    0
 }

@@ -78,7 +78,7 @@ unsafe fn pdf_init_encoding_struct() -> pdf_encoding {
         tounicode: ptr::null_mut(),
         baseenc: ptr::null_mut(),
         resource: ptr::null_mut(),
-        flags: 0i32,
+        flags: 0,
         is_used: [0; 256],
         glyphs: [NEW_STRING; 256],
     }
@@ -172,7 +172,7 @@ unsafe fn make_encoding_differences(
     baseenc: Option<&[String; 256]>,
     is_used: &mut [i8],
 ) -> Option<Vec<*mut pdf_obj>> {
-    let mut count: i32 = 0i32;
+    let mut count: i32 = 0;
     let mut skipping = true;
     /*
      *  Write all entries (except .notdef) if baseenc is unknown.
@@ -206,7 +206,7 @@ unsafe fn make_encoding_differences(
      * No difference found. Some PDF viewers can't handle differences without
      * any differences. We return NULL.
      */
-    if count == 0i32 {
+    if count == 0 {
         return None;
     }
     Some(differences)
@@ -218,7 +218,7 @@ unsafe fn load_encoding_file(filename: &str) -> i32 {
     }
     let handle = dpx_tt_open(filename, ".enc", TTInputFormat::ENC);
     if handle.is_none() {
-        return -1i32;
+        return -1;
     }
     let mut handle = handle.unwrap();
     let fsize = ttstub_input_get_size(&mut handle) as usize;
@@ -254,10 +254,10 @@ unsafe fn load_encoding_file(filename: &str) -> i32 {
             filename,
             &enc_vec,
             None,
-            0i32,
+            0,
         );
         if let Some(enc_name) = enc_name {
-            if verbose as i32 > 1i32 {
+            if verbose as i32 > 1 {
                 info!("[{:?}]", enc_name.name.display());
             }
         }
@@ -266,7 +266,7 @@ unsafe fn load_encoding_file(filename: &str) -> i32 {
         }
         enc_id
     } else {
-        return -1i32;
+        return -1;
     }
 }
 
@@ -284,21 +284,21 @@ pub(crate) unsafe fn pdf_init_encodings() {
         "WinAnsiEncoding",
         &WinAnsiEncoding[..],
         None,
-        1i32 << 0i32,
+        1 << 0,
     );
     pdf_encoding_new_encoding(
         "MacRomanEncoding",
         "MacRomanEncoding",
         &MacRomanEncoding[..],
         None,
-        1i32 << 0i32,
+        1 << 0,
     );
     pdf_encoding_new_encoding(
         "MacExpertEncoding",
         "MacExpertEncoding",
         &MacExpertEncoding[..],
         None,
-        1i32 << 0i32,
+        1 << 0,
     );
 }
 /*
@@ -335,7 +335,7 @@ unsafe fn pdf_encoding_new_encoding(
     }
 
     if baseenc_name.is_none()
-        && flags & 1i32 << 0i32 == 0
+        && flags & 1 << 0 == 0
         && is_similar_charset(&encoding.glyphs[..], &WinAnsiEncoding[..]) as i32 != 0
     {
         /* Dvipdfmx default setting. */
@@ -344,7 +344,7 @@ unsafe fn pdf_encoding_new_encoding(
     /* TODO: make base encoding configurable */
     if let Some(baseenc_name) = baseenc_name {
         let baseenc_id: i32 = pdf_encoding_findresource(baseenc_name);
-        if baseenc_id < 0i32 || pdf_encoding_is_predefined(baseenc_id) == 0 {
+        if baseenc_id < 0 || pdf_encoding_is_predefined(baseenc_id) == 0 {
             panic!(
                 "Illegal base encoding {} for encoding {}\n",
                 baseenc_name, encoding.enc_name
@@ -352,7 +352,7 @@ unsafe fn pdf_encoding_new_encoding(
         }
         encoding.baseenc = &mut *enc_cache[baseenc_id as usize] as *mut pdf_encoding
     }
-    if flags & 1i32 << 0i32 != 0 {
+    if flags & 1 << 0 != 0 {
         encoding.resource = pdf_name::new(encoding.enc_name.as_bytes()).into_obj()
     }
     enc_id as i32
@@ -418,7 +418,7 @@ pub(crate) unsafe fn pdf_encoding_findresource(enc_name: &str) -> i32 {
  */
 
 pub(crate) unsafe fn pdf_encoding_get_encoding<'a>(enc_id: i32) -> &'a mut [String] {
-    if enc_id < 0i32 || enc_id >= enc_cache.len() as i32 {
+    if enc_id < 0 || enc_id >= enc_cache.len() as i32 {
         panic!("Invalid encoding id: {}", enc_id);
     }
     let encoding = &mut enc_cache[enc_id as usize];
@@ -426,7 +426,7 @@ pub(crate) unsafe fn pdf_encoding_get_encoding<'a>(enc_id: i32) -> &'a mut [Stri
 }
 
 pub(crate) unsafe fn pdf_get_encoding_obj(enc_id: i32) -> *mut pdf_obj {
-    if enc_id < 0i32 || enc_id >= enc_cache.len() as i32 {
+    if enc_id < 0 || enc_id >= enc_cache.len() as i32 {
         panic!("Invalid encoding id: {}", enc_id);
     }
     let encoding = &mut *enc_cache[enc_id as usize];
@@ -434,27 +434,27 @@ pub(crate) unsafe fn pdf_get_encoding_obj(enc_id: i32) -> *mut pdf_obj {
 }
 
 pub(crate) unsafe fn pdf_encoding_is_predefined(enc_id: i32) -> i32 {
-    if enc_id < 0i32 || enc_id >= enc_cache.len() as i32 {
+    if enc_id < 0 || enc_id >= enc_cache.len() as i32 {
         panic!("Invalid encoding id: {}", enc_id);
     }
     let encoding = &mut enc_cache[enc_id as usize];
-    return if (*encoding).flags & 1i32 << 0i32 != 0 {
-        1i32
+    return if (*encoding).flags & 1 << 0 != 0 {
+        1
     } else {
-        0i32
+        0
     };
 }
 
 pub(crate) unsafe fn pdf_encoding_used_by_type3(enc_id: i32) {
-    if enc_id < 0i32 || enc_id >= enc_cache.len() as i32 {
+    if enc_id < 0 || enc_id >= enc_cache.len() as i32 {
         panic!("Invalid encoding id: {}", enc_id);
     }
     let encoding = &mut enc_cache[enc_id as usize];
-    encoding.flags |= 1i32 << 1i32;
+    encoding.flags |= 1 << 1;
 }
 
 pub(crate) unsafe fn pdf_encoding_get_name(enc_id: i32) -> String {
-    if enc_id < 0i32 || enc_id >= enc_cache.len() as i32 {
+    if enc_id < 0 || enc_id >= enc_cache.len() as i32 {
         panic!("Invalid encoding id: {}", enc_id);
     }
     let encoding = &mut enc_cache[enc_id as usize];
@@ -465,7 +465,7 @@ static mut range_min: [u8; 1] = [0u32 as u8];
 static mut range_max: [u8; 1] = [0xffu32 as u8];
 
 pub(crate) unsafe fn pdf_encoding_add_usedchars(encoding_id: i32, is_used: *const i8) {
-    if encoding_id < 0i32 || encoding_id >= enc_cache.len() as i32 {
+    if encoding_id < 0 || encoding_id >= enc_cache.len() as i32 {
         panic!("Invalid encoding id: {}", encoding_id);
     }
     if is_used.is_null() || pdf_encoding_is_predefined(encoding_id) != 0 {
@@ -480,7 +480,7 @@ pub(crate) unsafe fn pdf_encoding_add_usedchars(encoding_id: i32, is_used: *cons
 }
 
 pub(crate) unsafe fn pdf_encoding_get_tounicode(encoding_id: i32) -> *mut pdf_obj {
-    if encoding_id < 0i32 || encoding_id >= enc_cache.len() as i32 {
+    if encoding_id < 0 || encoding_id >= enc_cache.len() as i32 {
         panic!("Invalid encoding id: {}", encoding_id);
     }
     enc_cache[encoding_id as usize].tounicode
@@ -505,15 +505,15 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
 
     let mut cmap = CMap_new();
     CMap_set_name(&mut cmap, &format!("{}-UTF16", enc_name));
-    CMap_set_type(&mut cmap, 2i32);
-    CMap_set_wmode(&mut cmap, 0i32);
+    CMap_set_type(&mut cmap, 2);
+    CMap_set_wmode(&mut cmap, 0);
     CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
     CMap_add_codespacerange(&mut cmap, range_min.as_ptr(), range_max.as_ptr(), 1);
     let mut all_predef = 1;
     for code in 0..=0xff {
         if !(!is_used.is_null() && *is_used.offset(code as isize) == 0) {
             if !(enc_vec[code as usize]).is_empty() {
-                let mut fail_count: i32 = 0i32;
+                let mut fail_count: i32 = 0;
                 let agln: *mut agl_name = agl_lookup_list_str(&enc_vec[code as usize]);
                 /* Adobe glyph naming conventions are not used by viewers,
                  * hence even ligatures (e.g, "f_i") must be explicitly defined
@@ -524,11 +524,11 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                     let endptr = wbuf.as_mut_ptr().offset(1024);
                     let len =
                         agl_sput_UTF16BE(&enc_vec[code as usize], &mut p, endptr, &mut fail_count);
-                    if len >= 1i32 && fail_count == 0 {
+                    if len >= 1 && fail_count == 0 {
                         CMap_add_bfchar(
                             &mut cmap,
                             wbuf.as_mut_ptr(),
-                            1i32 as size_t,
+                            1 as size_t,
                             wbuf.as_mut_ptr().offset(1),
                             len as size_t,
                         );

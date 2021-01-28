@@ -88,8 +88,8 @@ pub(crate) unsafe fn pdf_include_page(
             pdf_get_version()
         );
     }
-    if options.page_no == 0i32 {
-        options.page_no = 1i32
+    if options.page_no == 0 {
+        options.page_no = 1
     }
 
     let mut resources: *mut pdf_obj = ptr::null_mut();
@@ -174,7 +174,7 @@ pub(crate) unsafe fn pdf_include_page(
             /*
              * Empty page
              */
-            pdf_stream::new(0i32).into_obj()
+            pdf_stream::new(0).into_obj()
         };
         let contents = content_new;
 

@@ -158,10 +158,10 @@ pub(crate) fn dfont_open(mut handle: InFile, index: i32) -> Option<sfnt> {
  * Computes the max power of 2 <= n
  */
 fn max2floor(mut n: u32) -> u32 {
-    let mut val: i32 = 1i32;
+    let mut val: i32 = 1;
     while n > 1_u32 {
         n = n.wrapping_div(2_u32);
-        val *= 2i32
+        val *= 2
     }
     val as u32
 }
@@ -178,11 +178,11 @@ fn log2floor(mut n: u32) -> u32 {
 }
 fn sfnt_calc_checksum(data: &[u8]) -> u32 {
     let mut chksum: u32 = 0_u32;
-    let mut count: i32 = 0i32;
+    let mut count: i32 = 0;
     for b in data {
-        chksum = (chksum as u32).wrapping_add(((*b as i32) << 8i32 * (3i32 - count)) as u32) as u32
-            as u32;
-        count = count + 1i32 & 3i32;
+        chksum =
+            (chksum as u32).wrapping_add(((*b as i32) << 8 * (3 - count)) as u32) as u32 as u32;
+        count = count + 1 & 3;
     }
     chksum
 }
@@ -221,7 +221,7 @@ pub(crate) fn sfnt_find_table_len(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
 
 pub(crate) fn sfnt_find_table_pos(sfont: &sfnt, tag: &[u8; 4]) -> u32 {
     let idx = find_table_index(sfont.directory.as_deref(), tag);
-    if idx < 0i32 {
+    if idx < 0 {
         0
     } else {
         sfont.directory.as_ref().unwrap().tables[idx as usize].offset
@@ -329,7 +329,7 @@ pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: &mut sfnt) -> pdf_stream
     let sr = max2floor(td.num_kept_tables as u32).wrapping_mul(16_u32) as i32;
     wbuf.put_be(sr as u16);
     wbuf.put_be(log2floor(td.num_kept_tables as u32) as u16);
-    wbuf.put_be((td.num_kept_tables as i32 * 16i32 - sr) as u16);
+    wbuf.put_be((td.num_kept_tables as i32 * 16 - sr) as u16);
     stream.add_slice(&wbuf[..]);
     wbuf.clear();
     /*
@@ -338,9 +338,9 @@ pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: &mut sfnt) -> pdf_stream
     let mut offset = 12 + 16 * td.num_kept_tables as i32;
     for i in 0..td.tables.len() {
         /* This table must exist in FontFile */
-        if td.flags[i] as i32 & 1i32 << 0i32 != 0 {
-            if offset % 4i32 != 0i32 {
-                offset += 4i32 - offset % 4i32
+        if td.flags[i] as i32 & 1 << 0 != 0 {
+            if offset % 4 != 0 {
+                offset += 4 - offset % 4
             }
             let table = &td.tables[i];
             wbuf.extend(&table.tag);
@@ -355,9 +355,9 @@ pub(crate) unsafe fn sfnt_create_FontFile_stream(sfont: &mut sfnt) -> pdf_stream
     }
     let mut offset = 12 + 16 * td.num_kept_tables as i32;
     for i in 0..td.tables.len() {
-        if td.flags[i] as i32 & 1 << 0i32 != 0 {
-            if offset % 4i32 != 0i32 {
-                let length = 4i32 - offset % 4i32;
+        if td.flags[i] as i32 & 1 << 0 != 0 {
+            if offset % 4 != 0 {
+                let length = 4 - offset % 4;
                 stream.add_slice(&padbytes[..length as usize]);
                 offset += length
             }

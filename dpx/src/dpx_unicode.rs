@@ -29,7 +29,7 @@
 use crate::bridge::size_t;
 
 pub(crate) unsafe fn UC_is_valid(ucv: i32) -> bool {
-    !(ucv < 0i32 || ucv as i64 > 0x10ffff || ucv as i64 >= 0xd800 && ucv as i64 <= 0xdfff)
+    !(ucv < 0 || ucv as i64 > 0x10ffff || ucv as i64 >= 0xd800 && ucv as i64 <= 0xdfff)
 }
 
 pub(crate) unsafe fn UC_UTF16BE_is_valid_string(mut p: *const u8, endptr: *const u8) -> bool {
@@ -62,21 +62,21 @@ pub(crate) unsafe fn UC_UTF16BE_decode_char(pp: *mut *const u8, endptr: *const u
     let mut p: *const u8 = *pp;
     let mut ucv;
     if p.offset(1) >= endptr {
-        return -1i32;
+        return -1;
     }
-    let first = ((*p.offset(0) as i32) << 8i32 | *p.offset(1) as i32) as u16;
+    let first = ((*p.offset(0) as i32) << 8 | *p.offset(1) as i32) as u16;
     p = p.offset(2);
     if first as u32 >= 0xd800u32 && (first as u32) < 0xdc00u32 {
         if p.offset(1) >= endptr {
-            return -1i32;
+            return -1;
         }
-        let second = ((*p.offset(0) as i32) << 8i32 | *p.offset(1) as i32) as u16;
+        let second = ((*p.offset(0) as i32) << 8 | *p.offset(1) as i32) as u16;
         p = p.offset(2);
         ucv = (second as u32 & 0x3ffu32) as i32;
-        ucv = (ucv as u32 | (first as u32 & 0x3ffu32) << 10i32) as i32;
-        ucv += 0x10000i32
+        ucv = (ucv as u32 | (first as u32 & 0x3ffu32) << 10) as i32;
+        ucv += 0x10000
     } else if first as u32 >= 0xdc00u32 && (first as u32) < 0xe000u32 {
-        return -1i32;
+        return -1;
     } else {
         ucv = first as i32
     }
@@ -90,31 +90,31 @@ pub(crate) unsafe fn UC_UTF16BE_encode_char(
     endptr: *mut u8,
 ) -> size_t {
     let p: *mut u8 = *pp;
-    let count = if ucv >= 0i32 && ucv <= 0xffffi32 {
+    let count = if ucv >= 0 && ucv <= 0xffff {
         if p.offset(2) >= endptr {
-            return 0i32 as size_t;
+            return 0 as size_t;
         }
-        *p.offset(0) = (ucv >> 8i32 & 0xffi32) as u8;
-        *p.offset(1) = (ucv & 0xffi32) as u8;
+        *p.offset(0) = (ucv >> 8 & 0xff) as u8;
+        *p.offset(1) = (ucv & 0xff) as u8;
         2
-    } else if ucv >= 0x10000i32 && ucv <= 0x10ffffi32 {
+    } else if ucv >= 0x10000 && ucv <= 0x10ffff {
         if p.offset(4) >= endptr {
-            return 0i32 as size_t;
+            return 0 as size_t;
         }
-        ucv -= 0x10000i32;
-        let high = ((ucv >> 10i32) as u32).wrapping_add(0xd800u32) as u16;
+        ucv -= 0x10000;
+        let high = ((ucv >> 10) as u32).wrapping_add(0xd800u32) as u16;
         let low = (ucv as u32 & 0x3ffu32).wrapping_add(0xdc00u32) as u16;
-        *p.offset(0) = (high as i32 >> 8i32 & 0xffi32) as u8;
-        *p.offset(1) = (high as i32 & 0xffi32) as u8;
-        *p.offset(2) = (low as i32 >> 8i32 & 0xffi32) as u8;
-        *p.offset(3) = (low as i32 & 0xffi32) as u8;
+        *p.offset(0) = (high as i32 >> 8 & 0xff) as u8;
+        *p.offset(1) = (high as i32 & 0xff) as u8;
+        *p.offset(2) = (low as i32 >> 8 & 0xff) as u8;
+        *p.offset(3) = (low as i32 & 0xff) as u8;
         4
     } else {
         if p.offset(2) >= endptr {
-            return 0i32 as size_t;
+            return 0 as size_t;
         }
-        *p.offset(0) = (0xfffdi32 >> 8i32 & 0xffi32) as u8;
-        *p.offset(1) = (0xfffdi32 & 0xffi32) as u8;
+        *p.offset(0) = (0xfffd >> 8 & 0xff) as u8;
+        *p.offset(1) = (0xfffd & 0xff) as u8;
         2
     };
     *pp = (*pp).offset(count as isize);

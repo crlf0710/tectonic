@@ -103,7 +103,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
         png
     } else {
         warn!("{}: Creating Libpng read struct failed.", "PNG");
-        return -1i32;
+        return -1;
     };
 
     let png_info = if let Some(png_info) = png_create_info_struct(png).as_mut() {
@@ -115,11 +115,11 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             0 as png_infopp,
             0 as png_infopp,
         );
-        return -1i32;
+        return -1;
     };
 
     /* ignore possibly incorrect CMF bytes */
-    png_set_option(png, 2i32, 3i32);
+    png_set_option(png, 2, 3);
     /* Rust-backed IO */
     png_set_read_fn(png, handle.as_ptr(), Some(_png_read));
     /* NOTE: could use png_set_sig_bytes() to tell libpng if we started at non-zero file offset */
@@ -129,22 +129,22 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     let width = png_get_image_width(png, png_info);
     let height = png_get_image_height(png, png_info);
     let mut bpc = png_get_bit_depth(png, png_info);
-    if bpc as libc::c_int > 8i32 {
-        if pdf_get_version() < 5i32 as libc::c_uint {
+    if bpc as libc::c_int > 8 {
+        if pdf_get_version() < 5 as libc::c_uint {
             /* Ask libpng to convert down to 8-bpc. */
             warn!("{}: 16-bpc PNG requires PDF version 1.5.", "PNG");
             png_set_strip_16(png);
-            bpc = 8i32 as png_byte
+            bpc = 8 as png_byte
         }
-    } else if (bpc as i32) < 8i32 {
+    } else if (bpc as i32) < 8 {
         /* Instruct libpng to scale each pixel color to a full byte while
         reading even though there's only 1/2/4 bits of color associated. */
-        if color_type as libc::c_int == 0i32 || color_type as libc::c_int == 4i32 {
+        if color_type as libc::c_int == 0 || color_type as libc::c_int == 4 {
             png_set_expand_gray_1_2_4_to_8(png);
         } else {
             png_set_packing(png);
         }
-        bpc = 8i32 as png_byte
+        bpc = 8 as png_byte
     }
     /* Ask libpng to gamma-correct.
      * It is wrong to assume screen gamma value 2.2 but...
@@ -206,7 +206,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 }
                 _ => {}
             }
-            info.num_components = 1i32
+            info.num_components = 1
         }
         2 | 6 => {
             if png_get_valid(png, png_info, 0x1000u32) != 0 {
@@ -235,7 +235,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 }
                 _ => ptr::null_mut(),
             };
-            info.num_components = 3i32
+            info.num_components = 3
         }
         0 | 4 => {
             if png_get_valid(png, png_info, 0x1000u32) != 0 {
@@ -261,7 +261,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                     .unwrap_or(ptr::null_mut()),
                 _ => ptr::null_mut(),
             };
-            info.num_components = 1i32
+            info.num_components = 1
         }
         _ => {
             warn!("{}: Unknown PNG colortype {}.", "PNG", color_type as i32);
@@ -275,16 +275,16 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     free(stream_data_ptr as *mut libc::c_void);
     let stream_dict = stream.get_dict_mut();
     if !mask.is_null() {
-        if trans_type == 1i32 {
+        if trans_type == 1 {
             stream_dict.set("Mask", mask);
-        } else if trans_type == 2i32 {
-            if info.bits_per_component >= 8i32 && info.width > 64i32 {
+        } else if trans_type == 2 {
+            if info.bits_per_component >= 8 && info.width > 64 {
                 pdf_stream_set_predictor(
                     (*mask).as_stream_mut(),
-                    2i32,
+                    2,
                     info.width,
                     info.bits_per_component,
-                    1i32,
+                    1,
                 );
             }
             stream_dict.set("SMask", pdf_ref_obj(mask));
@@ -302,9 +302,9 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
      * of libpng had a bug that incorrectly treat the compression
      * flag of iTxt chunks.
      */
-    if pdf_get_version() >= 4i32 as libc::c_uint {
+    if pdf_get_version() >= 4 as libc::c_uint {
         let mut text_ptr = ptr::null_mut();
-        let mut have_XMP: libc::c_int = 0i32;
+        let mut have_XMP: libc::c_int = 0;
         let num_text = png_get_text(png, png_info, &mut text_ptr, &mut 0);
         for i in 0..num_text {
             if libc::memcmp(
@@ -314,7 +314,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             ) == 0
             {
                 /* XMP found */
-                if (*text_ptr.offset(i as isize)).compression != 1i32
+                if (*text_ptr.offset(i as isize)).compression != 1
                     || (*text_ptr.offset(i as isize)).itxt_length == 0
                 {
                     warn!(
@@ -344,7 +344,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                     let XMP_stream = XMP_stream.into_obj();
                     stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
                     pdf_release_obj(XMP_stream);
-                    have_XMP = 1i32
+                    have_XMP = 1
                 }
             }
         }
@@ -358,20 +358,17 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
         0 as png_infopp,
         0 as png_infopp,
     );
-    if color_type as libc::c_int != 2i32 | 1i32
-        && info.bits_per_component >= 8i32
-        && info.height > 64i32
-    {
+    if color_type as libc::c_int != 2 | 1 && info.bits_per_component >= 8 && info.height > 64 {
         pdf_stream_set_predictor(
             &mut stream,
-            15i32,
+            15,
             info.width,
             info.bits_per_component,
             info.num_components,
         );
     }
     pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
-    0i32
+    0
 }
 /* Transparency */
 /*
@@ -424,13 +421,13 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
                         continue;
                     }
                     /* This seems not binary transparency */
-                    trans_type = 2i32;
+                    trans_type = 2;
                     break;
                 }
             }
             0 | 2 => {
                 /* RGB or GRAY, single color specified by trans_values is transparent. */
-                trans_type = 1i32
+                trans_type = 1
             }
             _ => {
                 /* Else tRNS silently ignored. */
@@ -465,7 +462,7 @@ unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc:
             blue: 255,
             gray: 255,
         };
-        png_set_background(png, &mut bg as *mut png_color_16, 1i32, 0i32, 1.0f64);
+        png_set_background(png, &mut bg as *mut png_color_16, 1, 0, 1.0f64);
         warn!(
             "{}: Transparency will be ignored. (no support in PDF ver. < 1.3)",
             "PNG",
@@ -569,18 +566,18 @@ unsafe fn create_cspace_ICCBased(png: &mut png_struct, png_info: &mut png_info) 
     };
     let profile = core::slice::from_raw_parts(profile, proflen as usize);
     let color_type = png_get_color_type(png, png_info);
-    let colortype = if color_type as libc::c_int & 2i32 != 0 {
-        -3i32
+    let colortype = if color_type as libc::c_int & 2 != 0 {
+        -3
     } else {
-        -1i32
+        -1
     };
-    if iccp_check_colorspace(colortype, profile) < 0i32 {
+    if iccp_check_colorspace(colortype, profile) < 0 {
         ptr::null_mut() /* Manual page for libpng does not
                          * clarify whether profile data is inflated by libpng.
                          */
     } else {
         let csp_id = iccp_load_profile(name, profile);
-        if csp_id < 0i32 {
+        if csp_id < 0 {
             ptr::null_mut()
         } else {
             pdf_get_colorspace_reference(csp_id)
@@ -677,7 +674,7 @@ unsafe fn create_cspace_CalGray(
     } else {
         G = 2.2f64
     } /* Yw = 1.0 */
-    let cal_param = make_param_Cal(0i32 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
+    let cal_param = make_param_Cal(0 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
     let mut colorspace = vec![];
     colorspace.push_obj("CalGray");
     colorspace.push_obj(cal_param);
@@ -716,7 +713,7 @@ unsafe fn make_param_Cal(
     let Zw = zw / yw;
     /* Matrix */
     let det = xr * (yg * zb - zg * yb) - xg * (yr * zb - zr * yb) + xb * (yr * zg - zr * yg);
-    if (if det < 0i32 as f64 { -det } else { det }) < 1.0e-10f64 {
+    if (if det < 0 as f64 { -det } else { det }) < 1.0e-10f64 {
         warn!("Non invertible matrix: Maybe invalid value(s) specified in cHRM chunk.");
         return None;
     }
@@ -744,7 +741,7 @@ unsafe fn make_param_Cal(
     }
     cal_param.set("WhitePoint", white_point);
     /* Matrix - default: Identity */
-    if color_type as i32 & 2i32 != 0 {
+    if color_type as i32 & 2 != 0 {
         if G != 1.0f64 {
             let mut dev_gamma = vec![]; /* Gray */
             for _ in 0..3 {
@@ -960,7 +957,7 @@ unsafe fn strip_soft_mask(
             return None;
         }
     } else {
-        let bps_0: i32 = if bpc as i32 == 8i32 { 2i32 } else { 4i32 };
+        let bps_0: i32 = if bpc as i32 == 8 { 2 } else { 4 };
         if *rowbytes_ptr as u64
             != ((bps_0 as u32).wrapping_mul(width) as u64)
                 .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
@@ -985,7 +982,7 @@ unsafe fn strip_soft_mask(
         as *mut png_byte;
     match color_type as i32 {
         6 => {
-            if bpc as i32 == 8i32 {
+            if bpc as i32 == 8 {
                 for i in 0..width.wrapping_mul(height) {
                     libc::memmove(
                         image_data_ptr.offset((3_u32).wrapping_mul(i) as isize)
@@ -1021,7 +1018,7 @@ unsafe fn strip_soft_mask(
             }
         }
         4 => {
-            if bpc as i32 == 8i32 {
+            if bpc as i32 == 8 {
                 for i in 0..width.wrapping_mul(height) {
                     *image_data_ptr.offset(i as isize) =
                         *image_data_ptr.offset((2_u32).wrapping_mul(i) as isize);
@@ -1057,7 +1054,7 @@ unsafe fn strip_soft_mask(
     }
     smask.add(
         smask_data_ptr as *const libc::c_void,
-        ((bpc as i32 / 8i32) as u32)
+        ((bpc as i32 / 8) as u32)
             .wrapping_mul(width)
             .wrapping_mul(height) as i32,
     );

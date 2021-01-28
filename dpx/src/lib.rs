@@ -88,7 +88,7 @@ impl SkipBlank for &[u8] {
 #[inline]
 unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
     let length = libc::strlen(prefix);
-    if libc::strncmp(s, prefix, length) == 0i32 {
+    if libc::strncmp(s, prefix, length) == 0 {
         return s.offset(length as isize);
     }
     std::ptr::null()
@@ -97,7 +97,7 @@ unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
 #[inline]
 unsafe fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
     if !s1.is_null() && !s2.is_null() {
-        return libc::strcmp(s1, s2) == 0i32;
+        return libc::strcmp(s1, s2) == 0;
     }
     false
 }

@@ -54,7 +54,7 @@ unsafe fn spc_handler_color_push(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 
 unsafe fn spc_handler_color_pop(mut _spe: &mut SpcEnv, _args: &mut SpcArg) -> i32 {
     pdf_color_pop();
-    0i32
+    0
 }
 /* Invoked by the special command "color rgb .625 0 0".
  * DVIPS clears the color stack, and then saves and sets the given color.
@@ -95,7 +95,7 @@ pub(crate) unsafe fn spc_color_setup_handler(
     ap.cur.skip_blank();
     let q = ap.cur.parse_c_ident();
     if q.is_none() {
-        return -1i32;
+        return -1;
     }
     ap.cur.skip_blank();
     match q.unwrap().as_ref() {
@@ -125,14 +125,14 @@ pub(crate) unsafe fn spc_color_setup_handler(
                     }
                 }
             } else {
-                return -1i32;
+                return -1;
             }
         }
         _ => {
             spc_warn!(spe, "Not color/background special?");
-            return -1i32;
+            return -1;
         }
     }
     ap.cur.skip_blank();
-    0i32
+    0
 }

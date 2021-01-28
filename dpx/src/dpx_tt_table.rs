@@ -402,7 +402,7 @@ pub(crate) fn tt_read_vhea_table(sfont: &sfnt) -> Box<tt_vhea_table> {
     let numOfLongVerMetrics = u16::get(handle);
     let len = sfnt_find_table_len(sfont, b"vmtx");
     let numOfExSideBearings = len
-        .wrapping_sub((numOfLongVerMetrics as i32 * 4i32) as u32)
+        .wrapping_sub((numOfLongVerMetrics as i32 * 4) as u32)
         .wrapping_div(2_u32) as u16;
 
     Box::new(tt_vhea_table {
@@ -429,7 +429,7 @@ pub(crate) fn tt_read_VORG_table(sfont: &sfnt) -> Option<Box<tt_VORG_table>> {
     let handle = &mut &*sfont.handle;
     if offset > 0 {
         sfnt_locate_table(sfont, b"VORG");
-        if u16::get(handle) as i32 != 1i32 || u16::get(handle) as i32 != 0i32 {
+        if u16::get(handle) as i32 != 1 || u16::get(handle) as i32 != 0 {
             panic!("Unsupported VORG version.");
         }
         let defaultVertOriginY = i16::get(handle);

@@ -34,7 +34,7 @@ pub(crate) type _message_type = u32;
 pub(crate) const DPX_MESG_WARN: _message_type = 1;
 pub(crate) const DPX_MESG_INFO: _message_type = 0;
 pub(crate) static mut _last_message_type: message_type_t = DPX_MESG_INFO;
-pub(crate) static mut _dpx_quietness: i32 = 0i32;
+pub(crate) static mut _dpx_quietness: i32 = 0;
 
 pub(crate) unsafe fn shut_up(quietness: i32) {
     _dpx_quietness = quietness;

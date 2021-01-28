@@ -94,8 +94,8 @@ pub(crate) struct Operator {
 pub(crate) unsafe fn cff_new_dict() -> *mut cff_dict {
     let dict =
         new((1_u64).wrapping_mul(::std::mem::size_of::<cff_dict>() as u64) as u32) as *mut cff_dict;
-    (*dict).max = 16i32;
-    (*dict).count = 0i32;
+    (*dict).max = 16;
+    (*dict).count = 0;
     (*dict).entries = new(((*dict).max as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
         as u32) as *mut cff_dict_entry;
@@ -113,7 +113,7 @@ pub(crate) unsafe fn cff_release_dict(dict: &mut cff_dict) {
 }
 
 const CFF_DICT_STACK_LIMIT: usize = 64;
-static mut stack_top: i32 = 0i32;
+static mut stack_top: i32 = 0;
 static mut arg_stack: [f64; CFF_DICT_STACK_LIMIT] = [0.; CFF_DICT_STACK_LIMIT];
 
 const CFF_LAST_DICT_OP1: usize = 22;
@@ -370,7 +370,7 @@ static mut dict_operator: [Operator; CFF_LAST_DICT_OP] = [
 fn get_integer(data: &mut &[u8]) -> Result<f64, CffError> {
     let b0 = data[0];
     *data = &data[1..];
-    Ok(if b0 as i32 == 28i32 && data.len() > 2 {
+    Ok(if b0 as i32 == 28 && data.len() > 2 {
         /* shortint */
         let b1 = data[0];
         *data = &data[1..];
@@ -444,7 +444,7 @@ unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
             /* invalid */
             buf.push('-');
         } else if !(nibble == 0xd) {
-            if nibble == 0xfi32 {
+            if nibble == 0xf {
                 /* end */
                 if pos % 2 == 0 && data[0] as i32 != 0xff {
                     fail = 1
@@ -459,7 +459,7 @@ unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
         pos += 1
     }
     /* returned values */
-    if fail != 0 || nibble != 0xfi32 {
+    if fail != 0 || nibble != 0xf {
         return Err(CffError::ParseError);
     } else {
         buf.parse::<f64>().map_err(|_| CffError::ParseError)
@@ -468,7 +468,7 @@ unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
 /* operators */
 unsafe fn add_dict(mut dict: *mut cff_dict, data: &mut &[u8]) -> Result<(), CffError> {
     let mut id = data[0] as i32;
-    if id == 0xci32 {
+    if id == 0xc {
         *data = &data[1..];
         if data.is_empty() || {
             id = data[0] as i32 + CFF_LAST_DICT_OP1 as i32;
@@ -480,13 +480,13 @@ unsafe fn add_dict(mut dict: *mut cff_dict, data: &mut &[u8]) -> Result<(), CffE
         return Err(CffError::ParseError);
     }
     let argtype = dict_operator[id as usize].argtype;
-    if dict_operator[id as usize].opname.is_empty() || argtype < 0i32 {
+    if dict_operator[id as usize].opname.is_empty() || argtype < 0 {
         /* YuppySC-Regular.otf from OS X for instance uses op id 37, simply ignore
         this dict instead of treat it as parsing error. */
         return Ok(());
     }
     if (*dict).count >= (*dict).max {
-        (*dict).max += 16i32;
+        (*dict).max += 16;
         (*dict).entries = renew(
             (*dict).entries as *mut libc::c_void,
             ((*dict).max as u32 as u64).wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
@@ -501,29 +501,29 @@ unsafe fn add_dict(mut dict: *mut cff_dict, data: &mut &[u8]) -> Result<(), CffE
         || argtype == CFF_TYPE_OFFSET
     {
         /* check for underflow here, as exactly one operand is expected */
-        if stack_top < 1i32 {
+        if stack_top < 1 {
             return Err(CffError::StackUnderflow);
         }
         stack_top -= 1;
-        (*(*dict).entries.offset((*dict).count as isize)).count = 1i32;
+        (*(*dict).entries.offset((*dict).count as isize)).count = 1;
         (*(*dict).entries.offset((*dict).count as isize)).values =
             new((1_u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32) as *mut f64;
         *(*(*dict).entries.offset((*dict).count as isize))
             .values
             .offset(0) = arg_stack[stack_top as usize];
-        (*dict).count += 1i32
-    } else if stack_top > 0i32 {
+        (*dict).count += 1
+    } else if stack_top > 0 {
         (*(*dict).entries.offset((*dict).count as isize)).count = stack_top;
         (*(*dict).entries.offset((*dict).count as isize)).values = new((stack_top as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<f64>() as u64)
             as u32) as *mut f64;
-        while stack_top > 0i32 {
+        while stack_top > 0 {
             stack_top -= 1;
             *(*(*dict).entries.offset((*dict).count as isize))
                 .values
                 .offset(stack_top as isize) = arg_stack[stack_top as usize]
         }
-        (*dict).count += 1i32
+        (*dict).count += 1
     }
     *data = &data[1..];
     Ok(())
@@ -544,7 +544,7 @@ pub(crate) unsafe fn cff_dict_unpack(mut data: &[u8]) -> *mut cff_dict {
         }
     }
 
-    stack_top = 0i32;
+    stack_top = 0;
     let dict = cff_new_dict();
     while !data.is_empty() {
         if (data[0] as i32) < 22 {
@@ -639,7 +639,7 @@ unsafe fn pack_real(dest: &mut [u8], mut value: f64) -> usize {
         if pos % 2 != 0 {
             dest[pos / 2] += ch;
         } else {
-            dest[pos / 2] = ((ch as i32) << 4i32) as u8
+            dest[pos / 2] = ((ch as i32) << 4) as u8
         }
         pos += 1;
         i += 1
@@ -661,8 +661,8 @@ unsafe fn cff_dict_put_number(value: f64, dest: &mut [u8], type_0: i32) -> usize
         dest[0] = 29;
         dest[1..5].copy_from_slice(&lvalue.to_be_bytes());
         5
-    } else if value > 0x7fffffffi32 as f64
-        || value < (-0x7fffffffi32 - 1i32) as f64
+    } else if value > 0x7fffffff as f64
+        || value < (-0x7fffffff - 1) as f64
         || (value - nearint).abs() > 1.0e-5f64
     {
         /* real */
@@ -673,7 +673,7 @@ unsafe fn cff_dict_put_number(value: f64, dest: &mut [u8], type_0: i32) -> usize
 }
 unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
     let mut len = 0_usize;
-    if (*de).count > 0i32 {
+    if (*de).count > 0 {
         let id = (*de).id;
         let type_0 = if dict_operator[id as usize].argtype == CFF_TYPE_OFFSET
             || dict_operator[id as usize].argtype == CFF_TYPE_SZOFF
@@ -739,8 +739,8 @@ impl cff_dict {
                 return;
             }
         }
-        if self.count + 1i32 >= self.max {
-            self.max += 8i32;
+        if self.count + 1 >= self.max {
+            self.max += 8;
             self.entries = renew(
                 self.entries as *mut libc::c_void,
                 (self.max as u32 as u64)
@@ -751,25 +751,25 @@ impl cff_dict {
         (*self.entries.offset(self.count as isize)).id = id;
         (*self.entries.offset(self.count as isize)).key = dict_operator[id as usize].opname;
         (*self.entries.offset(self.count as isize)).count = count;
-        if count > 0i32 {
+        if count > 0 {
             (*self.entries.offset(self.count as isize)).values =
                 new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32)
                     as *mut f64;
             memset(
                 (*self.entries.offset(self.count as isize)).values as *mut libc::c_void,
-                0i32,
+                0,
                 (::std::mem::size_of::<f64>()).wrapping_mul(count as _),
             );
         } else {
             (*self.entries.offset(self.count as isize)).values = ptr::null_mut()
         }
-        self.count += 1i32;
+        self.count += 1;
     }
 
     pub(crate) unsafe fn remove(&mut self, key: &str) {
         for i in 0..self.count {
             if key == (*self.entries.offset(i as isize)).key {
-                (*self.entries.offset(i as isize)).count = 0i32;
+                (*self.entries.offset(i as isize)).count = 0;
                 (*self.entries.offset(i as isize)).values =
                     mfree((*self.entries.offset(i as isize)).values as *mut libc::c_void)
                         as *mut f64
@@ -780,7 +780,7 @@ impl cff_dict {
     pub(crate) unsafe fn contains_key(&self, key: &str) -> bool {
         for i in 0..self.count {
             if key == (*self.entries.offset(i as isize)).key
-                && (*self.entries.offset(i as isize)).count > 0i32
+                && (*self.entries.offset(i as isize)).count > 0
             {
                 return true;
             }
@@ -837,7 +837,7 @@ impl cff_dict {
     /* decode/encode DICT */
     pub(crate) unsafe fn update(&mut self, cff: &mut cff_font) {
         for i in 0..self.count {
-            if (*self.entries.offset(i as isize)).count > 0i32 {
+            if (*self.entries.offset(i as isize)).count > 0 {
                 let id = (*self.entries.offset(i as isize)).id;
                 if dict_operator[id as usize].argtype == CFF_TYPE_SID {
                     let s = cff_get_string(
@@ -845,20 +845,20 @@ impl cff_dict {
                         *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
                     );
                     *(*self.entries.offset(i as isize)).values.offset(0) =
-                        cff_add_string(cff, &s, 1i32) as f64;
+                        cff_add_string(cff, &s, 1) as f64;
                 } else if dict_operator[id as usize].argtype == CFF_TYPE_ROS {
                     let s = cff_get_string(
                         cff,
                         *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
                     );
                     *(*self.entries.offset(i as isize)).values.offset(0) =
-                        cff_add_string(cff, &s, 1i32) as f64;
+                        cff_add_string(cff, &s, 1) as f64;
                     let s = cff_get_string(
                         cff,
                         *(*self.entries.offset(i as isize)).values.offset(1) as s_SID,
                     );
                     *(*self.entries.offset(i as isize)).values.offset(1) =
-                        cff_add_string(cff, &s, 1i32) as f64;
+                        cff_add_string(cff, &s, 1) as f64;
                 }
             }
         }

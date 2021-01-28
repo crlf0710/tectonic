@@ -144,7 +144,7 @@ fn lookup_char(map: &char_map, charcode: i32) -> i32 {
     {
         return map.indices[(charcode - map.coverage.first_char) as usize] as i32;
     } else {
-        return -1i32;
+        return -1;
     };
 }
 fn lookup_range(map: &range_map, charcode: i32) -> i32 {
@@ -157,7 +157,7 @@ fn lookup_range(map: &range_map, charcode: i32) -> i32 {
         }
         idx -= 1
     }
-    -1i32
+    -1
 }
 
 static mut fms: Vec<font_metric> = Vec::new();
@@ -200,7 +200,7 @@ fn tfm_check_size(tfm: &tfm_font, tfm_file_size: off_t) {
      }
      }
     */
-    if tfm_file_size < tfm.wlenfile as i64 * 4i32 as i64 {
+    if tfm_file_size < tfm.wlenfile as i64 * 4 as i64 {
         panic!("Can\'t proceed...");
     }
     expected_size += (tfm.ec - tfm.bc + 1) as u32;
@@ -312,9 +312,9 @@ fn ofm_get_sizes<R: Read + Seek>(ofm_handle: &mut R, ofm_file_size: off_t, tfm: 
     if tfm.fontdir != 0 {
         warn!("I may be interpreting a font direction incorrectly.");
     }
-    if tfm.level == 0i32 {
+    if tfm.level == 0 {
         ofm_check_size_one(tfm, ofm_file_size);
-    } else if tfm.level == 1i32 {
+    } else if tfm.level == 1 {
         tfm.nco = get_positive_quad(ofm_handle, "OFM", "nco");
         tfm.ncw = get_positive_quad(ofm_handle, "OFM", "nco");
         tfm.npc = get_positive_quad(ofm_handle, "OFM", "npc");
@@ -492,16 +492,16 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
         _ => Some(tfm_name.to_string() + ".ofm"),
     };
     if ofm_name.is_some() && {
-        tfm_handle = InFile::open(&ofm_name.unwrap(), TTInputFormat::OFM, 0i32);
+        tfm_handle = InFile::open(&ofm_name.unwrap(), TTInputFormat::OFM, 0);
         tfm_handle.is_some()
     } {
         format = 2;
     } else {
-        tfm_handle = InFile::open(tfm_name, TTInputFormat::TFM, 0i32);
+        tfm_handle = InFile::open(tfm_name, TTInputFormat::TFM, 0);
         if tfm_handle.is_some() {
             format = 1;
         } else {
-            tfm_handle = InFile::open(tfm_name, TTInputFormat::OFM, 0i32);
+            tfm_handle = InFile::open(tfm_name, TTInputFormat::OFM, 0);
             if tfm_handle.is_some() {
                 format = 2;
             }
@@ -511,11 +511,11 @@ pub(crate) unsafe fn tfm_open(tfm_name: &str, must_exist: i32) -> i32 {
         if must_exist != 0 {
             panic!("Unable to find TFM file \"{}\".", tfm_name);
         }
-        return -1i32;
+        return -1;
     }
     let mut tfm_handle = tfm_handle.unwrap();
     if verbose != 0 {
-        if format == 1i32 {
+        if format == 1 {
             info!("(TFM:{}", tfm_name);
         } else if format == 2 {
             info!("(OFM:{}", tfm_name);
@@ -635,13 +635,13 @@ pub(crate) unsafe fn tfm_get_fw_depth(font_id: i32, ch: i32) -> fixword {
  */
 
 pub(crate) unsafe fn tfm_get_width(font_id: i32, ch: i32) -> f64 {
-    tfm_get_fw_width(font_id, ch) as f64 / (1i32 << 20i32) as f64
+    tfm_get_fw_width(font_id, ch) as f64 / (1 << 20) as f64
 }
 /* tfm_string_xxx() do not work for OFM... */
 
 pub(crate) unsafe fn tfm_string_width(font_id: i32, s: &[u8]) -> fixword {
-    let mut result: fixword = 0i32;
-    if font_id < 0i32 || font_id as usize >= fms.len() {
+    let mut result: fixword = 0;
+    if font_id < 0 || font_id as usize >= fms.len() {
         panic!("TFM: Invalid TFM ID: {}", font_id);
     }
     for &i in s.iter() {
@@ -651,10 +651,10 @@ pub(crate) unsafe fn tfm_string_width(font_id: i32, s: &[u8]) -> fixword {
 }
 
 pub(crate) unsafe fn tfm_get_design_size(font_id: i32) -> f64 {
-    if font_id < 0i32 || font_id as usize >= fms.len() {
+    if font_id < 0 || font_id as usize >= fms.len() {
         panic!("TFM: Invalid TFM ID: {}", font_id);
     }
-    return fms[font_id as usize].designsize as f64 / (1i32 << 20i32) as f64 * (72.0f64 / 72.27f64);
+    return fms[font_id as usize].designsize as f64 / (1 << 20) as f64 * (72.0f64 / 72.27f64);
 }
 /* From TFM header */
 

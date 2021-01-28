@@ -162,7 +162,7 @@ pub(crate) struct cmap_plat_enc_rec {
     pub(crate) platform: i16,
     pub(crate) encoding: i16,
 }
-static mut verbose: i32 = 0i32;
+static mut verbose: i32 = 0;
 
 pub(crate) unsafe fn otf_cmap_set_verbose(level: i32) {
     otl_gsub_set_verbose(level);
@@ -182,8 +182,8 @@ unsafe fn release_cmap0(map: *mut cmap0) {
     free(map as *mut libc::c_void);
 }
 unsafe fn lookup_cmap0(map: *mut cmap0, cc: u16) -> u16 {
-    return (if cc as i32 > 255i32 {
-        0i32
+    return (if cc as i32 > 255 {
+        0
     } else {
         (*map).glyphIndexArray[cc as usize] as i32
     }) as u16;
@@ -198,12 +198,12 @@ unsafe fn read_cmap2<R: Read>(handle: &mut R, len: u32) -> *mut cmap2 {
     }
     let mut n = 0_u16;
     for i in 0..256 {
-        (*map).subHeaderKeys[i as usize] = ((*map).subHeaderKeys[i as usize] as i32 / 8i32) as u16;
+        (*map).subHeaderKeys[i as usize] = ((*map).subHeaderKeys[i as usize] as i32 / 8) as u16;
         if (n as i32) < (*map).subHeaderKeys[i as usize] as i32 {
             n = (*map).subHeaderKeys[i as usize]
         }
     }
-    n = (n as i32 + 1i32) as u16;
+    n = (n as i32 + 1) as u16;
     (*map).subHeaders =
         new((n as u32 as u64).wrapping_mul(::std::mem::size_of::<SubHeader>() as u64) as u32)
             as *mut SubHeader;
@@ -225,8 +225,8 @@ unsafe fn read_cmap2<R: Read>(handle: &mut R, len: u32) -> *mut cmap2 {
      */
     let n = (len
         .wrapping_sub(518_u32)
-        .wrapping_sub((n as i32 * 8i32) as u32) as u16 as i32
-        / 2i32) as u16;
+        .wrapping_sub((n as i32 * 8) as u32) as u16 as i32
+        / 2) as u16;
     (*map).glyphIndexArray =
         new((n as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
     for i in 0..n as i32 {
@@ -252,12 +252,12 @@ unsafe fn lookup_cmap2(map: *mut cmap2, cc: u16) -> u16 {
     let entryCount = (*(*map).subHeaders.offset(i as isize)).entryCount;
     let idDelta = (*(*map).subHeaders.offset(i as isize)).idDelta;
     let mut idRangeOffset =
-        ((*(*map).subHeaders.offset(i as isize)).idRangeOffset as i32 / 2i32) as u16;
+        ((*(*map).subHeaders.offset(i as isize)).idRangeOffset as i32 / 2) as u16;
     if lo >= firstCode as i32 && lo < firstCode as i32 + entryCount as i32 {
         idRangeOffset = (idRangeOffset as i32 + (lo - firstCode as i32)) as u16;
         idx = *(*map).glyphIndexArray.offset(idRangeOffset as isize);
-        if idx as i32 != 0i32 {
-            idx = (idx as i32 + idDelta as i32 & 0xffffi32) as u16
+        if idx as i32 != 0 {
+            idx = (idx as i32 + idDelta as i32 & 0xffff) as u16
         }
     }
     idx
@@ -272,7 +272,7 @@ unsafe fn read_cmap4<R: Read>(handle: &mut R, len: u32) -> *mut cmap4 {
     (*map).searchRange = u16::get(handle);
     (*map).entrySelector = u16::get(handle);
     (*map).rangeShift = u16::get(handle);
-    let segCount = (segCount as i32 / 2i32) as u16;
+    let segCount = (segCount as i32 / 2) as u16;
     (*map).endCount =
         new((segCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
             as *mut u16;
@@ -300,9 +300,9 @@ unsafe fn read_cmap4<R: Read>(handle: &mut R, len: u32) -> *mut cmap4 {
     }
     let n = len
         .wrapping_sub(16_u32)
-        .wrapping_sub((8i32 * segCount as i32) as u32)
+        .wrapping_sub((8 * segCount as i32) as u32)
         .wrapping_div(2_u32) as u16;
-    if n as i32 == 0i32 {
+    if n as i32 == 0 {
         (*map).glyphIndexArray = ptr::null_mut()
     } else {
         (*map).glyphIndexArray = new((n as u32 as u64)
@@ -330,7 +330,7 @@ unsafe fn lookup_cmap4(map: *mut cmap4, cc: u16) -> u16 {
      * Segments are sorted in order of increasing endCode values.
      * Last segment maps 0xffff to gid 0 (?)
      */
-    let segCount = ((*map).segCountX2 as i32 / 2i32) as u16;
+    let segCount = ((*map).segCountX2 as i32 / 2) as u16;
     for i in (0..segCount).rev() {
         if !(cc as i32 <= *(*map).endCount.offset(i as isize) as i32) {
             break;
@@ -338,21 +338,19 @@ unsafe fn lookup_cmap4(map: *mut cmap4, cc: u16) -> u16 {
         if !(cc as i32 >= *(*map).startCount.offset(i as isize) as i32) {
             continue;
         }
-        if *(*map).idRangeOffset.offset(i as isize) as i32 == 0i32 {
-            gid = (cc as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffffi32) as u16
-        } else if cc as i32 == 0xffffi32
-            && *(*map).idRangeOffset.offset(i as isize) as i32 == 0xffffi32
-        {
+        if *(*map).idRangeOffset.offset(i as isize) as i32 == 0 {
+            gid = (cc as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffff) as u16
+        } else if cc as i32 == 0xffff && *(*map).idRangeOffset.offset(i as isize) as i32 == 0xffff {
             /* this is for protection against some old broken fonts... */
             gid = 0_u16
         } else {
             let j = (*(*map).idRangeOffset.offset(i as isize) as i32
-                - (segCount as i32 - i as i32) * 2i32) as u16;
+                - (segCount as i32 - i as i32) * 2) as u16;
             let j =
-                (cc as i32 - *(*map).startCount.offset(i as isize) as i32 + j as i32 / 2i32) as u16;
+                (cc as i32 - *(*map).startCount.offset(i as isize) as i32 + j as i32 / 2) as u16;
             gid = *(*map).glyphIndexArray.offset(j as isize);
-            if gid as i32 != 0i32 {
-                gid = (gid as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffffi32) as u16
+            if gid as i32 != 0 {
+                gid = (gid as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffff) as u16
             }
         }
         break;
@@ -460,11 +458,11 @@ pub(crate) unsafe fn tt_cmap_read(sfont: &sfnt, platform: u16, encoding: u16) ->
     /* Length and version (language) is ULONG for
      * format 8, 10, 12 !
      */
-    if (*cmap).format as i32 <= 6i32 {
+    if (*cmap).format as i32 <= 6 {
         length = u16::get(handle) as u32;
         (*cmap).language = u16::get(handle) as u32
     /* language (Mac) */
-    } else if u16::get(handle) as i32 != 0i32 {
+    } else if u16::get(handle) as i32 != 0 {
         /* reverved - 0 */
         warn!("Unrecognized cmap subtable format.");
         tt_cmap_release(cmap);
@@ -525,7 +523,7 @@ pub(crate) unsafe fn tt_cmap_release(cmap: *mut tt_cmap) {
 
 pub(crate) unsafe fn tt_cmap_lookup(cmap: *mut tt_cmap, cc: u32) -> u16 {
     assert!(!cmap.is_null());
-    if cc as i64 > 0xffff && ((*cmap).format as i32) < 12i32 {
+    if cc as i64 > 0xffff && ((*cmap).format as i32) < 12 {
         warn!("Four bytes charcode not supported in OpenType/TrueType cmap format 0...6.");
         return 0_u16;
     }
@@ -554,21 +552,21 @@ unsafe fn load_cmap4(
     tounicode_add: *mut CMap,
 ) {
     let mut cid;
-    let segCount = ((*map).segCountX2 as i32 / 2i32) as u16;
-    let mut i = segCount as i32 - 1i32;
-    while i >= 0i32 {
+    let segCount = ((*map).segCountX2 as i32 / 2) as u16;
+    let mut i = segCount as i32 - 1;
+    while i >= 0 {
         let c0 = *(*map).startCount.offset(i as isize);
         let c1 = *(*map).endCount.offset(i as isize);
         let d =
-            (*(*map).idRangeOffset.offset(i as isize) as i32 / 2i32 - (segCount as i32 - i)) as u16;
+            (*(*map).idRangeOffset.offset(i as isize) as i32 / 2 - (segCount as i32 - i)) as u16;
         let mut j = 0_u16;
         while j as i32 <= c1 as i32 - c0 as i32 {
             let ch = (c0 as i32 + j as i32) as u16;
-            let mut gid = if *(*map).idRangeOffset.offset(i as isize) as i32 == 0i32 {
-                (ch as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffffi32) as u16
-            } else if c0 as i32 == 0xffffi32
-                && c1 as i32 == 0xffffi32
-                && *(*map).idRangeOffset.offset(i as isize) as i32 == 0xffffi32
+            let mut gid = if *(*map).idRangeOffset.offset(i as isize) as i32 == 0 {
+                (ch as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffff) as u16
+            } else if c0 as i32 == 0xffff
+                && c1 as i32 == 0xffff
+                && *(*map).idRangeOffset.offset(i as isize) as i32 == 0xffff
             {
                 /* this is for protection against some old broken fonts... */
                 0
@@ -577,9 +575,9 @@ unsafe fn load_cmap4(
                     .glyphIndexArray
                     .offset((j as i32 + d as i32) as isize) as i32
                     + *(*map).idDelta.offset(i as isize) as i32
-                    & 0xffffi32) as u16
+                    & 0xffff) as u16
             }; /* LONG ? */
-            if gid as i32 != 0i32 && gid as i32 != 0xffffi32 {
+            if gid as i32 != 0 && gid as i32 != 0xffff {
                 if !gsub_list.is_null() {
                     otl_gsub_apply_chain(&*gsub_list, &mut gid);
                 }
@@ -587,10 +585,10 @@ unsafe fn load_cmap4(
                     otl_gsub_apply(gsub_vert, &mut gid);
                 }
                 if !GIDToCIDMap.is_null() {
-                    cid = ((*GIDToCIDMap.offset((2i32 * gid as i32) as isize) as i32) << 8i32
-                        | *GIDToCIDMap.offset((2i32 * gid as i32 + 1i32) as isize) as i32)
+                    cid = ((*GIDToCIDMap.offset((2 * gid as i32) as isize) as i32) << 8
+                        | *GIDToCIDMap.offset((2 * gid as i32 + 1) as isize) as i32)
                         as u16;
-                    if cid as i32 == 0i32 {
+                    if cid as i32 == 0 {
                         warn!("GID {} does not have corresponding CID {}.", gid, cid);
                     }
                 } else {
@@ -600,7 +598,7 @@ unsafe fn load_cmap4(
                 wbuf[1] = 0_u8;
                 wbuf[2..4].copy_from_slice(&ch.to_be_bytes());
                 wbuf[4..6].copy_from_slice(&cid.to_be_bytes());
-                CMap_add_cidchar(cmap, wbuf.as_mut_ptr(), 4i32 as size_t, cid);
+                CMap_add_cidchar(cmap, wbuf.as_mut_ptr(), 4 as size_t, cid);
                 if let Some(tounicode_add) = tounicode_add.as_mut() {
                     let mut p: *mut u8 = wbuf.as_mut_ptr().offset(6);
                     let uc_len = UC_UTF16BE_encode_char(
@@ -611,7 +609,7 @@ unsafe fn load_cmap4(
                     CMap_add_bfchar(
                         tounicode_add,
                         wbuf.as_mut_ptr().offset(4),
-                        2i32 as size_t,
+                        2 as size_t,
                         wbuf.as_mut_ptr().offset(6),
                         uc_len,
                     );
@@ -647,10 +645,10 @@ unsafe fn load_cmap12(
                 otl_gsub_apply(gsub_vert, &mut gid);
             }
             if !GIDToCIDMap.is_null() {
-                cid = ((*GIDToCIDMap.offset((2i32 * gid as i32) as isize) as i32) << 8i32
-                    | *GIDToCIDMap.offset((2i32 * gid as i32 + 1i32) as isize) as i32)
+                cid = ((*GIDToCIDMap.offset((2 * gid as i32) as isize) as i32) << 8
+                    | *GIDToCIDMap.offset((2 * gid as i32 + 1) as isize) as i32)
                     as u16;
-                if cid as i32 == 0i32 {
+                if cid as i32 == 0 {
                     warn!("GID {} does not have corresponding CID {}.", gid, cid);
                 }
             } else {
@@ -658,7 +656,7 @@ unsafe fn load_cmap12(
             }
             wbuf[0..4].copy_from_slice(&ch.to_be_bytes());
             wbuf[4..6].copy_from_slice(&cid.to_be_bytes());
-            CMap_add_cidchar(cmap, wbuf.as_mut_ptr(), 4i32 as size_t, cid);
+            CMap_add_cidchar(cmap, wbuf.as_mut_ptr(), 4 as size_t, cid);
             if let Some(tounicode_add) = tounicode_add.as_mut() {
                 let mut p: *mut u8 = wbuf.as_mut_ptr().offset(6);
                 let uc_len = UC_UTF16BE_encode_char(
@@ -669,7 +667,7 @@ unsafe fn load_cmap12(
                 CMap_add_bfchar(
                     tounicode_add,
                     wbuf.as_mut_ptr().offset(4),
-                    2i32 as size_t,
+                    2 as size_t,
                     wbuf.as_mut_ptr().offset(6),
                     uc_len,
                 );
@@ -689,20 +687,19 @@ unsafe fn handle_CIDFont(
 ) -> i32 {
     assert!(!csi.is_null());
     let offset = sfnt_find_table_pos(sfont, b"CFF ") as i32;
-    if offset == 0i32 {
+    if offset == 0 {
         (*csi).registry = "".into();
         (*csi).ordering = "".into();
         *GIDToCIDMap = ptr::null_mut();
-        return 0i32;
+        return 0;
     }
     let maxp = tt_read_maxp_table(sfont);
     let num_glyphs = maxp.numGlyphs;
-    if (num_glyphs as i32) < 1i32 {
+    if (num_glyphs as i32) < 1 {
         panic!("No glyph contained in this font...");
     }
-    let mut cffont =
-        cff_open(sfont.handle.clone(), offset, 0i32).expect("Could not open CFF font..."); /* CID... */
-    if cffont.flag & 1i32 << 0i32 == 0 {
+    let mut cffont = cff_open(sfont.handle.clone(), offset, 0).expect("Could not open CFF font..."); /* CID... */
+    if cffont.flag & 1 << 0 == 0 {
         (*csi).registry = "".into();
         (*csi).ordering = "".into();
         *GIDToCIDMap = ptr::null_mut();
@@ -722,18 +719,18 @@ unsafe fn handle_CIDFont(
     if charset.is_null() {
         panic!("No CFF charset data???");
     }
-    let mut map = new(((num_glyphs as i32 * 2i32) as u32 as u64)
+    let mut map = new(((num_glyphs as i32 * 2) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-    memset(map as *mut libc::c_void, 0i32, (num_glyphs * 2) as _);
+    memset(map as *mut libc::c_void, 0, (num_glyphs * 2) as _);
     match (*charset).format as i32 {
         0 => {
             let cids = (*charset).data.glyphs;
             let mut gid = 1_u16;
             for i in 0..(*charset).num_entries as i32 {
-                *map.offset((2i32 * gid as i32) as isize) =
-                    (*cids.offset(i as isize) as i32 >> 8i32 & 0xffi32) as u8;
-                *map.offset((2i32 * gid as i32 + 1i32) as isize) =
-                    (*cids.offset(i as isize) as i32 & 0xffi32) as u8;
+                *map.offset((2 * gid as i32) as isize) =
+                    (*cids.offset(i as isize) as i32 >> 8 & 0xff) as u8;
+                *map.offset((2 * gid as i32 + 1) as isize) =
+                    (*cids.offset(i as isize) as i32 & 0xff) as u8;
                 gid = gid.wrapping_add(1);
             }
         }
@@ -742,13 +739,12 @@ unsafe fn handle_CIDFont(
             let mut gid = 1_u16;
             for i in 0..(*charset).num_entries as i32 {
                 let mut cid = (*ranges.offset(i as isize)).first;
-                for _ in 0..((*ranges.offset(i as isize)).n_left as i32 + 1i32) as u16 {
+                for _ in 0..((*ranges.offset(i as isize)).n_left as i32 + 1) as u16 {
                     if !(gid as i32 <= num_glyphs as i32) {
                         break;
                     }
-                    *map.offset((2i32 * gid as i32) as isize) =
-                        (cid as i32 >> 8i32 & 0xffi32) as u8;
-                    *map.offset((2i32 * gid as i32 + 1i32) as isize) = (cid as i32 & 0xffi32) as u8;
+                    *map.offset((2 * gid as i32) as isize) = (cid as i32 >> 8 & 0xff) as u8;
+                    *map.offset((2 * gid as i32 + 1) as isize) = (cid as i32 & 0xff) as u8;
                     gid += 1;
                     cid += 1;
                 }
@@ -756,7 +752,7 @@ unsafe fn handle_CIDFont(
         }
         2 => {
             let ranges_0 = (*charset).data.range2;
-            if (*charset).num_entries as i32 == 1i32 && (*ranges_0.offset(0)).first as i32 == 1i32 {
+            if (*charset).num_entries as i32 == 1 && (*ranges_0.offset(0)).first as i32 == 1 {
                 /* "Complete" CIDFont */
                 map = mfree(map as *mut libc::c_void) as *mut u8
             } else {
@@ -764,14 +760,12 @@ unsafe fn handle_CIDFont(
                 let mut gid = 1_u16;
                 for i in 0..(*charset).num_entries as i32 {
                     let mut cid_0 = (*ranges_0.offset(i as isize)).first;
-                    for _ in 0..((*ranges_0.offset(i as isize)).n_left as i32 + 1i32) as u16 {
+                    for _ in 0..((*ranges_0.offset(i as isize)).n_left as i32 + 1) as u16 {
                         if !(gid as i32 <= num_glyphs as i32) {
                             break;
                         }
-                        *map.offset((2i32 * gid as i32) as isize) =
-                            (cid_0 as i32 >> 8i32 & 0xffi32) as u8;
-                        *map.offset((2i32 * gid as i32 + 1i32) as isize) =
-                            (cid_0 as i32 & 0xffi32) as u8;
+                        *map.offset((2 * gid as i32) as isize) = (cid_0 as i32 >> 8 & 0xff) as u8;
+                        *map.offset((2 * gid as i32 + 1) as isize) = (cid_0 as i32 & 0xff) as u8;
                         gid += 1;
                         cid_0 += 1;
                     }
@@ -787,7 +781,7 @@ unsafe fn handle_CIDFont(
         }
     }
     *GIDToCIDMap = map;
-    1i32
+    1
 }
 unsafe fn is_PUA_or_presentation(uni: u32) -> bool {
     /* KANGXI RADICALs are commonly double encoded. */
@@ -833,20 +827,19 @@ unsafe fn handle_subst_glyphs(
     for i in 0..8192 {
         if !(used_glyphs[i as usize] == 0) {
             for j in 0..8 {
-                let gid: u16 = ((8i32 * i as i32) as u32).wrapping_add(j) as u16;
-                if !(used_glyphs[(gid as i32 / 8i32) as usize] as i8 as i32
-                    & 1 << 7 - gid as i32 % 8
+                let gid: u16 = ((8 * i as i32) as u32).wrapping_add(j) as u16;
+                if !(used_glyphs[(gid as i32 / 8) as usize] as i8 as i32 & 1 << 7 - gid as i32 % 8
                     == 0)
                 {
                     if cmap_add.is_null() {
                         /* try to look up Unicode values from the glyph name... */
                         let mut unicodes: [i32; 16] = [0; 16];
-                        let mut unicode_count: i32 = -1i32;
+                        let mut unicode_count: i32 = -1;
                         let name = sfnt_get_glyphname(post, cffont, gid);
                         if !name.is_empty() {
-                            unicode_count = agl_get_unicodes(&name, unicodes.as_mut_ptr(), 16i32)
+                            unicode_count = agl_get_unicodes(&name, unicodes.as_mut_ptr(), 16)
                         }
-                        if unicode_count == -1i32 {
+                        if unicode_count == -1 {
                             if !name.is_empty() {
                                 info!("No Unicode mapping available: GID={}, name={}\n", gid, name,);
                             } else {
@@ -869,18 +862,18 @@ unsafe fn handle_subst_glyphs(
                             CMap_add_bfchar(
                                 cmap,
                                 wbuf.as_mut_ptr(),
-                                2i32 as size_t,
+                                2 as size_t,
                                 wbuf.as_mut_ptr().offset(2),
                                 len,
                             );
                         }
                     } else {
-                        wbuf[0] = (gid as i32 >> 8i32 & 0xffi32) as u8;
-                        wbuf[1] = (gid as i32 & 0xffi32) as u8;
+                        wbuf[0] = (gid as i32 >> 8 & 0xff) as u8;
+                        wbuf[1] = (gid as i32 & 0xff) as u8;
                         let mut inbuf = wbuf.as_mut_ptr() as *const u8;
-                        let mut inbytesleft = 2i32 as size_t;
+                        let mut inbytesleft = 2 as size_t;
                         let mut outbuf = wbuf.as_mut_ptr().offset(2);
-                        let mut outbytesleft = (1024i32 - 2i32) as size_t;
+                        let mut outbytesleft = (1024 - 2) as size_t;
                         CMap_decode(
                             &*cmap_add,
                             &mut inbuf,
@@ -891,16 +884,16 @@ unsafe fn handle_subst_glyphs(
                         if inbytesleft != 0 {
                             warn!("CMap conversion failed...");
                         } else {
-                            let len = ((1024i32 - 2i32) as u64).wrapping_sub(outbytesleft as u64);
+                            let len = ((1024 - 2) as u64).wrapping_sub(outbytesleft as u64);
                             CMap_add_bfchar(
                                 cmap,
                                 wbuf.as_mut_ptr(),
-                                2i32 as size_t,
+                                2 as size_t,
                                 wbuf.as_mut_ptr().offset(2),
                                 len as _,
                             );
                             count += 1;
-                            if verbose > 0i32 {
+                            if verbose > 0 {
                                 info!(
                                     "otf_cmap>> Additional ToUnicode mapping: <{:04X}> <",
                                     gid as i32,
@@ -908,7 +901,7 @@ unsafe fn handle_subst_glyphs(
                                 for _i in 0..len {
                                     info!(
                                         "{:02X}",
-                                        wbuf[(2i32 as u64).wrapping_add(_i) as usize] as i32,
+                                        wbuf[(2 as u64).wrapping_add(_i) as usize] as i32,
                                     );
                                 }
                                 info!(">\n");
@@ -952,7 +945,7 @@ unsafe fn add_to_cmap_if_used(
         CMap_add_bfchar(
             cmap,
             wbuf.as_mut_ptr(),
-            2i32 as size_t,
+            2 as size_t,
             wbuf.as_mut_ptr().offset(2),
             len as size_t,
         );
@@ -960,7 +953,7 @@ unsafe fn add_to_cmap_if_used(
          * There are problem when two Unicode code is mapped to
          * single glyph...
          */
-        used_chars[(cid as i32 / 8) as usize] &= !(1i32 << 7 - cid as i32 % 8) as i8 as u8;
+        used_chars[(cid as i32 / 8) as usize] &= !(1 << 7 - cid as i32 % 8) as i8 as u8;
     }
     count
 }
@@ -971,20 +964,20 @@ unsafe fn create_ToUnicode_cmap4(
     cffont: Option<&cff_font>,
 ) -> u16 {
     let mut count: u16 = 0_u16;
-    let segCount: u16 = ((*map).segCountX2 as i32 / 2i32) as u16;
+    let segCount: u16 = ((*map).segCountX2 as i32 / 2) as u16;
     for i in 0..segCount as i32 {
         let c0: u16 = *(*map).startCount.offset(i as isize);
         let c1: u16 = *(*map).endCount.offset(i as isize);
-        let d: u16 = (*(*map).idRangeOffset.offset(i as isize) as i32 / 2i32
+        let d: u16 = (*(*map).idRangeOffset.offset(i as isize) as i32 / 2
             - (segCount as i32 - i as i32)) as u16;
         let mut j = 0;
         while j as i32 <= c1 as i32 - c0 as i32 {
             let ch: u16 = (c0 as i32 + j as i32) as u16;
-            let gid = if *(*map).idRangeOffset.offset(i as isize) as i32 == 0i32 {
-                (ch as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffffi32) as u16
-            } else if c0 as i32 == 0xffffi32
-                && c1 as i32 == 0xffffi32
-                && *(*map).idRangeOffset.offset(i as isize) as i32 == 0xffffi32
+            let gid = if *(*map).idRangeOffset.offset(i as isize) as i32 == 0 {
+                (ch as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffff) as u16
+            } else if c0 as i32 == 0xffff
+                && c1 as i32 == 0xffff
+                && *(*map).idRangeOffset.offset(i as isize) as i32 == 0xffff
             {
                 /* this is for protection against some old broken fonts... */
                 0
@@ -993,7 +986,7 @@ unsafe fn create_ToUnicode_cmap4(
                     .glyphIndexArray
                     .offset((j as i32 + d as i32) as isize) as i32
                     + *(*map).idDelta.offset(i as isize) as i32
-                    & 0xffffi32) as u16
+                    & 0xffff) as u16
             };
             count = (count as i32
                 + add_to_cmap_if_used(cmap, cffont, used_chars, gid, ch as u32) as i32)
@@ -1051,20 +1044,20 @@ unsafe fn create_ToUnicode_cmap(
         None
     };
     let is_cidfont = if let Some(cffont) = &cffont {
-        cffont.flag & 1i32 << 0i32 != 0
+        cffont.flag & 1 << 0 != 0
     } else {
         false
     };
     let mut cmap = CMap_new();
     CMap_set_name(&mut cmap, cmap_name);
-    CMap_set_wmode(&mut cmap, 0i32);
-    CMap_set_type(&mut cmap, 2i32);
+    CMap_set_wmode(&mut cmap, 0);
+    CMap_set_type(&mut cmap, 2);
     CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
     CMap_add_codespacerange(
         &mut cmap,
         srange_min.as_ptr(),
         srange_max.as_ptr(),
-        2i32 as size_t,
+        2 as size_t,
     );
     /* cmap_add here stores information about all unencoded glyphs which can be
      * accessed only through OT Layout GSUB table.
@@ -1073,23 +1066,23 @@ unsafe fn create_ToUnicode_cmap(
         for i in 0..8192 {
             if used_chars[i as usize] != 0 {
                 for j in 0..8 {
-                    let cid: u16 = (8i32 * i as i32 + j) as u16;
+                    let cid: u16 = (8 * i as i32 + j) as u16;
                     if !(used_chars[(cid as i32 / 8) as usize] as i8 as i32
-                        & 1i32 << 7 - cid as i32 % 8
+                        & 1 << 7 - cid as i32 % 8
                         == 0)
                     {
                         let ch = CMap_reverse_decode(&*code_to_cid_cmap, cid);
-                        if ch >= 0i32 {
+                        if ch >= 0 {
                             let mut p: *mut u8 = wbuf.as_mut_ptr().offset(2);
-                            wbuf[0] = (cid as i32 >> 8i32 & 0xffi32) as u8;
-                            wbuf[1] = (cid as i32 & 0xffi32) as u8;
+                            wbuf[0] = (cid as i32 >> 8 & 0xff) as u8;
+                            wbuf[1] = (cid as i32 & 0xff) as u8;
                             let len =
                                 UC_UTF16BE_encode_char(ch, &mut p, wbuf.as_mut_ptr().offset(1024))
                                     as i32;
                             CMap_add_bfchar(
                                 &mut cmap,
                                 wbuf.as_mut_ptr(),
-                                2i32 as size_t,
+                                2 as size_t,
                                 wbuf.as_mut_ptr().offset(2),
                                 len as size_t,
                             );
@@ -1158,7 +1151,7 @@ unsafe fn create_ToUnicode_cmap(
                 },
             ) as i32) as u16
     }
-    let stream = if (count as i32) < 1i32 {
+    let stream = if (count as i32) < 1 {
         None
     } else {
         CMap_create_stream(&mut cmap)
@@ -1205,11 +1198,11 @@ pub(crate) unsafe fn otf_create_ToUnicode_stream(
     let normalized_font_name = font_name.replace("/", "-");
     let cmap_name = format!("{},{:03}-UTF16", normalized_font_name, ttc_index);
     let res_id = pdf_findresource("CMap", &cmap_name);
-    if res_id >= 0i32 {
+    if res_id >= 0 {
         let cmap_ref = pdf_get_resource_reference(res_id);
         return cmap_ref;
     }
-    if verbose > 0i32 {
+    if verbose > 0 {
         info!("\n");
         info!(
             "otf_cmap>> Creating ToUnicode CMap for \"{}\"...\n",
@@ -1238,21 +1231,21 @@ pub(crate) unsafe fn otf_create_ToUnicode_stream(
         }
         _ => offset = 0_u32,
     }
-    if sfnt_read_table_directory(&mut sfont, offset) < 0i32 {
+    if sfnt_read_table_directory(&mut sfont, offset) < 0 {
         panic!("Could not read OpenType/TrueType table directory.");
     }
     let mut code_to_cid_cmap = CMap_cache_get(cmap_id);
     let cmap_type = CMap_get_type(&*code_to_cid_cmap);
-    if cmap_type != 1i32 {
+    if cmap_type != 1 {
         code_to_cid_cmap = ptr::null_mut()
     }
     let cmap_add_id = CMap_cache_find(&format!("{},{:03}-UCS32-Add", font_name, ttc_index,));
-    let cmap_add = if cmap_add_id < 0i32 {
+    let cmap_add = if cmap_add_id < 0 {
         ptr::null_mut()
     } else {
         CMap_cache_get(cmap_add_id)
     };
-    CMap_set_silent(1i32); /* many warnings without this... */
+    CMap_set_silent(1); /* many warnings without this... */
     for i in 0..(::std::mem::size_of::<[cmap_plat_enc_rec; 5]>() as u64)
         .wrapping_div(::std::mem::size_of::<cmap_plat_enc_rec>() as u64) as usize
     {
@@ -1279,9 +1272,9 @@ pub(crate) unsafe fn otf_create_ToUnicode_stream(
         warn!("Unable to read OpenType/TrueType Unicode cmap table.");
     }
     tt_cmap_release(ttcmap);
-    CMap_set_silent(0i32);
+    CMap_set_silent(0);
     let cmap_ref = if let Some(cmap_obj) = cmap_obj {
-        let res_id = pdf_defineresource("CMap", &cmap_name, cmap_obj.into_obj(), 1i32);
+        let res_id = pdf_defineresource("CMap", &cmap_name, cmap_obj.into_obj(), 1);
         pdf_get_resource_reference(res_id)
     } else {
         ptr::null_mut()
@@ -1299,16 +1292,16 @@ unsafe fn load_base_CMap(
     ttcmap: *mut tt_cmap,
 ) -> i32 {
     let mut cmap_id = CMap_cache_find(cmap_name);
-    if cmap_id < 0i32 {
+    if cmap_id < 0 {
         let mut cmap = CMap_new();
         CMap_set_name(&mut cmap, cmap_name);
-        CMap_set_type(&mut cmap, 1i32);
+        CMap_set_type(&mut cmap, 1);
         CMap_set_wmode(&mut cmap, wmode);
         CMap_add_codespacerange(
             &mut cmap,
             lrange_min.as_ptr(),
             lrange_max.as_ptr(),
-            4i32 as size_t,
+            4 as size_t,
         );
         if !csi.is_null() {
             /* CID */
@@ -1316,7 +1309,7 @@ unsafe fn load_base_CMap(
         } else {
             CMap_set_CIDSysInfo(&mut cmap, &mut CSI_IDENTITY);
         }
-        if (*ttcmap).format as i32 == 12i32 {
+        if (*ttcmap).format as i32 == 12 {
             load_cmap12(
                 (*ttcmap).map as *mut cmap12,
                 GIDToCIDMap,
@@ -1325,7 +1318,7 @@ unsafe fn load_base_CMap(
                 &mut cmap,
                 tounicode_add,
             );
-        } else if (*ttcmap).format as i32 == 4i32 {
+        } else if (*ttcmap).format as i32 == 4 {
             load_cmap4(
                 (*ttcmap).map as *mut cmap4,
                 GIDToCIDMap,
@@ -1380,7 +1373,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     let mut sfont = if handle.is_none() {
         let handle = dpx_open_dfont_file(map_name);
         if handle.is_none() {
-            return -1i32;
+            return -1;
         }
         dfont_open(handle.unwrap(), ttc_index).expect(&format!(
             "Could not open OpenType/TrueType/dfont font file \"{}\"",
@@ -1402,7 +1395,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
             panic!("Not a OpenType/TrueType/TTC font?: {}", map_name);
         }
     }
-    if sfnt_read_table_directory(&mut sfont, offset) < 0i32 {
+    if sfnt_read_table_directory(&mut sfont, offset) < 0 {
         panic!("Could not read OpenType/TrueType table directory.");
     }
 
@@ -1425,7 +1418,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
 
         let tounicode_add_name = format!("{},{:03}-UCS32-Add", map_name, ttc_index);
         let tounicode_add_id = CMap_cache_find(&tounicode_add_name); /* Unicode 2.0 or later */
-        if tounicode_add_id >= 0i32 {
+        if tounicode_add_id >= 0 {
             tounicode_add = CMap_cache_get(tounicode_add_id)
         } else {
             let mut cmap = CMap_new();
@@ -1446,12 +1439,12 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     } else {
         cmap_name = base_name;
     }
-    let is_cidfont = if sfont.type_0 == 1i32 << 2i32 {
+    let is_cidfont = if sfont.type_0 == 1 << 2 {
         handle_CIDFont(&mut sfont, &mut GIDToCIDMap, &mut csi)
     } else {
         0
     };
-    if verbose > 0i32 {
+    if verbose > 0 {
         info!("\n");
         info!(
             "otf_cmap>> Unicode charmap for font=\"{}\" layout=\"{}\"\n",
@@ -1464,9 +1457,9 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         );
     }
     let cmap_id = CMap_cache_find(&cmap_name);
-    if cmap_id >= 0i32 {
+    if cmap_id >= 0 {
         free(GIDToCIDMap as *mut libc::c_void);
-        if verbose > 0i32 {
+        if verbose > 0 {
             info!("otf_cmap>> Found at cmap_id={}.\n", cmap_id);
         }
         return cmap_id;
@@ -1481,7 +1474,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
             }
         }
     }
-    if wmode == 1i32 {
+    if wmode == 1 {
         gsub_vert = otl_gsub_new();
         if otl_gsub_add_feat(&mut *gsub_vert, b"*", b"*", b"vrt2", &sfont) < 0 {
             if otl_gsub_add_feat(&mut *gsub_vert, b"*", b"*", b"vert", &sfont) < 0 {
@@ -1522,7 +1515,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         gsub_list,
         ttcmap,
     );
-    if cmap_id < 0i32 {
+    if cmap_id < 0 {
         panic!("Failed to read OpenType/TrueType cmap table.");
     }
     if !gsub_vert.is_null() {

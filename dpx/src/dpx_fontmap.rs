@@ -79,7 +79,7 @@ pub(crate) struct C2RustUnnamed_0 {
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut verbose: i32 = 0i32;
+static mut verbose: i32 = 0;
 
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -103,18 +103,18 @@ pub(crate) unsafe fn pdf_init_fontmap_record() -> fontmap_rec {
         enc_name: String::new(),
 
         opt: fontmap_opt {
-            mapc: -1i32, /* compatibility */
+            mapc: -1, /* compatibility */
             slant: 0.0f64,
             extend: 1.0f64,
             bold: 0.0f64,
-            flags: 0i32,
+            flags: 0,
             design_size: -1.0f64,
             tounicode: String::new(),
             otl_tags: String::new(),
-            index: 0i32,
+            index: 0,
             charcoll: String::new(),
-            style: 0i32,
-            stemv: -1i32,
+            style: 0,
+            stemv: -1,
             cff_charsets: ptr::null_mut(),
         },
     }
@@ -322,7 +322,7 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     mrec.opt.slant = atof(q.as_ptr());
                 } else {
                     warn!("Missing a number value for \'s\' option.");
-                    return -1i32;
+                    return -1;
                 }
             }
             b'e' => {
@@ -331,11 +331,11 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     mrec.opt.extend = atof(q.as_ptr());
                     if mrec.opt.extend <= 0. {
                         warn!("Invalid value for \'e\' option: {}", q.display());
-                        return -1i32;
+                        return -1;
                     }
                 } else {
                     warn!("Missing a number value for \'e\' option.");
-                    return -1i32;
+                    return -1;
                 }
             }
             b'b' => {
@@ -344,11 +344,11 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     mrec.opt.bold = atof(q.as_ptr());
                     if mrec.opt.bold <= 0. {
                         warn!("Invalid value for \'b\' option: {}", q.display());
-                        return -1i32;
+                        return -1;
                     }
                 } else {
                     warn!("Missing a number value for \'b\' option.");
-                    return -1i32;
+                    return -1;
                 }
             }
             b'r' => {}
@@ -358,11 +358,11 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     mrec.opt.index = atoi(q.as_ptr());
                     if mrec.opt.index < 0 {
                         warn!("Invalid TTC index number: {}", q.display());
-                        return -1i32;
+                        return -1;
                     }
                 } else {
                     warn!("Missing TTC index number...");
-                    return -1i32;
+                    return -1;
                 }
             }
             b'p' => {
@@ -376,7 +376,7 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     }
                 } else {
                     warn!("Missing a number for \'p\' option.");
-                    return -1i32;
+                    return -1;
                 }
             }
             b'u' => {
@@ -386,16 +386,16 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     mrec.opt.tounicode = q;
                 } else {
                     warn!("Missing string value for option \'u\'.");
-                    return -1i32;
+                    return -1;
                 }
             }
             b'v' => {
                 /* StemV */
                 if let Some(q) = p.parse_integer_value(10) {
-                    mrec.opt.stemv = strtol(q.as_ptr(), 0 as *mut *mut i8, 0i32) as i32;
+                    mrec.opt.stemv = strtol(q.as_ptr(), 0 as *mut *mut i8, 0) as i32;
                 } else {
                     warn!("Missing a number for \'v\' option.");
-                    return -1i32;
+                    return -1;
                 }
             }
             b'l' => {
@@ -405,7 +405,7 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     mrec.opt.otl_tags = q;
                 } else {
                     warn!("Missing string value for option \'l\'.");
-                    return -1i32;
+                    return -1;
                 }
             }
             b'm' => {
@@ -418,14 +418,14 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     if let Some(q) = p.parse_integer_value(16) {
                         if !p.is_empty() && p[0] != b'>' {
                             warn!("Invalid value for option \'m\': {}", q.display());
-                            return -1i32;
+                            return -1;
                         }
-                        let v = strtol(q.as_ptr(), 0 as *mut *mut i8, 16i32) as i32;
-                        mrec.opt.mapc = ((v << 8i32) as i64 & 0xff00) as i32;
+                        let v = strtol(q.as_ptr(), 0 as *mut *mut i8, 16) as i32;
+                        mrec.opt.mapc = ((v << 8) as i64 & 0xff00) as i32;
                         p = &p[1..];
                     } else {
                         warn!("Invalid value for option \'m\'.");
-                        return -1i32;
+                        return -1;
                     }
                 } else if p.starts_with(b"sfd:") {
                     /* SFD mapping: sfd:Big5,00 */
@@ -434,13 +434,13 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     let q = p.parse_string_value();
                     if q.is_empty() {
                         warn!("Missing value for option \'m\'.");
-                        return -1i32;
+                        return -1;
                     }
                     let comma = match q.find(',') {
                         Some(idx) => idx,
                         None => {
                             warn!("Invalid value for option \'m\': {}", q);
-                            return -1i32;
+                            return -1;
                         }
                     };
                     let sfd_name = q[1..comma].to_owned();
@@ -450,7 +450,7 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     }
                     if subfont_id.is_empty() {
                         warn!("Invalid value for option \'m\': {},", q);
-                        return -1i32;
+                        return -1;
                     }
                     mrec.charmap.sfd_name = sfd_name;
                     mrec.charmap.subfont_id = subfont_id.to_owned();
@@ -460,24 +460,24 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     if let Some(q) = p.parse_integer_value(16) {
                         if !p.is_empty() && libc::isspace(p[0] as _) == 0 {
                             warn!("Invalid value for option \'m\': {}", q.display());
-                            return -1i32;
+                            return -1;
                         }
-                        let v = strtol(q.as_ptr(), 0 as *mut *mut i8, 16i32) as i32;
-                        mrec.opt.mapc = ((v << 8i32) as i64 & 0xff00) as i32;
+                        let v = strtol(q.as_ptr(), 0 as *mut *mut i8, 16) as i32;
+                        mrec.opt.mapc = ((v << 8) as i64 & 0xff00) as i32;
                     } else {
                         warn!("Invalid value for option \'m\'.");
-                        return -1i32;
+                        return -1;
                     }
                 } else {
                     warn!("Invalid value for option \'m\'.");
-                    return -1i32;
+                    return -1;
                 }
             }
             b'w' => {
                 /* Writing mode (for unicode encoding) */
                 if mrec.enc_name != "unicode" {
                     warn!("Fontmap option \'w\' meaningless for encoding other than \"unicode\".");
-                    return -1i32;
+                    return -1;
                 }
                 if let Some(q) = p.parse_integer_value(10) {
                     if atoi(q.as_ptr()) == 1 {
@@ -489,21 +489,21 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
                     }
                 } else {
                     warn!("Missing wmode value...");
-                    return -1i32;
+                    return -1;
                 }
             }
             _ => {
                 warn!("Unrecognized font map option: \'{}\'", char::from(mopt));
-                return -1i32;
+                return -1;
             }
         }
         p.skip_blank();
     }
     if !p.is_empty() && p[0] != b'\r' && p[0] != b'\n' {
         warn!("Invalid char in fontmap line: {}", char::from(p[0]));
-        return -1i32;
+        return -1;
     }
-    0i32
+    0
 }
 /* Parse record line in map file of DVIPS/pdfTeX format. */
 unsafe fn fontmap_parse_mapdef_dps(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32 {
@@ -517,11 +517,11 @@ unsafe fn fontmap_parse_mapdef_dps(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
             p.skip_blank();
         } else {
             warn!("Missing a PostScript font name.");
-            return -1i32;
+            return -1;
         }
     }
     if p.is_empty() {
-        return 0i32;
+        return 0;
     }
     /* Parse any remaining arguments */
     while !p.is_empty() && p[0] != b'\r' && p[0] != b'\n' && (p[0] == b'<' || p[0] == b'\"') {
@@ -571,16 +571,16 @@ unsafe fn fontmap_parse_mapdef_dps(mrec: &mut fontmap_rec, mapdef: &[u8]) -> i32
             }
             _ => {
                 warn!("Found an invalid entry: {}", p.display());
-                return -1i32;
+                return -1;
             }
         }
         p.skip_blank();
     }
     if !p.is_empty() && p[0] != b'\r' && p[0] != b'\n' {
         warn!("Invalid char in fontmap line: {}", char::from(p[0]));
-        return -1i32;
+        return -1;
     }
-    0i32
+    0
 }
 
 fn chop_sfd_name(tex_name: &str) -> Option<(String, String)> {
@@ -630,16 +630,16 @@ unsafe fn make_subfont_name(map_name: &str, sfd_name: &str, sub_id: &str) -> Opt
 pub(crate) unsafe fn pdf_append_fontmap_record(kp: &str, vp: &fontmap_rec) -> i32 {
     if kp.is_empty() || (vp.map_name.is_empty() || vp.font_name.is_empty()) {
         warn!("Invalid fontmap record...");
-        return -1i32;
+        return -1;
     }
-    if verbose > 3i32 {
+    if verbose > 3 {
         info!("fontmap>> append key=\"{}\"...", kp);
     }
     if let Some((_, sfd_name)) = chop_sfd_name(kp) {
         /* link to this entry */
         let subfont_ids = sfd_get_subfont_ids(&sfd_name);
         if subfont_ids.is_empty() {
-            return -1i32;
+            return -1;
         }
         for n in (0..subfont_ids.len()).rev() {
             if let Some(tfm_name) = make_subfont_name(kp, &sfd_name, &subfont_ids[n]) {
@@ -663,7 +663,7 @@ pub(crate) unsafe fn pdf_append_fontmap_record(kp: &str, vp: &fontmap_rec) -> i3
     if verbose > 3 {
         info!("\n");
     }
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_remove_fontmap_record(kp: &str) -> i32 {
@@ -693,10 +693,10 @@ pub(crate) unsafe fn pdf_remove_fontmap_record(kp: &str) -> i32 {
         }
     }
     fontmap.remove(kp);
-    if verbose > 3i32 {
+    if verbose > 3 {
         info!("\n");
     }
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_insert_fontmap_record(kp: &str, vp: &fontmap_rec) -> Result<(), ()> {
@@ -704,7 +704,7 @@ pub(crate) unsafe fn pdf_insert_fontmap_record(kp: &str, vp: &fontmap_rec) -> Re
         warn!("Invalid fontmap record...");
         return Err(());
     }
-    if verbose > 3i32 {
+    if verbose > 3 {
         info!("fontmap>> insert key=\"{}\"...", kp);
     }
     if let Some((_, sfd_name)) = chop_sfd_name(kp) {
@@ -714,12 +714,12 @@ pub(crate) unsafe fn pdf_insert_fontmap_record(kp: &str, vp: &fontmap_rec) -> Re
             return Err(());
         }
         let len = subfont_ids.len();
-        if verbose > 3i32 {
+        if verbose > 3 {
             info!("\nfontmap>> Expand @{}@:", sfd_name);
         }
         for n in (0..len).rev() {
             if let Some(tfm_name) = make_subfont_name(kp, &sfd_name, &subfont_ids[n]) {
-                if verbose > 3i32 {
+                if verbose > 3 {
                     info!(" {}", tfm_name);
                 }
                 let mut mrec = Box::new(pdf_init_fontmap_record());
@@ -749,15 +749,15 @@ pub(crate) unsafe fn pdf_read_fontmap_line(
     let mut p = mline.as_bytes();
     p.skip_blank();
     if p.is_empty() {
-        return -1i32;
+        return -1;
     }
     let q = p.parse_string_value_();
     if q.is_none() {
-        return -1i32;
+        return -1;
     }
     let q = q.unwrap();
     let qstr = q.to_str().unwrap();
-    let error = if format > 0i32 {
+    let error = if format > 0 {
         /* DVIPDFM format */
         fontmap_parse_mapdef_dpm(mrec, p)
     } else {
@@ -800,16 +800,16 @@ pub(crate) unsafe fn is_pdfm_mapline(mline: &str) -> i32 {
 }
 
 pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
-    let mut error: i32 = 0i32;
-    let mut lpos: i32 = 0i32;
-    let mut format: i32 = 0i32;
+    let mut error: i32 = 0;
+    let mut lpos: i32 = 0;
+    let mut format: i32 = 0;
     if verbose != 0 {
         info!("<FONTMAP:");
     }
     let handle = dpx_tt_open(filename, ".map", TTInputFormat::FONTMAP);
     if handle.is_none() {
         warn!("Couldn\'t open font map file \"{}\".", filename);
-        return -1i32;
+        return -1;
     }
     let handle = handle.unwrap();
     let mut bufreader = std::io::BufReader::new(handle);
@@ -838,7 +838,7 @@ pub(crate) unsafe fn pdf_load_fontmap_file(filename: &str, mode: i32) -> i32 {
             continue;
         }
         let m = is_pdfm_mapline(s);
-        if format * m < 0i32 {
+        if format * m < 0 {
             /* mismatch */
             warn!(
                 "Found a mismatched fontmap line {} from {}.",
@@ -891,7 +891,7 @@ pub(crate) unsafe fn pdf_insert_native_fontmap_record(
         "{}/{}/{}/{}/{}/{}",
         path,
         index,
-        if layout_dir == 0i32 { 'H' } else { 'V' },
+        if layout_dir == 0 { 'H' } else { 'V' },
         extend,
         slant,
         embolden,
@@ -908,8 +908,8 @@ pub(crate) unsafe fn pdf_insert_native_fontmap_record(
     .to_owned();
     mrec.font_name = path.to_owned();
     mrec.opt.index = index as i32;
-    if layout_dir != 0i32 {
-        mrec.opt.flags |= 1i32 << 2i32
+    if layout_dir != 0 {
+        mrec.opt.flags |= 1 << 2
     }
     fill_in_defaults(&mut mrec, &fontmap_key);
     mrec.opt.extend = extend as f64 / 65536.;
@@ -957,10 +957,8 @@ unsafe fn substr(str: *mut *const i8, stop: i8) -> *mut i8 {
     if endptr.is_null() || endptr == *str {
         return ptr::null_mut();
     }
-    let sstr = new(
-        ((endptr.offset_from(*str) as i64 + 1i32 as i64) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
-    ) as *mut i8;
+    let sstr = new(((endptr.offset_from(*str) as i64 + 1 as i64) as u32 as u64)
+        .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
     memcpy(
         sstr as *mut libc::c_void,
         *str as *const libc::c_void,
@@ -983,7 +981,7 @@ unsafe fn strip_options(map_name: &str, opt: &mut fontmap_opt) -> *mut i8 {
     opt.style = 0;
     opt.flags = 0;
     if *p as i32 == ':' as i32 && (*p.offset(1) as u8).is_ascii_digit() {
-        opt.index = strtoul(p.offset(1), &mut next, 10i32) as i32;
+        opt.index = strtoul(p.offset(1), &mut next, 10) as i32;
         if *next as i32 == ':' as i32 {
             p = next.offset(1)
         } else {
@@ -1055,7 +1053,7 @@ unsafe fn strip_options(map_name: &str, opt: &mut fontmap_opt) -> *mut i8 {
                     CStr::from_ptr(p).display(),
                 );
             }
-            opt.style = 3i32
+            opt.style = 3
         } else if !strstartswith(p, b"Bold\x00" as *const u8 as *const i8).is_null() {
             if *p.offset(4) != 0 {
                 panic!(
@@ -1064,7 +1062,7 @@ unsafe fn strip_options(map_name: &str, opt: &mut fontmap_opt) -> *mut i8 {
                     CStr::from_ptr(p).display(),
                 );
             }
-            opt.style = 1i32
+            opt.style = 1
         } else if !strstartswith(p, b"Italic\x00" as *const u8 as *const i8).is_null() {
             if *p.offset(6) != 0 {
                 panic!(
@@ -1073,7 +1071,7 @@ unsafe fn strip_options(map_name: &str, opt: &mut fontmap_opt) -> *mut i8 {
                     CStr::from_ptr(p).display(),
                 );
             }
-            opt.style = 2i32
+            opt.style = 2
         }
     }
     font_name

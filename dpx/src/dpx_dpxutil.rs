@@ -94,7 +94,7 @@ pub(crate) unsafe fn ht_init_table(mut ht: *mut ht_table, hval_free_fn: hval_fre
     for i in 0..503 {
         (*ht).table[i] = ptr::null_mut();
     }
-    (*ht).count = 0i32;
+    (*ht).count = 0;
     (*ht).hval_free_fn = hval_free_fn;
 }
 
@@ -117,7 +117,7 @@ pub(crate) unsafe fn ht_clear_table(mut ht: *mut ht_table) {
         }
         (*ht).table[i] = ptr::null_mut();
     }
-    (*ht).count = 0i32;
+    (*ht).count = 0;
     (*ht).hval_free_fn = None;
 }
 
@@ -128,7 +128,7 @@ pub(crate) unsafe fn ht_table_size(ht: *mut ht_table) -> i32 {
 unsafe fn get_hash(key: *const libc::c_void, keylen: i32) -> u32 {
     let mut hkey: u32 = 0_u32;
     for i in 0..keylen {
-        hkey = (hkey << 5i32)
+        hkey = (hkey << 5)
             .wrapping_add(hkey)
             .wrapping_add(*(key as *const i8).offset(i as isize) as u32);
     }
@@ -193,15 +193,15 @@ pub(crate) unsafe fn ht_set_iter(ht: *mut ht_table, mut iter: *mut ht_iter) -> i
             (*iter).index = i;
             (*iter).curr = (*ht).table[i as usize] as *mut libc::c_void;
             (*iter).hash = ht;
-            return 0i32;
+            return 0;
         }
     }
-    -1i32
+    -1
 }
 
 pub(crate) unsafe fn ht_clear_iter(mut iter: *mut ht_iter) {
     if !iter.is_null() {
-        (*iter).index = 503i32;
+        (*iter).index = 503;
         (*iter).curr = ptr::null_mut();
         (*iter).hash = ptr::null_mut()
     };
@@ -213,7 +213,7 @@ pub(crate) unsafe fn ht_iter_getkey(iter: *mut ht_iter, keylen: *mut i32) -> *mu
         *keylen = (*hent).keylen;
         return (*hent).key;
     } else {
-        *keylen = 0i32;
+        *keylen = 0;
         return ptr::null_mut();
     };
 }
@@ -234,15 +234,15 @@ pub(crate) unsafe fn ht_iter_next(mut iter: *mut ht_iter) -> i32 {
     hent = (*hent).next;
     while hent.is_null() && {
         (*iter).index += 1;
-        (*iter).index < 503i32
+        (*iter).index < 503
     } {
         hent = (*ht).table[(*iter).index as usize]
     }
     (*iter).curr = hent as *mut libc::c_void;
     if !hent.is_null() {
-        0i32
+        0
     } else {
-        -1i32
+        -1
     }
 }
 pub(crate) trait ParseCString {
@@ -252,7 +252,7 @@ pub(crate) trait ParseCString {
 impl ParseCString for &[u8] {
     fn parse_c_string(&mut self) -> Option<CString> {
         fn read_c_escchar(pp: &mut &[u8]) -> (i32, u8) {
-            let mut c = 0i32;
+            let mut c = 0;
             let mut l = 1;
             let mut p = *pp;
             match p[0] {
@@ -340,7 +340,7 @@ impl ParseCString for &[u8] {
         const C_QUOTE: u8 = b'"';
         const C_ESCAPE: u8 = b'\\';
         fn read_c_litstrc(q: &mut Option<Vec<u8>>, len: i32, pp: &mut &[u8]) -> i32 {
-            let mut s = -1i32;
+            let mut s = -1;
             let mut l = 0;
             let mut p = *pp;
             while s == -1 && !p.is_empty() {
@@ -397,7 +397,7 @@ impl ParseCString for &[u8] {
             return None;
         }
         p = &p[1..];
-        let l = read_c_litstrc(&mut None, 0i32, &mut p);
+        let l = read_c_litstrc(&mut None, 0, &mut p);
         if l >= 0 {
             let mut v = Some(vec![0u8; l as usize + 1]);
             p = &(*self)[1..];

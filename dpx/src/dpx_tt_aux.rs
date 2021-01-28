@@ -36,14 +36,14 @@ use std::io::{Seek, SeekFrom};
 
 use super::dpx_sfnt::sfnt;
 
-static mut verbose: i32 = 0i32;
+static mut verbose: i32 = 0;
 
 pub(crate) unsafe fn tt_aux_set_verbose(level: i32) {
     verbose = level; /* skip version tag */
 }
 
 pub(crate) unsafe fn ttc_read_offset(sfont: &sfnt, ttc_idx: i32) -> u32 {
-    if sfont.type_0 != 1i32 << 4i32 {
+    if sfont.type_0 != 1 << 4 {
         panic!("ttc_read_offset(): invalid font type");
     }
     let handle = &mut &*sfont.handle;
@@ -51,7 +51,7 @@ pub(crate) unsafe fn ttc_read_offset(sfont: &sfnt, ttc_idx: i32) -> u32 {
     /* version = */
     u32::get(handle);
     let num_dirs = u32::get(handle);
-    if ttc_idx < 0i32 || ttc_idx as u32 > num_dirs.wrapping_sub(1_u32) {
+    if ttc_idx < 0 || ttc_idx as u32 > num_dirs.wrapping_sub(1_u32) {
         panic!("Invalid TTC index number");
     }
     handle
@@ -71,7 +71,7 @@ pub(crate) unsafe fn tt_get_fontdesc(
     type_0: i32,
     fontname: &str,
 ) -> Option<pdf_dict> {
-    let mut flag: i32 = 1i32 << 2i32;
+    let mut flag: i32 = 1 << 2;
     /* TrueType tables */
     let os2 = tt_read_os2__table(sfont);
     let head = tt_read_head_table(sfont);
@@ -96,33 +96,33 @@ pub(crate) unsafe fn tt_get_fontdesc(
 
            2006/04/19: Added support for always_embed option
         */
-        if os2.fsType as i32 == 0i32 || os2.fsType as i32 & 0x8i32 != 0 {
+        if os2.fsType as i32 == 0 || os2.fsType as i32 & 0x8 != 0 {
             /* the least restrictive license granted takes precedence. */
-            *embed = 1i32
-        } else if os2.fsType as i32 & 0x4i32 != 0 {
-            if verbose > 0i32 {
+            *embed = 1
+        } else if os2.fsType as i32 & 0x4 != 0 {
+            if verbose > 0 {
                 warn!(
                     "Font \"{}\" permits \"Preview & Print\" embedding only **\n",
                     fontname,
                 );
             }
-            *embed = 1i32
+            *embed = 1
         } else if always_embed != 0 {
-            if verbose > 0i32 {
+            if verbose > 0 {
                 warn!(
                     "Font \"{}\" may be subject to embedding restrictions **\n",
                     fontname,
                 );
             }
-            *embed = 1i32
+            *embed = 1
         } else {
-            if verbose > 0i32 {
+            if verbose > 0 {
                 warn!(
                     "Embedding of font \"{}\" disabled due to license restrictions",
                     fontname,
                 );
             }
-            *embed = 0i32
+            *embed = 0
         }
     }
     descriptor.set(
@@ -137,14 +137,14 @@ pub(crate) unsafe fn tt_get_fontdesc(
             .floor()
             * 1.,
     );
-    if stemv < 0i32 {
+    if stemv < 0 {
         /* if not given by the option '-v' */
         stemv = (os2.usWeightClass as i32 as f64 / 65.0f64
             * (os2.usWeightClass as i32 as f64 / 65.0f64)
-            + 50i32 as f64) as i32
+            + 50 as f64) as i32
     } /* arbitrary */
     descriptor.set("StemV", stemv as f64);
-    if os2.version as i32 == 0x2i32 {
+    if os2.version as i32 == 0x2 {
         descriptor.set(
             "CapHeight",
             (1000_f64 * os2.sCapHeight as i32 as f64 / head.unitsPerEm as i32 as f64 / 1. + 0.5)
@@ -167,7 +167,7 @@ pub(crate) unsafe fn tt_get_fontdesc(
         );
     }
     /* optional */
-    if os2.xAvgCharWidth as i32 != 0i32 {
+    if os2.xAvgCharWidth as i32 != 0 {
         descriptor.set(
             "AvgWidth",
             (1000_f64 * os2.xAvgCharWidth as i32 as f64 / head.unitsPerEm as i32 as f64 / 1. + 0.5)
@@ -206,20 +206,20 @@ pub(crate) unsafe fn tt_get_fontdesc(
             }) as f64,
     );
     /* Flags */
-    if os2.fsSelection as i32 & 1i32 << 0i32 != 0 {
-        flag |= 1i32 << 6i32
+    if os2.fsSelection as i32 & 1 << 0 != 0 {
+        flag |= 1 << 6
     }
-    if os2.fsSelection as i32 & 1i32 << 5i32 != 0 {
-        flag |= 1i32 << 18i32
+    if os2.fsSelection as i32 & 1 << 5 != 0 {
+        flag |= 1 << 18
     }
-    if os2.sFamilyClass as i32 >> 8i32 & 0xffi32 != 8i32 {
-        flag |= 1i32 << 1i32
+    if os2.sFamilyClass as i32 >> 8 & 0xff != 8 {
+        flag |= 1 << 1
     }
-    if os2.sFamilyClass as i32 >> 8i32 & 0xffi32 == 10i32 {
-        flag |= 1i32 << 3i32
+    if os2.sFamilyClass as i32 >> 8 & 0xff == 10 {
+        flag |= 1 << 3
     }
     if (*post).isFixedPitch != 0 {
-        flag |= 1i32 << 0i32
+        flag |= 1 << 0
     }
     descriptor.set("Flags", flag as f64);
     /* insert panose if you want */

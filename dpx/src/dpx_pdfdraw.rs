@@ -173,7 +173,7 @@ impl pdf_path {
         pe.typ = PeType::LINETO;
         *cp = p0;
         pe.p[0] = p0;
-        0i32
+        0
     }
     pub(crate) fn curveto(&mut self, cp: &mut Point, p0: Point, p1: Point, p2: Point) -> i32 {
         let pe = self.next_pe(cp);
@@ -194,7 +194,7 @@ impl pdf_path {
             *cp = p2;
             pe.p[2] = *cp;
         }
-        0i32
+        0
     }
     /* This isn't specified as cp to somewhere. */
     fn elliptarc(
@@ -209,11 +209,11 @@ impl pdf_path {
         a_d: i32,
     ) -> i32
 /* arc orientation        */ {
-        let mut error: i32 = 0i32;
+        let mut error: i32 = 0;
         if r_x.abs() < 2.5e-16f64 || r_y.abs() < 2.5e-16f64 {
-            return -1i32;
+            return -1;
         }
-        if a_d < 0i32 {
+        if a_d < 0 {
             while a_1 > a_0 {
                 a_1 -= 360.0f64
             }
@@ -229,7 +229,7 @@ impl pdf_path {
         }
         d_a /= n_c as f64;
         if d_a.abs() < 2.5e-16f64 {
-            return -1i32;
+            return -1;
         }
         a_0 *= core::f64::consts::PI / 180.;
         //a_1 *= core::f64::consts::PI / 180.; TODO: check
@@ -358,9 +358,9 @@ unsafe fn pdf_path__closepath(pa: &mut pdf_path, cp: &mut Point) -> i32
         let mut pe = pa_elem::default();
         pe.typ = PeType::CLOSEPATH;
         pa.path.push(pe);
-        0i32
+        0
     } else {
-        -1i32
+        -1
     }
 }
 /*
@@ -394,7 +394,7 @@ unsafe fn pdf_path__isarect(pa: &pdf_path, f_ir: i32) -> i32
                 && pe3.p[0].y - pe2.p[0].y == 0.
             {
                 if pe1.p[0].x - pe0.p[0].x == pe2.p[0].x - pe3.p[0].x {
-                    return 1i32;
+                    return 1;
                 }
             /* Winding number is different but ignore it here. */
             } else if f_ir != 0
@@ -403,12 +403,12 @@ unsafe fn pdf_path__isarect(pa: &pdf_path, f_ir: i32) -> i32
                 && pe3.p[0].x - pe2.p[0].x == 0.
             {
                 if pe1.p[0].y - pe0.p[0].y == pe2.p[0].y - pe3.p[0].y {
-                    return 1i32;
+                    return 1;
                 }
             }
         }
     }
-    0i32
+    0
 }
 /* Path Painting */
 /* F is obsoleted */
@@ -419,9 +419,9 @@ unsafe fn INVERTIBLE_MATRIX(M: &TMatrix) -> i32 {
             "--- M = [{} {} {} {} {} {}]",
             M.m11, M.m12, M.m21, M.m22, M.m31, M.m32
         );
-        return -1i32;
+        return -1;
     }
-    0i32
+    0
 }
 /* rectfill, rectstroke, rectclip, recteoclip
  *
@@ -438,17 +438,13 @@ unsafe fn INVERTIBLE_MATRIX(M: &TMatrix) -> i32 {
 unsafe fn pdf_dev__rectshape(r: &Rect, M: Option<&TMatrix>, opchr: u8) -> i32 {
     let mut buf = Vec::new();
     assert!(b"fFsSbBW ".contains(&(opchr as u8)));
-    let isclip = if opchr == b'W' || opchr == b' ' {
-        1i32
-    } else {
-        0i32
-    };
+    let isclip = if opchr == b'W' || opchr == b' ' { 1 } else { 0 };
     /* disallow matrix for clipping.
      * q ... clip Q does nothing and
      * n M cm ... clip n alter CTM.
      */
     if M.is_some() && (isclip != 0 || INVERTIBLE_MATRIX(M.unwrap()) == 0) {
-        return -1i32;
+        return -1;
     } /* op: q cm n re Q */
     graphics_mode();
     buf.push(b' ');
@@ -483,9 +479,9 @@ unsafe fn pdf_dev__rectshape(r: &Rect, M: Option<&TMatrix>, opchr: u8) -> i32 {
         buf.push(if isclip != 0 { b'n' } else { b'Q' });
     }
     pdf_doc_add_page_content(&buf);
-    0i32
+    0
 }
-static mut path_added: i32 = 0i32;
+static mut path_added: i32 = 0;
 /* FIXME */
 unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rule: i32) -> i32 {
     let mut b = Vec::new(); /* height... */
@@ -495,10 +491,10 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
     let isclip = if opchr == b'W' { true } else { false };
     if
     /*pa.num_paths <= 0_u32 &&*/
-    path_added == 0i32 {
-        return 0i32;
+    path_added == 0 {
+        return 0;
     }
-    path_added = 0i32;
+    path_added = 0;
     graphics_mode();
     let isrect = pdf_path__isarect(pa, ignore_rule);
     if isrect != 0 {
@@ -519,7 +515,7 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
             let n_pts = if pe.typ != PeType::TERMINATE {
                 pe.typ.n_pts() as i32
             } else {
-                0i32
+                0
             };
             for (_j, pt) in (0..n_pts).zip(pe.p.iter_mut()) {
                 /* op: m l c v y h */
@@ -556,7 +552,7 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
         b.push(b'n');
     }
     pdf_doc_add_page_content(&b);
-    0i32
+    0
 }
 
 impl pdf_gstate {
@@ -631,7 +627,7 @@ pub(crate) unsafe fn pdf_dev_gsave() -> i32 {
     stack.push(gs1);
 
     pdf_doc_add_page_content(b" q");
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_dev_grestore() -> i32 {
@@ -639,12 +635,12 @@ pub(crate) unsafe fn pdf_dev_grestore() -> i32 {
     if stack.len() <= 1 {
         /* Initial state at bottom */
         warn!("Too many grestores."); /* op: Q */
-        return -1i32;
+        return -1;
     }
     let _gs = stack.pop();
     pdf_doc_add_page_content(b" Q");
-    pdf_dev_reset_fonts(0i32);
-    0i32
+    pdf_dev_reset_fonts(0);
+    0
 }
 
 pub(crate) unsafe fn pdf_dev_push_gstate() -> i32 {
@@ -653,7 +649,7 @@ pub(crate) unsafe fn pdf_dev_push_gstate() -> i32 {
     let gs0 = pdf_gstate::init();
     stack.push(gs0);
 
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_dev_pop_gstate() -> i32 {
@@ -661,10 +657,10 @@ pub(crate) unsafe fn pdf_dev_pop_gstate() -> i32 {
     if gss.len() <= 1 {
         /* Initial state at bottom */
         warn!("Too many grestores.");
-        return -1i32;
+        return -1;
     }
     let _gs = gss.pop();
-    0i32
+    0
 }
 
 pub(crate) fn pdf_dev_current_depth() -> usize {
@@ -682,14 +678,14 @@ pub(crate) unsafe fn pdf_dev_grestore_to(depth: usize) {
         pdf_doc_add_page_content(b" Q");
         let _gs = gss.pop();
     }
-    pdf_dev_reset_fonts(0i32);
+    pdf_dev_reset_fonts(0);
 }
 
 pub(crate) unsafe fn pdf_dev_currentpoint(p: &mut Point) -> i32 {
     let gss = unsafe { &gs_stack };
     let gs = gss.last().unwrap();
     *p = gs.cp.clone();
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_dev_currentmatrix() -> TMatrix {
@@ -763,7 +759,7 @@ pub(crate) unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
             "--- M = [{} {} {} {} {} {}]",
             M.m11, M.m12, M.m21, M.m22, M.m31, M.m32
         );
-        return -1i32;
+        return -1;
     }
     if (M.m11 - 1.).abs() > 2.5e-16
         || M.m12.abs() > 2.5e-16
@@ -784,7 +780,7 @@ pub(crate) unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
     let W = M.inverse().unwrap();
     cpa.transform(&W);
     *cpt = W.transform_point(*cpt);
-    0i32
+    0
 }
 /*
  * num w        LW  linewidth (g.t. 0)
@@ -811,7 +807,7 @@ pub(crate) unsafe fn pdf_dev_setmiterlimit(mlimit: f64) -> i32 {
         pdf_doc_add_page_content(&buf);
         gs.miterlimit = mlimit
     }
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
@@ -822,7 +818,7 @@ pub(crate) unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
         pdf_doc_add_page_content(buf.as_bytes());
         gs.linecap = capstyle
     }
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_dev_setlinejoin(joinstyle: i32) -> i32 {
@@ -833,7 +829,7 @@ pub(crate) unsafe fn pdf_dev_setlinejoin(joinstyle: i32) -> i32 {
         pdf_doc_add_page_content(buf.as_bytes());
         gs.linejoin = joinstyle
     }
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_dev_setlinewidth(width: f64) -> i32 {
@@ -848,7 +844,7 @@ pub(crate) unsafe fn pdf_dev_setlinewidth(width: f64) -> i32 {
         pdf_doc_add_page_content(&buf);
         gs.linewidth = width
     }
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_dev_setdash(pattern: &[f64], offset: f64) -> i32 {
@@ -870,7 +866,7 @@ pub(crate) unsafe fn pdf_dev_setdash(pattern: &[f64], offset: f64) -> i32 {
     pdf_sprint_length(&mut buf, offset);
     pdf_doc_add_page_content(&buf);
     pdf_doc_add_page_content(b" d");
-    0i32
+    0
 }
 /* ZSYUEDVEDEOF */
 
@@ -896,9 +892,9 @@ pub(crate) unsafe fn pdf_dev_flushpath(p_op: u8, fill_rule: i32) -> i32 {
      * that can be converted to a rect where fill rule
      * is inessential.
      */
-    let error = pdf_dev__flushpath(cpa, p_op, fill_rule, 1i32);
+    let error = pdf_dev__flushpath(cpa, p_op, fill_rule, 1);
     cpa.path.clear();
-    gs.flags &= !(1i32 << 0i32);
+    gs.flags &= !(1 << 0);
     error
 }
 
@@ -911,7 +907,7 @@ pub(crate) unsafe fn pdf_dev_newpath() -> i32 {
     }
     /* The following is required for "newpath" operator in mpost.c. */
     pdf_doc_add_page_content(b" n"); /* op: n */
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_dev_moveto(x: f64, y: f64) -> i32 {
@@ -1036,7 +1032,7 @@ pub(crate) unsafe fn pdf_dev_arc(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64)
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    cpa.elliptarc(cpt, point2(c_x, c_y), r, r, 0.0f64, a_0, a_1, 1i32)
+    cpa.elliptarc(cpt, point2(c_x, c_y), r, r, 0.0f64, a_0, a_1, 1)
 }
 /* *negative* arc */
 
@@ -1045,7 +1041,7 @@ pub(crate) unsafe fn pdf_dev_arcn(c_x: f64, c_y: f64, r: f64, a_0: f64, a_1: f64
     let gs = gss.last_mut().unwrap();
     let cpa = &mut gs.path;
     let cpt = &mut gs.cp;
-    cpa.elliptarc(cpt, point2(c_x, c_y), r, r, 0.0f64, a_0, a_1, -1i32)
+    cpa.elliptarc(cpt, point2(c_x, c_y), r, r, 0.0f64, a_0, a_1, -1)
 }
 
 pub(crate) unsafe fn pdf_dev_arcx(

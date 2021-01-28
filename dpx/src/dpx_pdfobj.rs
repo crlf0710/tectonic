@@ -1857,7 +1857,7 @@ unsafe fn write_stream(stream: &mut pdf_stream, handle: &mut OutputHandleWrapper
     (*stream.dict)
         .as_dict_mut()
         .set("Length", filtered_length as f64);
-    pdf_write_obj(stream.dict, handle);
+    write_dict(stream.get_dict(), handle);
     pdf_out(handle, b"\nstream\n");
     let mut v = Vec::<u8>::new();
     for i in 0..filtered_length {
@@ -1919,7 +1919,7 @@ fn get_objstm_data_mut(objstm: &mut pdf_stream) -> &mut [i32] {
 
 impl pdf_stream {
     pub(crate) unsafe fn add(&mut self, stream_data: *const libc::c_void, length: i32) {
-        if length < 1i32 {
+        if length < 1 {
             return;
         }
         let payload = std::slice::from_raw_parts(stream_data as *const u8, length as usize);
@@ -2434,7 +2434,7 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
 unsafe fn pdf_stream_uncompress(src: &mut pdf_stream) -> Option<pdf_stream> {
     let mut dst = pdf_stream::new(0);
     dst.get_dict_mut().merge(src.get_dict());
-    pdf_remove_dict(dst.get_dict_obj().as_dict_mut(), "Length");
+    pdf_remove_dict(dst.get_dict_mut(), "Length");
     pdf_concat_stream(&mut dst, src);
     Some(dst)
 }

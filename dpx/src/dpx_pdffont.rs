@@ -86,7 +86,7 @@ pub(crate) struct pdf_font {
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut __verbose: i32 = 0i32;
+static mut __verbose: i32 = 0;
 
 pub(crate) unsafe fn pdf_font_set_verbose(level: i32) {
     __verbose = level;
@@ -147,11 +147,11 @@ pub(crate) fn get_unique_time_if_given() -> Option<SystemTime> {
         .unwrap_or(None)
 }
 
-static mut unique_tag_state: i32 = 1i32;
-static mut unique_tags_deterministic: i32 = 0i32;
+static mut unique_tag_state: i32 = 1;
+static mut unique_tags_deterministic: i32 = 0;
 
 pub(crate) unsafe fn pdf_font_reset_unique_tag_state() {
-    unique_tag_state = 1i32;
+    unique_tag_state = 1;
 }
 
 pub(crate) unsafe fn pdf_font_set_deterministic_unique_tags(value: i32) {
@@ -172,7 +172,7 @@ pub(crate) unsafe fn pdf_font_make_uniqueTag() -> String {
 
     let mut tag = String::new();
     for _ in 0..6 {
-        let ch = (rand() % 26i32) as u8 + ('A' as u8);
+        let ch = (rand() % 26) as u8 + ('A' as u8);
         tag.push(ch as char);
     }
     tag
@@ -182,25 +182,25 @@ fn pdf_init_font_struct() -> pdf_font {
     pdf_font {
         ident: String::new(),
         map_name: String::new(),
-        subtype: -1i32,
-        font_id: -1i32,
+        subtype: -1,
+        font_id: -1,
         fontname: String::new(),
         uniqueID: String::new(),
-        index: 0i32,
-        encoding_id: -1i32,
+        index: 0,
+        encoding_id: -1,
         reference: ptr::null_mut(),
         resource: ptr::null_mut(),
         descriptor: ptr::null_mut(),
-        point_size: 0i32 as f64,
-        design_size: 0i32 as f64,
+        point_size: 0.,
+        design_size: 0.,
         usedchars: ptr::null_mut(),
-        flags: 0i32,
+        flags: 0,
     }
 }
 unsafe fn pdf_flush_font(font: &mut pdf_font) {
     if !font.resource.is_null() && !font.reference.is_null() {
-        if font.subtype != 2i32 {
-            if pdf_font_get_flag(font, 1i32 << 0i32) != 0 {
+        if font.subtype != 2 {
+            if pdf_font_get_flag(font, 1 << 0) != 0 {
                 (*font.resource)
                     .as_dict_mut()
                     .set("BaseFont", pdf_name::new(font.fontname.as_bytes()));
@@ -265,11 +265,11 @@ pub(crate) unsafe fn pdf_init_fonts() {
 }
 
 pub(crate) unsafe fn pdf_get_font_reference(font_id: i32) -> *mut pdf_obj {
-    if font_id < 0i32 || font_id >= font_cache.len() as _ {
+    if font_id < 0 || font_id >= font_cache.len() as _ {
         panic!("Invalid font ID: {}", font_id);
     }
     let font: &mut pdf_font = &mut font_cache[font_id as usize];
-    if font.subtype == 4i32 {
+    if font.subtype == 4 {
         let t0font = Type0Font_cache_get(font.font_id);
         return Type0Font_get_resource(&mut *t0font);
     } else {
@@ -281,11 +281,11 @@ pub(crate) unsafe fn pdf_get_font_reference(font_id: i32) -> *mut pdf_obj {
 }
 
 pub(crate) unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
-    if font_id < 0i32 || font_id >= font_cache.len() as _ {
+    if font_id < 0 || font_id >= font_cache.len() as _ {
         panic!("Invalid font ID: {}", font_id);
     }
     let font = &mut font_cache[font_id as usize];
-    if font.subtype == 4i32 {
+    if font.subtype == 4 {
         let t0font = Type0Font_cache_get(font.font_id);
         return Type0Font_get_usedchars(&*t0font);
     } else {
@@ -294,7 +294,7 @@ pub(crate) unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
                 new((256_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
             memset(
                 font.usedchars as *mut libc::c_void,
-                0i32,
+                0,
                 (256usize).wrapping_mul(::std::mem::size_of::<i8>()),
             );
         }
@@ -303,20 +303,20 @@ pub(crate) unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
 }
 
 pub(crate) unsafe fn pdf_get_font_wmode(font_id: i32) -> i32 {
-    if font_id < 0i32 || font_id >= font_cache.len() as i32 {
+    if font_id < 0 || font_id >= font_cache.len() as i32 {
         panic!("Invalid font ID: {}", font_id);
     }
     let font = &mut font_cache[font_id as usize];
-    if font.subtype == 4i32 {
+    if font.subtype == 4 {
         let t0font = Type0Font_cache_get(font.font_id);
         return Type0Font_get_wmode(&*t0font);
     } else {
-        return 0i32;
+        return 0;
     };
 }
 
 pub(crate) unsafe fn pdf_get_font_subtype(font_id: i32) -> i32 {
-    if font_id < 0i32 || font_id >= font_cache.len() as i32 {
+    if font_id < 0 || font_id >= font_cache.len() as i32 {
         panic!("Invalid font ID: {}", font_id);
     }
     let font = &mut font_cache[font_id as usize];
@@ -324,7 +324,7 @@ pub(crate) unsafe fn pdf_get_font_subtype(font_id: i32) -> i32 {
 }
 
 pub(crate) unsafe fn pdf_get_font_encoding(font_id: i32) -> i32 {
-    if font_id < 0i32 || font_id >= font_cache.len() as i32 {
+    if font_id < 0 || font_id >= font_cache.len() as i32 {
         panic!("Invalid font ID: {}", font_id);
     }
     let font = &mut font_cache[font_id as usize];
@@ -342,8 +342,8 @@ unsafe fn try_load_ToUnicode_CMap(font: &mut pdf_font) -> i32 {
     /* We are using different encoding for Type0 font.
      * This feature is unavailable for them.
      */
-    if font.subtype == 4i32 {
-        return 0i32;
+    if font.subtype == 4 {
+        return 0;
     } /* _FIXME_ */
     assert!(!font.map_name.is_empty());
     let mrec = fontmap.get(&font.map_name);
@@ -378,7 +378,7 @@ unsafe fn try_load_ToUnicode_CMap(font: &mut pdf_font) -> i32 {
             }
         }
     }
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_close_fonts() {
@@ -386,15 +386,15 @@ pub(crate) unsafe fn pdf_close_fonts() {
     while font_id < font_cache.len() {
         let font = &mut font_cache[font_id as usize];
         if __verbose != 0 {
-            if font.subtype != 4i32 {
+            if font.subtype != 4 {
                 info!("({}", font.ident);
-                if __verbose > 2i32 && pdf_font_get_flag(font, 1i32 << 0i32) == 0 {
+                if __verbose > 2 && pdf_font_get_flag(font, 1 << 0) == 0 {
                     info!("[{}+{}]", pdf_font_get_uniqueTag(font), font.fontname);
-                } else if __verbose > 1i32 {
+                } else if __verbose > 1 {
                     info!("[{}]", font.fontname);
                 }
-                if __verbose > 1i32 {
-                    if pdf_font_get_encoding(font) >= 0i32 {
+                if __verbose > 1 {
+                    if pdf_font_get_encoding(font) >= 0 {
                         info!("[{}]", pdf_encoding_get_name(pdf_font_get_encoding(font)));
                     } else {
                         info!("[built-in]");
@@ -410,7 +410,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
                 if __verbose != 0 {
                     info!("[Type1]");
                 }
-                if pdf_font_get_flag(font, 1i32 << 2i32) == 0 {
+                if pdf_font_get_flag(font, 1 << 2) == 0 {
                     pdf_font_load_type1(font);
                 }
             }
@@ -437,11 +437,11 @@ pub(crate) unsafe fn pdf_close_fonts() {
                 panic!("Unknown font type: {}", font.subtype);
             }
         }
-        if font.encoding_id >= 0i32 && font.subtype != 4i32 {
+        if font.encoding_id >= 0 && font.subtype != 4 {
             pdf_encoding_add_usedchars(font.encoding_id, font.usedchars);
         }
         if __verbose != 0 {
-            if font.subtype != 4i32 {
+            if font.subtype != 4 {
                 info!(")");
             }
         }
@@ -451,7 +451,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
     let mut font_id = 0;
     while font_id < font_cache.len() {
         let font_0: &mut pdf_font = &mut font_cache[font_id as usize];
-        if (*font_0).encoding_id >= 0i32 && (*font_0).subtype != 4i32 {
+        if (*font_0).encoding_id >= 0 && (*font_0).subtype != 4 {
             let enc_obj: *mut pdf_obj = pdf_get_encoding_obj((*font_0).encoding_id);
             let mut tounicode: *mut pdf_obj = ptr::null_mut();
             /* Predefined encodings (and those simplified to them) are embedded
@@ -474,7 +474,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
                     .as_dict_mut()
                     .set("ToUnicode", pdf_ref_obj(tounicode));
             }
-        } else if (*font_0).subtype == 3i32 {
+        } else if (*font_0).subtype == 3 {
             /* encoding_id < 0 means MacRoman here (but not really)
              * We use MacRoman as "default" encoding. */
             (*(*font_0).resource)
@@ -498,8 +498,8 @@ pub(crate) unsafe fn pdf_font_findresource(
     mrec: Option<&mut Box<fontmap_rec>>,
 ) -> i32 {
     let mut font_id;
-    let mut encoding_id: i32 = -1i32;
-    let mut cmap_id: i32 = -1i32;
+    let mut encoding_id: i32 = -1;
+    let mut cmap_id: i32 = -1;
     /*
      * Get appropriate info from map file. (PK fonts at two different
      * point sizes would be looked up twice unecessarily.)
@@ -510,20 +510,20 @@ pub(crate) unsafe fn pdf_font_findresource(
                 if !mrec.enc_name.ends_with(".enc") || mrec.enc_name.ends_with(".cmap") {
                     let enc_name = &mrec.enc_name;
                     cmap_id = CMap_cache_find(&enc_name);
-                    if cmap_id >= 0i32 {
+                    if cmap_id >= 0 {
                         let cmap = CMap_cache_get(cmap_id);
                         let cmap_type = CMap_get_type(&*cmap);
-                        let minbytes = CMap_get_profile(&*cmap, 0i32);
+                        let minbytes = CMap_get_profile(&*cmap, 0);
                         /*
                          * Check for output encoding.
                          */
-                        if cmap_type != 0i32 && cmap_type != 1i32 && cmap_type != 2i32 {
+                        if cmap_type != 0 && cmap_type != 1 && cmap_type != 2 {
                             warn!("Only 16-bit encoding supported for output encoding.");
                         }
                         /*
                          * Turn on map option.
                          */
-                        if minbytes == 2i32 && mrec.opt.mapc < 0i32 {
+                        if minbytes == 2 && mrec.opt.mapc < 0 {
                             if __verbose != 0 {
                                 info!("\n");
                                 info!(
@@ -543,31 +543,23 @@ pub(crate) unsafe fn pdf_font_findresource(
                             &mrec.font_name,
                             mrec.opt.index,
                             &mrec.opt.otl_tags,
-                            if mrec.opt.flags & 1i32 << 2i32 != 0 {
-                                1i32
-                            } else {
-                                0i32
-                            },
+                            if mrec.opt.flags & 1 << 2 != 0 { 1 } else { 0 },
                         );
-                        if cmap_id < 0i32 {
+                        if cmap_id < 0 {
                             cmap_id = t1_load_UnicodeCMap(
                                 &mrec.font_name,
                                 &mrec.opt.otl_tags,
-                                if mrec.opt.flags & 1i32 << 2i32 != 0 {
-                                    1i32
-                                } else {
-                                    0i32
-                                },
+                                if mrec.opt.flags & 1 << 2 != 0 { 1 } else { 0 },
                             )
                         }
-                        if cmap_id < 0i32 {
+                        if cmap_id < 0 {
                             panic!("Failed to read UCS2/UCS4 TrueType cmap...");
                         }
                     }
                 }
-                if cmap_id < 0i32 {
+                if cmap_id < 0 {
                     encoding_id = pdf_encoding_findresource(&mrec.enc_name);
-                    if encoding_id < 0i32 {
+                    if encoding_id < 0 {
                         panic!("Could not find encoding file \"{}\".", mrec.enc_name);
                     }
                 }
@@ -576,19 +568,17 @@ pub(crate) unsafe fn pdf_font_findresource(
                 /*
                  * Composite Font
                  */
-                let mut found: i32 = 0i32;
+                let mut found: i32 = 0;
                 let type0_id = Type0Font_cache_find(&mrec.font_name, cmap_id, &mut mrec.opt);
                 if type0_id < 0 {
                     return -1;
                 }
-                font_id = 0i32;
+                font_id = 0;
                 while font_id < font_cache.len() as i32 {
                     let font = &mut font_cache[font_id as usize];
-                    if font.subtype == 4i32
-                        && font.font_id == type0_id
-                        && font.encoding_id == cmap_id
+                    if font.subtype == 4 && font.font_id == type0_id && font.encoding_id == cmap_id
                     {
-                        found = 1i32;
+                        found = 1;
                         if __verbose != 0 {
                             info!(
                                 "\npdf_font>> Type0 font \"{}\" (cmap_id={}) found at font_id={}.\n",
@@ -608,7 +598,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                     font_cache.push(pdf_init_font_struct());
                     let font = &mut font_cache[font_id as usize];
                     font.font_id = type0_id;
-                    font.subtype = 4i32;
+                    font.subtype = 4;
                     font.encoding_id = cmap_id;
                     if __verbose != 0 {
                         info!("\npdf_font>> Type0 font \"{}\"", mrec.font_name);
@@ -621,7 +611,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                  * Simple Font - always embed.
                  */
                 let mut found_0: i32 = 0;
-                font_id = 0i32;
+                font_id = 0;
                 while font_id < font_cache.len() as i32 {
                     let font = &mut font_cache[font_id as usize];
                     match font.subtype {
@@ -645,7 +635,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                              * TODO: a PK font with two encodings makes no sense. Change?
                              */
                             if mrec.font_name == font.ident && font_scale == font.point_size {
-                                found_0 = 1i32
+                                found_0 = 1
                             }
                         }
                         4 => {}
@@ -684,7 +674,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                         2
                     } else {
                         pdf_clean_font_struct(font);
-                        return -1i32;
+                        return -1;
                     };
                     if __verbose != 0 {
                         info!("\npdf_font>> Simple font \"{}\"", mrec.font_name);
@@ -707,7 +697,7 @@ pub(crate) unsafe fn pdf_font_findresource(
              * Simple Font - always embed.
              */
             let mut found_0: i32 = 0;
-            font_id = 0i32;
+            font_id = 0;
             while font_id < font_cache.len() as i32 {
                 let font = &mut font_cache[font_id as usize];
                 match font.subtype {
@@ -726,7 +716,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                          * TODO: a PK font with two encodings makes no sense. Change?
                          */
                         if tex_name == font.ident && font_scale == font.point_size {
-                            found_0 = 1i32
+                            found_0 = 1
                         }
                     }
                     4 => {}
@@ -765,7 +755,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                     2
                 } else {
                     pdf_clean_font_struct(font);
-                    return -1i32;
+                    return -1;
                 };
                 if __verbose != 0 {
                     info!("\npdf_font>> Simple font \"{}\"", tex_name);
@@ -779,11 +769,7 @@ pub(crate) unsafe fn pdf_font_findresource(
 }
 
 pub(crate) unsafe fn pdf_font_is_in_use(font: &mut pdf_font) -> bool {
-    return if !font.reference.is_null() {
-        1i32
-    } else {
-        0i32
-    } != 0;
+    return if !font.reference.is_null() { 1 } else { 0 } != 0;
 }
 
 pub(crate) unsafe fn pdf_font_get_index(font: &mut pdf_font) -> i32 {
@@ -829,7 +815,7 @@ pub(crate) unsafe fn pdf_font_get_encoding(font: &pdf_font) -> i32 {
 }
 
 pub(crate) unsafe fn pdf_font_get_flag(font: &mut pdf_font, mask: i32) -> i32 {
-    return if font.flags & mask != 0 { 1i32 } else { 0i32 };
+    return if font.flags & mask != 0 { 1 } else { 0 };
 }
 
 pub(crate) unsafe fn pdf_font_get_param(font: &mut pdf_font, param_type: i32) -> f64 {
@@ -851,7 +837,7 @@ pub(crate) unsafe fn pdf_font_get_uniqueTag(font: &mut pdf_font) -> String {
 
 pub(crate) unsafe fn pdf_font_set_subtype(mut font: &mut pdf_font, subtype: i32) -> i32 {
     font.subtype = subtype;
-    0i32
+    0
 }
 /* pdf_open_document() call them. */
 /* font_name is used when mrec is NULL.
@@ -864,5 +850,5 @@ pub(crate) unsafe fn pdf_font_set_subtype(mut font: &mut pdf_font, subtype: i32)
 
 pub(crate) unsafe fn pdf_font_set_flags(mut font: &mut pdf_font, flags: i32) -> i32 {
     font.flags |= flags;
-    0i32
+    0
 }

@@ -107,22 +107,22 @@ unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
 }
 unsafe fn set_linestyle(pn: f64, da: f64) -> i32 {
     let mut dp: [f64; 2] = [0.; 2];
-    pdf_dev_setlinejoin(1i32);
+    pdf_dev_setlinejoin(1);
     pdf_dev_setmiterlimit(1.4f64);
     pdf_dev_setlinewidth(pn);
     if da > 0.0f64 {
         dp[0] = da * 72.0f64;
-        pdf_dev_setdash(&dp[..1], 0i32 as f64);
-        pdf_dev_setlinecap(0i32);
+        pdf_dev_setdash(&dp[..1], 0 as f64);
+        pdf_dev_setlinecap(0);
     } else if da < 0.0f64 {
         dp[0] = pn;
         dp[1] = -da * 72.0f64;
-        pdf_dev_setdash(&dp[..], 0i32 as f64);
-        pdf_dev_setlinecap(1i32);
+        pdf_dev_setdash(&dp[..], 0 as f64);
+        pdf_dev_setlinecap(1);
     } else {
-        pdf_dev_setlinecap(0i32);
+        pdf_dev_setlinecap(0);
     }
-    0i32
+    0
 }
 unsafe fn set_fillstyle(g: f64, a: f64, f_ais: i32) -> i32 {
     if a > 0.0f64 {
@@ -144,7 +144,7 @@ unsafe fn set_fillstyle(g: f64, a: f64, f_ais: i32) -> i32 {
     let (_sc, fc) = pdf_color_get_current();
     let new_fc = fc.clone().brightened(g);
     pdf_dev_set_color(&new_fc, 0x20, 0);
-    0i32
+    0
 }
 unsafe fn set_styles(tp: &mut spc_tpic_, c: &Point, f_fs: bool, f_vp: bool, pn: f64, da: f64) {
     let mut M = TMatrix::row_major(1., 0., 0., -1., c.x, c.y);
@@ -153,7 +153,7 @@ unsafe fn set_styles(tp: &mut spc_tpic_, c: &Point, f_fs: bool, f_vp: bool, pn: 
         set_linestyle(pn, da);
     }
     if f_fs {
-        let (g, a) = if tp.mode.fill == 0i32 || tp.fill_color == 0. {
+        let (g, a) = if tp.mode.fill == 0 || tp.fill_color == 0. {
             (1. - tp.fill_color, 0.)
         } else {
             (0., tp.fill_color)
@@ -180,7 +180,7 @@ unsafe fn showpath(f_vp: bool, f_fs: bool)
 unsafe fn tpic__polyline(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64) -> i32 {
     let pn: f64 = tp.pen_size;
     let mut f_fs: bool = tp.fill_shape;
-    let error: i32 = 0i32;
+    let error: i32 = 0;
     /*
      * Acrobat claims 'Q' as illegal operation when there are unfinished
      * path (a path without path-painting operator applied)?
@@ -191,9 +191,9 @@ unsafe fn tpic__polyline(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64)
     {
         f_fs as i32
     } else {
-        0i32
+        0
     } != 0;
-    f_vp = if pn > 0.0f64 { f_vp as i32 } else { 0i32 } != 0;
+    f_vp = if pn > 0.0f64 { f_vp as i32 } else { 0 } != 0;
     if f_vp as i32 != 0 || f_fs as i32 != 0 {
         pdf_dev_gsave();
         set_styles(tp, c, f_fs, f_vp, pn, da);
@@ -230,15 +230,15 @@ unsafe fn tpic__spline(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64) -
     let mut v: [f64; 6] = [0.; 6];
     let pn: f64 = tp.pen_size;
     let mut f_fs: bool = tp.fill_shape;
-    let error: i32 = 0i32;
+    let error: i32 = 0;
     f_fs = if tp.points[0].x == tp.points[tp.points.len() - 1].x
         && tp.points[0].y == tp.points[tp.points.len() - 1].y
     {
         f_fs as i32
     } else {
-        0i32
+        0
     } != 0;
-    f_vp = if pn > 0.0f64 { f_vp as i32 } else { 0i32 } != 0;
+    f_vp = if pn > 0.0f64 { f_vp as i32 } else { 0 } != 0;
     if f_vp as i32 != 0 || f_fs as i32 != 0 {
         pdf_dev_gsave();
         set_styles(tp, c, f_fs, f_vp, pn, da);
@@ -269,12 +269,12 @@ unsafe fn tpic__arc(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64, v: *
 /* 6 numbers */ {
     let pn: f64 = tp.pen_size;
     let mut f_fs: bool = tp.fill_shape;
-    f_fs = if ((*v.offset(4) - *v.offset(5)).abs() + 0.5f64).round() >= 360i32 as f64 {
+    f_fs = if ((*v.offset(4) - *v.offset(5)).abs() + 0.5f64).round() >= 360 as f64 {
         f_fs as i32
     } else {
-        0i32
+        0
     } != 0;
-    f_vp = if pn > 0.0f64 { f_vp as i32 } else { 0i32 } != 0;
+    f_vp = if pn > 0.0f64 { f_vp as i32 } else { 0 } != 0;
     if f_vp as i32 != 0 || f_fs as i32 != 0 {
         pdf_dev_gsave();
         set_styles(tp, c, f_fs, f_vp, pn, da);
@@ -295,14 +295,14 @@ unsafe fn tpic__arc(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64, v: *
             *v.offset(3),
             *v.offset(4),
             *v.offset(5),
-            1i32,
+            1,
             0.0f64,
         );
         showpath(f_vp, f_fs);
         pdf_dev_grestore();
     }
     tpic__clear(tp);
-    0i32
+    0
 }
 unsafe fn spc_currentpoint(spe: &mut SpcEnv, pg: *mut i32) -> Point {
     *pg = 0;
@@ -338,13 +338,13 @@ unsafe fn spc_handler_tpic_pa(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
     }
     if i != 2 {
         spc_warn!(spe, "Invalid arg for TPIC \"pa\" command.");
-        return -1i32;
+        return -1;
     }
     tp.points.push(Point::new(
         v[0] * (0.072f64 / pdf_dev_scale()),
         v[1] * (0.072f64 / pdf_dev_scale()),
     ));
-    0i32
+    0
 }
 unsafe fn spc_handler_tpic_fp(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
@@ -352,7 +352,7 @@ unsafe fn spc_handler_tpic_fp(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
     let mut pg: i32 = 0;
     if tp.points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
-        return -1i32;
+        return -1;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, true, 0.0f64)
@@ -363,7 +363,7 @@ unsafe fn spc_handler_tpic_ip(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
     let mut pg: i32 = 0;
     if tp.points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
-        return -1i32;
+        return -1;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, false, 0.0f64)
@@ -379,7 +379,7 @@ unsafe fn spc_handler_tpic_da(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
     }
     if tp.points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
-        return -1i32;
+        return -1;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, true, da)
@@ -395,7 +395,7 @@ unsafe fn spc_handler_tpic_dt(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
     }
     if tp.points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
-        return -1i32;
+        return -1;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, true, da)
@@ -411,7 +411,7 @@ unsafe fn spc_handler_tpic_sp(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
     }
     if tp.points.len() < 3 {
         spc_warn!(spe, "Too few points (< 3) for spline path.");
-        return -1i32;
+        return -1;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__spline(tp, &mut cp, true, da)
@@ -430,12 +430,12 @@ unsafe fn spc_handler_tpic_ar(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
             i += 1;
         } else {
             spc_warn!(spe, "Invalid args. in TPIC \"ar\" command.");
-            return -1i32;
+            return -1;
         }
     }
     if i != 6 {
         spc_warn!(spe, "Invalid arg for TPIC \"ar\" command.");
-        return -1i32;
+        return -1;
     }
     v[0] *= 0.072f64 / pdf_dev_scale();
     v[1] *= 0.072f64 / pdf_dev_scale();
@@ -460,12 +460,12 @@ unsafe fn spc_handler_tpic_ia(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
             i += 1;
         } else {
             spc_warn!(spe, "Invalid args. in TPIC \"ia\" command.");
-            return -1i32;
+            return -1;
         }
     }
     if i != 6 {
         spc_warn!(spe, "Invalid arg for TPIC \"ia\" command.");
-        return -1i32;
+        return -1;
     }
     v[0] *= 0.072f64 / pdf_dev_scale();
     v[1] *= 0.072f64 / pdf_dev_scale();
@@ -491,43 +491,43 @@ unsafe fn spc_handler_tpic_sh(_spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
             return -1;
         }
     }
-    0i32
+    0
 }
 unsafe fn spc_handler_tpic_wh(_spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     tp.fill_shape = true;
     tp.fill_color = 0.0f64;
-    0i32
+    0
 }
 unsafe fn spc_handler_tpic_bk(_spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let tp = &mut _TPIC_STATE;
     tp.fill_shape = true;
     tp.fill_color = 1.0f64;
-    0i32
+    0
 }
 unsafe fn spc_handler_tpic_tx(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
 /* , void *dp) */ {
     let _tp = &mut _TPIC_STATE; /* NULL terminate */
     spc_warn!(spe, "TPIC command \"tx\" not supported.");
-    -1i32
+    -1
 }
 unsafe fn spc_handler_tpic__init(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
     tp.pen_size = 1.0f64;
     tp.fill_shape = false;
     tp.fill_color = 0.0f64;
     tp.points = Vec::new();
-    if tp.mode.fill != 0i32 && pdf_get_version() < 4_u32 {
+    if tp.mode.fill != 0 && pdf_get_version() < 4_u32 {
         let spe = &*spe;
         spc_warn!(spe, "Tpic shading support requires PDF version 1.4.");
-        tp.mode.fill = 0i32
+        tp.mode.fill = 0
     }
-    0i32
+    0
 }
 unsafe fn spc_handler_tpic__bophook(tp: &mut spc_tpic_) -> i32 {
     tpic__clear(tp);
-    0i32
+    0
 }
 unsafe fn spc_handler_tpic__eophook(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
     if !tp.points.is_empty() {
@@ -535,7 +535,7 @@ unsafe fn spc_handler_tpic__eophook(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32
         spc_warn!(spe, "Unflushed tpic path at end of the page.");
     }
     tpic__clear(tp);
-    0i32
+    0
 }
 unsafe fn spc_handler_tpic__clean(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
     if !tp.points.is_empty() {
@@ -543,7 +543,7 @@ unsafe fn spc_handler_tpic__clean(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
         spc_warn!(spe, "Unflushed tpic path at end of the document.");
     }
     tpic__clear(tp);
-    0i32
+    0
 }
 
 pub(crate) unsafe fn tpic_set_fill_mode(mode: i32) {
@@ -571,7 +571,7 @@ pub(crate) unsafe fn spc_tpic_at_end_document() -> i32 {
     spc_handler_tpic__clean(ptr::null_mut(), tp)
 }
 unsafe fn spc_parse_kvpairs(ap: &mut SpcArg) -> Option<pdf_dict> {
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     let mut dict = pdf_dict::new();
     ap.cur.skip_blank();
     while error == 0 && !ap.cur.is_empty() {
@@ -581,7 +581,7 @@ unsafe fn spc_parse_kvpairs(ap: &mut SpcArg) -> Option<pdf_dict> {
                 ap.cur = &ap.cur[1..];
                 ap.cur.skip_blank();
                 if ap.cur.is_empty() {
-                    error = -1i32;
+                    error = -1;
                     break;
                 } else {
                     if let Some(vp) = ap.cur.parse_c_string() {
@@ -613,7 +613,7 @@ unsafe fn spc_parse_kvpairs(ap: &mut SpcArg) -> Option<pdf_dict> {
     Some(dict)
 }
 unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: &mut pdf_obj, tp: &mut spc_tpic_) -> i32 {
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     let k = kp.to_bytes();
     if k == b"fill-mode" {
         if let Object::String(v) = &vp.data {
@@ -636,7 +636,7 @@ unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: &mut pdf_obj, tp: &mut spc_tpic
             "Unrecognized option for TPIC special handler: {}",
             k.display()
         );
-        error = -1i32
+        error = -1
     }
     error
 }
@@ -645,9 +645,9 @@ unsafe fn spc_handler_tpic__setopts(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     if let Some(mut dict) = spc_parse_kvpairs(ap) {
         let error = dict.foreach(tpic_filter_getopts, tp);
         if error == 0 {
-            if tp.mode.fill != 0i32 && pdf_get_version() < 4_u32 {
+            if tp.mode.fill != 0 && pdf_get_version() < 4_u32 {
                 spc_warn!(spe, "Transparent fill mode requires PDF version 1.4.");
-                tp.mode.fill = 0i32
+                tp.mode.fill = 0
             }
         }
         error
@@ -737,8 +737,8 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
     _spe: &mut SpcEnv,
     ap: &mut SpcArg,
 ) -> i32 {
-    let mut hasnsp: i32 = 0i32;
-    let mut error: i32 = -1i32;
+    let mut hasnsp: i32 = 0;
+    let mut error: i32 = -1;
     ap.cur.skip_blank();
     if ap.cur.starts_with(b"tpic:") {
         ap.cur = &ap.cur[b"tpic:".len()..];
@@ -752,7 +752,7 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
                 exec: Some(spc_handler_tpic__setopts),
             };
             ap.cur.skip_blank();
-            error = 0i32;
+            error = 0;
         } else {
             for handler in TPIC_HANDLERS.iter() {
                 if q == handler.key {
@@ -762,7 +762,7 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
                         exec: handler.exec,
                     };
                     ap.cur.skip_blank();
-                    error = 0i32;
+                    error = 0;
                     break;
                 }
             }
