@@ -774,18 +774,18 @@ pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
 
 unsafe fn set_bounding_box(
     opt_bbox: PdfPageBoundary,
-    media_box: *mut pdf_obj,
-    mut crop_box: *mut pdf_obj,
-    mut art_box: *mut pdf_obj,
-    mut trim_box: *mut pdf_obj,
-    mut bleed_box: *mut pdf_obj,
+    mut media_box: Option<DerefObj>,
+    mut crop_box: Option<DerefObj>,
+    mut art_box: Option<DerefObj>,
+    mut trim_box: Option<DerefObj>,
+    mut bleed_box: Option<DerefObj>,
 ) -> Option<Rect> {
-    if media_box.is_null() {
+    if media_box.is_none() {
         warn!("MediaBox not found in included PDF...");
         return None;
     }
-    unsafe fn VALIDATE_BOX(o: *mut pdf_obj) -> Option<()> {
-        if let Some(o) = o.as_ref() {
+    unsafe fn VALIDATE_BOX(o: Option<&pdf_obj>) -> Option<()> {
+        if let Some(o) = o {
             match &o.data {
                 Object::Array(a) if a.len() == 4 => Some(()),
                 _ => None,
@@ -794,72 +794,62 @@ unsafe fn set_bounding_box(
             None
         }
     }
-    if !media_box.is_null() {
-        VALIDATE_BOX(media_box)?;
+    if media_box.is_some() {
+        VALIDATE_BOX(media_box.as_deref())?;
     }
-    if !crop_box.is_null() {
-        VALIDATE_BOX(crop_box)?;
+    if crop_box.is_some() {
+        VALIDATE_BOX(crop_box.as_deref())?;
     }
-    if !art_box.is_null() {
-        VALIDATE_BOX(art_box)?;
+    if art_box.is_some() {
+        VALIDATE_BOX(art_box.as_deref())?;
     }
-    if !trim_box.is_null() {
-        VALIDATE_BOX(trim_box)?;
+    if trim_box.is_some() {
+        VALIDATE_BOX(trim_box.as_deref())?;
     }
-    if !bleed_box.is_null() {
-        VALIDATE_BOX(bleed_box)?;
+    if bleed_box.is_some() {
+        VALIDATE_BOX(bleed_box.as_deref())?;
     }
 
     let box_0 = if opt_bbox == PdfPageBoundary::Auto {
-        if !crop_box.is_null() {
-            pdf_link_obj(crop_box)
-        } else if !art_box.is_null() {
-            pdf_link_obj(art_box)
-        } else if !trim_box.is_null() {
-            pdf_link_obj(trim_box)
-        } else if !bleed_box.is_null() {
-            pdf_link_obj(bleed_box)
+        if crop_box.is_some() {
+            crop_box.clone()
+        } else if art_box.is_some() {
+            art_box.clone()
+        } else if trim_box.is_some() {
+            trim_box.clone()
+        } else if bleed_box.is_some() {
+            bleed_box.clone()
         } else {
-            pdf_link_obj(media_box)
+            media_box.clone()
         }
     } else {
-        if crop_box.is_null() {
-            crop_box = pdf_link_obj(media_box);
+        if crop_box.is_none() {
+            crop_box = media_box.clone();
         }
-        if art_box.is_null() {
-            art_box = pdf_link_obj(crop_box);
+        if art_box.is_none() {
+            art_box = crop_box.clone();
         }
-        if trim_box.is_null() {
-            trim_box = pdf_link_obj(crop_box);
+        if trim_box.is_none() {
+            trim_box = crop_box.clone();
         }
-        if bleed_box.is_null() {
-            bleed_box = pdf_link_obj(crop_box);
+        if bleed_box.is_none() {
+            bleed_box = crop_box.clone();
         }
         /* At this point all boxes must be defined. */
         match opt_bbox {
-            PdfPageBoundary::Cropbox => pdf_link_obj(crop_box),
-            PdfPageBoundary::Mediabox => pdf_link_obj(media_box),
-            PdfPageBoundary::Artbox => pdf_link_obj(art_box),
-            PdfPageBoundary::Trimbox => pdf_link_obj(trim_box),
-            PdfPageBoundary::Bleedbox => pdf_link_obj(bleed_box),
-            _ => pdf_link_obj(crop_box),
+            PdfPageBoundary::Cropbox => crop_box.clone(),
+            PdfPageBoundary::Mediabox => media_box.clone(),
+            PdfPageBoundary::Artbox => art_box.clone(),
+            PdfPageBoundary::Trimbox => trim_box.clone(),
+            PdfPageBoundary::Bleedbox => bleed_box.clone(),
+            _ => crop_box.clone(),
         }
     };
 
     let mut bbox = Rect::zero();
-    if box_0.is_null() {
-        /* Impossible */
-        warn!("No appropriate page boudary box found???");
-        return None;
-    } else {
-        let mut i = 4;
-        loop {
-            if i == 0 {
-                break;
-            }
-            i -= 1;
-
-            let array = (*box_0).as_array_mut();
+    if let Some(mut box_0) = box_0 {
+        for i in (0..4).rev() {
+            let array = box_0.as_array_mut();
             if let Some(tmp) = DerefObj::new(Some(&mut *array[i])) {
                 if let Object::Number(x) = tmp.data {
                     match i {
@@ -870,11 +860,9 @@ unsafe fn set_bounding_box(
                         _ => {}
                     }
                 } else {
-                    pdf_release_obj(box_0);
                     return None;
                 }
             } else {
-                pdf_release_obj(box_0);
                 return None;
             }
         }
@@ -883,14 +871,8 @@ unsafe fn set_bounding_box(
         if
         /*dpx_conf.compat_mode == dpx_mode_xdv_mode*/
         is_xdv != 0 || opt_bbox != PdfPageBoundary::Auto {
-            let mut i = 4;
-            loop {
-                if i == 0 {
-                    break;
-                }
-                i -= 1;
-
-                let array = (*media_box).as_array_mut();
+            let array = media_box.as_mut().unwrap().as_array_mut();
+            for i in (0..4).rev() {
                 if let Some(tmp) = DerefObj::new(Some(&mut *array[i])) {
                     if let Object::Number(x) = tmp.data {
                         match i {
@@ -917,17 +899,18 @@ unsafe fn set_bounding_box(
                             _ => {}
                         }
                     } else {
-                        pdf_release_obj(box_0);
                         return None;
                     }
                 } else {
-                    pdf_release_obj(box_0);
                     return None;
                 }
             }
         }
+    } else {
+        /* Impossible */
+        warn!("No appropriate page boudary box found???");
+        return None;
     }
-    pdf_release_obj(box_0);
 
     Some(bbox)
 }
@@ -1060,25 +1043,16 @@ pub unsafe fn pdf_doc_get_page(
         if let Object::Dict(_) = page_tree.data {
             let mut resources: *mut pdf_obj = ptr::null_mut();
             let mut rotate = None;
-            let mut art_box: *mut pdf_obj = ptr::null_mut();
-            let mut trim_box: *mut pdf_obj = ptr::null_mut();
-            let mut bleed_box: *mut pdf_obj = ptr::null_mut();
-            let mut media_box: *mut pdf_obj = ptr::null_mut();
-            let mut crop_box: *mut pdf_obj = ptr::null_mut();
+            let mut art_box = None;
+            let mut trim_box = None;
+            let mut bleed_box = None;
+            let mut media_box = None;
+            let mut crop_box = None;
 
-            let error_silent = move || -> Option<(DerefObj, Rect, TMatrix)> {
-                pdf_release_obj(crop_box);
-                pdf_release_obj(bleed_box);
-                pdf_release_obj(trim_box);
-                pdf_release_obj(art_box);
-                pdf_release_obj(media_box);
+            let error_exit = move || -> Option<(DerefObj, Rect, TMatrix)> {
+                warn!("Error found in including PDF image.");
                 pdf_release_obj(resources);
                 None
-            };
-
-            let error_exit = || -> Option<(DerefObj, Rect, TMatrix)> {
-                warn!("Error found in including PDF image.");
-                error_silent()
             };
             let count = {
                 if let Some(tmp) = DerefObj::new(page_tree.as_dict_mut().get_mut("Count")) {
@@ -1093,7 +1067,8 @@ pub unsafe fn pdf_doc_get_page(
             };
             if page_no <= 0 || page_no > count {
                 warn!("Page {} does not exist.", page_no);
-                return error_silent();
+                pdf_release_obj(resources);
+                return None;
             }
 
             /*
@@ -1109,35 +1084,20 @@ pub unsafe fn pdf_doc_get_page(
                 if !(depth != 0 && i != kids_length) {
                     break;
                 }
-                if let Some(tmp_0) =
-                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("MediaBox")).as_mut()
-                {
-                    pdf_release_obj(media_box);
-                    media_box = tmp_0
+                if let Some(tmp_0) = DerefObj::new(page_tree.as_dict_mut().get_mut("MediaBox")) {
+                    media_box = Some(tmp_0);
                 }
-                if let Some(tmp_0) =
-                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("CropBox")).as_mut()
-                {
-                    pdf_release_obj(crop_box);
-                    crop_box = tmp_0
+                if let Some(tmp_0) = DerefObj::new(page_tree.as_dict_mut().get_mut("CropBox")) {
+                    crop_box = Some(tmp_0);
                 }
-                if let Some(tmp_0) =
-                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("ArtBox")).as_mut()
-                {
-                    pdf_release_obj(art_box);
-                    art_box = tmp_0
+                if let Some(tmp_0) = DerefObj::new(page_tree.as_dict_mut().get_mut("ArtBox")) {
+                    art_box = Some(tmp_0);
                 }
-                if let Some(tmp_0) =
-                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("TrimBox")).as_mut()
-                {
-                    pdf_release_obj(trim_box);
-                    trim_box = tmp_0
+                if let Some(tmp_0) = DerefObj::new(page_tree.as_dict_mut().get_mut("TrimBox")) {
+                    trim_box = Some(tmp_0);
                 }
-                if let Some(tmp_0) =
-                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("BleedBox")).as_mut()
-                {
-                    pdf_release_obj(bleed_box);
-                    bleed_box = tmp_0
+                if let Some(tmp_0) = DerefObj::new(page_tree.as_dict_mut().get_mut("BleedBox")) {
+                    bleed_box = Some(tmp_0);
                 }
                 if let Some(tmp_0) = DerefObj::new(page_tree.as_dict_mut().get_mut("Rotate")) {
                     rotate = Some(tmp_0);

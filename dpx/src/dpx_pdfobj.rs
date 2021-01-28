@@ -2994,6 +2994,14 @@ impl Drop for DerefObj {
         unsafe { pdf_release_obj(self.0.as_ptr()) }
     }
 }
+impl Clone for DerefObj {
+    fn clone(&self) -> Self {
+        unsafe {
+            pdf_link_obj(self.0.as_ptr());
+        }
+        DerefObj(self.0)
+    }
+}
 
 impl std::ops::Deref for DerefObj {
     type Target = pdf_obj;
@@ -3279,7 +3287,7 @@ unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut
                                                     let index_len = index.len();
                                                     let mut i = 0;
                                                     loop {
-                                                        if !(i < index_len) {
+                                                        if i >= index_len {
                                                             if length != 0 {
                                                                 warn!("Garbage in xref stream.");
                                                             }
