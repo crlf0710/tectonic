@@ -2797,8 +2797,6 @@ unsafe fn pdf_read_object(
 unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
     let (offset, gen) = (*(*pf).xref_table.offset(num as isize)).id;
     let limit: i32 = next_object_offset(pf, num);
-    let mut data: *mut i8 = ptr::null_mut();
-    let mut q: *mut i8 = ptr::null_mut();
     if let Some(objstm) = pdf_read_object(num, gen, pf, offset as i32, limit) {
         if let Object::Stream(stream) = &mut (*objstm).data {
             if let Some(tmp) = pdf_stream_uncompress(stream) {
@@ -2824,27 +2822,20 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                                         header[0] = first;
                                         header = &mut header[1..];
                                         /* avoid parsing beyond offset table */
-                                        data = new(((first + 1) as u32 as u64)
-                                            .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-                                            as u32)
-                                            as *mut i8;
-                                        libc::memcpy(
-                                            data as *mut libc::c_void,
-                                            pdf_stream_dataptr((*objstm).as_stream()),
-                                            first as usize,
+                                        let mut data = Vec::with_capacity(first as usize + 1);
+                                        data.extend(
+                                            &(*objstm).as_stream().content[..first as usize],
                                         );
-                                        *data.offset(first as isize) = 0_i8;
-                                        let mut p = data as *const i8;
+                                        data.push(0);
+                                        let mut p = data.as_ptr() as *const i8;
                                         let endptr = p.offset(first as isize);
                                         let mut i = 2 * n;
+                                        let mut q: *mut i8 = ptr::null_mut();
                                         loop {
-                                            let fresh22 = i;
-                                            i = i - 1;
-                                            if !(fresh22 != 0) {
+                                            if i == 0 {
                                                 /* Any garbage after last entry? */
                                                 skip_white(&mut p, endptr);
-                                                if !(p != endptr) {
-                                                    free(data as *mut libc::c_void);
+                                                if p == endptr {
                                                     (*(*pf).xref_table.offset(num as isize))
                                                         .direct = objstm;
                                                     return objstm;
@@ -2856,7 +2847,8 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                                             if q == p as *mut i8 {
                                                 break;
                                             }
-                                            p = q
+                                            p = q;
+                                            i -= 1;
                                         }
                                     }
                                 }
@@ -2869,7 +2861,6 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
         pdf_release_obj(objstm);
     }
     warn!("Cannot parse object stream.");
-    free(data as *mut libc::c_void);
     ptr::null_mut()
 }
 /* Label without corresponding object definition are replaced by the
@@ -3281,25 +3272,9 @@ unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut
                         let mut length = xrefstm.len() as i32;
                         match &(**trailer).as_dict().get("W").unwrap().data {
                             Object::Array(W_obj) if W_obj.len() == 3 => {
-                                let current_block: u64;
                                 let mut i = 0;
                                 loop {
-                                    if !(i < 3) {
-                                        current_block = 12147880666119273379;
-                                        break;
-                                    }
-                                    if let Object::Number(tmp_0) = (*W_obj[i]).data {
-                                        W[i] = tmp_0 as i32;
-                                        wsum += W[i];
-                                        i += 1
-                                    } else {
-                                        current_block = 5131529843719913080;
-                                        break;
-                                    }
-                                }
-                                match current_block {
-                                    5131529843719913080 => {}
-                                    _ => {
+                                    if i >= 3 {
                                         let mut p = pdf_stream_dataptr(&xrefstm) as *const i8;
                                         if let Some(index_obj) = (**trailer).as_dict().get("Index")
                                         {
@@ -3365,6 +3340,14 @@ unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut
                                             }
                                             return 1;
                                         }
+                                        break;
+                                    }
+                                    if let Object::Number(tmp_0) = (*W_obj[i]).data {
+                                        W[i] = tmp_0 as i32;
+                                        wsum += W[i];
+                                        i += 1
+                                    } else {
+                                        break;
                                     }
                                 }
                             }
@@ -3385,79 +3368,72 @@ unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut
 }
 /* TODO: parse Version entry */
 unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
-    let mut current_block: u64;
-    let mut trailer: *mut pdf_obj = ptr::null_mut();
-    let mut main_trailer: *mut pdf_obj = ptr::null_mut();
     let mut xref_pos = find_xref(&mut (*pf).handle, (*pf).file_size);
     if xref_pos == 0 {
-        current_block = 13794981049891343809;
+        warn!("Error while parsing PDF file.");
+        return ptr::null_mut();
     } else {
-        current_block = 14916268686031723178;
-    }
-    loop {
-        match current_block {
-            14916268686031723178 => {
-                if xref_pos != 0 {
-                    let res: i32 = parse_xref_table(pf, xref_pos);
-                    if res > 0 {
-                        /* cross-reference table */
-                        trailer = parse_trailer(pf)
-                            .map(IntoObj::into_obj)
-                            .unwrap_or(ptr::null_mut());
-                        if trailer.is_null() {
-                            current_block = 13794981049891343809;
-                            continue;
-                        }
-                        if main_trailer.is_null() {
-                            main_trailer = pdf_link_obj(trailer)
-                        }
-                        if let Some(xrefstm) = (*trailer).as_dict().get("XRefStm") {
-                            let mut new_trailer: *mut pdf_obj = ptr::null_mut();
-                            match xrefstm.data {
-                                Object::Number(xrefstm)
-                                    if parse_xref_stream(pf, xrefstm as i32, &mut new_trailer)
-                                        != 0 =>
-                                {
-                                    pdf_release_obj(new_trailer);
-                                }
-                                _ => warn!("Skipping hybrid reference section."),
+        let mut trailer: *mut pdf_obj = ptr::null_mut();
+        let mut main_trailer: *mut pdf_obj = ptr::null_mut();
+        loop {
+            if xref_pos != 0 {
+                let res: i32 = parse_xref_table(pf, xref_pos);
+                if res > 0 {
+                    /* cross-reference table */
+                    trailer = parse_trailer(pf)
+                        .map(IntoObj::into_obj)
+                        .unwrap_or(ptr::null_mut());
+                    if trailer.is_null() {
+                        warn!("Error while parsing PDF file.");
+                        pdf_release_obj(trailer);
+                        pdf_release_obj(main_trailer);
+                        return ptr::null_mut();
+                    }
+                    if main_trailer.is_null() {
+                        main_trailer = pdf_link_obj(trailer)
+                    }
+                    if let Some(xrefstm) = (*trailer).as_dict().get("XRefStm") {
+                        let mut new_trailer: *mut pdf_obj = ptr::null_mut();
+                        match xrefstm.data {
+                            Object::Number(xrefstm)
+                                if parse_xref_stream(pf, xrefstm as i32, &mut new_trailer) != 0 =>
+                            {
+                                pdf_release_obj(new_trailer);
                             }
-                            /* Many PDF 1.5 xref streams use DecodeParms, which we cannot
-                               parse. This way we can use at least xref tables in hybrid
-                               documents. Or should we better stop parsing the file?
-                            */
+                            _ => warn!("Skipping hybrid reference section."),
                         }
-                    } else {
-                        if !(res == 0 && parse_xref_stream(pf, xref_pos, &mut trailer) != 0) {
-                            current_block = 13794981049891343809;
-                            continue;
-                        }
-                        /* cross-reference stream */
-                        if main_trailer.is_null() {
-                            main_trailer = pdf_link_obj(trailer)
-                        }
+                        /* Many PDF 1.5 xref streams use DecodeParms, which we cannot
+                           parse. This way we can use at least xref tables in hybrid
+                           documents. Or should we better stop parsing the file?
+                        */
                     }
-                    if let Some(prev) = (*trailer).as_dict().get("Prev") {
-                        if let Object::Number(prev) = prev.data {
-                            xref_pos = prev as i32;
-                        } else {
-                            current_block = 13794981049891343809;
-                            continue;
-                        }
-                    } else {
-                        xref_pos = 0
-                    }
-                    pdf_release_obj(trailer);
-                    current_block = 14916268686031723178;
                 } else {
-                    return main_trailer;
+                    if !(res == 0 && parse_xref_stream(pf, xref_pos, &mut trailer) != 0) {
+                        warn!("Error while parsing PDF file.");
+                        pdf_release_obj(trailer);
+                        pdf_release_obj(main_trailer);
+                        return ptr::null_mut();
+                    }
+                    /* cross-reference stream */
+                    if main_trailer.is_null() {
+                        main_trailer = pdf_link_obj(trailer)
+                    }
                 }
-            }
-            _ => {
-                warn!("Error while parsing PDF file.");
+                if let Some(prev) = (*trailer).as_dict().get("Prev") {
+                    if let Object::Number(prev) = prev.data {
+                        xref_pos = prev as i32;
+                    } else {
+                        warn!("Error while parsing PDF file.");
+                        pdf_release_obj(trailer);
+                        pdf_release_obj(main_trailer);
+                        return ptr::null_mut();
+                    }
+                } else {
+                    xref_pos = 0
+                }
                 pdf_release_obj(trailer);
-                pdf_release_obj(main_trailer);
-                return ptr::null_mut();
+            } else {
+                return main_trailer;
             }
         }
     }
