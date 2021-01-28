@@ -760,6 +760,67 @@ pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
         0
     }
 }
+unsafe fn set_transform_matrix(bbox: Rect, rotate: Option<&pdf_obj>) -> Option<TMatrix> {
+    let mut matrix = TMatrix::identity();
+    /* Handle Rotate */
+    if let Some(rotate) = rotate {
+        if let Object::Number(deg) = rotate.data {
+            if deg - (deg as i32 as f64) != 0. {
+                warn!("Invalid value specified for /Rotate: {}", deg);
+                return None;
+            } else if deg != 0. {
+                let mut rot = deg as i32;
+                if rot % 90 != 0 {
+                    warn!("Invalid value specified for /Rotate: {}", deg);
+                } else {
+                    rot = rot % 360;
+                    if rot < 0 {
+                        rot += 360;
+                    }
+                    match rot {
+                        90 => {
+                            matrix = TMatrix::row_major(
+                                0.,
+                                -1.,
+                                1.,
+                                0.,
+                                bbox.min.x - bbox.min.y,
+                                bbox.min.y + bbox.max.x,
+                            );
+                        }
+                        180 => {
+                            matrix = TMatrix::row_major(
+                                -1.,
+                                0.,
+                                0.,
+                                -1.,
+                                bbox.min.x + bbox.max.x,
+                                bbox.min.y + bbox.max.y,
+                            );
+                        }
+                        270 => {
+                            matrix = TMatrix::row_major(
+                                0.,
+                                1.,
+                                -1.,
+                                0.,
+                                bbox.min.x + bbox.max.y,
+                                bbox.min.y - bbox.min.x,
+                            );
+                        }
+                        _ => {
+                            warn!("Invalid value specified for /Rotate: {}", deg);
+                        }
+                    }
+                }
+            }
+        } else {
+            return None;
+        }
+    }
+    Some(matrix)
+}
+
 /*
  * From PDFReference15_v6.pdf (p.119 and p.834)
  *
@@ -832,10 +893,10 @@ pub unsafe fn pdf_doc_get_page(
                     if let Object::Number(count) = tmp.data {
                         count as i32
                     } else {
-                        return error(resources);
+                        return error_exit(resources);
                     }
                 } else {
-                    return error(resources);
+                    return error_exit(resources);
                 }
             };
             if page_no <= 0 || page_no > count {
@@ -919,7 +980,7 @@ pub unsafe fn pdf_doc_get_page(
                                             /* Pages object */
                                             count_0 = v as i32;
                                         } else {
-                                            return error(resources);
+                                            return error_exit(resources);
                                         }
                                     } else {
                                         /* Page object */
@@ -931,15 +992,15 @@ pub unsafe fn pdf_doc_get_page(
                                     }
                                     page_idx -= count_0;
                                 } else {
-                                    return error(resources);
+                                    return error_exit(resources);
                                 }
                             } else {
-                                return error(resources);
+                                return error_exit(resources);
                             }
                             i += 1;
                         }
                     } else {
-                        return error(resources);
+                        return error_exit(resources);
                     }
                 } else {
                     break;
@@ -949,7 +1010,7 @@ pub unsafe fn pdf_doc_get_page(
             if depth == 0 || kids_length == i {
                 pdf_release_obj(media_box);
                 pdf_release_obj(crop_box);
-                return error(resources);
+                return error_exit(resources);
             }
 
             /* Nasty BBox selection... */
@@ -998,7 +1059,7 @@ pub unsafe fn pdf_doc_get_page(
                 && (!resources.is_null() && matches!((*resources).data, Object::Dict(_))))
             {
                 pdf_release_obj(box_0);
-                return error(resources);
+                return error_exit(resources);
             }
 
             let mut bbox = Rect::zero();
@@ -1025,12 +1086,12 @@ pub unsafe fn pdf_doc_get_page(
                         },
                         _ => {
                             pdf_release_obj(box_0);
-                            return error(resources);
+                            return error_exit(resources);
                         }
                     }
                 } else {
                     pdf_release_obj(box_0);
-                    return error(resources);
+                    return error_exit(resources);
                 }
             }
 
@@ -1074,71 +1135,24 @@ pub unsafe fn pdf_doc_get_page(
                             },
                             _ => {
                                 pdf_release_obj(box_0);
-                                return error(resources);
+                                return error_exit(resources);
                             }
                         }
                     } else {
                         pdf_release_obj(box_0);
-                        return error(resources);
+                        return error_exit(resources);
                     }
                 }
             }
 
             pdf_release_obj(box_0);
 
-            let mut matrix = TMatrix::identity();
-            if let Some(rotate) = &rotate {
-                if let Object::Number(deg) = rotate.data {
-                    if deg - deg as i32 as f64 != 0.0f64 {
-                        warn!("Invalid value specified for /Rotate: {}", deg);
-                    } else if deg != 0.0f64 {
-                        let mut rot: i32 = deg as i32;
-                        if (rot % 90) as f64 != 0.0f64 {
-                            warn!("Invalid value specified for /Rotate: {}", deg);
-                        } else {
-                            rot = rot % 360;
-                            if rot < 0 {
-                                rot += 360
-                            }
-                            match rot {
-                                90 => {
-                                    matrix = TMatrix::row_major(
-                                        0.,
-                                        -1.,
-                                        1.,
-                                        0.,
-                                        bbox.min.x - bbox.min.y,
-                                        bbox.min.y + bbox.max.x,
-                                    );
-                                }
-                                180 => {
-                                    matrix = TMatrix::row_major(
-                                        -1.,
-                                        0.,
-                                        0.,
-                                        -1.,
-                                        bbox.min.x + bbox.max.x,
-                                        bbox.min.y + bbox.max.y,
-                                    );
-                                }
-                                270 => {
-                                    matrix = TMatrix::row_major(
-                                        0.,
-                                        1.,
-                                        -1.,
-                                        0.,
-                                        bbox.min.x + bbox.max.y,
-                                        bbox.min.y - bbox.min.x,
-                                    );
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                } else {
-                    return error(resources);
-                }
-            }
+            /* Set transformation matrix */
+            let matrix = if let Some(m) = set_transform_matrix(bbox, rotate.as_deref()) {
+                m
+            } else {
+                return error_exit(resources);
+            };
 
             if !resources_p.is_null() {
                 *resources_p = resources;
@@ -1147,7 +1161,7 @@ pub unsafe fn pdf_doc_get_page(
             }
             return Some((page_tree, bbox, matrix));
 
-            unsafe fn error(resources: *mut pdf_obj) -> Option<(DerefObj, Rect, TMatrix)> {
+            unsafe fn error_exit(resources: *mut pdf_obj) -> Option<(DerefObj, Rect, TMatrix)> {
                 warn!("Cannot parse document. Broken PDF file?");
                 error_silent(resources)
             }
