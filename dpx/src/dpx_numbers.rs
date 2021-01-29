@@ -140,7 +140,7 @@ pub(crate) fn get_positive_quad<R: Read>(file: &mut R, type_0: &str, name: &str)
 }
 
 pub(crate) fn sqxfw(mut sq: i32, mut fw: fixword) -> i32 {
-    let mut sign = 1i32;
+    let mut sign = 1;
     /* Make positive. */
     if sq < 0 {
         sign = -sign; /* 1<<3 is for rounding */
@@ -169,7 +169,7 @@ pub(crate) fn sqxfw(mut sq: i32, mut fw: fixword) -> i32 {
         .wrapping_add(g)
         .wrapping_add(i)
         .wrapping_add((1 << 3) as u32)
-        >> 4i32) as i32;
+        >> 4) as i32;
     result = (result as u32).wrapping_add(f.wrapping_add(h).wrapping_add(k) << 12) as i32 as i32;
     result = (result as u32).wrapping_add(j << 28) as i32 as i32;
     if sign > 0 {

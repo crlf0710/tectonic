@@ -121,7 +121,7 @@ pub(crate) unsafe fn pst_parse_number(
     let mut lval = strtol(
         *inbuf as *mut i8,
         &mut cur as *mut *mut u8 as *mut libc::c_void as *mut *mut i8,
-        10i32,
+        10,
     ) as i32;
     if errno::errno() != errno::ZERO || b".eE".contains(&*cur) {
         /* real */
@@ -139,14 +139,14 @@ pub(crate) unsafe fn pst_parse_number(
         *inbuf = cur;
         return Some(PstObj::Integer(lval));
     } else {
-        if lval >= 2i32
-            && lval <= 36i32
+        if lval >= 2
+            && lval <= 36
             && *cur as i32 == '#' as i32
             && {
                 cur = cur.offset(1);
                 libc::isalnum(*cur as _) != 0
             }
-            && (lval != 16i32
+            && (lval != 16
                 || *cur.offset(1) as i32 != 'x' as i32 && *cur.offset(1) as i32 != 'X' as i32)
         {
             /* integer with radix */
@@ -175,16 +175,16 @@ pub(crate) unsafe fn pst_parse_number(
  */
 unsafe fn getxpair(s: &mut *const u8) -> i32 {
     let hi = xtoi(**s);
-    if hi < 0i32 {
+    if hi < 0 {
         return hi;
     }
     *s = (*s).offset(1);
     let lo = xtoi(**s);
-    if lo < 0i32 {
+    if lo < 0 {
         return lo;
     }
     *s = (*s).offset(1);
-    hi << 4i32 | lo
+    hi << 4 | lo
 }
 
 pub(crate) unsafe fn pst_parse_name(inbuf: &mut *const u8, inbufend: *const u8) -> Option<PstObj>
@@ -299,9 +299,9 @@ unsafe fn esctouc(inbuf: &mut *const u8, inbufend: *const u8, valid: *mut u8) ->
             *valid = 0_u8;
             *inbuf = (*inbuf).offset(
                 (if *inbuf < inbufend.offset(-1) && *(*inbuf).offset(1) as i32 == '\n' as i32 {
-                    2i32
+                    2
                 } else {
-                    1i32
+                    1
                 }) as isize,
             )
         }
@@ -322,7 +322,7 @@ unsafe fn pst_string_parse_literal(inbuf: &mut *const u8, inbufend: *const u8) -
     let mut wbuf: Vec<u8> = Vec::new();
     let mut cur = *inbuf;
     let mut c: u8 = 0_u8;
-    let mut balance: i32 = 1i32;
+    let mut balance: i32 = 1;
     if cur.offset(2) > inbufend || *cur as i32 != '(' as i32 {
         return None;
     }
@@ -385,7 +385,7 @@ unsafe fn pst_string_parse_hex(inbuf: &mut *const u8, inbufend: *const u8) -> Op
         let byte = *cur;
         cur = cur.offset(1);
         let mut hi = xtoi(byte);
-        if hi < 0i32 {
+        if hi < 0 {
             warn!(
                 "Invalid char for hex string <{:x}> treated as <0>.",
                 *cur.offset(-1) as i32,

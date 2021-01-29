@@ -145,44 +145,32 @@ static mut CIDFont_stdcc_def: [C2RustUnnamed_0; 6] = [
     C2RustUnnamed_0 {
         registry: "Adobe",
         ordering: "UCS",
-        supplement: [
-            -1i32, -1i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
-        ],
+        supplement: [-1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     },
     C2RustUnnamed_0 {
         registry: "Adobe",
         ordering: "GB1",
-        supplement: [
-            -1i32, -1i32, 0i32, 2i32, 4i32, 4i32, 4i32, 4i32, 0, 0, 0, 0, 0, 0, 0, 0,
-        ],
+        supplement: [-1, -1, 0, 2, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0],
     },
     C2RustUnnamed_0 {
         registry: "Adobe",
         ordering: "CNS1",
-        supplement: [
-            -1i32, -1i32, 0i32, 0i32, 3i32, 4i32, 4i32, 4i32, 0, 0, 0, 0, 0, 0, 0, 0,
-        ],
+        supplement: [-1, -1, 0, 0, 3, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0],
     },
     C2RustUnnamed_0 {
         registry: "Adobe",
         ordering: "Japan1",
-        supplement: [
-            -1i32, -1i32, 2i32, 2i32, 4i32, 5i32, 6i32, 6i32, 0, 0, 0, 0, 0, 0, 0, 0,
-        ],
+        supplement: [-1, -1, 2, 2, 4, 5, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0],
     },
     C2RustUnnamed_0 {
         registry: "Adobe",
         ordering: "Korea1",
-        supplement: [
-            -1i32, -1i32, 1i32, 1i32, 2i32, 2i32, 2i32, 2i32, 0, 0, 0, 0, 0, 0, 0, 0,
-        ],
+        supplement: [-1, -1, 1, 1, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0],
     },
     C2RustUnnamed_0 {
         registry: "Adobe",
         ordering: "Identity",
-        supplement: [
-            -1i32, -1i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0i32, 0, 0, 0, 0, 0, 0, 0, 0,
-        ],
+        supplement: [-1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     },
 ];
 
@@ -190,7 +178,7 @@ pub(crate) static mut CSI_IDENTITY: CIDSysInfo = unsafe {
     CIDSysInfo {
         registry: Cow::Borrowed("Adobe"),
         ordering: Cow::Borrowed("Identity"),
-        supplement: 0i32,
+        supplement: 0,
     }
 };
 
@@ -198,85 +186,85 @@ pub(crate) static mut CSI_UNICODE: CIDSysInfo = unsafe {
     CIDSysInfo {
         registry: Cow::Borrowed("Adobe"),
         ordering: Cow::Borrowed("UCS"),
-        supplement: 0i32,
+        supplement: 0,
     }
 };
 static mut CIDFont_stdcc_alias: [C2RustUnnamed_3; 18] = [
     C2RustUnnamed_3 {
         name: "AU",
-        index: 0i32,
+        index: 0,
     },
     C2RustUnnamed_3 {
         name: "AG1",
-        index: 1i32,
+        index: 1,
     },
     C2RustUnnamed_3 {
         name: "AC1",
-        index: 2i32,
+        index: 2,
     },
     C2RustUnnamed_3 {
         name: "AJ1",
-        index: 3i32,
+        index: 3,
     },
     C2RustUnnamed_3 {
         name: "AK1",
-        index: 4i32,
+        index: 4,
     },
     C2RustUnnamed_3 {
         name: "AI",
-        index: 5i32,
+        index: 5,
     },
     C2RustUnnamed_3 {
         name: "UCS",
-        index: 0i32,
+        index: 0,
     },
     C2RustUnnamed_3 {
         name: "GB1",
-        index: 1i32,
+        index: 1,
     },
     C2RustUnnamed_3 {
         name: "CNS1",
-        index: 2i32,
+        index: 2,
     },
     C2RustUnnamed_3 {
         name: "Japan1",
-        index: 3i32,
+        index: 3,
     },
     C2RustUnnamed_3 {
         name: "Korea1",
-        index: 4i32,
+        index: 4,
     },
     C2RustUnnamed_3 {
         name: "Identity",
-        index: 5i32,
+        index: 5,
     },
     C2RustUnnamed_3 {
         name: "U",
-        index: 0i32,
+        index: 0,
     },
     C2RustUnnamed_3 {
         name: "G",
-        index: 1i32,
+        index: 1,
     },
     C2RustUnnamed_3 {
         name: "C",
-        index: 2i32,
+        index: 2,
     },
     C2RustUnnamed_3 {
         name: "J",
-        index: 3i32,
+        index: 3,
     },
     C2RustUnnamed_3 {
         name: "K",
-        index: 4i32,
+        index: 4,
     },
     C2RustUnnamed_3 {
         name: "I",
-        index: 5i32,
+        index: 5,
     },
 ];
-static mut __verbose: i32 = 0i32;
-static mut cidoptflags: i32 = 0i32;
+static mut __verbose: i32 = 0;
+static mut cidoptflags: i32 = 0;
 
 pub(crate) unsafe fn CIDFont_set_verbose(level: i32) {
     CIDFont_type0_set_verbose(level);
@@ -357,10 +345,10 @@ pub(crate) unsafe fn CIDFont_get_resource(font: &mut CIDFont) -> *mut pdf_obj {
  */
 
 pub(crate) unsafe fn CIDFont_attach_parent(font: &mut CIDFont, parent_id: i32, wmode: i32) {
-    if wmode < 0i32 || wmode > 1i32 {
+    if wmode < 0 || wmode > 1 {
         panic!("{}: Invalid wmode value.", "CIDFont");
     }
-    if font.parent[wmode as usize] >= 0i32 {
+    if font.parent[wmode as usize] >= 0 {
         warn!("{}: CIDFont already have a parent Type1 font.", "CIDFont");
     }
     font.parent[wmode as usize] = parent_id;
@@ -395,7 +383,7 @@ unsafe fn CIDFont_dofont(font: &mut CIDFont) {
     if __verbose != 0 {
         info!(":{}", font.ident);
     }
-    if __verbose > 1i32 {
+    if __verbose > 1 {
         if !font.fontname.is_empty() {
             info!("[{}]", font.fontname);
         }
@@ -405,9 +393,9 @@ unsafe fn CIDFont_dofont(font: &mut CIDFont) {
             if __verbose != 0 {
                 info!("[CIDFontType0]");
             }
-            if CIDFont_get_flag(font, 1i32 << 8i32) != 0 {
+            if CIDFont_get_flag(font, 1 << 8) != 0 {
                 CIDFont_type0_t1dofont(font);
-            } else if CIDFont_get_flag(font, 1i32 << 9i32) != 0 {
+            } else if CIDFont_get_flag(font, 1 << 9) != 0 {
                 CIDFont_type0_t1cdofont(font);
             } else {
                 CIDFont_type0_dofont(font);
@@ -429,7 +417,7 @@ unsafe fn CIDFont_dofont(font: &mut CIDFont) {
  */
 
 pub(crate) unsafe fn CIDFont_is_BaseFont(font: &CIDFont) -> bool {
-    font.flags & 1i32 << 0i32 != 0
+    font.flags & 1 << 0 != 0
 }
 static mut cid_basefont: [C2RustUnnamed_2; 20] = [
     C2RustUnnamed_2{
@@ -603,7 +591,7 @@ unsafe fn CIDFont_base_open(
             } else {
                 panic!("Unknown CIDFontType \"{}\"", typ.display());
             };
-            if cidoptflags & 1i32 << 1i32 != 0 {
+            if cidoptflags & 1 << 1 != 0 {
                 if fontdict.has("W") {
                     pdf_remove_dict(&mut fontdict, "W");
                 }
@@ -615,13 +603,13 @@ unsafe fn CIDFont_base_open(
             fontdict.set("BaseFont", pdf_name::new(fontname.as_bytes()));
             descriptor.set("Type", "FontDescriptor");
             descriptor.set("FontName", pdf_name::new(fontname.as_bytes()));
-            (*opt).embed = 0i32;
+            (*opt).embed = 0;
             Some(Box::new(CIDFont {
                 ident: name.to_string(),
                 name: name.to_string(),
                 fontname,
                 subtype,
-                flags: 1i32 << 0i32,
+                flags: 1 << 0,
                 parent: [-1, -1],
                 csi,
                 options: opt,
@@ -642,7 +630,7 @@ unsafe fn CIDFont_base_open(
 static mut __cache: Vec<Box<CIDFont>> = Vec::new();
 
 pub(crate) unsafe fn CIDFont_cache_get(font_id: i32) -> &'static mut CIDFont {
-    if font_id < 0i32 || font_id >= __cache.len() as i32 {
+    if font_id < 0 || font_id >= __cache.len() as i32 {
         panic!("{}: Invalid ID {}", "CIDFont", font_id);
     }
     &mut *__cache[font_id as usize]
@@ -659,11 +647,7 @@ pub(crate) unsafe fn CIDFont_cache_find(
     let opt = Box::into_raw(Box::new(cid_opt {
         style: fmap_opt.style,
         index: fmap_opt.index,
-        embed: if fmap_opt.flags & 1i32 << 1i32 != 0 {
-            0i32
-        } else {
-            1i32
-        },
+        embed: if fmap_opt.flags & 1 << 1 != 0 { 0 } else { 1 },
         name: String::new(),
         csi: get_cidsysinfo(map_name, fmap_opt),
         stemv: fmap_opt.stemv,
@@ -696,13 +680,13 @@ pub(crate) unsafe fn CIDFont_cache_find(
                  * Case 2: CSI matched      --> break
                  */
                 if (*opt).csi.is_null() {
-                    if !(font.subtype == 2i32) {
+                    if !(font.subtype == 2) {
                         break;
                     }
                 } else if ((*font.csi).registry == (*(*opt).csi).registry)
                     && ((*font.csi).ordering == (*(*opt).csi).ordering)
                 {
-                    if font.subtype == 2i32 {
+                    if font.subtype == 2 {
                         (*font.csi).supplement =
                             if (*(*opt).csi).supplement > (*font.csi).supplement {
                                 (*(*opt).csi).supplement
@@ -713,7 +697,7 @@ pub(crate) unsafe fn CIDFont_cache_find(
                     break;
                 }
             } else if CIDFont_is_BaseFont(font) {
-                (*opt).embed = 0i32;
+                (*opt).embed = 0;
                 break;
             }
         }
@@ -728,10 +712,10 @@ pub(crate) unsafe fn CIDFont_cache_find(
         }
     }
     if font_id == __cache.len() as i32 {
-        if let Some(font) = CIDFont_type0_open(map_name, cmap_csi, opt, 0i32)
+        if let Some(font) = CIDFont_type0_open(map_name, cmap_csi, opt, 0)
             .or_else(|| CIDFont_type2_open(map_name, cmap_csi, opt))
-            .or_else(|| CIDFont_type0_open(map_name, cmap_csi, opt, 1i32 << 8i32))
-            .or_else(|| CIDFont_type0_open(map_name, cmap_csi, opt, 1i32 << 9i32))
+            .or_else(|| CIDFont_type0_open(map_name, cmap_csi, opt, 1 << 8))
+            .or_else(|| CIDFont_type0_open(map_name, cmap_csi, opt, 1 << 9))
             .or_else(|| CIDFont_base_open(map_name, cmap_csi, opt))
         {
             fmap_opt.cff_charsets = (*opt).cff_charsets;
@@ -739,7 +723,7 @@ pub(crate) unsafe fn CIDFont_cache_find(
             __cache.push(font);
         } else {
             release_opt(opt);
-            return -1i32;
+            return -1;
         }
     } else if !opt.is_null() {
         release_opt(opt);
@@ -782,7 +766,7 @@ unsafe fn release_opt(opt: *mut cid_opt) {
 }
 unsafe fn get_cidsysinfo(map_name: &str, fmap_opt: *mut fontmap_opt) -> *mut CIDSysInfo {
     let mut csi: *mut CIDSysInfo = ptr::null_mut();
-    let mut csi_idx: i32 = -1i32;
+    let mut csi_idx: i32 = -1;
     let pdf_ver = pdf_get_version() as i32;
     /* Use heighest supported value for current output PDF version. */
 
@@ -827,9 +811,9 @@ unsafe fn get_cidsysinfo(map_name: &str, fmap_opt: *mut fontmap_opt) -> *mut CID
             }
         }
     }
-    if !csi.is_null() && csi_idx >= 0i32 {
+    if !csi.is_null() && csi_idx >= 0 {
         if (*csi).supplement > CIDFont_stdcc_def[csi_idx as usize].supplement[pdf_ver as usize]
-            && (*fmap_opt).flags & 1i32 << 1i32 != 0
+            && (*fmap_opt).flags & 1 << 1 != 0
         {
             warn!(
                 "CIDFont: Heighest supplement number supported in PDF-1.{} for {}-{} is {}.",

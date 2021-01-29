@@ -103,7 +103,7 @@ pub(crate) struct Special {
     pub(crate) check_func: fn(_: &[u8]) -> bool,
     pub(crate) setup_func: unsafe fn(_: &mut SpcHandler, _: &mut SpcEnv, _: &mut SpcArg) -> i32,
 }
-static mut VERBOSE: i32 = 0i32;
+static mut VERBOSE: i32 = 0;
 pub(crate) unsafe fn spc_set_verbose(level: i32) {
     VERBOSE = level;
 }
@@ -113,21 +113,21 @@ pub(crate) unsafe fn spc_set_verbose(level: i32) {
 pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: *mut pdf_obj) -> i32 {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
-    0i32
+    0
 }
 pub(crate) unsafe fn spc_end_annot(mut _spe: &mut SpcEnv) -> i32 {
     dvi_untag_depth();
     pdf_doc_end_annot();
-    0i32
+    0
 }
 pub(crate) unsafe fn spc_resume_annot(mut _spe: &mut SpcEnv) -> i32 {
-    dvi_link_annot(1i32);
-    0i32
+    dvi_link_annot(1);
+    0
 }
 
 pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut SpcEnv) -> i32 {
-    dvi_link_annot(0i32);
-    0i32
+    dvi_link_annot(0);
+    0
 }
 static mut NAMED_OBJECTS: *mut ht_table = ptr::null_mut();
 
@@ -255,7 +255,7 @@ pub(crate) unsafe fn spc_clear_objects() {
 }
 unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &[];
-    -1i32
+    -1
 }
 unsafe fn init_special<'a, 'b>(
     special: &mut SpcHandler,
@@ -365,7 +365,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
     },
 ];
 pub(crate) unsafe fn spc_exec_at_begin_page() -> i32 {
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     for spc in &KNOWN_SPECIALS {
         if let Some(bophk) = spc.bophk_func {
             error = bophk();
@@ -374,7 +374,7 @@ pub(crate) unsafe fn spc_exec_at_begin_page() -> i32 {
     error
 }
 pub(crate) unsafe fn spc_exec_at_end_page() -> i32 {
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     for spc in &KNOWN_SPECIALS {
         if let Some(eophk) = spc.eophk_func {
             error = eophk();
@@ -383,7 +383,7 @@ pub(crate) unsafe fn spc_exec_at_end_page() -> i32 {
     error
 }
 pub(crate) unsafe fn spc_exec_at_begin_document() -> i32 {
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     assert!(NAMED_OBJECTS.is_null());
     NAMED_OBJECTS = pdf_new_name_tree();
     for spc in &KNOWN_SPECIALS {
@@ -394,7 +394,7 @@ pub(crate) unsafe fn spc_exec_at_begin_document() -> i32 {
     error
 }
 pub(crate) unsafe fn spc_exec_at_end_document() -> i32 {
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
 
     for spc in &KNOWN_SPECIALS {
         if let Some(eodhk) = spc.eodhk_func {
@@ -489,7 +489,7 @@ unsafe fn print_error(name: *const i8, spe: &mut SpcEnv, ap: &mut SpcArg) {
 /* PDF parser shouldn't depend on this...
  */
 pub(crate) unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, mag: f64) -> i32 {
-    let mut error: i32 = -1i32;
+    let mut error: i32 = -1;
     let mut spe = SpcEnv::default();
     let mut args = SpcArg::default();
     let mut special = SpcHandler::default();

@@ -82,17 +82,17 @@ pub(crate) struct C2RustUnnamed_0 {
     pub(crate) urx: f64,
     pub(crate) ury: f64,
 }
-static mut status: i32 = -1i32;
+static mut status: i32 = -1;
 /* hintmask and cntrmask need number of stem zones */
-static mut num_stems: i32 = 0i32;
-static mut phase: i32 = 0i32;
+static mut num_stems: i32 = 0;
+static mut phase: i32 = 0;
 /* subroutine nesting */
-static mut nest: i32 = 0i32;
+static mut nest: i32 = 0;
 /* advance width */
-static mut have_width: i32 = 0i32;
+static mut have_width: i32 = 0;
 static mut width: f64 = 0.0f64;
 /* Operand stack and Transient array */
-static mut stack_top: i32 = 0i32;
+static mut stack_top: i32 = 0;
 static mut arg_stack: [f64; 48] = [0.; 48];
 static mut trn_array: [f64; 32] = [0.; 32];
 /*
@@ -116,7 +116,7 @@ unsafe fn clear_stack(dest: &mut *mut u8, limit: *mut u8) {
             if (value - ivalue as f64).abs() > 3.0e-5f64 {
                 /* 16.16-bit signed fixed value  */
                 if limit < (*dest).offset(5) {
-                    status = -3i32;
+                    status = -3;
                     return;
                 }
                 **dest = 255;
@@ -177,7 +177,7 @@ unsafe fn clear_stack(dest: &mut *mut u8, limit: *mut u8) {
             }
         }
     }
-    stack_top = 0i32;
+    stack_top = 0;
 }
 /*
  * Single byte operators:
@@ -209,12 +209,12 @@ unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
             phase = 1;
         }
         19 | 20 => {
-            if phase < 2i32 {
-                if phase == 0i32 && stack_top % 2i32 != 0 {
-                    have_width = 1i32;
+            if phase < 2 {
+                if phase == 0 && stack_top % 2 != 0 {
+                    have_width = 1;
                     width = arg_stack[0]
                 }
-                num_stems += stack_top / 2i32
+                num_stems += stack_top / 2
             }
             clear_stack(dest, limit);
             if limit < (*dest).offset(1) {
@@ -281,7 +281,7 @@ unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
                 status = -1;
                 return;
             } else {
-                if stack_top > 0i32 {
+                if stack_top > 0 {
                     warn!("{}: Operand stack not empty.", "Type2 Charstring Parser");
                 }
             }
@@ -295,9 +295,9 @@ unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
         }
         5 | 6 | 7 | 8 | 24 | 25 | 26 | 27 | 30 | 31 => {
             /* above oprators are candidate for first stack-clearing operator */
-            if phase < 2i32 {
+            if phase < 2 {
                 warn!("{}: Broken Type 2 charstring.", "Type2 Charstring Parser");
-                status = -1i32;
+                status = -1;
                 return;
             }
             clear_stack(dest, limit);
@@ -322,7 +322,7 @@ unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
                 "{}: Unknown charstring operator: 0x{:02x}",
                 "Type2 Charstring Parser", op,
             );
-            status = -1i32
+            status = -1
         }
     };
 }
@@ -336,7 +336,7 @@ unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
 unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(1) {
-        status = -1i32;
+        status = -1;
         return;
     }
     let op = **data;
@@ -345,18 +345,18 @@ unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
         0 => {
             /* deprecated */
             warn!("Operator \"dotsection\" deprecated in Type 2 charstring.");
-            status = -1i32;
+            status = -1;
             return;
         }
         34 | 35 | 36 | 37 => {
-            if phase < 2i32 {
+            if phase < 2 {
                 warn!("{}: Broken Type 2 charstring.", "Type2 Charstring Parser");
-                status = -1i32;
+                status = -1;
                 return;
             }
             clear_stack(dest, limit);
             if limit < (*dest).offset(2) {
-                status = -3i32;
+                status = -3;
                 return;
             }
             **dest = 12;
@@ -367,192 +367,191 @@ unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
         3 => {
             /* all operator above are stack-clearing */
             /* no output */
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
             stack_top -= 1;
-            if arg_stack[stack_top as usize] != 0. && arg_stack[(stack_top - 1i32) as usize] != 0. {
-                arg_stack[(stack_top - 1i32) as usize] = 1.0f64
+            if arg_stack[stack_top as usize] != 0. && arg_stack[(stack_top - 1) as usize] != 0. {
+                arg_stack[(stack_top - 1) as usize] = 1.0f64
             } else {
-                arg_stack[(stack_top - 1i32) as usize] = 0.0f64
+                arg_stack[(stack_top - 1) as usize] = 0.0f64
             }
         }
         4 => {
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
             stack_top -= 1;
-            if arg_stack[stack_top as usize] != 0. || arg_stack[(stack_top - 1i32) as usize] != 0. {
-                arg_stack[(stack_top - 1i32) as usize] = 1.0f64
+            if arg_stack[stack_top as usize] != 0. || arg_stack[(stack_top - 1) as usize] != 0. {
+                arg_stack[(stack_top - 1) as usize] = 1.0f64
             } else {
-                arg_stack[(stack_top - 1i32) as usize] = 0.0f64
+                arg_stack[(stack_top - 1) as usize] = 0.0f64
             }
         }
         5 => {
-            if stack_top < 1i32 {
-                status = -2i32;
+            if stack_top < 1 {
+                status = -2;
                 return;
             }
-            if arg_stack[(stack_top - 1i32) as usize] != 0. {
-                arg_stack[(stack_top - 1i32) as usize] = 0.0f64
+            if arg_stack[(stack_top - 1) as usize] != 0. {
+                arg_stack[(stack_top - 1) as usize] = 0.0f64
             } else {
-                arg_stack[(stack_top - 1i32) as usize] = 1.0f64
+                arg_stack[(stack_top - 1) as usize] = 1.0f64
             }
         }
         9 => {
-            if stack_top < 1i32 {
-                status = -2i32;
+            if stack_top < 1 {
+                status = -2;
                 return;
             }
-            arg_stack[(stack_top - 1i32) as usize] = (arg_stack[(stack_top - 1i32) as usize]).abs()
+            arg_stack[(stack_top - 1) as usize] = (arg_stack[(stack_top - 1) as usize]).abs()
         }
         10 => {
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
-            arg_stack[(stack_top - 2i32) as usize] += arg_stack[(stack_top - 1i32) as usize];
+            arg_stack[(stack_top - 2) as usize] += arg_stack[(stack_top - 1) as usize];
             stack_top -= 1
         }
         11 => {
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
-            arg_stack[(stack_top - 2i32) as usize] -= arg_stack[(stack_top - 1i32) as usize];
+            arg_stack[(stack_top - 2) as usize] -= arg_stack[(stack_top - 1) as usize];
             stack_top -= 1
         }
         12 => {
             /* doesn't check overflow */
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
-            arg_stack[(stack_top - 2i32) as usize] /= arg_stack[(stack_top - 1i32) as usize];
+            arg_stack[(stack_top - 2) as usize] /= arg_stack[(stack_top - 1) as usize];
             stack_top -= 1
         }
         14 => {
-            if stack_top < 1i32 {
-                status = -2i32;
+            if stack_top < 1 {
+                status = -2;
                 return;
             }
-            arg_stack[(stack_top - 1i32) as usize] *= -1.0f64
+            arg_stack[(stack_top - 1) as usize] *= -1.0f64
         }
         15 => {
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
             stack_top -= 1;
-            if arg_stack[stack_top as usize] == arg_stack[(stack_top - 1i32) as usize] {
-                arg_stack[(stack_top - 1i32) as usize] = 1.0f64
+            if arg_stack[stack_top as usize] == arg_stack[(stack_top - 1) as usize] {
+                arg_stack[(stack_top - 1) as usize] = 1.0f64
             } else {
-                arg_stack[(stack_top - 1i32) as usize] = 0.0f64
+                arg_stack[(stack_top - 1) as usize] = 0.0f64
             }
         }
         18 => {
-            if stack_top < 1i32 {
-                status = -2i32;
+            if stack_top < 1 {
+                status = -2;
                 return;
             }
             stack_top -= 1
         }
         20 => {
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
             stack_top -= 1;
             let idx: i32 = arg_stack[stack_top as usize] as i32;
-            if 32i32 < idx {
-                status = -2i32;
+            if 32 < idx {
+                status = -2;
                 return;
             }
             stack_top -= 1;
             trn_array[idx as usize] = arg_stack[stack_top as usize]
         }
         21 => {
-            if stack_top < 1i32 {
-                status = -2i32;
+            if stack_top < 1 {
+                status = -2;
                 return;
             }
-            let idx_0: i32 = arg_stack[(stack_top - 1i32) as usize] as i32;
-            if 32i32 < idx_0 {
-                status = -2i32;
+            let idx_0: i32 = arg_stack[(stack_top - 1) as usize] as i32;
+            if 32 < idx_0 {
+                status = -2;
                 return;
             }
-            arg_stack[(stack_top - 1i32) as usize] = trn_array[idx_0 as usize]
+            arg_stack[(stack_top - 1) as usize] = trn_array[idx_0 as usize]
         }
         22 => {
-            if stack_top < 4i32 {
-                status = -2i32;
+            if stack_top < 4 {
+                status = -2;
                 return;
             }
-            stack_top -= 3i32;
-            if arg_stack[(stack_top + 1i32) as usize] > arg_stack[(stack_top + 2i32) as usize] {
-                arg_stack[(stack_top - 1i32) as usize] = arg_stack[stack_top as usize]
+            stack_top -= 3;
+            if arg_stack[(stack_top + 1) as usize] > arg_stack[(stack_top + 2) as usize] {
+                arg_stack[(stack_top - 1) as usize] = arg_stack[stack_top as usize]
             }
         }
         24 => {
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
-            arg_stack[(stack_top - 2i32) as usize] =
-                arg_stack[(stack_top - 2i32) as usize] * arg_stack[(stack_top - 1i32) as usize];
+            arg_stack[(stack_top - 2) as usize] =
+                arg_stack[(stack_top - 2) as usize] * arg_stack[(stack_top - 1) as usize];
             stack_top -= 1
         }
         26 => {
-            if stack_top < 1i32 {
-                status = -2i32;
+            if stack_top < 1 {
+                status = -2;
                 return;
             }
-            arg_stack[(stack_top - 1i32) as usize] = (arg_stack[(stack_top - 1i32) as usize]).sqrt()
+            arg_stack[(stack_top - 1) as usize] = (arg_stack[(stack_top - 1) as usize]).sqrt()
         }
         27 => {
-            if stack_top < 1i32 {
-                status = -2i32;
+            if stack_top < 1 {
+                status = -2;
                 return;
             }
-            if 48i32 < stack_top + 1i32 {
-                status = -2i32;
+            if 48 < stack_top + 1 {
+                status = -2;
                 return;
             }
-            arg_stack[stack_top as usize] = arg_stack[(stack_top - 1i32) as usize];
+            arg_stack[stack_top as usize] = arg_stack[(stack_top - 1) as usize];
             stack_top += 1
         }
         28 => {
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
-            let save: f64 = arg_stack[(stack_top - 2i32) as usize];
-            arg_stack[(stack_top - 2i32) as usize] = arg_stack[(stack_top - 1i32) as usize];
-            arg_stack[(stack_top - 1i32) as usize] = save
+            let save: f64 = arg_stack[(stack_top - 2) as usize];
+            arg_stack[(stack_top - 2) as usize] = arg_stack[(stack_top - 1) as usize];
+            arg_stack[(stack_top - 1) as usize] = save
         }
         29 => {
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
             /* need two arguments at least */
-            let idx_1: i32 = arg_stack[(stack_top - 1i32) as usize] as i32;
-            if idx_1 < 0i32 {
-                arg_stack[(stack_top - 1i32) as usize] = arg_stack[(stack_top - 2i32) as usize]
+            let idx_1: i32 = arg_stack[(stack_top - 1) as usize] as i32;
+            if idx_1 < 0 {
+                arg_stack[(stack_top - 1) as usize] = arg_stack[(stack_top - 2) as usize]
             } else {
-                if stack_top < idx_1 + 2i32 {
-                    status = -2i32;
+                if stack_top < idx_1 + 2 {
+                    status = -2;
                     return;
                 }
-                arg_stack[(stack_top - 1i32) as usize] =
-                    arg_stack[(stack_top - idx_1 - 2i32) as usize]
+                arg_stack[(stack_top - 1) as usize] = arg_stack[(stack_top - idx_1 - 2) as usize]
             }
         }
         30 => {
-            if stack_top < 2i32 {
-                status = -2i32;
+            if stack_top < 2 {
+                status = -2;
                 return;
             }
             stack_top -= 1;
@@ -560,7 +559,7 @@ unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
             stack_top -= 1;
             let N = arg_stack[stack_top as usize] as i32;
             if stack_top < N {
-                status = -2i32;
+                status = -2;
                 return;
             }
             if J > 0 {
@@ -590,8 +589,8 @@ unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
                 "{}: Charstring operator \"random\" found.",
                 "Type2 Charstring Parser"
             );
-            if 48i32 < stack_top + 1i32 {
-                status = -2i32;
+            if 48 < stack_top + 1 {
+                status = -2;
                 return;
             }
             arg_stack[stack_top as usize] = 1.;
@@ -603,7 +602,7 @@ unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
                 "{}: Unknown charstring operator: 0x0c{:02x}",
                 "Type2 Charstring Parser", op,
             );
-            status = -1i32
+            status = -1
         }
     };
 }
@@ -615,45 +614,45 @@ unsafe fn get_integer(data: &mut *mut u8, endptr: *mut u8) {
     let mut result;
     let b0: u8 = **data;
     *data = (*data).offset(1);
-    if b0 as i32 == 28i32 {
+    if b0 as i32 == 28 {
         /* shortint */
         if endptr < (*data).offset(2) {
-            status = -1i32;
+            status = -1;
             return;
         }
         let b1 = **data;
         let b2 = *(*data).offset(1);
-        result = b1 as i32 * 256i32 + b2 as i32;
-        if result > 0x7fffi32 {
+        result = b1 as i32 * 256 + b2 as i32;
+        if result > 0x7fff {
             result = (result as i64 - 0x10000) as i32
         }
         *data = (*data).offset(2)
-    } else if b0 as i32 >= 32i32 && b0 as i32 <= 246i32 {
+    } else if b0 as i32 >= 32 && b0 as i32 <= 246 {
         /* int (1) */
-        result = b0 as i32 - 139i32
-    } else if b0 as i32 >= 247i32 && b0 as i32 <= 250i32 {
+        result = b0 as i32 - 139
+    } else if b0 as i32 >= 247 && b0 as i32 <= 250 {
         /* int (2) */
         if endptr < (*data).offset(1) {
-            status = -1i32;
+            status = -1;
             return;
         }
         let b1 = **data;
-        result = (b0 as i32 - 247i32) * 256i32 + b1 as i32 + 108i32;
+        result = (b0 as i32 - 247) * 256 + b1 as i32 + 108;
         *data = (*data).offset(1)
-    } else if b0 as i32 >= 251i32 && b0 as i32 <= 254i32 {
+    } else if b0 as i32 >= 251 && b0 as i32 <= 254 {
         if endptr < (*data).offset(1) {
-            status = -1i32;
+            status = -1;
             return;
         }
         let b1 = **data;
-        result = -(b0 as i32 - 251i32) * 256i32 - b1 as i32 - 108i32;
+        result = -(b0 as i32 - 251) * 256 - b1 as i32 - 108;
         *data = (*data).offset(1)
     } else {
-        status = -1i32;
+        status = -1;
         return;
     }
-    if 48i32 < stack_top + 1i32 {
-        status = -2i32;
+    if 48 < stack_top + 1 {
+        status = -2;
         return;
     }
     arg_stack[stack_top as usize] = result as f64;
@@ -665,19 +664,19 @@ unsafe fn get_integer(data: &mut *mut u8, endptr: *mut u8) {
 unsafe fn get_fixed(data: &mut *mut u8, endptr: *mut u8) {
     *data = (*data).offset(1);
     if endptr < (*data).offset(4) {
-        status = -1i32;
+        status = -1;
         return;
     }
-    let ivalue = **data as i32 * 0x100i32 + *(*data).offset(1) as i32;
+    let ivalue = **data as i32 * 0x100 + *(*data).offset(1) as i32;
     let mut rvalue = (if ivalue as i64 > 0x7fff {
         ivalue as i64 - 0x10000
     } else {
         ivalue as i64
     }) as f64;
-    let ivalue = *(*data).offset(2) as i32 * 0x100i32 + *(*data).offset(3) as i32;
+    let ivalue = *(*data).offset(2) as i32 * 0x100 + *(*data).offset(3) as i32;
     rvalue += ivalue as f64 / 0x10000i64 as f64;
-    if 48i32 < stack_top + 1i32 {
-        status = -2i32;
+    if 48 < stack_top + 1 {
+        status = -2;
         return;
     }
     arg_stack[stack_top as usize] = rvalue;
@@ -702,12 +701,12 @@ unsafe fn get_subr(subr: &mut *mut u8, len: *mut i32, subr_idx: *mut cff_index, 
     }
     let count = (*subr_idx).count;
     /* Adding bias number */
-    if (count as i32) < 1240i32 {
-        id += 107i32
-    } else if (count as i32) < 33900i32 {
-        id += 1131i32
+    if (count as i32) < 1240 {
+        id += 107
+    } else if (count as i32) < 33900 {
+        id += 1131
     } else {
-        id += 32768i32
+        id += 32768
     }
     if id > count as i32 {
         panic!(
@@ -715,7 +714,7 @@ unsafe fn get_subr(subr: &mut *mut u8, len: *mut i32, subr_idx: *mut cff_index, 
             "Type2 Charstring Parser", id, count,
         );
     }
-    *len = (*(*subr_idx).offset.offset((id + 1i32) as isize))
+    *len = (*(*subr_idx).offset.offset((id + 1) as isize))
         .wrapping_sub(*(*subr_idx).offset.offset(id as isize)) as i32;
     *subr = (*subr_idx)
         .data
@@ -738,23 +737,23 @@ unsafe fn do_charstring(
 ) {
     let mut subr: *mut u8 = ptr::null_mut();
     let mut len: i32 = 0;
-    if nest > 10i32 {
+    if nest > 10 {
         panic!(
             "{}: Subroutine nested too deeply.",
             "Type2 Charstring Parser",
         );
     }
     nest += 1;
-    while *data < endptr && status == 0i32 {
+    while *data < endptr && status == 0 {
         let b0 = **data;
-        if b0 as i32 == 255i32 {
+        if b0 as i32 == 255 {
             /* 16-bit.16-bit fixed signed number */
             get_fixed(data, endptr);
-        } else if b0 as i32 == 11i32 {
-            status = 2i32
-        } else if b0 as i32 == 29i32 {
-            if stack_top < 1i32 {
-                status = -2i32
+        } else if b0 as i32 == 11 {
+            status = 2
+        } else if b0 as i32 == 29 {
+            if stack_top < 1 {
+                status = -2
             } else {
                 stack_top -= 1;
                 get_subr(
@@ -770,9 +769,9 @@ unsafe fn do_charstring(
                 do_charstring(dest, limit, &mut subr, endptr, gsubr_idx, subr_idx);
                 *data = (*data).offset(1)
             }
-        } else if b0 as i32 == 10i32 {
-            if stack_top < 1i32 {
-                status = -2i32
+        } else if b0 as i32 == 10 {
+            if stack_top < 1 {
+                status = -2
             } else {
                 stack_top -= 1;
                 get_subr(
@@ -788,24 +787,24 @@ unsafe fn do_charstring(
                 do_charstring(dest, limit, &mut subr, endptr, gsubr_idx, subr_idx);
                 *data = (*data).offset(1)
             }
-        } else if b0 as i32 == 12i32 {
+        } else if b0 as i32 == 12 {
             do_operator2(dest, limit, data, endptr);
-        } else if (b0 as i32) < 32i32 && b0 as i32 != 28i32 {
+        } else if (b0 as i32) < 32 && b0 as i32 != 28 {
             /* 19, 20 need mask */
             do_operator1(dest, limit, data, endptr);
-        } else if b0 as i32 >= 22i32 && b0 as i32 <= 27i32 || b0 as i32 == 31i32 {
+        } else if b0 as i32 >= 22 && b0 as i32 <= 27 || b0 as i32 == 31 {
             /* reserved */
-            status = -1i32
+            status = -1
         /* not an error ? */
         } else {
             get_integer(data, endptr);
         }
     }
-    if status == 2i32 {
-        status = 0i32
-    } else if status == 3i32 && *data < endptr {
+    if status == 2 {
+        status = 0
+    } else if status == 3 && *data < endptr {
         warn!("{}: Garbage after endchar.", "Type2 Charstring Parser");
-    } else if status < 0i32 {
+    } else if status < 0 {
         /* error */
         panic!(
             "{}: Parsing charstring failed: (status={}, stack={})",
@@ -815,11 +814,11 @@ unsafe fn do_charstring(
     nest -= 1;
 }
 unsafe fn cs_parse_init() {
-    status = 0i32;
-    nest = 0i32;
-    phase = 0i32;
-    num_stems = 0i32;
-    stack_top = 0i32;
+    status = 0;
+    nest = 0;
+    phase = 0;
+    num_stems = 0;
+    stack_top = 0;
 }
 /* unused in Type 2 charstring */
 /* unused in Type 2 charstring */
@@ -841,13 +840,13 @@ pub(crate) unsafe fn cs_copy_charstring(
     let save: *mut u8 = dst;
     cs_parse_init();
     width = 0.0f64;
-    have_width = 0i32;
+    have_width = 0;
     /* expand call(g)subrs */
     let dstend = dst.offset(dstlen as isize);
     let srcend = src.offset(srclen as isize);
     do_charstring(&mut dst, dstend, &mut src, srcend, gsubr, subr); /* not used */
     if !ginfo.is_null() {
-        (*ginfo).flags = 0i32;
+        (*ginfo).flags = 0;
         if have_width != 0 {
             (*ginfo).wx = nominal_width + width
         } else {

@@ -179,10 +179,10 @@ static mut Yorigin: f64 = 0.;
 
 static mut font_stack: Vec<mp_font> = Vec::new();
 
-static mut currentfont: i32 = -1i32;
-static mut mp_cmode: i32 = 0i32;
+static mut currentfont: i32 = -1;
+static mut mp_cmode: i32 = 0;
 unsafe fn mp_setfont(font_name: &str, pt_size: f64) -> i32 {
-    let mut subfont_id: i32 = -1i32;
+    let mut subfont_id: i32 = -1;
     if let Some(font) = font_stack.last() {
         if font.font_name == font_name && (font.pt_size == pt_size) {
             return 0;
@@ -260,7 +260,7 @@ pub(crate) unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: 
         {
             *pp = (*pp).offset(14);
             let mut i = 0;
-            while i < 4i32 {
+            while i < 4 {
                 skip_white(pp, endptr);
                 let number = parse_number(pp, endptr);
                 if number.is_null() {
@@ -270,8 +270,8 @@ pub(crate) unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: 
                 free(number as *mut libc::c_void);
                 i += 1
             }
-            if i < 4i32 {
-                return -1i32;
+            if i < 4 {
+                return -1;
             } else {
                 /* The new xetex.def and dvipdfmx.def require bbox->llx = bbox->lly = 0.  */
                 if translate_origin != 0 {
@@ -286,7 +286,7 @@ pub(crate) unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: 
                     Xorigin = 0.;
                     Yorigin = 0.
                 }
-                return 0i32;
+                return 0;
             }
         }
         pdfparse_skip_line(pp, endptr);
@@ -294,7 +294,7 @@ pub(crate) unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: 
             *pp = (*pp).offset(1)
         }
     }
-    -1i32
+    -1
 }
 static mut ps_operators: [operators; 48] = {
     use Opcode::*;
@@ -537,10 +537,10 @@ unsafe fn do_scalefont() -> i32 {
             let val = (*font_scale).as_f64() * scale[0];
             pdf_set_number(&mut *font_scale, val);
             if STACK.push_checked(font_dict).is_err() {
-                error = 1i32
+                error = 1
             }
         } else {
-            error = 1i32
+            error = 1
         }
         error
     } else {
@@ -566,16 +566,16 @@ unsafe fn do_setfont() -> i32 {
 }
 /* Push dummy font dict onto PS STACK */
 unsafe fn do_currentfont() -> i32 {
-    let mut error: i32 = 0i32; /* Should not be error... */
+    let mut error: i32 = 0; /* Should not be error... */
     /* Should not be error... */
-    let font = if currentfont < 0i32 {
+    let font = if currentfont < 0 {
         ptr::null_mut()
     } else {
         &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font
     };
     if font.is_null() {
         warn!("Currentfont undefined...");
-        return 1i32;
+        return 1;
     } else {
         let mut font_dict = pdf_dict::new();
         font_dict.set("Type", "Font");
@@ -585,28 +585,28 @@ unsafe fn do_currentfont() -> i32 {
             STACK.push_obj(font_dict)
         } else {
             warn!("PS stack overflow...");
-            error = 1i32
+            error = 1
         }
     }
     error
 }
 unsafe fn do_show() -> i32 {
     let mut cp = Point::zero();
-    let font = if currentfont < 0i32 {
+    let font = if currentfont < 0 {
         ptr::null_mut()
     } else {
         &mut *font_stack.as_mut_ptr().offset(currentfont as isize) as *mut mp_font
     };
     if font.is_null() {
         warn!("Currentfont not set.");
-        return 1i32;
+        return 1;
     }
     pdf_dev_currentpoint(&mut cp);
     if let Some(text) = STACK.pop() {
         if let Object::String(text) = &text {
             if (*font).font_id < 0 {
                 warn!("mpost: not set.");
-                return 1i32;
+                return 1;
             }
             let text = text.to_bytes();
             if (*font).tfm_id < 0 {
@@ -632,12 +632,11 @@ unsafe fn do_show() -> i32 {
                     ustr.len() as size_t,
                     (text_width * dev_unit_dviunit()) as spt_t,
                     (*font).font_id,
-                    0i32,
+                    0,
                 );
             } else {
-                if (*font).tfm_id >= 0i32 {
-                    text_width =
-                        tfm_string_width((*font).tfm_id, text) as f64 / (1i32 << 20i32) as f64;
+                if (*font).tfm_id >= 0 {
+                    text_width = tfm_string_width((*font).tfm_id, text) as f64 / (1 << 20) as f64;
                     text_width *= (*font).pt_size
                 }
                 pdf_dev_set_string(
@@ -647,7 +646,7 @@ unsafe fn do_show() -> i32 {
                     text.len() as size_t,
                     (text_width * dev_unit_dviunit()) as spt_t,
                     (*font).font_id,
-                    0i32,
+                    0,
                 );
             }
             if pdf_dev_get_font_wmode((*font).font_id) != 0 {
@@ -670,11 +669,11 @@ unsafe fn do_mpost_bind_def(ps_code: *const i8, x_user: f64, y_user: f64) -> i32
 }
 unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
     static mut fig_p: transform_info = transform_info::new();
-    static mut in_tfig: i32 = 0i32;
-    static mut xobj_id: i32 = -1i32;
-    static mut count: i32 = 0i32;
+    static mut in_tfig: i32 = 0;
+    static mut xobj_id: i32 = -1;
+    static mut count: i32 = 0;
     let mut values: [f64; 6] = [0.; 6];
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     match opcode {
         Opcode::STexFig => {
             error = pop_get_numbers(values.as_mut());
@@ -687,7 +686,7 @@ unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
                 fig_p.bbox.min.y = -values[3] * dvi2pts;
                 fig_p.bbox.max.x = values[4] * dvi2pts;
                 fig_p.bbox.max.y = -values[5] * dvi2pts;
-                fig_p.flags |= 1i32 << 0i32;
+                fig_p.flags |= 1 << 0;
                 let resname = format!("__tf{}__", count);
                 xobj_id = pdf_doc_begin_grabbing(
                     &resname,
@@ -695,7 +694,7 @@ unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
                     fig_p.bbox.max.y,
                     &mut fig_p.bbox,
                 );
-                in_tfig = 1i32;
+                in_tfig = 1;
                 count += 1
             }
         }
@@ -705,9 +704,9 @@ unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
             }
             pdf_doc_end_grabbing(ptr::null_mut());
             pdf_dev_put_image(xobj_id, &mut fig_p, x_user, y_user);
-            in_tfig = 0i32
+            in_tfig = 0
         }
-        _ => error = 1i32,
+        _ => error = 1,
     }
     error
 }
@@ -726,7 +725,7 @@ unsafe fn ps_dev_CTM() -> TMatrix {
  * that piece dealing with texfig.
  */
 unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     let mut tmp = None;
     let mut cp = Point::zero();
     let opcode = get_opcode(token);
@@ -751,7 +750,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(values[0] + values[1]).is_err() {
-                    error = 1i32
+                    error = 1
                 }
             }
         }
@@ -760,7 +759,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(values[0] * values[1]).is_err() {
-                    error = 1i32
+                    error = 1
                 }
             }
         }
@@ -769,7 +768,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(-values[0]).is_err() {
-                    error = 1i32
+                    error = 1
                 }
             }
         }
@@ -778,7 +777,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(values[0] - values[1]).is_err() {
-                    error = 1i32
+                    error = 1
                 }
             }
         }
@@ -787,7 +786,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 if STACK.push_checked(values[0] / values[1]).is_err() {
-                    error = 1i32
+                    error = 1
                 }
             }
         }
@@ -957,7 +956,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                         num_dashes = pattern.len();
                         if num_dashes > 16 {
                             warn!("Too many dashes...");
-                            error = 1i32
+                            error = 1
                         } else {
                             let mut i = 0;
                             while i < num_dashes && error == 0 {
@@ -1044,10 +1043,10 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             if error == 0 {
                 if STACK.push_checked(cp.x).is_ok() {
                     if STACK.push_checked(cp.y).is_err() {
-                        error = 1i32
+                        error = 1
                     }
                 } else {
-                    error = 1i32
+                    error = 1
                 }
             }
         }
@@ -1133,7 +1132,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
         Opcode::SetFont => error = do_setfont(),
         Opcode::CurrentFont => error = do_currentfont(),
         Opcode::Show => error = do_show(),
-        Opcode::StringWidth => error = 1i32,
+        Opcode::StringWidth => error = 1,
         /* Extensions */
         Opcode::FShow => {
             error = do_mpost_bind_def(
@@ -1289,12 +1288,12 @@ pub(crate) unsafe fn mps_exec_inline(pp: &mut &[u8], x_user: f64, y_user: f64) -
     /* Compatibility for dvipsk. */
     let dirmode = pdf_dev_get_dirmode();
     if dirmode != 0 {
-        mp_cmode = 2i32
+        mp_cmode = 2
     } else {
-        mp_cmode = 1i32
+        mp_cmode = 1
     }
-    let autorotate = pdf_dev_get_param(1i32);
-    pdf_dev_set_param(1i32, 0i32);
+    let autorotate = pdf_dev_get_param(1);
+    pdf_dev_set_param(1, 0);
     //pdf_color_push(); /* ... */
     /* Comment in dvipdfm:
      * Remember that x_user and y_user are off by 0.02 %
@@ -1304,7 +1303,7 @@ pub(crate) unsafe fn mps_exec_inline(pp: &mut &[u8], x_user: f64, y_user: f64) -
     let error = mp_parse_body(pp, x_user, y_user);
 
     //pdf_color_pop(); /* ... */
-    pdf_dev_set_param(1i32, autorotate);
+    pdf_dev_set_param(1, autorotate);
     pdf_dev_set_dirmode(dirmode);
     error
 }

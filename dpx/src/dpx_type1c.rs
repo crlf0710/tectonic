@@ -127,7 +127,7 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
     let encoding_id = pdf_font_get_encoding(font);
     let handle = dpx_open_opentype_file(ident);
     if handle.is_none() {
-        return -1i32;
+        return -1;
     }
     let handle = handle.unwrap();
     let mut sfont = sfnt_open(handle);
@@ -153,31 +153,31 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
      * Font like AdobePiStd does not have meaningful built-in encoding.
      * Some software generate CFF/OpenType font with incorrect encoding.
      */
-    if encoding_id < 0i32 {
+    if encoding_id < 0 {
         warn!("Built-in encoding used for CFF/OpenType font.");
         warn!("CFF font in OpenType font sometimes have strange built-in encoding.");
         warn!("If you find text is not encoded properly in the generated PDF file,");
         warn!("please specify appropriate \".enc\" file in your fontmap.");
     }
-    pdf_font_set_subtype(font, 1i32);
-    let mut embedding = if pdf_font_get_flag(font, 1i32 << 0i32) != 0 {
-        0i32
+    pdf_font_set_subtype(font, 1);
+    let mut embedding = if pdf_font_get_flag(font, 1 << 0) != 0 {
+        0
     } else {
-        1i32
+        1
     };
     let descriptor = pdf_font_get_descriptor(font);
     /*
      * Create font descriptor from OpenType tables.
      * We can also use CFF TOP DICT/Private DICT for this.
      */
-    if let Some(tmp) = tt_get_fontdesc(&sfont, &mut embedding, -1i32, 1i32, &fontname) {
+    if let Some(tmp) = tt_get_fontdesc(&sfont, &mut embedding, -1, 1, &fontname) {
         /* copy */
         (*descriptor).as_dict_mut().merge(&tmp);
         if embedding == 0 {
             /* tt_get_fontdesc may have changed this */
-            pdf_font_set_flags(font, 1i32 << 0i32);
+            pdf_font_set_flags(font, 1 << 0);
         }
-        0i32
+        0
     } else {
         panic!("Could not obtain neccesary font info from OpenType table.");
     }
@@ -196,20 +196,20 @@ unsafe fn add_SimpleMetrics(
      * given by the font matrix.
      */
     let scaling = if (*cffont.topdict).contains_key("FontMatrix") {
-        1000i32 as f64 * (*cffont.topdict).get("FontMatrix", 0)
+        1000 as f64 * (*cffont.topdict).get("FontMatrix", 0)
     } else {
         1.
     };
     let mut tmp_array = vec![];
-    if num_glyphs as i32 <= 1i32 {
+    if num_glyphs as i32 <= 1 {
         /* This should be error. */
-        lastchar = 0i32;
+        lastchar = 0;
         firstchar = lastchar;
         tmp_array.push_obj(0f64);
     } else {
-        firstchar = 255i32;
-        lastchar = 0i32;
-        for code in 0..256i32 {
+        firstchar = 255;
+        lastchar = 0;
+        for code in 0..256 {
             if *usedchars.offset(code as isize) != 0 {
                 if code < firstchar {
                     firstchar = code
@@ -222,11 +222,11 @@ unsafe fn add_SimpleMetrics(
         if firstchar > lastchar {
             panic!("No glyphs used at all!");
         }
-        let tfm_id = tfm_open(&(&*font).map_name, 0i32);
+        let tfm_id = tfm_open(&(&*font).map_name, 0);
         for code in firstchar..=lastchar {
             if *usedchars.offset(code as isize) != 0 {
                 let width;
-                if tfm_id < 0i32 {
+                if tfm_id < 0 {
                     /* tfm is not found */
                     // width = scaling * *widths.offset(code as isize) TODO: check
                 } else {
@@ -263,14 +263,14 @@ unsafe fn add_SimpleMetrics(
 }
 
 pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
-    let mut offset: i32 = 0i32;
+    let mut offset: i32 = 0;
     let mut ginfo = cs_ginfo::new();
     let mut widths: [f64; 256] = [0.; 256];
     let verbose = pdf_font_get_verbose();
     if !pdf_font_is_in_use(font) {
-        return 0i32;
+        return 0;
     }
-    if pdf_font_get_flag(font, 1i32 << 0i32) != 0 {
+    if pdf_font_get_flag(font, 1 << 0) != 0 {
         panic!("Only embedded font supported for CFF/OpenType font.");
     }
     let usedchars = pdf_font_get_usedchars(font);
@@ -286,23 +286,23 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     }
     let handle = handle.unwrap();
     let mut sfont = sfnt_open(handle);
-    if sfnt_read_table_directory(&mut sfont, 0_u32) < 0i32 {
+    if sfnt_read_table_directory(&mut sfont, 0_u32) < 0 {
         panic!("Could not read OpenType table directory: {}", font.ident);
     }
-    if sfont.type_0 != 1i32 << 2i32 || {
+    if sfont.type_0 != 1 << 2 || {
         offset = sfnt_find_table_pos(&sfont, b"CFF ") as i32;
-        offset == 0i32
+        offset == 0
     } {
         panic!("Not a CFF/OpenType font (11)?");
     }
     let mut cffont = cff_open(sfont.handle.clone(), offset, 0).expect("Could not open CFF font.");
-    if cffont.flag & 1i32 << 0i32 != 0 {
+    if cffont.flag & 1 << 0 != 0 {
         panic!("This is CIDFont...");
     }
     let fullname = format!("{}+{}", uniqueTag, font.fontname);
     /* Offsets from DICTs */
     cff_read_charsets(&mut cffont);
-    if encoding_id < 0i32 {
+    if encoding_id < 0 {
         cff_read_encoding(&mut cffont);
     }
     cff_read_private(&mut cffont);
@@ -313,8 +313,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     let mut charset =
         &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
             as *mut cff_charsets);
-    charset.format = 0i32 as u8;
-    charset.num_entries = 0i32 as u16;
+    charset.format = 0 as u8;
+    charset.num_entries = 0 as u16;
     charset.data.glyphs =
         new((256_u64).wrapping_mul(::std::mem::size_of::<s_SID>() as u64) as u32) as *mut s_SID;
     /*
@@ -364,12 +364,12 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      */
     let encoding = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_encoding>() as u64) as u32)
         as *mut cff_encoding;
-    (*encoding).format = 1i32 as u8;
-    (*encoding).num_entries = 0i32 as u8;
+    (*encoding).format = 1 as u8;
+    (*encoding).num_entries = 0 as u8;
     (*encoding).data.range1 =
         new((255_u64).wrapping_mul(::std::mem::size_of::<cff_range1>() as u64) as u32)
             as *mut cff_range1;
-    (*encoding).num_supps = 0i32 as u8;
+    (*encoding).num_supps = 0 as u8;
     (*encoding).supp =
         new((255_u64).wrapping_mul(::std::mem::size_of::<cff_map>() as u64) as u32) as *mut cff_map;
     /*
@@ -393,11 +393,11 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         .seek(SeekFrom::Current(0))
         .unwrap() as i32;
     let cs_count = (*cs_idx).count;
-    if (cs_count as i32) < 2i32 {
+    if (cs_count as i32) < 2 {
         panic!("No valid charstring data found.");
     }
     /* New CharStrings INDEX */
-    let charstrings = cff_new_index(257i32 as u16); /* 256 + 1 for ".notdef" glyph */
+    let charstrings = cff_new_index(257 as u16); /* 256 + 1 for ".notdef" glyph */
     let mut max_len = 2 * 65536;
     (*charstrings).data =
         new((max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
@@ -433,14 +433,14 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* First we add .notdef glyph.
      * All Type 1 font requires .notdef glyph to be present.
      */
-    if verbose > 2i32 {
+    if verbose > 2 {
         info!("[glyphs:/.notdef");
     }
     let mut size = (*(*cs_idx).offset.offset(1)).wrapping_sub(*(*cs_idx).offset.offset(0)) as i32;
-    if size > 65536i32 {
+    if size > 65536 {
         panic!("Charstring too long: gid={}, {} bytes", 0, size);
     }
-    *(*charstrings).offset.offset(0) = (charstring_len + 1i32) as l_offset;
+    *(*charstrings).offset.offset(0) = (charstring_len + 1) as l_offset;
     let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
     handle
         .seek(SeekFrom::Start(
@@ -465,7 +465,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      * Subset font
      */
     let mut num_glyphs = 1_u16;
-    let mut pdfcharset = pdf_stream::new(0i32);
+    let mut pdfcharset = pdf_stream::new(0);
     for code in 0..256 {
         widths[code as usize] = notdef_width;
         if !(*usedchars.offset(code as isize) == 0
@@ -482,7 +482,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
             let sid = (if (sid_orig as i32) < 391 {
                 sid_orig as i32
             } else {
-                cff_add_string(&mut cffont, &enc_slice[code as usize], 0i32) as i32
+                cff_add_string(&mut cffont, &enc_slice[code as usize], 0) as i32
             }) as s_SID;
             /*
              * We use "unique = 0" because duplicate strings are impossible
@@ -498,7 +498,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                     (*(*encoding).supp.offset((*encoding).num_supps as isize)).code = code as u8; /* Used but multiply-encoded. */
                     (*(*encoding).supp.offset((*encoding).num_supps as isize)).glyph = sid;
                     *usedchars.offset(code as isize) = 0_i8;
-                    (*encoding).num_supps = ((*encoding).num_supps as i32 + 1i32) as u8;
+                    (*encoding).num_supps = ((*encoding).num_supps as i32 + 1) as u8;
                     break;
                 } else {
                     j += 1;
@@ -507,7 +507,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
             if !((j as i32) < (*charset).num_entries as i32) {
                 /* This is new encoding entry. */
                 let gid_0 = cff_charsets_lookup(&cffont, sid_orig); /* FIXME */
-                if gid_0 as i32 == 0i32 {
+                if gid_0 as i32 == 0 {
                     warn!(
                         "Glyph \"{}\" missing in font \"{}\".",
                         enc_slice[code as usize], font.fontname,
@@ -517,17 +517,17 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                 } else {
                     pdfcharset.add_str("/");
                     pdfcharset.add_slice(enc_slice[code as usize].as_bytes());
-                    if verbose > 2i32 {
+                    if verbose > 2 {
                         info!("/{}", enc_slice[code as usize]);
                     }
-                    size = (*(*cs_idx).offset.offset((gid_0 as i32 + 1i32) as isize))
+                    size = (*(*cs_idx).offset.offset((gid_0 as i32 + 1) as isize))
                         .wrapping_sub(*(*cs_idx).offset.offset(gid_0 as isize))
                         as i32;
-                    if size > 65536i32 {
+                    if size > 65536 {
                         panic!("Charstring too long: gid={}, {} bytes", gid_0, size);
                     }
-                    if charstring_len + 65536i32 >= max_len {
-                        max_len = charstring_len + 2i32 * 65536i32;
+                    if charstring_len + 65536 >= max_len {
+                        max_len = charstring_len + 2 * 65536;
                         (*charstrings).data = renew(
                             (*charstrings).data as *mut libc::c_void,
                             (max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64)
@@ -535,7 +535,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                         ) as *mut u8
                     }
                     *(*charstrings).offset.offset(num_glyphs as isize) =
-                        (charstring_len + 1i32) as l_offset;
+                        (charstring_len + 1) as l_offset;
                     let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
                     handle
                         .seek(SeekFrom::Start(
@@ -560,22 +560,22 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                         .data
                         .glyphs
                         .offset((*charset).num_entries as isize) = sid;
-                    (*charset).num_entries = ((*charset).num_entries as i32 + 1i32) as u16;
+                    (*charset).num_entries = ((*charset).num_entries as i32 + 1) as u16;
                     num_glyphs = num_glyphs.wrapping_add(1)
                 }
             }
         }
         /* Prevent duplication. */
     }
-    if verbose > 2i32 {
+    if verbose > 2 {
         info!("]");
     }
     free(data as *mut libc::c_void);
     /*
      * Now we create encoding data.
      */
-    if (*encoding).num_supps as i32 > 0i32 {
-        (*encoding).format = ((*encoding).format as i32 | 0x80i32) as u8
+    if (*encoding).num_supps as i32 > 0 {
+        (*encoding).format = ((*encoding).format as i32 | 0x80) as u8
     } else {
         free((*encoding).supp as *mut libc::c_void); /* Have supplemantary data. */
         /* FIXME */
@@ -595,9 +595,9 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                 .data
                 .range1
                 .offset((*encoding).num_entries as isize))
-            .n_left = 0i32 as u8;
+            .n_left = 0 as u8;
             code = code.wrapping_add(1);
-            while (code as i32) < 256i32
+            while (code as i32) < 256
                 && *usedchars.offset(code as isize) as i32 != 0
                 && !enc_slice[code as usize].is_empty()
                 && enc_slice[code as usize] != ".notdef"
@@ -615,7 +615,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         /* The above while() loop stopped at unused char or code == 256. */
     }
     cff_release_index(cs_idx);
-    *(*charstrings).offset.offset(num_glyphs as isize) = (charstring_len + 1i32) as l_offset;
+    *(*charstrings).offset.offset(num_glyphs as isize) = (charstring_len + 1) as l_offset;
     (*charstrings).count = num_glyphs;
     charstring_len = cff_index_size(charstrings) as i32;
     cffont.num_glyphs = num_glyphs;
@@ -636,7 +636,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     if !cffont.gsubr.is_null() {
         cff_release_index(cffont.gsubr);
     }
-    cffont.gsubr = cff_new_index(0i32 as u16);
+    cffont.gsubr = cff_new_index(0 as u16);
     if !(*cffont.subrs.offset(0)).is_null() {
         cff_release_index(*cffont.subrs.offset(0));
     }
@@ -646,7 +646,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      * encoding(charset) if HAVE_STANDARD_ENCODING(CHARSET) is set. We are
      * re-encoding font.
      */
-    cffont.flag = 1i32 << 1i32;
+    cffont.flag = 1 << 1;
     /*
      * FIXME:
      *  Update String INDEX to delete unused strings.
@@ -717,25 +717,25 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* Global Subrs */
     offset += cff_pack_index(cffont.gsubr, &mut stream_data[offset..]);
     /* Encoding */
-    (*cffont.topdict).set("Encoding", 0i32, offset as f64);
+    (*cffont.topdict).set("Encoding", 0, offset as f64);
     offset += cff_pack_encoding(&cffont, &mut stream_data[offset..]);
     /* charset */
-    (*cffont.topdict).set("charset", 0i32, offset as f64);
+    (*cffont.topdict).set("charset", 0, offset as f64);
     offset += cff_pack_charsets(&cffont, &mut stream_data[offset..]);
     /* CharStrings */
-    (*cffont.topdict).set("CharStrings", 0i32, offset as f64);
+    (*cffont.topdict).set("CharStrings", 0, offset as f64);
     offset += cff_pack_index(
         charstrings,
         &mut stream_data[offset..offset + charstring_len as usize],
     );
     cff_release_index(charstrings);
     /* Private */
-    (*cffont.topdict).set("Private", 1i32, offset as f64);
+    (*cffont.topdict).set("Private", 1, offset as f64);
     if !(*cffont.private.offset(0)).is_null() && private_size > 0 {
         private_size =
             (**cffont.private.offset(0)).pack(&mut stream_data[offset..offset + private_size])
     }
-    (*cffont.topdict).set("Private", 0i32, private_size as f64);
+    (*cffont.topdict).set("Private", 0, private_size as f64);
     offset += private_size as usize;
     /* Finally Top DICT */
     topdict.data = vec![0; (topdict.offset[topdict.count as usize]) as usize - 1];
@@ -747,7 +747,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* Handle Widths in fontdict. */
     add_SimpleMetrics(font, &cffont, widths.as_mut_ptr(), num_glyphs);
     /* Close font */
-    if verbose > 1i32 {
+    if verbose > 1 {
         info!("[{}/{} glyphs][{} bytes]", num_glyphs, cs_count, offset);
     }
     let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
@@ -766,5 +766,5 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         .as_stream_mut()
         .add_slice(&stream_data[..offset]);
     pdf_release_obj(fontfile);
-    0i32
+    0
 }

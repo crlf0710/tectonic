@@ -82,28 +82,28 @@ pub(crate) struct page_range {
     pub(crate) last: i32,
 }
 
-pub(crate) static mut is_xdv: i32 = 0i32;
+pub(crate) static mut is_xdv: i32 = 0;
 
-pub(crate) static mut translate_origin: i32 = 0i32;
+pub(crate) static mut translate_origin: i32 = 0;
 static mut ignore_colors: i8 = 0_i8;
 static mut annot_grow: f64 = 0.0f64;
-static mut bookmark_open: i32 = 0i32;
+static mut bookmark_open: i32 = 0;
 static mut mag: f64 = 1.0f64;
-static mut font_dpi: i32 = 600i32;
+static mut font_dpi: i32 = 600;
 /*
  * Precision is essentially limited to 0.01pt.
  * See, dev_set_string() in pdfdev.c.
  */
-static mut pdfdecimaldigits: i32 = 3i32;
+static mut pdfdecimaldigits: i32 = 3;
 /* Image cache life in hours */
 /*  0 means erase all old images and leave new images */
 /* -1 means erase all old images and also erase new images */
 /* -2 means ignore image cache (default) */
-static mut image_cache_life: i32 = -2i32;
+static mut image_cache_life: i32 = -2;
 /* Encryption */
-static mut do_encryption: i32 = 0i32;
-static mut key_bits: i32 = 40i32;
-static mut permission: i32 = 0x3ci32;
+static mut do_encryption: i32 = 0;
+static mut key_bits: i32 = 40;
+static mut permission: i32 = 0x3c;
 /* Page device */
 
 pub(crate) static mut paper_width: f64 = 595.0f64;
@@ -112,12 +112,12 @@ pub(crate) static mut paper_height: f64 = 842.0f64;
 static mut x_offset: f64 = 72.0f64;
 static mut y_offset: f64 = 72.0f64;
 
-pub(crate) static mut landscape_mode: i32 = 0i32;
+pub(crate) static mut landscape_mode: i32 = 0;
 
-pub(crate) static mut always_embed: i32 = 0i32;
+pub(crate) static mut always_embed: i32 = 0;
 unsafe fn select_paper(paperspec_str: &str) {
     let paperspec = paperspec_str.as_bytes();
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     paper_width = 0.;
     paper_height = 0.;
     if let Some(pi) = paperinfo(paperspec) {
@@ -156,7 +156,7 @@ unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
         let q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
         if !q.is_null() {
             /* '-' is allowed here */
-            page_range.first = atoi(q) - 1i32; /* Root node */
+            page_range.first = atoi(q) - 1; /* Root node */
             page_range.last = page_range.first;
             free(q as *mut libc::c_void);
         }
@@ -168,11 +168,11 @@ unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
             while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
                 p = p.offset(1)
             }
-            page_range.last = -1i32;
+            page_range.last = -1;
             if *p != 0 {
                 let q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
                 if !q.is_null() {
-                    page_range.last = atoi(q) - 1i32;
+                    page_range.last = atoi(q) - 1;
                     free(q as *mut libc::c_void);
                 }
                 while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
@@ -210,13 +210,13 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
     pdf_doc_set_mediabox(0, &mediabox);
     let mut i = 0;
     while i < page_ranges.len() && dvi_npages() != 0 {
-        if page_ranges[i].last < 0i32 {
+        if page_ranges[i].last < 0 {
             page_ranges[i].last += dvi_npages() as i32;
         }
         let step = if page_ranges[i].first <= page_ranges[i].last {
-            1i32
+            1
         } else {
-            -1i32
+            -1
         };
         let mut page_no = page_ranges[i].first;
         while dvi_npages() != 0 {
@@ -267,10 +267,10 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
                 page_count = page_count + 1;
                 info!("]");
             }
-            if step > 0i32 && page_no >= page_ranges[i].last {
+            if step > 0 && page_no >= page_ranges[i].last {
                 break;
             }
-            if step < 0i32 && page_no <= page_ranges[i].last {
+            if step < 0 && page_no <= page_ranges[i].last {
                 break;
             }
             page_no += step
@@ -307,7 +307,7 @@ pub unsafe fn dvipdfmx_main(
     pdf_obj_reset_global_state();
     pdf_font_reset_unique_tag_state();
     if quiet {
-        shut_up(2i32);
+        shut_up(2);
     } else {
         dvi_set_verbose(verbose as i32);
         pdf_dev_set_verbose(verbose as i32);
@@ -317,25 +317,21 @@ pub unsafe fn dvipdfmx_main(
         pdf_fontmap_set_verbose(verbose as i32);
         tt_aux_set_verbose(verbose as i32);
     }
-    pdf_set_compression(if compress as i32 != 0 { 9i32 } else { 0i32 });
-    pdf_font_set_deterministic_unique_tags(if deterministic_tags as i32 != 0 {
-        1i32
-    } else {
-        0i32
-    });
+    pdf_set_compression(if compress as i32 != 0 { 9 } else { 0 });
+    pdf_font_set_deterministic_unique_tags(if deterministic_tags as i32 != 0 { 1 } else { 0 });
     pdf_init_fontmaps();
     /* We used to read the config file here. It synthesized command-line
      * arguments, so we emulate the default TeXLive config file by copying those
      * code bits. */
     pdf_set_version(5_u32); /* last page */
     select_paper(&dpx_config.paperspec);
-    annot_grow = 0i32 as f64;
-    bookmark_open = 0i32;
-    key_bits = 40i32;
-    permission = 0x3ci32;
-    font_dpi = 600i32;
-    pdfdecimaldigits = 5i32;
-    image_cache_life = -2i32;
+    annot_grow = 0 as f64;
+    bookmark_open = 0;
+    key_bits = 40;
+    permission = 0x3c;
+    font_dpi = 600;
+    pdfdecimaldigits = 5;
+    image_cache_life = -2;
     pdf_load_fontmap_file("pdftex.map", '+' as i32);
     pdf_load_fontmap_file("kanjix.map", '+' as i32);
     pdf_load_fontmap_file("ckx.map", '+' as i32);
@@ -361,8 +357,8 @@ pub unsafe fn dvipdfmx_main(
             Some(pdf_filename.as_bytes())
         },
     );
-    let mut ver_major: i32 = 0i32;
-    let mut ver_minor: i32 = 0i32;
+    let mut ver_major: i32 = 0;
+    let mut ver_minor: i32 = 0;
     let mut owner_pw: [i8; 127] = [0; 127];
     let mut user_pw: [i8; 127] = [0; 127];
     /* Dependency between DVI and PDF side is rather complicated... */
@@ -372,7 +368,7 @@ pub unsafe fn dvipdfmx_main(
     }
     pdf_doc_set_creator(dvi_comment());
     dvi_scan_specials(
-        0i32,
+        0,
         &mut paper_width,
         &mut paper_height,
         &mut x_offset,
@@ -386,20 +382,18 @@ pub unsafe fn dvipdfmx_main(
         owner_pw.as_mut_ptr(),
         user_pw.as_mut_ptr(),
     );
-    if ver_minor >= 3i32 && ver_minor <= 7i32 {
+    if ver_minor >= 3 && ver_minor <= 7 {
         pdf_set_version(ver_minor as u32);
     }
     if do_encryption != 0 {
-        if !(key_bits >= 40i32 && key_bits <= 128i32 && key_bits % 8i32 == 0i32)
-            && key_bits != 256i32
-        {
+        if !(key_bits >= 40 && key_bits <= 128 && key_bits % 8 == 0) && key_bits != 256 {
             panic!("Invalid encryption key length specified: {}", key_bits);
         } else {
-            if key_bits > 40i32 && pdf_get_version() < 4_u32 {
+            if key_bits > 40 && pdf_get_version() < 4_u32 {
                 panic!("Chosen key length requires at least PDF 1.4. Use \"-V 4\" to change.");
             }
         }
-        do_encryption = 1i32;
+        do_encryption = 1;
         pdf_enc_set_passwd(
             key_bits as u32,
             permission as u32,
@@ -413,7 +407,7 @@ pub unsafe fn dvipdfmx_main(
         paper_height = _tmp
     }
     pdf_files_init();
-    if opt_flags & 1i32 << 6i32 != 0 {
+    if opt_flags & 1 << 6 != 0 {
         enable_object_stream = false
     }
     /* Set default paper size here so that all page's can inherite it.
@@ -428,21 +422,21 @@ pub unsafe fn dvipdfmx_main(
         paper_height,
         annot_grow,
         bookmark_open,
-        (opt_flags & 1i32 << 4i32 == 0) as i32,
+        (opt_flags & 1 << 4 == 0) as i32,
     );
     /* Ignore_colors placed here since
      * they are considered as device's capacity.
      */
     pdf_init_device(dvi2pts, pdfdecimaldigits, ignore_colors as i32);
-    if opt_flags & 1i32 << 2i32 != 0 {
-        CIDFont_set_flags(1i32 << 1i32);
+    if opt_flags & 1 << 2 != 0 {
+        CIDFont_set_flags(1 << 1);
     }
     /* Please move this to spc_init_specials(). */
-    if opt_flags & 1i32 << 1i32 != 0 {
-        tpic_set_fill_mode(1i32); /* No prediction */
+    if opt_flags & 1 << 1 != 0 {
+        tpic_set_fill_mode(1); /* No prediction */
     }
-    if opt_flags & 1i32 << 5i32 != 0 {
-        pdf_set_use_predictor(0i32);
+    if opt_flags & 1 << 5 != 0 {
+        pdf_set_use_predictor(0);
     }
     do_dvi_pages(page_ranges);
     pdf_files_close();
@@ -453,5 +447,5 @@ pub unsafe fn dvipdfmx_main(
     pdf_close_fontmaps();
     dvi_close();
     info!("\n");
-    0i32
+    0
 }

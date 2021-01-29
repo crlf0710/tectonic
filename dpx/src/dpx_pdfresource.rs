@@ -69,39 +69,39 @@ pub(crate) struct C2RustUnnamed {
 static mut pdf_resource_categories: [C2RustUnnamed; 9] = [
     C2RustUnnamed {
         name: b"Font\x00" as *const u8 as *const i8,
-        cat_id: 0i32,
+        cat_id: 0,
     },
     C2RustUnnamed {
         name: b"CIDFont\x00" as *const u8 as *const i8,
-        cat_id: 1i32,
+        cat_id: 1,
     },
     C2RustUnnamed {
         name: b"Encoding\x00" as *const u8 as *const i8,
-        cat_id: 2i32,
+        cat_id: 2,
     },
     C2RustUnnamed {
         name: b"CMap\x00" as *const u8 as *const i8,
-        cat_id: 3i32,
+        cat_id: 3,
     },
     C2RustUnnamed {
         name: b"XObject\x00" as *const u8 as *const i8,
-        cat_id: 4i32,
+        cat_id: 4,
     },
     C2RustUnnamed {
         name: b"ColorSpace\x00" as *const u8 as *const i8,
-        cat_id: 5i32,
+        cat_id: 5,
     },
     C2RustUnnamed {
         name: b"Shading\x00" as *const u8 as *const i8,
-        cat_id: 6i32,
+        cat_id: 6,
     },
     C2RustUnnamed {
         name: b"Pattern\x00" as *const u8 as *const i8,
-        cat_id: 7i32,
+        cat_id: 7,
     },
     C2RustUnnamed {
         name: b"ExtGState\x00" as *const u8 as *const i8,
-        cat_id: 8i32,
+        cat_id: 8,
     },
 ];
 static mut resources: [res_cache; 9] = [res_cache {
@@ -112,8 +112,8 @@ static mut resources: [res_cache; 9] = [res_cache {
 unsafe fn pdf_init_resource(mut res: *mut pdf_res) {
     assert!(!res.is_null());
     (*res).ident = ptr::null_mut();
-    (*res).category = -1i32;
-    (*res).flags = 0i32;
+    (*res).category = -1;
+    (*res).flags = 0;
     (*res).cdata = ptr::null_mut();
     (*res).object = ptr::null_mut();
     (*res).reference = ptr::null_mut();
@@ -134,8 +134,8 @@ unsafe fn pdf_clean_resource(mut res: *mut pdf_res) {
         pdf_release_obj((*res).reference);
         pdf_release_obj((*res).object);
         (*res).ident = mfree((*res).ident as *mut libc::c_void) as *mut i8;
-        (*res).category = -1i32;
-        (*res).flags = 0i32
+        (*res).category = -1;
+        (*res).flags = 0
     };
 }
 
@@ -143,8 +143,8 @@ pub(crate) unsafe fn pdf_init_resources() {
     for i in 0..(::std::mem::size_of::<[C2RustUnnamed; 9]>() as u64)
         .wrapping_div(::std::mem::size_of::<C2RustUnnamed>() as u64) as usize
     {
-        resources[i].count = 0i32;
-        resources[i].capacity = 0i32;
+        resources[i].count = 0;
+        resources[i].capacity = 0;
         resources[i].resources = ptr::null_mut();
     }
 }
@@ -159,8 +159,8 @@ pub(crate) unsafe fn pdf_close_resources() {
             pdf_clean_resource(&mut *(*rc).resources.offset(j as isize));
         }
         free((*rc).resources as *mut libc::c_void);
-        (*rc).count = 0i32;
-        (*rc).capacity = 0i32;
+        (*rc).count = 0;
+        (*rc).capacity = 0;
         (*rc).resources = ptr::null_mut();
     }
 }
@@ -172,7 +172,7 @@ unsafe fn get_category(category: *const i8) -> i32 {
             return pdf_resource_categories[i].cat_id;
         }
     }
-    -1i32
+    -1
 }
 
 pub(crate) unsafe fn pdf_defineresource(
@@ -187,12 +187,12 @@ pub(crate) unsafe fn pdf_defineresource(
     let mut res_id;
     assert!(!object.is_null());
     let cat_id = get_category(category_.as_ptr());
-    if cat_id < 0i32 {
+    if cat_id < 0 {
         panic!("Unknown resource category: {}", category);
     }
     let rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
     {
-        res_id = 0i32;
+        res_id = 0;
         while res_id < (*rc).count {
             let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
             if streq_ptr(resname_.as_ptr(), (*res).ident) {
@@ -202,13 +202,13 @@ pub(crate) unsafe fn pdf_defineresource(
                 );
                 pdf_flush_resource(res);
                 (*res).flags = flags;
-                if flags & 1i32 != 0 {
+                if flags & 1 != 0 {
                     (*res).reference = pdf_ref_obj(object);
                     pdf_release_obj(object);
                 } else {
                     (*res).object = object
                 }
-                return cat_id << 16i32 | res_id;
+                return cat_id << 16 | res_id;
             }
             res_id += 1
         }
@@ -232,7 +232,7 @@ pub(crate) unsafe fn pdf_defineresource(
         }
         (*res).category = cat_id;
         (*res).flags = flags;
-        if flags & 1i32 != 0 {
+        if flags & 1 != 0 {
             (*res).reference = pdf_ref_obj(object);
             pdf_release_obj(object);
         } else {
@@ -240,30 +240,30 @@ pub(crate) unsafe fn pdf_defineresource(
         }
         (*rc).count += 1
     }
-    cat_id << 16i32 | res_id
+    cat_id << 16 | res_id
 }
 
 pub(crate) unsafe fn pdf_findresource(category: &str, resname: &str) -> i32 {
     let category_ = CString::new(category).unwrap();
     let resname_ = CString::new(resname).unwrap();
     let cat_id = get_category(category_.as_ptr());
-    if cat_id < 0i32 {
+    if cat_id < 0 {
         panic!("Unknown resource category: {}", category);
     }
     let rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
     for res_id in 0..(*rc).count {
         let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;
         if streq_ptr(resname_.as_ptr(), (*res).ident) {
-            return cat_id << 16i32 | res_id;
+            return cat_id << 16 | res_id;
         }
     }
-    -1i32
+    -1
 }
 
 pub(crate) unsafe fn pdf_get_resource_reference(rc_id: i32) -> *mut pdf_obj {
-    let cat_id = rc_id >> 16i32 & 0xffffi32;
-    let res_id = rc_id & 0xffffi32;
-    if cat_id < 0i32
+    let cat_id = rc_id >> 16 & 0xffff;
+    let res_id = rc_id & 0xffff;
+    if cat_id < 0
         || cat_id as u64
             >= (::std::mem::size_of::<[C2RustUnnamed; 9]>() as u64)
                 .wrapping_div(::std::mem::size_of::<C2RustUnnamed>() as u64)
@@ -271,7 +271,7 @@ pub(crate) unsafe fn pdf_get_resource_reference(rc_id: i32) -> *mut pdf_obj {
         panic!("Invalid category ID: {}", cat_id);
     }
     let rc = &mut *resources.as_mut_ptr().offset(cat_id as isize) as *mut res_cache;
-    if res_id < 0i32 || res_id >= (*rc).count {
+    if res_id < 0 || res_id >= (*rc).count {
         panic!("Invalid resource ID: {}", res_id);
     }
     let res = &mut *(*rc).resources.offset(res_id as isize) as *mut pdf_res;

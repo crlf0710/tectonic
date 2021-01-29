@@ -111,7 +111,7 @@ unsafe fn check_objects_defined(ht_tab: *mut ht_table) {
         curr: ptr::null_mut(),
         hash: ptr::null_mut(),
     };
-    if ht_set_iter(ht_tab, &mut iter) >= 0i32 {
+    if ht_set_iter(ht_tab, &mut iter) >= 0 {
         loop {
             let mut keylen: i32 = 0;
             let key = ht_iter_getkey(&mut iter, &mut keylen);
@@ -124,7 +124,7 @@ unsafe fn check_objects_defined(ht_tab: *mut ht_table) {
                     printable_key(key, keylen),
                 );
             }
-            if !(ht_iter_next(&mut iter) >= 0i32) {
+            if !(ht_iter_next(&mut iter) >= 0) {
                 break;
             }
         }
@@ -146,16 +146,16 @@ pub(crate) unsafe fn pdf_names_add_object(
     object: *mut pdf_obj,
 ) -> i32 {
     assert!(!names.is_null() && !object.is_null());
-    if key.is_null() || keylen < 1i32 {
+    if key.is_null() || keylen < 1 {
         warn!("Null string used for name tree key.");
-        return -1i32;
+        return -1;
     }
     let mut value = ht_lookup_table(names, key, keylen) as *mut obj_data;
     if value.is_null() {
         value = new((1_u64).wrapping_mul(::std::mem::size_of::<obj_data>() as u64) as u32)
             as *mut obj_data;
         (*value).object = object;
-        (*value).closed = 0i32;
+        (*value).closed = 0;
         ht_append_table(names, key, keylen, value as *mut libc::c_void);
     } else {
         assert!(!(*value).object.is_null());
@@ -169,10 +169,10 @@ pub(crate) unsafe fn pdf_names_add_object(
                 printable_key(key as *const i8, keylen),
             );
             pdf_release_obj(object);
-            return -1i32;
+            return -1;
         }
     }
-    0i32
+    0
 }
 /*
  * The following routine returns copies, not the original object.
@@ -226,7 +226,7 @@ pub(crate) unsafe fn pdf_names_close_object(
             "Cannot close undefined object @{}.",
             printable_key(key as *const i8, keylen),
         );
-        return -1i32;
+        return -1;
     }
     assert!(!(*value).object.is_null());
     if (*value).closed != 0 {
@@ -234,10 +234,10 @@ pub(crate) unsafe fn pdf_names_close_object(
             "Object @{} already closed.",
             printable_key(key as *const i8, keylen),
         );
-        return -1i32;
+        return -1;
     }
-    (*value).closed = 1i32;
-    0i32
+    (*value).closed = 1;
+    0
 }
 #[inline]
 fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
@@ -381,7 +381,7 @@ pub(crate) unsafe fn pdf_names_create_tree(
         (None, flat.len() as i32)
     } else {
         flat.sort_unstable_by(cmp_key);
-        let name_tree = build_name_tree(flat.as_mut_slice(), 1i32);
+        let name_tree = build_name_tree(flat.as_mut_slice(), 1);
         (Some(name_tree), flat.len() as i32)
     }
 }

@@ -64,8 +64,8 @@ fn parse_postscriptbox_special(buf: &str) -> Result<(f64, f64, String), ()> {
 unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
     let mut ti = transform_info::new();
     let options: load_options = load_options {
-        page_no: 1i32,
-        bbox_type: 0i32,
+        page_no: 1,
+        bbox_type: 0,
         dict: ptr::null_mut(),
     };
     let mut buf: [u8; 512] = [0; 512];
@@ -74,7 +74,7 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
             spe,
             "No width/height/filename given for postscriptbox special."
         );
-        return -1i32;
+        return -1;
     }
     /* input is not NULL terminated */
     let len = ap.cur.len();
@@ -93,40 +93,40 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
         filename
     } else {
         spc_warn!(spe, "Syntax error in postscriptbox special?");
-        return -1i32;
+        return -1;
     };
 
     ap.cur = &[];
     ti.width *= 72.0f64 / 72.27f64;
     ti.height *= 72.0f64 / 72.27f64;
-    if let Some(mut handle) = InFile::open(&filename, TTInputFormat::PICT, 0i32) {
-        ti.flags |= 1i32 << 1i32 | 1i32 << 2i32;
+    if let Some(mut handle) = InFile::open(&filename, TTInputFormat::PICT, 0) {
+        ti.flags |= 1 << 1 | 1 << 2;
         loop {
             let mut p: *const i8 = tt_mfgets(buf.as_ptr() as *mut i8, 512, &mut handle);
             if p.is_null() {
                 break;
             }
-            if !(mps_scan_bbox(&mut p, p.offset(strlen(p) as isize), &mut ti.bbox) >= 0i32) {
+            if !(mps_scan_bbox(&mut p, p.offset(strlen(p) as isize), &mut ti.bbox) >= 0) {
                 continue;
             }
-            ti.flags |= 1i32 << 0i32;
+            ti.flags |= 1 << 0;
             break;
         }
         let form_id = pdf_ximage_findresource(&filename, options);
-        if form_id < 0i32 {
+        if form_id < 0 {
             spc_warn!(spe, "Failed to load image file: {}", filename);
-            return -1i32;
+            return -1;
         }
         pdf_dev_put_image(form_id, &mut ti, spe.x_user, spe.y_user);
         0
     } else {
         spc_warn!(spe, "Could not open image file: {}", filename);
-        return -1i32;
+        return -1;
     }
 }
 unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &[];
-    0i32
+    0
 }
 const MISC_HANDLERS: [SpcHandler; 6] = [
     SpcHandler {
@@ -185,7 +185,7 @@ pub(crate) unsafe fn spc_misc_setup_handler(
         keylen += 1;
     }
     if keylen < 1 {
-        return -1i32;
+        return -1;
     }
     for handler in MISC_HANDLERS.iter() {
         if &key[..keylen] == handler.key.as_bytes() {
@@ -195,8 +195,8 @@ pub(crate) unsafe fn spc_misc_setup_handler(
                 key: "???:",
                 exec: handler.exec,
             };
-            return 0i32;
+            return 0;
         }
     }
-    -1i32
+    -1
 }

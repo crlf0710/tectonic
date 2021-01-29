@@ -51,11 +51,11 @@ unsafe fn _gcry_burn_stack(mut bytes: i32) {
     let mut buf: [i8; 64] = [0; 64];
     memset(
         buf.as_mut_ptr() as *mut libc::c_void,
-        0i32,
+        0,
         ::std::mem::size_of::<[i8; 64]>(),
     );
     bytes = (bytes as u64).wrapping_sub(::std::mem::size_of::<[i8; 64]>() as u64) as i32 as i32;
-    if bytes > 0i32 {
+    if bytes > 0 {
         _gcry_burn_stack(bytes);
     };
 }
@@ -82,26 +82,25 @@ unsafe fn _gcry_burn_stack(mut bytes: i32) {
  * License along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 unsafe fn _gcry_bswap32(x: u32) -> u32 {
-    return ((x << 8i32 | x >> 32i32 - 8i32) as i64 & 0xff00ffi64
-        | (x >> (8i32 & 32i32 - 1i32) | x << (32i32 - 8i32 & 32i32 - 1i32)) as i64 & 0xff00ff00i64)
-        as u32;
+    return ((x << 8 | x >> 32 - 8) as i64 & 0xff00ffi64
+        | (x >> (8 & 32 - 1) | x << (32 - 8 & 32 - 1)) as i64 & 0xff00ff00i64) as u32;
 }
 unsafe fn _gcry_bswap64(x: u64) -> u64 {
-    (_gcry_bswap32(x as u32) as u64) << 32i32 | _gcry_bswap32((x >> 32i32) as u32) as u64
+    (_gcry_bswap32(x as u32) as u64) << 32 | _gcry_bswap32((x >> 32) as u32) as u64
 }
 /* Endian dependent byte swap operations.  */
 unsafe fn buf_get_be32(mut _buf: *const libc::c_void) -> u32 {
     let in_0: *const u8 = _buf as *const u8;
-    return (*in_0.offset(0) as u32) << 24i32
-        | (*in_0.offset(1) as u32) << 16i32
-        | (*in_0.offset(2) as u32) << 8i32
+    return (*in_0.offset(0) as u32) << 24
+        | (*in_0.offset(1) as u32) << 16
+        | (*in_0.offset(2) as u32) << 8
         | *in_0.offset(3) as u32;
 }
 unsafe fn buf_put_be32(mut _buf: *mut libc::c_void, val: u32) {
     let out: *mut u8 = _buf as *mut u8;
-    *out.offset(0) = (val >> 24i32) as u8;
-    *out.offset(1) = (val >> 16i32) as u8;
-    *out.offset(2) = (val >> 8i32) as u8;
+    *out.offset(0) = (val >> 24) as u8;
+    *out.offset(1) = (val >> 16) as u8;
+    *out.offset(2) = (val >> 8) as u8;
     *out.offset(3) = val as u8;
 }
 unsafe fn buf_get_be64(_buf: *const libc::c_void) -> u64 {
@@ -110,13 +109,13 @@ unsafe fn buf_get_be64(_buf: *const libc::c_void) -> u64 {
 }
 unsafe fn buf_put_be64(mut _buf: *mut libc::c_void, val: u64) {
     let out: *mut u8 = _buf as *mut u8;
-    *out.offset(0) = (val >> 56i32) as u8;
-    *out.offset(1) = (val >> 48i32) as u8;
-    *out.offset(2) = (val >> 40i32) as u8;
-    *out.offset(3) = (val >> 32i32) as u8;
-    *out.offset(4) = (val >> 24i32) as u8;
-    *out.offset(5) = (val >> 16i32) as u8;
-    *out.offset(6) = (val >> 8i32) as u8;
+    *out.offset(0) = (val >> 56) as u8;
+    *out.offset(1) = (val >> 48) as u8;
+    *out.offset(2) = (val >> 40) as u8;
+    *out.offset(3) = (val >> 32) as u8;
+    *out.offset(4) = (val >> 24) as u8;
+    *out.offset(5) = (val >> 16) as u8;
+    *out.offset(6) = (val >> 8) as u8;
     *out.offset(7) = val as u8;
 }
 static mut k: [u64; 80] = [
@@ -237,16 +236,15 @@ unsafe fn do_encrypt_stream(
     let sbox: *mut u8 = (*ctx).sbox.as_mut_ptr();
     for _ in 0..len {
         i += 1;
-        i = i & 255i32;
+        i = i & 255;
         j += *sbox.offset(i as isize) as i32;
-        j &= 255i32;
+        j &= 255;
         let t = *sbox.offset(i as isize) as i32;
         *sbox.offset(i as isize) = *sbox.offset(j as isize);
         *sbox.offset(j as isize) = t as u8;
         *outbuf = (*inbuf as i32
             ^ *sbox.offset(
-                (*sbox.offset(i as isize) as i32 + *sbox.offset(j as isize) as i32 & 255i32)
-                    as isize,
+                (*sbox.offset(i as isize) as i32 + *sbox.offset(j as isize) as i32 & 255) as isize,
             ) as i32) as u8;
         inbuf = inbuf.offset(1);
         outbuf = outbuf.offset(1);
@@ -257,11 +255,11 @@ unsafe fn do_encrypt_stream(
 
 pub(crate) unsafe fn ARC4(ctx: *mut ARC4_CONTEXT, len: u32, inbuf: *const u8, outbuf: *mut u8) {
     do_encrypt_stream(ctx, outbuf, inbuf, len);
-    _gcry_burn_stack(64i32);
+    _gcry_burn_stack(64);
 }
 unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, key: *const u8, keylen: u32) {
     let mut karr: [u8; 256] = [0; 256];
-    (*ctx).idx_j = 0i32;
+    (*ctx).idx_j = 0;
     (*ctx).idx_i = (*ctx).idx_j;
     for i in 0..256 {
         (*ctx).sbox[i] = i as u8;
@@ -276,12 +274,12 @@ unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, key: *const u8, keylen: 
         (*ctx).sbox[i] = (*ctx).sbox[j];
         (*ctx).sbox[j] = t as u8;
     }
-    memset(karr.as_mut_ptr() as *mut libc::c_void, 0i32, 256);
+    memset(karr.as_mut_ptr() as *mut libc::c_void, 0, 256);
 }
 
 pub(crate) unsafe fn ARC4_set_key(ctx: *mut ARC4_CONTEXT, keylen: u32, key: *const u8) {
     do_arcfour_setkey(ctx, key, keylen);
-    _gcry_burn_stack(300i32);
+    _gcry_burn_stack(300);
 }
 
 pub(crate) unsafe fn AES_ecb_encrypt(
@@ -356,7 +354,7 @@ pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
         );
     } else {
         for i in 0..16 {
-            (*ctx).iv[i] = (rand() % 256i32) as u8;
+            (*ctx).iv[i] = (rand() % 256) as u8;
         }
     }
     /* 16 bytes aligned.
@@ -365,15 +363,15 @@ pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
      * of 16.
      */
     let padbytes = (if padding != 0 {
-        (16i32 as u64).wrapping_sub((plain_len as u64).wrapping_rem(16i32 as u64))
+        (16 as u64).wrapping_sub((plain_len as u64).wrapping_rem(16 as u64))
     } else if plain_len.wrapping_rem(16) != 0 {
-        (16i32 as u64).wrapping_sub((plain_len as u64).wrapping_rem(16i32 as u64))
+        (16 as u64).wrapping_sub((plain_len as u64).wrapping_rem(16 as u64))
     } else {
-        0i32 as u64
+        0 as u64
     }) as i32;
     /* We do NOT write IV to the output stream if IV is explicitly specified. */
     *cipher_len = plain_len
-        .wrapping_add((if !iv.is_null() { 0i32 } else { 16i32 }) as usize)
+        .wrapping_add((if !iv.is_null() { 0 } else { 16 }) as usize)
         .wrapping_add(padbytes as usize);
     *cipher =
         new((*cipher_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
@@ -392,7 +390,7 @@ pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
     }
     let mut len = plain_len;
     while len >= 16 {
-        for i in 0..16i32 as u64 {
+        for i in 0..16 as u64 {
             block[i as usize] =
                 (*inptr.offset(i as isize) as i32 ^ (*ctx).iv[i as usize] as i32) as u8;
         }
@@ -621,99 +619,99 @@ static mut rcon: [u32; 10] = [
  */
 unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, key: *const u8, keybits: i32) -> i32 {
     let mut i: u32 = 0_u32;
-    *rk.offset(0) = (*key.offset(0) as u32) << 24i32
-        ^ (*key.offset(1) as u32) << 16i32
-        ^ (*key.offset(2) as u32) << 8i32
+    *rk.offset(0) = (*key.offset(0) as u32) << 24
+        ^ (*key.offset(1) as u32) << 16
+        ^ (*key.offset(2) as u32) << 8
         ^ *key.offset(3) as u32;
-    *rk.offset(1) = (*key.offset(4).offset(0) as u32) << 24i32
-        ^ (*key.offset(4).offset(1) as u32) << 16i32
-        ^ (*key.offset(4).offset(2) as u32) << 8i32
+    *rk.offset(1) = (*key.offset(4).offset(0) as u32) << 24
+        ^ (*key.offset(4).offset(1) as u32) << 16
+        ^ (*key.offset(4).offset(2) as u32) << 8
         ^ *key.offset(4).offset(3) as u32;
-    *rk.offset(2) = (*key.offset(8).offset(0) as u32) << 24i32
-        ^ (*key.offset(8).offset(1) as u32) << 16i32
-        ^ (*key.offset(8).offset(2) as u32) << 8i32
+    *rk.offset(2) = (*key.offset(8).offset(0) as u32) << 24
+        ^ (*key.offset(8).offset(1) as u32) << 16
+        ^ (*key.offset(8).offset(2) as u32) << 8
         ^ *key.offset(8).offset(3) as u32;
-    *rk.offset(3) = (*key.offset(12).offset(0) as u32) << 24i32
-        ^ (*key.offset(12).offset(1) as u32) << 16i32
-        ^ (*key.offset(12).offset(2) as u32) << 8i32
+    *rk.offset(3) = (*key.offset(12).offset(0) as u32) << 24
+        ^ (*key.offset(12).offset(1) as u32) << 16
+        ^ (*key.offset(12).offset(2) as u32) << 8
         ^ *key.offset(12).offset(3) as u32;
-    if keybits == 128i32 {
+    if keybits == 128 {
         loop {
             let temp = *rk.offset(3);
             *rk.offset(4) = *rk.offset(0)
-                ^ Te4[(temp >> 16i32 & 0xff_u32) as usize] & 0xff000000u32
-                ^ Te4[(temp >> 8i32 & 0xff_u32) as usize] & 0xff0000_u32
+                ^ Te4[(temp >> 16 & 0xff_u32) as usize] & 0xff000000u32
+                ^ Te4[(temp >> 8 & 0xff_u32) as usize] & 0xff0000_u32
                 ^ Te4[(temp & 0xff_u32) as usize] & 0xff00_u32
-                ^ Te4[(temp >> 24i32) as usize] & 0xff_u32
+                ^ Te4[(temp >> 24) as usize] & 0xff_u32
                 ^ rcon[i as usize];
             *rk.offset(5) = *rk.offset(1) ^ *rk.offset(4);
             *rk.offset(6) = *rk.offset(2) ^ *rk.offset(5);
             *rk.offset(7) = *rk.offset(3) ^ *rk.offset(6);
             i = i.wrapping_add(1);
             if i == 10_u32 {
-                return 10i32;
+                return 10;
             }
             rk = rk.offset(4)
         }
     }
-    *rk.offset(4) = (*key.offset(16).offset(0) as u32) << 24i32
-        ^ (*key.offset(16).offset(1) as u32) << 16i32
-        ^ (*key.offset(16).offset(2) as u32) << 8i32
+    *rk.offset(4) = (*key.offset(16).offset(0) as u32) << 24
+        ^ (*key.offset(16).offset(1) as u32) << 16
+        ^ (*key.offset(16).offset(2) as u32) << 8
         ^ *key.offset(16).offset(3) as u32;
-    *rk.offset(5) = (*key.offset(20).offset(0) as u32) << 24i32
-        ^ (*key.offset(20).offset(1) as u32) << 16i32
-        ^ (*key.offset(20).offset(2) as u32) << 8i32
+    *rk.offset(5) = (*key.offset(20).offset(0) as u32) << 24
+        ^ (*key.offset(20).offset(1) as u32) << 16
+        ^ (*key.offset(20).offset(2) as u32) << 8
         ^ *key.offset(20).offset(3) as u32;
-    if keybits == 192i32 {
+    if keybits == 192 {
         loop {
             let temp = *rk.offset(5);
             *rk.offset(6) = *rk.offset(0)
-                ^ Te4[(temp >> 16i32 & 0xff_u32) as usize] & 0xff000000u32
-                ^ Te4[(temp >> 8i32 & 0xff_u32) as usize] & 0xff0000_u32
+                ^ Te4[(temp >> 16 & 0xff_u32) as usize] & 0xff000000u32
+                ^ Te4[(temp >> 8 & 0xff_u32) as usize] & 0xff0000_u32
                 ^ Te4[(temp & 0xff_u32) as usize] & 0xff00_u32
-                ^ Te4[(temp >> 24i32) as usize] & 0xff_u32
+                ^ Te4[(temp >> 24) as usize] & 0xff_u32
                 ^ rcon[i as usize];
             *rk.offset(7) = *rk.offset(1) ^ *rk.offset(6);
             *rk.offset(8) = *rk.offset(2) ^ *rk.offset(7);
             *rk.offset(9) = *rk.offset(3) ^ *rk.offset(8);
             i = i.wrapping_add(1);
             if i == 8_u32 {
-                return 12i32;
+                return 12;
             }
             *rk.offset(10) = *rk.offset(4) ^ *rk.offset(9);
             *rk.offset(11) = *rk.offset(5) ^ *rk.offset(10);
             rk = rk.offset(6)
         }
     }
-    *rk.offset(6) = (*key.offset(24).offset(0) as u32) << 24i32
-        ^ (*key.offset(24).offset(1) as u32) << 16i32
-        ^ (*key.offset(24).offset(2) as u32) << 8i32
+    *rk.offset(6) = (*key.offset(24).offset(0) as u32) << 24
+        ^ (*key.offset(24).offset(1) as u32) << 16
+        ^ (*key.offset(24).offset(2) as u32) << 8
         ^ *key.offset(24).offset(3) as u32;
-    *rk.offset(7) = (*key.offset(28).offset(0) as u32) << 24i32
-        ^ (*key.offset(28).offset(1) as u32) << 16i32
-        ^ (*key.offset(28).offset(2) as u32) << 8i32
+    *rk.offset(7) = (*key.offset(28).offset(0) as u32) << 24
+        ^ (*key.offset(28).offset(1) as u32) << 16
+        ^ (*key.offset(28).offset(2) as u32) << 8
         ^ *key.offset(28).offset(3) as u32;
-    if keybits == 256i32 {
+    if keybits == 256 {
         loop {
             let temp = *rk.offset(7);
             *rk.offset(8) = *rk.offset(0)
-                ^ Te4[(temp >> 16i32 & 0xff_u32) as usize] & 0xff000000u32
-                ^ Te4[(temp >> 8i32 & 0xff_u32) as usize] & 0xff0000_u32
+                ^ Te4[(temp >> 16 & 0xff_u32) as usize] & 0xff000000u32
+                ^ Te4[(temp >> 8 & 0xff_u32) as usize] & 0xff0000_u32
                 ^ Te4[(temp & 0xff_u32) as usize] & 0xff00_u32
-                ^ Te4[(temp >> 24i32) as usize] & 0xff_u32
+                ^ Te4[(temp >> 24) as usize] & 0xff_u32
                 ^ rcon[i as usize];
             *rk.offset(9) = *rk.offset(1) ^ *rk.offset(8);
             *rk.offset(10) = *rk.offset(2) ^ *rk.offset(9);
             *rk.offset(11) = *rk.offset(3) ^ *rk.offset(10);
             i = i.wrapping_add(1);
             if i == 7_u32 {
-                return 14i32;
+                return 14;
             }
             let temp = *rk.offset(11);
             *rk.offset(12) = *rk.offset(4)
-                ^ Te4[(temp >> 24i32) as usize] & 0xff000000u32
-                ^ Te4[(temp >> 16i32 & 0xff_u32) as usize] & 0xff0000_u32
-                ^ Te4[(temp >> 8i32 & 0xff_u32) as usize] & 0xff00_u32
+                ^ Te4[(temp >> 24) as usize] & 0xff000000u32
+                ^ Te4[(temp >> 16 & 0xff_u32) as usize] & 0xff0000_u32
+                ^ Te4[(temp >> 8 & 0xff_u32) as usize] & 0xff00_u32
                 ^ Te4[(temp & 0xff_u32) as usize] & 0xff_u32;
             *rk.offset(13) = *rk.offset(5) ^ *rk.offset(12);
             *rk.offset(14) = *rk.offset(6) ^ *rk.offset(13);
@@ -721,7 +719,7 @@ unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, key: *const u8, keybits: i32) -
             rk = rk.offset(8)
         }
     }
-    0i32
+    0
 }
 unsafe fn rijndaelEncrypt(
     mut rk: *const u32,
@@ -734,344 +732,344 @@ unsafe fn rijndaelEncrypt(
      * map byte array block to cipher state
      * and add initial round key:
      */
-    let mut s0 = (*plaintext.offset(0) as u32) << 24i32
-        ^ (*plaintext.offset(1) as u32) << 16i32
-        ^ (*plaintext.offset(2) as u32) << 8i32
+    let mut s0 = (*plaintext.offset(0) as u32) << 24
+        ^ (*plaintext.offset(1) as u32) << 16
+        ^ (*plaintext.offset(2) as u32) << 8
         ^ *plaintext.offset(3) as u32
         ^ *rk.offset(0);
-    let mut s1 = (*plaintext.offset(4).offset(0) as u32) << 24i32
-        ^ (*plaintext.offset(4).offset(1) as u32) << 16i32
-        ^ (*plaintext.offset(4).offset(2) as u32) << 8i32
+    let mut s1 = (*plaintext.offset(4).offset(0) as u32) << 24
+        ^ (*plaintext.offset(4).offset(1) as u32) << 16
+        ^ (*plaintext.offset(4).offset(2) as u32) << 8
         ^ *plaintext.offset(4).offset(3) as u32
         ^ *rk.offset(1);
-    let mut s2 = (*plaintext.offset(8).offset(0) as u32) << 24i32
-        ^ (*plaintext.offset(8).offset(1) as u32) << 16i32
-        ^ (*plaintext.offset(8).offset(2) as u32) << 8i32
+    let mut s2 = (*plaintext.offset(8).offset(0) as u32) << 24
+        ^ (*plaintext.offset(8).offset(1) as u32) << 16
+        ^ (*plaintext.offset(8).offset(2) as u32) << 8
         ^ *plaintext.offset(8).offset(3) as u32
         ^ *rk.offset(2);
-    let mut s3 = (*plaintext.offset(12).offset(0) as u32) << 24i32
-        ^ (*plaintext.offset(12).offset(1) as u32) << 16i32
-        ^ (*plaintext.offset(12).offset(2) as u32) << 8i32
+    let mut s3 = (*plaintext.offset(12).offset(0) as u32) << 24
+        ^ (*plaintext.offset(12).offset(1) as u32) << 16
+        ^ (*plaintext.offset(12).offset(2) as u32) << 8
         ^ *plaintext.offset(12).offset(3) as u32
         ^ *rk.offset(3);
     /* round 1: */
-    let mut t0 = Te0[(s0 >> 24i32) as usize]
-        ^ Te1[(s1 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s2 >> 8i32 & 0xff_u32) as usize]
+    let mut t0 = Te0[(s0 >> 24) as usize]
+        ^ Te1[(s1 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s2 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s3 & 0xff_u32) as usize]
         ^ *rk.offset(4);
-    let mut t1 = Te0[(s1 >> 24i32) as usize]
-        ^ Te1[(s2 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s3 >> 8i32 & 0xff_u32) as usize]
+    let mut t1 = Te0[(s1 >> 24) as usize]
+        ^ Te1[(s2 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s3 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s0 & 0xff_u32) as usize]
         ^ *rk.offset(5);
-    let mut t2 = Te0[(s2 >> 24i32) as usize]
-        ^ Te1[(s3 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s0 >> 8i32 & 0xff_u32) as usize]
+    let mut t2 = Te0[(s2 >> 24) as usize]
+        ^ Te1[(s3 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s0 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s1 & 0xff_u32) as usize]
         ^ *rk.offset(6);
-    let mut t3 = Te0[(s3 >> 24i32) as usize]
-        ^ Te1[(s0 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s1 >> 8i32 & 0xff_u32) as usize]
+    let mut t3 = Te0[(s3 >> 24) as usize]
+        ^ Te1[(s0 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s1 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s2 & 0xff_u32) as usize]
         ^ *rk.offset(7);
     /* round 2: */
-    s0 = Te0[(t0 >> 24i32) as usize]
-        ^ Te1[(t1 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t2 >> 8i32 & 0xff_u32) as usize]
+    s0 = Te0[(t0 >> 24) as usize]
+        ^ Te1[(t1 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t2 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t3 & 0xff_u32) as usize]
         ^ *rk.offset(8);
-    s1 = Te0[(t1 >> 24i32) as usize]
-        ^ Te1[(t2 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t3 >> 8i32 & 0xff_u32) as usize]
+    s1 = Te0[(t1 >> 24) as usize]
+        ^ Te1[(t2 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t3 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t0 & 0xff_u32) as usize]
         ^ *rk.offset(9);
-    s2 = Te0[(t2 >> 24i32) as usize]
-        ^ Te1[(t3 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t0 >> 8i32 & 0xff_u32) as usize]
+    s2 = Te0[(t2 >> 24) as usize]
+        ^ Te1[(t3 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t0 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t1 & 0xff_u32) as usize]
         ^ *rk.offset(10);
-    s3 = Te0[(t3 >> 24i32) as usize]
-        ^ Te1[(t0 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t1 >> 8i32 & 0xff_u32) as usize]
+    s3 = Te0[(t3 >> 24) as usize]
+        ^ Te1[(t0 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t1 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t2 & 0xff_u32) as usize]
         ^ *rk.offset(11);
     /* round 3: */
-    t0 = Te0[(s0 >> 24i32) as usize]
-        ^ Te1[(s1 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s2 >> 8i32 & 0xff_u32) as usize]
+    t0 = Te0[(s0 >> 24) as usize]
+        ^ Te1[(s1 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s2 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s3 & 0xff_u32) as usize]
         ^ *rk.offset(12);
-    t1 = Te0[(s1 >> 24i32) as usize]
-        ^ Te1[(s2 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s3 >> 8i32 & 0xff_u32) as usize]
+    t1 = Te0[(s1 >> 24) as usize]
+        ^ Te1[(s2 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s3 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s0 & 0xff_u32) as usize]
         ^ *rk.offset(13);
-    t2 = Te0[(s2 >> 24i32) as usize]
-        ^ Te1[(s3 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s0 >> 8i32 & 0xff_u32) as usize]
+    t2 = Te0[(s2 >> 24) as usize]
+        ^ Te1[(s3 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s0 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s1 & 0xff_u32) as usize]
         ^ *rk.offset(14);
-    t3 = Te0[(s3 >> 24i32) as usize]
-        ^ Te1[(s0 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s1 >> 8i32 & 0xff_u32) as usize]
+    t3 = Te0[(s3 >> 24) as usize]
+        ^ Te1[(s0 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s1 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s2 & 0xff_u32) as usize]
         ^ *rk.offset(15);
     /* round 4: */
-    s0 = Te0[(t0 >> 24i32) as usize]
-        ^ Te1[(t1 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t2 >> 8i32 & 0xff_u32) as usize]
+    s0 = Te0[(t0 >> 24) as usize]
+        ^ Te1[(t1 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t2 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t3 & 0xff_u32) as usize]
         ^ *rk.offset(16);
-    s1 = Te0[(t1 >> 24i32) as usize]
-        ^ Te1[(t2 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t3 >> 8i32 & 0xff_u32) as usize]
+    s1 = Te0[(t1 >> 24) as usize]
+        ^ Te1[(t2 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t3 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t0 & 0xff_u32) as usize]
         ^ *rk.offset(17);
-    s2 = Te0[(t2 >> 24i32) as usize]
-        ^ Te1[(t3 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t0 >> 8i32 & 0xff_u32) as usize]
+    s2 = Te0[(t2 >> 24) as usize]
+        ^ Te1[(t3 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t0 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t1 & 0xff_u32) as usize]
         ^ *rk.offset(18);
-    s3 = Te0[(t3 >> 24i32) as usize]
-        ^ Te1[(t0 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t1 >> 8i32 & 0xff_u32) as usize]
+    s3 = Te0[(t3 >> 24) as usize]
+        ^ Te1[(t0 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t1 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t2 & 0xff_u32) as usize]
         ^ *rk.offset(19);
     /* round 5: */
-    t0 = Te0[(s0 >> 24i32) as usize]
-        ^ Te1[(s1 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s2 >> 8i32 & 0xff_u32) as usize]
+    t0 = Te0[(s0 >> 24) as usize]
+        ^ Te1[(s1 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s2 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s3 & 0xff_u32) as usize]
         ^ *rk.offset(20);
-    t1 = Te0[(s1 >> 24i32) as usize]
-        ^ Te1[(s2 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s3 >> 8i32 & 0xff_u32) as usize]
+    t1 = Te0[(s1 >> 24) as usize]
+        ^ Te1[(s2 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s3 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s0 & 0xff_u32) as usize]
         ^ *rk.offset(21);
-    t2 = Te0[(s2 >> 24i32) as usize]
-        ^ Te1[(s3 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s0 >> 8i32 & 0xff_u32) as usize]
+    t2 = Te0[(s2 >> 24) as usize]
+        ^ Te1[(s3 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s0 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s1 & 0xff_u32) as usize]
         ^ *rk.offset(22);
-    t3 = Te0[(s3 >> 24i32) as usize]
-        ^ Te1[(s0 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s1 >> 8i32 & 0xff_u32) as usize]
+    t3 = Te0[(s3 >> 24) as usize]
+        ^ Te1[(s0 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s1 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s2 & 0xff_u32) as usize]
         ^ *rk.offset(23);
     /* round 6: */
-    s0 = Te0[(t0 >> 24i32) as usize]
-        ^ Te1[(t1 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t2 >> 8i32 & 0xff_u32) as usize]
+    s0 = Te0[(t0 >> 24) as usize]
+        ^ Te1[(t1 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t2 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t3 & 0xff_u32) as usize]
         ^ *rk.offset(24);
-    s1 = Te0[(t1 >> 24i32) as usize]
-        ^ Te1[(t2 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t3 >> 8i32 & 0xff_u32) as usize]
+    s1 = Te0[(t1 >> 24) as usize]
+        ^ Te1[(t2 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t3 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t0 & 0xff_u32) as usize]
         ^ *rk.offset(25);
-    s2 = Te0[(t2 >> 24i32) as usize]
-        ^ Te1[(t3 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t0 >> 8i32 & 0xff_u32) as usize]
+    s2 = Te0[(t2 >> 24) as usize]
+        ^ Te1[(t3 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t0 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t1 & 0xff_u32) as usize]
         ^ *rk.offset(26);
-    s3 = Te0[(t3 >> 24i32) as usize]
-        ^ Te1[(t0 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t1 >> 8i32 & 0xff_u32) as usize]
+    s3 = Te0[(t3 >> 24) as usize]
+        ^ Te1[(t0 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t1 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t2 & 0xff_u32) as usize]
         ^ *rk.offset(27);
     /* round 7: */
-    t0 = Te0[(s0 >> 24i32) as usize]
-        ^ Te1[(s1 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s2 >> 8i32 & 0xff_u32) as usize]
+    t0 = Te0[(s0 >> 24) as usize]
+        ^ Te1[(s1 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s2 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s3 & 0xff_u32) as usize]
         ^ *rk.offset(28);
-    t1 = Te0[(s1 >> 24i32) as usize]
-        ^ Te1[(s2 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s3 >> 8i32 & 0xff_u32) as usize]
+    t1 = Te0[(s1 >> 24) as usize]
+        ^ Te1[(s2 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s3 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s0 & 0xff_u32) as usize]
         ^ *rk.offset(29);
-    t2 = Te0[(s2 >> 24i32) as usize]
-        ^ Te1[(s3 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s0 >> 8i32 & 0xff_u32) as usize]
+    t2 = Te0[(s2 >> 24) as usize]
+        ^ Te1[(s3 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s0 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s1 & 0xff_u32) as usize]
         ^ *rk.offset(30);
-    t3 = Te0[(s3 >> 24i32) as usize]
-        ^ Te1[(s0 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s1 >> 8i32 & 0xff_u32) as usize]
+    t3 = Te0[(s3 >> 24) as usize]
+        ^ Te1[(s0 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s1 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s2 & 0xff_u32) as usize]
         ^ *rk.offset(31);
     /* round 8: */
-    s0 = Te0[(t0 >> 24i32) as usize]
-        ^ Te1[(t1 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t2 >> 8i32 & 0xff_u32) as usize]
+    s0 = Te0[(t0 >> 24) as usize]
+        ^ Te1[(t1 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t2 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t3 & 0xff_u32) as usize]
         ^ *rk.offset(32);
-    s1 = Te0[(t1 >> 24i32) as usize]
-        ^ Te1[(t2 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t3 >> 8i32 & 0xff_u32) as usize]
+    s1 = Te0[(t1 >> 24) as usize]
+        ^ Te1[(t2 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t3 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t0 & 0xff_u32) as usize]
         ^ *rk.offset(33);
-    s2 = Te0[(t2 >> 24i32) as usize]
-        ^ Te1[(t3 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t0 >> 8i32 & 0xff_u32) as usize]
+    s2 = Te0[(t2 >> 24) as usize]
+        ^ Te1[(t3 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t0 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t1 & 0xff_u32) as usize]
         ^ *rk.offset(34);
-    s3 = Te0[(t3 >> 24i32) as usize]
-        ^ Te1[(t0 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(t1 >> 8i32 & 0xff_u32) as usize]
+    s3 = Te0[(t3 >> 24) as usize]
+        ^ Te1[(t0 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(t1 >> 8 & 0xff_u32) as usize]
         ^ Te3[(t2 & 0xff_u32) as usize]
         ^ *rk.offset(35);
     /* round 9: */
-    t0 = Te0[(s0 >> 24i32) as usize]
-        ^ Te1[(s1 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s2 >> 8i32 & 0xff_u32) as usize]
+    t0 = Te0[(s0 >> 24) as usize]
+        ^ Te1[(s1 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s2 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s3 & 0xff_u32) as usize]
         ^ *rk.offset(36);
-    t1 = Te0[(s1 >> 24i32) as usize]
-        ^ Te1[(s2 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s3 >> 8i32 & 0xff_u32) as usize]
+    t1 = Te0[(s1 >> 24) as usize]
+        ^ Te1[(s2 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s3 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s0 & 0xff_u32) as usize]
         ^ *rk.offset(37);
-    t2 = Te0[(s2 >> 24i32) as usize]
-        ^ Te1[(s3 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s0 >> 8i32 & 0xff_u32) as usize]
+    t2 = Te0[(s2 >> 24) as usize]
+        ^ Te1[(s3 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s0 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s1 & 0xff_u32) as usize]
         ^ *rk.offset(38);
-    t3 = Te0[(s3 >> 24i32) as usize]
-        ^ Te1[(s0 >> 16i32 & 0xff_u32) as usize]
-        ^ Te2[(s1 >> 8i32 & 0xff_u32) as usize]
+    t3 = Te0[(s3 >> 24) as usize]
+        ^ Te1[(s0 >> 16 & 0xff_u32) as usize]
+        ^ Te2[(s1 >> 8 & 0xff_u32) as usize]
         ^ Te3[(s2 & 0xff_u32) as usize]
         ^ *rk.offset(39);
-    if nrounds > 10i32 {
+    if nrounds > 10 {
         /* round 10: */
-        s0 = Te0[(t0 >> 24i32) as usize]
-            ^ Te1[(t1 >> 16i32 & 0xff_u32) as usize]
-            ^ Te2[(t2 >> 8i32 & 0xff_u32) as usize]
+        s0 = Te0[(t0 >> 24) as usize]
+            ^ Te1[(t1 >> 16 & 0xff_u32) as usize]
+            ^ Te2[(t2 >> 8 & 0xff_u32) as usize]
             ^ Te3[(t3 & 0xff_u32) as usize]
             ^ *rk.offset(40);
-        s1 = Te0[(t1 >> 24i32) as usize]
-            ^ Te1[(t2 >> 16i32 & 0xff_u32) as usize]
-            ^ Te2[(t3 >> 8i32 & 0xff_u32) as usize]
+        s1 = Te0[(t1 >> 24) as usize]
+            ^ Te1[(t2 >> 16 & 0xff_u32) as usize]
+            ^ Te2[(t3 >> 8 & 0xff_u32) as usize]
             ^ Te3[(t0 & 0xff_u32) as usize]
             ^ *rk.offset(41);
-        s2 = Te0[(t2 >> 24i32) as usize]
-            ^ Te1[(t3 >> 16i32 & 0xff_u32) as usize]
-            ^ Te2[(t0 >> 8i32 & 0xff_u32) as usize]
+        s2 = Te0[(t2 >> 24) as usize]
+            ^ Te1[(t3 >> 16 & 0xff_u32) as usize]
+            ^ Te2[(t0 >> 8 & 0xff_u32) as usize]
             ^ Te3[(t1 & 0xff_u32) as usize]
             ^ *rk.offset(42);
-        s3 = Te0[(t3 >> 24i32) as usize]
-            ^ Te1[(t0 >> 16i32 & 0xff_u32) as usize]
-            ^ Te2[(t1 >> 8i32 & 0xff_u32) as usize]
+        s3 = Te0[(t3 >> 24) as usize]
+            ^ Te1[(t0 >> 16 & 0xff_u32) as usize]
+            ^ Te2[(t1 >> 8 & 0xff_u32) as usize]
             ^ Te3[(t2 & 0xff_u32) as usize]
             ^ *rk.offset(43);
         /* round 11: */
-        t0 = Te0[(s0 >> 24i32) as usize]
-            ^ Te1[(s1 >> 16i32 & 0xff_u32) as usize]
-            ^ Te2[(s2 >> 8i32 & 0xff_u32) as usize]
+        t0 = Te0[(s0 >> 24) as usize]
+            ^ Te1[(s1 >> 16 & 0xff_u32) as usize]
+            ^ Te2[(s2 >> 8 & 0xff_u32) as usize]
             ^ Te3[(s3 & 0xff_u32) as usize]
             ^ *rk.offset(44);
-        t1 = Te0[(s1 >> 24i32) as usize]
-            ^ Te1[(s2 >> 16i32 & 0xff_u32) as usize]
-            ^ Te2[(s3 >> 8i32 & 0xff_u32) as usize]
+        t1 = Te0[(s1 >> 24) as usize]
+            ^ Te1[(s2 >> 16 & 0xff_u32) as usize]
+            ^ Te2[(s3 >> 8 & 0xff_u32) as usize]
             ^ Te3[(s0 & 0xff_u32) as usize]
             ^ *rk.offset(45);
-        t2 = Te0[(s2 >> 24i32) as usize]
-            ^ Te1[(s3 >> 16i32 & 0xff_u32) as usize]
-            ^ Te2[(s0 >> 8i32 & 0xff_u32) as usize]
+        t2 = Te0[(s2 >> 24) as usize]
+            ^ Te1[(s3 >> 16 & 0xff_u32) as usize]
+            ^ Te2[(s0 >> 8 & 0xff_u32) as usize]
             ^ Te3[(s1 & 0xff_u32) as usize]
             ^ *rk.offset(46);
-        t3 = Te0[(s3 >> 24i32) as usize]
-            ^ Te1[(s0 >> 16i32 & 0xff_u32) as usize]
-            ^ Te2[(s1 >> 8i32 & 0xff_u32) as usize]
+        t3 = Te0[(s3 >> 24) as usize]
+            ^ Te1[(s0 >> 16 & 0xff_u32) as usize]
+            ^ Te2[(s1 >> 8 & 0xff_u32) as usize]
             ^ Te3[(s2 & 0xff_u32) as usize]
             ^ *rk.offset(47);
-        if nrounds > 12i32 {
+        if nrounds > 12 {
             /* round 12: */
-            s0 = Te0[(t0 >> 24i32) as usize]
-                ^ Te1[(t1 >> 16i32 & 0xff_u32) as usize]
-                ^ Te2[(t2 >> 8i32 & 0xff_u32) as usize]
+            s0 = Te0[(t0 >> 24) as usize]
+                ^ Te1[(t1 >> 16 & 0xff_u32) as usize]
+                ^ Te2[(t2 >> 8 & 0xff_u32) as usize]
                 ^ Te3[(t3 & 0xff_u32) as usize]
                 ^ *rk.offset(48);
-            s1 = Te0[(t1 >> 24i32) as usize]
-                ^ Te1[(t2 >> 16i32 & 0xff_u32) as usize]
-                ^ Te2[(t3 >> 8i32 & 0xff_u32) as usize]
+            s1 = Te0[(t1 >> 24) as usize]
+                ^ Te1[(t2 >> 16 & 0xff_u32) as usize]
+                ^ Te2[(t3 >> 8 & 0xff_u32) as usize]
                 ^ Te3[(t0 & 0xff_u32) as usize]
                 ^ *rk.offset(49);
-            s2 = Te0[(t2 >> 24i32) as usize]
-                ^ Te1[(t3 >> 16i32 & 0xff_u32) as usize]
-                ^ Te2[(t0 >> 8i32 & 0xff_u32) as usize]
+            s2 = Te0[(t2 >> 24) as usize]
+                ^ Te1[(t3 >> 16 & 0xff_u32) as usize]
+                ^ Te2[(t0 >> 8 & 0xff_u32) as usize]
                 ^ Te3[(t1 & 0xff_u32) as usize]
                 ^ *rk.offset(50);
-            s3 = Te0[(t3 >> 24i32) as usize]
-                ^ Te1[(t0 >> 16i32 & 0xff_u32) as usize]
-                ^ Te2[(t1 >> 8i32 & 0xff_u32) as usize]
+            s3 = Te0[(t3 >> 24) as usize]
+                ^ Te1[(t0 >> 16 & 0xff_u32) as usize]
+                ^ Te2[(t1 >> 8 & 0xff_u32) as usize]
                 ^ Te3[(t2 & 0xff_u32) as usize]
                 ^ *rk.offset(51);
             /* round 13: */
-            t0 = Te0[(s0 >> 24i32) as usize]
-                ^ Te1[(s1 >> 16i32 & 0xff_u32) as usize]
-                ^ Te2[(s2 >> 8i32 & 0xff_u32) as usize]
+            t0 = Te0[(s0 >> 24) as usize]
+                ^ Te1[(s1 >> 16 & 0xff_u32) as usize]
+                ^ Te2[(s2 >> 8 & 0xff_u32) as usize]
                 ^ Te3[(s3 & 0xff_u32) as usize]
                 ^ *rk.offset(52);
-            t1 = Te0[(s1 >> 24i32) as usize]
-                ^ Te1[(s2 >> 16i32 & 0xff_u32) as usize]
-                ^ Te2[(s3 >> 8i32 & 0xff_u32) as usize]
+            t1 = Te0[(s1 >> 24) as usize]
+                ^ Te1[(s2 >> 16 & 0xff_u32) as usize]
+                ^ Te2[(s3 >> 8 & 0xff_u32) as usize]
                 ^ Te3[(s0 & 0xff_u32) as usize]
                 ^ *rk.offset(53);
-            t2 = Te0[(s2 >> 24i32) as usize]
-                ^ Te1[(s3 >> 16i32 & 0xff_u32) as usize]
-                ^ Te2[(s0 >> 8i32 & 0xff_u32) as usize]
+            t2 = Te0[(s2 >> 24) as usize]
+                ^ Te1[(s3 >> 16 & 0xff_u32) as usize]
+                ^ Te2[(s0 >> 8 & 0xff_u32) as usize]
                 ^ Te3[(s1 & 0xff_u32) as usize]
                 ^ *rk.offset(54);
-            t3 = Te0[(s3 >> 24i32) as usize]
-                ^ Te1[(s0 >> 16i32 & 0xff_u32) as usize]
-                ^ Te2[(s1 >> 8i32 & 0xff_u32) as usize]
+            t3 = Te0[(s3 >> 24) as usize]
+                ^ Te1[(s0 >> 16 & 0xff_u32) as usize]
+                ^ Te2[(s1 >> 8 & 0xff_u32) as usize]
                 ^ Te3[(s2 & 0xff_u32) as usize]
                 ^ *rk.offset(55)
         }
     }
-    rk = rk.offset((nrounds << 2i32) as isize);
+    rk = rk.offset((nrounds << 2) as isize);
     /* !FULL_UNROLL */
     /* ?FULL_UNROLL */
     /*
      * apply last round and
      * map cipher state to byte array block:
      */
-    s0 = Te4[(t0 >> 24i32) as usize] & 0xff000000u32
-        ^ Te4[(t1 >> 16i32 & 0xff_u32) as usize] & 0xff0000_u32
-        ^ Te4[(t2 >> 8i32 & 0xff_u32) as usize] & 0xff00_u32
+    s0 = Te4[(t0 >> 24) as usize] & 0xff000000u32
+        ^ Te4[(t1 >> 16 & 0xff_u32) as usize] & 0xff0000_u32
+        ^ Te4[(t2 >> 8 & 0xff_u32) as usize] & 0xff00_u32
         ^ Te4[(t3 & 0xff_u32) as usize] & 0xff_u32
         ^ *rk.offset(0);
-    *ciphertext.offset(0) = (s0 >> 24i32) as u8;
-    *ciphertext.offset(1) = (s0 >> 16i32) as u8;
-    *ciphertext.offset(2) = (s0 >> 8i32) as u8;
+    *ciphertext.offset(0) = (s0 >> 24) as u8;
+    *ciphertext.offset(1) = (s0 >> 16) as u8;
+    *ciphertext.offset(2) = (s0 >> 8) as u8;
     *ciphertext.offset(3) = s0 as u8;
-    s1 = Te4[(t1 >> 24i32) as usize] & 0xff000000u32
-        ^ Te4[(t2 >> 16i32 & 0xff_u32) as usize] & 0xff0000_u32
-        ^ Te4[(t3 >> 8i32 & 0xff_u32) as usize] & 0xff00_u32
+    s1 = Te4[(t1 >> 24) as usize] & 0xff000000u32
+        ^ Te4[(t2 >> 16 & 0xff_u32) as usize] & 0xff0000_u32
+        ^ Te4[(t3 >> 8 & 0xff_u32) as usize] & 0xff00_u32
         ^ Te4[(t0 & 0xff_u32) as usize] & 0xff_u32
         ^ *rk.offset(1);
-    *ciphertext.offset(4).offset(0) = (s1 >> 24i32) as u8;
-    *ciphertext.offset(4).offset(1) = (s1 >> 16i32) as u8;
-    *ciphertext.offset(4).offset(2) = (s1 >> 8i32) as u8;
+    *ciphertext.offset(4).offset(0) = (s1 >> 24) as u8;
+    *ciphertext.offset(4).offset(1) = (s1 >> 16) as u8;
+    *ciphertext.offset(4).offset(2) = (s1 >> 8) as u8;
     *ciphertext.offset(4).offset(3) = s1 as u8;
-    s2 = Te4[(t2 >> 24i32) as usize] & 0xff000000u32
-        ^ Te4[(t3 >> 16i32 & 0xff_u32) as usize] & 0xff0000_u32
-        ^ Te4[(t0 >> 8i32 & 0xff_u32) as usize] & 0xff00_u32
+    s2 = Te4[(t2 >> 24) as usize] & 0xff000000u32
+        ^ Te4[(t3 >> 16 & 0xff_u32) as usize] & 0xff0000_u32
+        ^ Te4[(t0 >> 8 & 0xff_u32) as usize] & 0xff00_u32
         ^ Te4[(t1 & 0xff_u32) as usize] & 0xff_u32
         ^ *rk.offset(2);
-    *ciphertext.offset(8).offset(0) = (s2 >> 24i32) as u8;
-    *ciphertext.offset(8).offset(1) = (s2 >> 16i32) as u8;
-    *ciphertext.offset(8).offset(2) = (s2 >> 8i32) as u8;
+    *ciphertext.offset(8).offset(0) = (s2 >> 24) as u8;
+    *ciphertext.offset(8).offset(1) = (s2 >> 16) as u8;
+    *ciphertext.offset(8).offset(2) = (s2 >> 8) as u8;
     *ciphertext.offset(8).offset(3) = s2 as u8;
-    s3 = Te4[(t3 >> 24i32) as usize] & 0xff000000u32
-        ^ Te4[(t0 >> 16i32 & 0xff_u32) as usize] & 0xff0000_u32
-        ^ Te4[(t1 >> 8i32 & 0xff_u32) as usize] & 0xff00_u32
+    s3 = Te4[(t3 >> 24) as usize] & 0xff000000u32
+        ^ Te4[(t0 >> 16 & 0xff_u32) as usize] & 0xff0000_u32
+        ^ Te4[(t1 >> 8 & 0xff_u32) as usize] & 0xff00_u32
         ^ Te4[(t2 & 0xff_u32) as usize] & 0xff_u32
         ^ *rk.offset(3);
-    *ciphertext.offset(12).offset(0) = (s3 >> 24i32) as u8;
-    *ciphertext.offset(12).offset(1) = (s3 >> 16i32) as u8;
-    *ciphertext.offset(12).offset(2) = (s3 >> 8i32) as u8;
+    *ciphertext.offset(12).offset(0) = (s3 >> 24) as u8;
+    *ciphertext.offset(12).offset(1) = (s3 >> 16) as u8;
+    *ciphertext.offset(12).offset(2) = (s3 >> 8) as u8;
     *ciphertext.offset(12).offset(3) = s3 as u8;
 }

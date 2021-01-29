@@ -36,7 +36,7 @@ use crate::spc_warn;
 
 unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur = &[];
-    0i32
+    0
 }
 const DVIPDFMX_HANDLERS: [SpcHandler; 1] = [SpcHandler {
     key: "config",
@@ -53,11 +53,11 @@ pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
     spe: &mut SpcEnv,
     ap: &mut SpcArg,
 ) -> i32 {
-    let mut error: i32 = -1i32;
+    let mut error: i32 = -1;
     ap.cur.skip_white();
     if !ap.cur.starts_with(b"dvipdfmx:") {
         spc_warn!(spe, "Not dvipdfmx: special???");
-        return -1i32;
+        return -1;
     }
     ap.cur = &ap.cur[b"dvipdfmx:".len()..];
     ap.cur.skip_white();
@@ -70,7 +70,7 @@ pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
                     exec: handler.exec,
                 };
                 ap.cur.skip_white();
-                error = 0i32;
+                error = 0;
                 break;
             }
         }

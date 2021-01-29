@@ -117,8 +117,8 @@ pub(crate) struct C2RustUnnamed_3 {
 /* pseudo unique tag */
 /* CID font */
 /* TrueType */
-static mut verbose: i32 = 0i32;
-static mut opt_flags: i32 = 0i32;
+static mut verbose: i32 = 0;
+static mut opt_flags: i32 = 0;
 
 pub(crate) unsafe fn CIDFont_type2_set_verbose(level: i32) {
     verbose = level;
@@ -263,47 +263,47 @@ unsafe fn add_TTCIDHMetrics(
     cidtogidmap: *mut u8,
     last_cid: u16,
 ) {
-    let mut start: i32 = 0i32;
-    let mut prev: i32 = 0i32;
+    let mut start: i32 = 0;
+    let mut prev: i32 = 0;
     let mut an_array = None;
-    let mut empty: i32 = 1i32;
+    let mut empty: i32 = 1;
     let mut w_array = vec![];
-    let dw = if g.dw as i32 != 0i32 && g.dw as i32 <= g.emsize as i32 {
-        (1000.0f64 * g.dw as i32 as f64 / g.emsize as i32 as f64 / 1i32 as f64 + 0.5f64).floor()
-            * 1i32 as f64
+    let dw = if g.dw as i32 != 0 && g.dw as i32 <= g.emsize as i32 {
+        (1000.0f64 * g.dw as i32 as f64 / g.emsize as i32 as f64 / 1 as f64 + 0.5f64).floor()
+            * 1 as f64
     } else {
-        (1000.0f64 * g.gd[0].advw as i32 as f64 / g.emsize as i32 as f64 / 1i32 as f64 + 0.5f64)
+        (1000.0f64 * g.gd[0].advw as i32 as f64 / g.emsize as i32 as f64 / 1 as f64 + 0.5f64)
             .floor()
-            * 1i32 as f64
+            * 1 as f64
     };
     for cid in 0..=last_cid as i32 {
-        if !(*used_chars.offset((cid / 8i32) as isize) as i32 & 1i32 << 7i32 - cid % 8i32 == 0) {
+        if !(*used_chars.offset((cid / 8) as isize) as i32 & 1 << 7 - cid % 8 == 0) {
             let gid = (if !cidtogidmap.is_null() {
-                (*cidtogidmap.offset((2i32 * cid) as isize) as i32) << 8i32
-                    | *cidtogidmap.offset((2i32 * cid + 1i32) as isize) as i32
+                (*cidtogidmap.offset((2 * cid) as isize) as i32) << 8
+                    | *cidtogidmap.offset((2 * cid + 1) as isize) as i32
             } else {
                 cid
             }) as u16;
             let idx = tt_get_index(g, gid);
-            if !(cid != 0i32 && idx == 0) {
+            if !(cid != 0 && idx == 0) {
                 let width = (1000.0f64 * g.gd[idx as usize].advw as i32 as f64
                     / g.emsize as i32 as f64
-                    / 1i32 as f64
+                    / 1 as f64
                     + 0.5f64)
                     .floor()
-                    * 1i32 as f64;
+                    * 1 as f64;
                 if width == dw {
                     if an_array.is_some() {
                         w_array.push_obj(start as f64);
                         w_array.push_obj(an_array.take().unwrap());
-                        empty = 0i32
+                        empty = 0
                     }
                 } else {
-                    if cid != prev + 1i32 {
+                    if cid != prev + 1 {
                         if an_array.is_some() {
                             w_array.push_obj(start as f64);
                             w_array.push_obj(an_array.take().unwrap());
-                            empty = 0i32
+                            empty = 0
                         }
                     }
                     if an_array.is_none() {
@@ -319,7 +319,7 @@ unsafe fn add_TTCIDHMetrics(
     if an_array.is_some() {
         w_array.push_obj(start as f64);
         w_array.push_obj(an_array.take().unwrap());
-        empty = 0i32
+        empty = 0
     }
     fontdict.set("DW", dw);
     let w_array = w_array.into_obj();
@@ -334,41 +334,41 @@ unsafe fn add_TTCIDVMetrics(
     used_chars: *mut i8,
     last_cid: u16,
 ) {
-    let mut empty: i32 = 1i32;
+    let mut empty: i32 = 1;
     let defaultVertOriginY = (1000.0f64 * (g.default_advh as i32 - g.default_tsb as i32) as f64
         / g.emsize as i32 as f64
-        / 1i32 as f64
+        / 1 as f64
         + 0.5f64)
         .floor()
-        * 1i32 as f64;
+        * 1 as f64;
     let defaultAdvanceHeight =
-        (1000.0f64 * g.default_advh as i32 as f64 / g.emsize as i32 as f64 / 1i32 as f64 + 0.5f64)
+        (1000.0f64 * g.default_advh as i32 as f64 / g.emsize as i32 as f64 / 1 as f64 + 0.5f64)
             .floor()
-            * 1i32 as f64;
+            * 1 as f64;
     let mut w2_array = vec![];
     for cid in 0..=last_cid as i32 {
-        if !(*used_chars.offset((cid / 8i32) as isize) as i32 & 1i32 << 7i32 - cid % 8i32 == 0) {
+        if !(*used_chars.offset((cid / 8) as isize) as i32 & 1 << 7 - cid % 8 == 0) {
             let idx = tt_get_index(g, cid as u16);
             if !(cid != 0 && idx == 0) {
                 let advanceHeight = (1000.0f64 * g.gd[idx as usize].advh as i32 as f64
                     / g.emsize as i32 as f64
-                    / 1i32 as f64
+                    / 1 as f64
                     + 0.5f64)
                     .floor()
-                    * 1i32 as f64;
+                    * 1 as f64;
                 let vertOriginX = (1000.0f64 * (0.5f64 * g.gd[idx as usize].advw as i32 as f64)
                     / g.emsize as i32 as f64
-                    / 1i32 as f64
+                    / 1 as f64
                     + 0.5f64)
                     .floor()
-                    * 1i32 as f64;
+                    * 1 as f64;
                 let vertOriginY = (1000.0f64
                     * (g.gd[idx as usize].tsb as i32 + g.gd[idx as usize].ury as i32) as f64
                     / g.emsize as i32 as f64
-                    / 1i32 as f64
+                    / 1 as f64
                     + 0.5f64)
                     .floor()
-                    * 1i32 as f64;
+                    * 1 as f64;
                 /*
                  * c_first c_last w1_y v_x v_y
                  * This form may hit Acrobat's implementation limit of array element size,
@@ -381,12 +381,12 @@ unsafe fn add_TTCIDVMetrics(
                     w2_array.push_obj(-advanceHeight);
                     w2_array.push_obj(vertOriginX);
                     w2_array.push_obj(vertOriginY);
-                    empty = 0i32
+                    empty = 0
                 }
             }
         }
     }
-    if defaultVertOriginY != 880i32 as f64 || defaultAdvanceHeight != 1000i32 as f64 {
+    if defaultVertOriginY != 880 as f64 || defaultAdvanceHeight != 1000 as f64 {
         let mut an_array = vec![];
         an_array.push_obj(defaultVertOriginY);
         an_array.push_obj(-defaultAdvanceHeight);
@@ -461,8 +461,8 @@ unsafe fn fix_CJK_symbols(code: u16) -> u16 {
 }
 unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
     let mut outbuf: [u8; 32] = [0; 32];
-    let mut inbytesleft: size_t = 2i32 as size_t;
-    let mut outbytesleft: size_t = 32i32 as size_t;
+    let mut inbytesleft: size_t = 2 as size_t;
+    let mut outbytesleft: size_t = 32 as size_t;
     if cmap.is_null() {
         return cid as i32;
     }
@@ -476,33 +476,32 @@ unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
         &mut outbytesleft,
     );
     if inbytesleft != 0 {
-        return 0i32;
+        return 0;
     } else {
         if outbytesleft == 31 {
             return outbuf[0] as i32;
         } else {
             if outbytesleft == 30 {
-                return (outbuf[0] as i32) << 8i32 | outbuf[1] as i32;
+                return (outbuf[0] as i32) << 8 | outbuf[1] as i32;
             } else {
                 if outbytesleft == 28 {
                     /* We assume the output encoding is UTF-16. */
                     let hi: CID = u16::from_be_byte_slice(&outbuf[0..2]);
                     let lo: CID = u16::from_be_byte_slice(&outbuf[2..4]);
-                    if hi as i32 >= 0xd800i32
-                        && hi as i32 <= 0xdbffi32
-                        && lo as i32 >= 0xdc00i32
-                        && lo as i32 <= 0xdfffi32
+                    if hi as i32 >= 0xd800
+                        && hi as i32 <= 0xdbff
+                        && lo as i32 >= 0xdc00
+                        && lo as i32 <= 0xdfff
                     {
-                        return (hi as i32 - 0xd800i32) * 0x400i32 + 0x10000i32 + lo as i32
-                            - 0xdc00i32;
+                        return (hi as i32 - 0xd800) * 0x400 + 0x10000 + lo as i32 - 0xdc00;
                     } else {
-                        return (hi as i32) << 16i32 | lo as i32;
+                        return (hi as i32) << 16 | lo as i32;
                     }
                 }
             }
         }
     }
-    0i32
+    0
 }
 /* #define NO_GHOSTSCRIPT_BUG 1 */
 
@@ -511,7 +510,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     let mut ttcmap: *mut tt_cmap = ptr::null_mut();
     let offset;
     let mut i: i32 = 0;
-    let mut unicode_cmap: i32 = 0i32;
+    let mut unicode_cmap: i32 = 0;
     if font.indirect.is_null() {
         return;
     }
@@ -530,7 +529,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     tmp.set("Supplement", (*font.csi).supplement as f64);
     (*font.fontdict).as_dict_mut().set("CIDSystemInfo", tmp);
     /* Quick exit for non-embedded & fixed-pitch font. */
-    if CIDFont_get_embedding(font) == 0 && opt_flags & 1i32 << 1i32 != 0 {
+    if CIDFont_get_embedding(font) == 0 && opt_flags & 1 << 1 != 0 {
         (*font.fontdict).as_dict_mut().set("DW", 1000_f64);
         return;
     }
@@ -550,7 +549,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             }
         }
         1 => {
-            if (*font.options).index > 0i32 {
+            if (*font.options).index > 0 {
                 panic!(
                     "Found TrueType font file while expecting TTC file ({}).",
                     font.ident
@@ -563,7 +562,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             panic!("Not a TrueType/TTC font ({})?", font.ident);
         }
     }
-    if sfnt_read_table_directory(&mut sfont, offset) < 0i32 {
+    if sfnt_read_table_directory(&mut sfont, offset) < 0 {
         panic!("Could not read TrueType table directory ({}).", font.ident);
     }
     /*
@@ -603,10 +602,10 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             );
             panic!("Cannot continue without this...");
         } else {
-            if i <= 1i32 {
-                unicode_cmap = 1i32
+            if i <= 1 {
+                unicode_cmap = 1
             } else {
-                unicode_cmap = 0i32
+                unicode_cmap = 0
             }
         }
         /*
@@ -615,18 +614,18 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
         cmap = find_tocode_cmap(&(*font.csi).registry, &(*font.csi).ordering, i)
     } /* .notdef */
     let mut glyphs = tt_glyphs::init();
-    let mut last_cid = 0i32 as CID;
+    let mut last_cid = 0 as CID;
     let mut num_glyphs = 1_u16;
     let mut v_used_chars = ptr::null_mut();
     let mut h_used_chars = v_used_chars;
     let mut used_chars = h_used_chars;
-    let parent_id = CIDFont_get_parent_id(font, 0i32);
-    if parent_id >= 0i32 {
+    let parent_id = CIDFont_get_parent_id(font, 0);
+    if parent_id >= 0 {
         let parent = Type0Font_cache_get(parent_id);
         h_used_chars = Type0Font_get_usedchars(&*parent)
     }
-    let parent_id = CIDFont_get_parent_id(font, 1i32);
-    if parent_id >= 0i32 {
+    let parent_id = CIDFont_get_parent_id(font, 1);
+    if parent_id >= 0 {
         let parent = Type0Font_cache_get(parent_id);
         v_used_chars = Type0Font_get_usedchars(&*parent)
     }
@@ -637,34 +636,34 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * Quick check of max CID.
      */
     let mut c = 0;
-    i = 8191i32;
-    while i >= 0i32 {
-        if !h_used_chars.is_null() && *h_used_chars.offset(i as isize) as i32 != 0i32 {
-            last_cid = (i * 8i32 + 7i32) as CID;
+    i = 8191;
+    while i >= 0 {
+        if !h_used_chars.is_null() && *h_used_chars.offset(i as isize) as i32 != 0 {
+            last_cid = (i * 8 + 7) as CID;
             c = *h_used_chars.offset(i as isize) as i32;
             break;
         } else {
             i -= 1
         }
     }
-    i = 8191i32;
-    while i >= 0i32 {
-        if !v_used_chars.is_null() && *v_used_chars.offset(i as isize) as i32 != 0i32 {
-            if i * 8i32 + 7i32 >= last_cid as i32 {
-                c = if i * 8i32 + 7i32 > last_cid as i32 {
+    i = 8191;
+    while i >= 0 {
+        if !v_used_chars.is_null() && *v_used_chars.offset(i as isize) as i32 != 0 {
+            if i * 8 + 7 >= last_cid as i32 {
+                c = if i * 8 + 7 > last_cid as i32 {
                     *v_used_chars.offset(i as isize) as i32
                 } else {
                     c | *v_used_chars.offset(i as isize) as i32
                 };
-                last_cid = (i * 8i32 + 7i32) as CID;
+                last_cid = (i * 8 + 7) as CID;
                 break;
             }
         }
         i -= 1
     }
-    if last_cid as i32 > 0i32 {
+    if last_cid as i32 > 0 {
         for i in 0..8 {
-            if c >> i & 1i32 != 0 {
+            if c >> i & 1 != 0 {
                 break;
             }
             last_cid = last_cid.wrapping_sub(1);
@@ -687,8 +686,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
         for cid in 1..=last_cid as CID {
             let code;
             let mut gid;
-            if !(*h_used_chars.offset((cid as i32 / 8i32) as isize) as i32
-                & 1i32 << 7i32 - cid as i32 % 8i32
+            if !(*h_used_chars.offset((cid as i32 / 8) as isize) as i32 & 1 << 7 - cid as i32 % 8
                 == 0)
             {
                 if glyph_ordering {
@@ -697,11 +695,11 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                 } else {
                     code = cid_to_code(cmap, cid);
                     gid = tt_cmap_lookup(ttcmap, code as u32);
-                    if gid as i32 == 0i32 && unicode_cmap != 0 {
+                    if gid as i32 == 0 && unicode_cmap != 0 {
                         let alt_code = fix_CJK_symbols(code as u16) as i32;
                         if alt_code != code {
                             gid = tt_cmap_lookup(ttcmap, alt_code as u32);
-                            if gid as i32 != 0i32 {
+                            if gid as i32 != 0 {
                                 warn!(
                                     "Unicode char U+{:04x} replaced with U+{:04x}.",
                                     code, alt_code,
@@ -711,7 +709,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                     }
                     /* FIX_CJK_UNIOCDE_SYMBOLS */
                 }
-                if gid as i32 == 0i32 {
+                if gid as i32 == 0 {
                     warn!("Glyph missing in font. (CID={}, code=0x{:04x})", cid, code);
                 }
                 /* TODO: duplicated glyph */
@@ -733,8 +731,8 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             gsub_list = ptr::null_mut()
         } else {
             gsub_list = otl_gsub_new();
-            if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vrt2", &sfont) < 0i32 {
-                if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vert", &sfont) < 0i32 {
+            if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vrt2", &sfont) < 0 {
+                if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vert", &sfont) < 0 {
                     warn!("GSUB feature vrt2/vert not found.");
                     otl_gsub_release(gsub_list);
                     gsub_list = ptr::null_mut()
@@ -748,8 +746,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
         for cid in 1..=last_cid as CID {
             let code_0;
             let mut gid_0;
-            if !(*v_used_chars.offset((cid as i32 / 8i32) as isize) as i32
-                & 1i32 << 7i32 - cid as i32 % 8i32
+            if !(*v_used_chars.offset((cid as i32 / 8) as isize) as i32 & 1 << 7 - cid as i32 % 8
                 == 0)
             {
                 /* There may be conflict of horizontal and vertical glyphs
@@ -757,8 +754,8 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                  * that...
                  */
                 if !(!h_used_chars.is_null()
-                    && *h_used_chars.offset((cid as i32 / 8i32) as isize) as i32
-                        & 1i32 << 7i32 - cid as i32 % 8i32
+                    && *h_used_chars.offset((cid as i32 / 8) as isize) as i32
+                        & 1 << 7 - cid as i32 % 8
                         != 0)
                 {
                     if glyph_ordering {
@@ -767,11 +764,11 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                     } else {
                         code_0 = cid_to_code(cmap, cid);
                         gid_0 = tt_cmap_lookup(ttcmap, code_0 as u32);
-                        if gid_0 as i32 == 0i32 && unicode_cmap != 0 {
+                        if gid_0 as i32 == 0 && unicode_cmap != 0 {
                             let alt_code_0 = fix_CJK_symbols(code_0 as u16) as i32;
                             if alt_code_0 != code_0 {
                                 gid_0 = tt_cmap_lookup(ttcmap, alt_code_0 as u32);
-                                if gid_0 as i32 != 0i32 {
+                                if gid_0 as i32 != 0 {
                                     warn!(
                                         "Unicode char U+{:04x} replaced with U+{:04x}.",
                                         code_0, alt_code_0,
@@ -781,7 +778,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                         }
                         /* FIX_CJK_UNIOCDE_SYMBOLS */
                     }
-                    if gid_0 as i32 == 0i32 {
+                    if gid_0 as i32 == 0 {
                         warn!(
                             "Glyph missing in font. (CID={}, code=0x{:04x})",
                             cid, code_0,
@@ -794,7 +791,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                     if !used_chars.is_null() {
                         /* merge vertical used_chars to horizontal */
                         *used_chars.offset((cid as i32 / 8) as isize) |=
-                            (1i32 << 7 - cid as i32 % 8) as i8;
+                            (1 << 7 - cid as i32 % 8) as i8;
                     }
                     num_glyphs = num_glyphs.wrapping_add(1)
                 }
@@ -816,7 +813,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
         if tt_build_tables(&mut sfont, &mut glyphs) < 0 {
             panic!("Could not created FontFile stream.");
         }
-        if verbose > 1i32 {
+        if verbose > 1 {
             info!("[{} glyphs (Max CID: {})]", glyphs.gd.len(), last_cid);
         }
     } else if tt_get_metrics(&mut sfont, &mut glyphs) < 0 {
@@ -825,7 +822,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     /*
      * DW, W, DW2, and W2
      */
-    if opt_flags & 1i32 << 1i32 != 0 {
+    if opt_flags & 1 << 1 != 0 {
         (*font.fontdict).as_dict_mut().set("DW", 1000_f64);
     } else {
         add_TTCIDHMetrics(
@@ -862,7 +859,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * FontFile2
      */
     let fontfile = sfnt_create_FontFile_stream(&mut sfont);
-    if verbose > 1i32 {
+    if verbose > 1 {
         info!("[{} bytes]", fontfile.len());
     }
     let fontfile = fontfile.into_obj();
@@ -874,10 +871,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * CIDSet
      */
     let mut cidset = pdf_stream::new(STREAM_COMPRESS);
-    cidset.add(
-        used_chars as *const libc::c_void,
-        last_cid as i32 / 8i32 + 1i32,
-    );
+    cidset.add(used_chars as *const libc::c_void, last_cid as i32 / 8 + 1);
     let cidset = cidset.into_obj();
     (*font.descriptor)
         .as_dict_mut()
@@ -897,7 +891,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
         let mut c2gmstream = pdf_stream::new(STREAM_COMPRESS);
         c2gmstream.add(
             cidtogidmap as *const libc::c_void,
-            (last_cid as i32 + 1i32) * 2i32,
+            (last_cid as i32 + 1) * 2,
         );
         let c2gmstream = c2gmstream.into_obj();
         (*font.fontdict)
@@ -930,7 +924,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
     match sfont.type_0 {
         16 => offset = ttc_read_offset(&mut sfont, (*opt).index),
         1 => {
-            if (*opt).index > 0i32 {
+            if (*opt).index > 0 {
                 panic!("Invalid TTC index (not TTC font): {}", name);
             }
             offset = 0_u32
@@ -940,11 +934,11 @@ pub(crate) unsafe fn CIDFont_type2_open(
             return None;
         }
     }
-    if sfnt_read_table_directory(&mut sfont, offset) < 0i32 {
+    if sfnt_read_table_directory(&mut sfont, offset) < 0 {
         panic!("Reading TrueType table directory failed.");
     }
     /* Ignore TrueType Collection with CFF table. */
-    if sfont.type_0 == 1i32 << 4i32 && sfnt_find_table_pos(&sfont, b"CFF ") != 0 {
+    if sfont.type_0 == 1 << 4 && sfnt_find_table_pos(&sfont, b"CFF ") != 0 {
         return None;
     }
     /* MAC-ROMAN-EN-POSTSCRIPT or WIN-UNICODE-EN(US)-POSTSCRIPT */
@@ -952,9 +946,9 @@ pub(crate) unsafe fn CIDFont_type2_open(
     let shortname = tt_get_ps_fontname(&mut sfont).unwrap_or_else(|| name.to_owned());
     let shortname = validate_name(shortname);
 
-    if (*opt).embed != 0 && (*opt).style != 0i32 {
+    if (*opt).embed != 0 && (*opt).style != 0 {
         warn!("Embedding disabled due to style option for {}.", name);
-        (*opt).embed = 0i32
+        (*opt).embed = 0
     }
 
     let mut fontname = shortname
@@ -1009,13 +1003,13 @@ pub(crate) unsafe fn CIDFont_type2_open(
     } else {
         (*csi).registry = "Adobe".into();
         (*csi).ordering = "Identity".into();
-        (*csi).supplement = 0i32
+        (*csi).supplement = 0
     }
     let fontdict = pdf_dict::new().into_obj();
     (*fontdict).as_dict_mut().set("Type", "Font");
     (*fontdict).as_dict_mut().set("Subtype", "CIDFontType2");
     let descriptor = if let Some(descriptor) =
-        tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0i32, name)
+        tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0, name)
     {
         descriptor.into_obj()
     } else {

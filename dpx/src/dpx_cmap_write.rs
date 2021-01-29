@@ -61,29 +61,29 @@ pub(crate) struct C2RustUnnamed_1 {
     pub(crate) count: i32,
 }
 unsafe fn block_count(mtab: *mut mapDef, mut c: i32) -> size_t {
-    let mut count: size_t = 0i32 as size_t;
+    let mut count: size_t = 0 as size_t;
     let n = (*mtab.offset(c as isize)).len.wrapping_sub(1);
-    c += 1i32;
-    while c < 256i32 {
-        if (*mtab.offset(c as isize)).flag & 1i32 << 4i32 != 0
-            || (if (*mtab.offset(c as isize)).flag & 0xfi32 != 0i32 {
-                1i32
+    c += 1;
+    while c < 256 {
+        if (*mtab.offset(c as isize)).flag & 1 << 4 != 0
+            || (if (*mtab.offset(c as isize)).flag & 0xf != 0 {
+                1
             } else {
-                0i32
+                0
             }) == 0
-            || (*mtab.offset(c as isize)).flag & 0xfi32 != 1i32 << 0i32
-                && (*mtab.offset(c as isize)).flag & 0xfi32 != 1i32 << 2i32
-            || (*mtab.offset((c - 1i32) as isize)).len != (*mtab.offset(c as isize)).len
+            || (*mtab.offset(c as isize)).flag & 0xf != 1 << 0
+                && (*mtab.offset(c as isize)).flag & 0xf != 1 << 2
+            || (*mtab.offset((c - 1) as isize)).len != (*mtab.offset(c as isize)).len
         {
             break;
         }
         if !(memcmp(
-            (*mtab.offset((c - 1i32) as isize)).code as *const libc::c_void,
+            (*mtab.offset((c - 1) as isize)).code as *const libc::c_void,
             (*mtab.offset(c as isize)).code as *const libc::c_void,
             n as _,
         ) == 0
-            && (*(*mtab.offset((c - 1i32) as isize)).code.offset(n as isize) as i32) < 255i32
-            && *(*mtab.offset((c - 1i32) as isize)).code.offset(n as isize) as i32 + 1i32
+            && (*(*mtab.offset((c - 1) as isize)).code.offset(n as isize) as i32) < 255
+            && *(*mtab.offset((c - 1) as isize)).code.offset(n as isize) as i32 + 1
                 == *(*mtab.offset(c as isize)).code.offset(n as isize) as i32)
         {
             break;
@@ -94,20 +94,20 @@ unsafe fn block_count(mtab: *mut mapDef, mut c: i32) -> size_t {
     count
 }
 unsafe fn sputx(c: u8, s: &mut Vec<u8>, lim: usize) {
-    let hi: i8 = (c as i32 >> 4i32) as i8;
-    let lo: i8 = (c as i32 & 0xfi32) as i8;
+    let hi: i8 = (c as i32 >> 4) as i8;
+    let lo: i8 = (c as i32 & 0xf) as i8;
     if s.len() > lim - 2 {
         panic!("Buffer overflow.");
     }
     s.push(
-        (if (hi as i32) < 10i32 {
+        (if (hi as i32) < 10 {
             hi as i32 + '0' as i32
         } else {
             hi as i32 + '7' as i32
         }) as u8,
     );
     s.push(
-        (if (lo as i32) < 10i32 {
+        (if (lo as i32) < 10 {
             lo as i32 + '0' as i32
         } else {
             lo as i32 + '7' as i32
@@ -125,11 +125,11 @@ unsafe fn write_map(
 ) -> i32 {
     /* Must be greater than 1 */
     let mut blocks: [C2RustUnnamed_1; 129] = [C2RustUnnamed_1 { start: 0, count: 0 }; 129];
-    let mut num_blocks: size_t = 0i32 as size_t;
+    let mut num_blocks: size_t = 0 as size_t;
     let mut c = 0;
-    while c < 256i32 as u64 {
-        *codestr.offset(depth as isize) = (c & 0xffi32 as u64) as u8;
-        if (*mtab.offset(c as isize)).flag & 1i32 << 4i32 != 0 {
+    while c < 256 as u64 {
+        *codestr.offset(depth as isize) = (c & 0xff as u64) as u8;
+        if (*mtab.offset(c as isize)).flag & 1 << 4 != 0 {
             let mtab1 = (*mtab.offset(c as isize)).next;
             count = write_map(
                 mtab1,
@@ -140,13 +140,13 @@ unsafe fn write_map(
                 lim,
                 stream,
             ) as size_t
-        } else if if (*mtab.offset(c as isize)).flag & 0xfi32 != 0i32 {
-            1i32
+        } else if if (*mtab.offset(c as isize)).flag & 0xf != 0 {
+            1
         } else {
-            0i32
+            0
         } != 0
         {
-            match (*mtab.offset(c as isize)).flag & 0xfi32 {
+            match (*mtab.offset(c as isize)).flag & 0xf {
                 1 | 4 => {
                     let block_length = block_count(mtab, c as i32);
                     if block_length >= 2 {
@@ -182,7 +182,7 @@ unsafe fn write_map(
                     panic!(
                         "{}: Unknown mapping type: {}",
                         "CMap",
-                        (*mtab.offset(c as isize)).flag & 0xfi32,
+                        (*mtab.offset(c as isize)).flag & 0xf,
                     );
                 }
             }
@@ -196,7 +196,7 @@ unsafe fn write_map(
             stream.add_slice(wbuf.as_slice());
             wbuf.clear();
             stream.add_str("endbfchar\n");
-            count = 0i32 as size_t
+            count = 0 as size_t
         }
         c = c.wrapping_add(1)
     }
@@ -206,7 +206,7 @@ unsafe fn write_map(
             stream.add_slice(wbuf.as_slice());
             wbuf.clear();
             stream.add_str("endbfchar\n");
-            count = 0i32 as size_t
+            count = 0 as size_t
         }
         stream.add_str(&format!("{} beginbfrange\n", num_blocks));
         for i in 0..num_blocks {
@@ -252,20 +252,20 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
         warn!("Invalid CMap");
         return None;
     }
-    if (*cmap).type_0 == 0i32 {
+    if (*cmap).type_0 == 0 {
         return None;
     }
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = stream.get_dict_mut();
     let mut csi = CMap_get_CIDSysInfo(cmap);
     if csi.is_null() {
-        csi = if (*cmap).type_0 != 2i32 {
+        csi = if (*cmap).type_0 != 2 {
             &mut CSI_IDENTITY
         } else {
             &mut CSI_UNICODE
         }
     }
-    if (*cmap).type_0 != 2i32 {
+    if (*cmap).type_0 != 2 {
         let mut csi_dict = pdf_dict::new();
         csi_dict.set("Registry", pdf_string::new((*csi).registry.as_bytes()));
         csi_dict.set("Ordering", pdf_string::new((*csi).ordering.as_bytes()));
@@ -273,7 +273,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
         stream_dict.set("Type", "CMap");
         stream_dict.set("CMapName", (*cmap).name.as_str());
         stream_dict.set("CIDSystemInfo", csi_dict);
-        if (*cmap).wmode != 0i32 {
+        if (*cmap).wmode != 0 {
             stream_dict.set("WMode", (*cmap).wmode as f64);
         }
     }
@@ -288,7 +288,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
         .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
     memset(
         codestr as *mut libc::c_void,
-        0i32,
+        0,
         (*cmap).profile.maxBytesIn as _,
     );
     let lim = 4096

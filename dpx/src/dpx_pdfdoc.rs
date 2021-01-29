@@ -200,7 +200,7 @@ pub(crate) struct BreakingState {
 /* Note that we explicitly do *not* change this on Windows. For maximum
  * portability, we should probably accept *either* forward or backward slashes
  * as directory separators. */
-static mut verbose: i32 = 0i32;
+static mut verbose: i32 = 0;
 static mut manual_thumb_enabled: i8 = 0_i8;
 static mut thumb_basename: String = String::new();
 
@@ -211,11 +211,11 @@ static mut thumb_basename: String = String::new();
 }*/
 unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
     let options: load_options = load_options {
-        page_no: 1i32,
-        bbox_type: 0i32,
+        page_no: 1,
+        bbox_type: 0,
         dict: ptr::null_mut(),
     };
-    let handle = InFile::open(thumb_filename, TTInputFormat::PICT, 0i32);
+    let handle = InFile::open(thumb_filename, TTInputFormat::PICT, 0);
     if handle.is_none() {
         warn!("Could not open thumbnail file \"{}\"", thumb_filename);
         return ptr::null_mut();
@@ -531,7 +531,7 @@ unsafe fn doc_flush_page(p: *mut pdf_doc, page: &mut pdf_page, parent_ref: *mut 
      * does not have enough size to cover all page's imaging area, using
      * CropBox here gives incorrect result.
      */
-    if page.flags & 1i32 << 0i32 != 0 {
+    if page.flags & 1 << 0 != 0 {
         let mut mediabox = vec![];
         mediabox.push_obj((page.cropbox.min.x / 0.01 + 0.5).floor() * 0.01);
         mediabox.push_obj((page.cropbox.min.y / 0.01 + 0.5).floor() * 0.01);
@@ -620,7 +620,7 @@ unsafe fn build_page_tree(
         (*self_0).as_dict_mut().set("Parent", parent_ref);
     }
     let mut kids = vec![];
-    if num_pages > 0i32 && num_pages <= 4i32 {
+    if num_pages > 0 && num_pages <= 4 {
         for i in 0..num_pages {
             let page = &mut *firstpage.offset(i as isize);
             if page.page_ref.is_null() {
@@ -629,11 +629,11 @@ unsafe fn build_page_tree(
             kids.push(pdf_link_obj(page.page_ref));
             doc_flush_page(p, page, pdf_link_obj(self_ref));
         }
-    } else if num_pages > 0i32 {
+    } else if num_pages > 0 {
         for i in 0..4 {
-            let start = i * num_pages / 4i32;
-            let end = (i + 1i32) * num_pages / 4i32;
-            if end - start > 1i32 {
+            let start = i * num_pages / 4;
+            let end = (i + 1) * num_pages / 4;
+            if end - start > 1 {
                 let subtree = build_page_tree(
                     p,
                     firstpage.offset(start as isize),
@@ -826,21 +826,21 @@ pub unsafe fn pdf_doc_get_page(
     if let Some(mut page_tree) = DerefObj::new((*catalog).as_dict_mut().get_mut("Pages")) {
         if let Object::Dict(_) = page_tree.data {
             let mut resources: *mut pdf_obj = ptr::null_mut();
-            let mut rotate: *mut pdf_obj = ptr::null_mut();
+            let mut rotate = None;
             let count = {
                 if let Some(tmp) = DerefObj::new(page_tree.as_dict_mut().get_mut("Count")) {
                     if let Object::Number(count) = tmp.data {
                         count as i32
                     } else {
-                        return error(rotate, resources);
+                        return error(resources);
                     }
                 } else {
-                    return error(rotate, resources);
+                    return error(resources);
                 }
             };
-            if page_no <= 0i32 || page_no > count {
+            if page_no <= 0 || page_no > count {
                 warn!("Page {} does not exist.", page_no);
-                return error_silent(rotate, resources);
+                return error_silent(resources);
             }
 
             /*
@@ -891,11 +891,8 @@ pub unsafe fn pdf_doc_get_page(
                     pdf_release_obj(bleed_box);
                     bleed_box = tmp_0
                 }
-                if let Some(tmp_0) =
-                    pdf_deref_obj(page_tree.as_dict_mut().get_mut("Rotate")).as_mut()
-                {
-                    pdf_release_obj(rotate);
-                    rotate = tmp_0
+                if let Some(tmp_0) = DerefObj::new(page_tree.as_dict_mut().get_mut("Rotate")) {
+                    rotate = Some(tmp_0);
                 }
                 if let Some(tmp_0) =
                     pdf_deref_obj(page_tree.as_dict_mut().get_mut("Resources")).as_mut()
@@ -922,7 +919,7 @@ pub unsafe fn pdf_doc_get_page(
                                             /* Pages object */
                                             count_0 = v as i32;
                                         } else {
-                                            return error(rotate, resources);
+                                            return error(resources);
                                         }
                                     } else {
                                         /* Page object */
@@ -934,15 +931,15 @@ pub unsafe fn pdf_doc_get_page(
                                     }
                                     page_idx -= count_0;
                                 } else {
-                                    return error(rotate, resources);
+                                    return error(resources);
                                 }
                             } else {
-                                return error(rotate, resources);
+                                return error(resources);
                             }
                             i += 1;
                         }
                     } else {
-                        return error(rotate, resources);
+                        return error(resources);
                     }
                 } else {
                     break;
@@ -952,7 +949,7 @@ pub unsafe fn pdf_doc_get_page(
             if depth == 0 || kids_length == i {
                 pdf_release_obj(media_box);
                 pdf_release_obj(crop_box);
-                return error(rotate, resources);
+                return error(resources);
             }
 
             /* Nasty BBox selection... */
@@ -1001,7 +998,7 @@ pub unsafe fn pdf_doc_get_page(
                 && (!resources.is_null() && matches!((*resources).data, Object::Dict(_))))
             {
                 pdf_release_obj(box_0);
-                return error(rotate, resources);
+                return error(resources);
             }
 
             let mut bbox = Rect::zero();
@@ -1028,12 +1025,12 @@ pub unsafe fn pdf_doc_get_page(
                         },
                         _ => {
                             pdf_release_obj(box_0);
-                            return error(rotate, resources);
+                            return error(resources);
                         }
                     }
                 } else {
                     pdf_release_obj(box_0);
-                    return error(rotate, resources);
+                    return error(resources);
                 }
             }
 
@@ -1077,12 +1074,12 @@ pub unsafe fn pdf_doc_get_page(
                             },
                             _ => {
                                 pdf_release_obj(box_0);
-                                return error(rotate, resources);
+                                return error(resources);
                             }
                         }
                     } else {
                         pdf_release_obj(box_0);
-                        return error(rotate, resources);
+                        return error(resources);
                     }
                 }
             }
@@ -1090,57 +1087,57 @@ pub unsafe fn pdf_doc_get_page(
             pdf_release_obj(box_0);
 
             let mut matrix = TMatrix::identity();
-            if !rotate.is_null() && matches!((*rotate).data, Object::Number(_)) {
-                let deg: f64 = (*rotate).as_f64();
-                if deg - deg as i32 as f64 != 0.0f64 {
-                    warn!("Invalid value specified for /Rotate: {}", deg);
-                } else if deg != 0.0f64 {
-                    let mut rot: i32 = deg as i32;
-                    if (rot % 90i32) as f64 != 0.0f64 {
+            if let Some(rotate) = &rotate {
+                if let Object::Number(deg) = rotate.data {
+                    if deg - deg as i32 as f64 != 0.0f64 {
                         warn!("Invalid value specified for /Rotate: {}", deg);
-                    } else {
-                        rot = rot % 360i32;
-                        if rot < 0i32 {
-                            rot += 360i32
-                        }
-                        match rot {
-                            90 => {
-                                matrix = TMatrix::row_major(
-                                    0.,
-                                    -1.,
-                                    1.,
-                                    0.,
-                                    bbox.min.x - bbox.min.y,
-                                    bbox.min.y + bbox.max.x,
-                                );
+                    } else if deg != 0.0f64 {
+                        let mut rot: i32 = deg as i32;
+                        if (rot % 90) as f64 != 0.0f64 {
+                            warn!("Invalid value specified for /Rotate: {}", deg);
+                        } else {
+                            rot = rot % 360;
+                            if rot < 0 {
+                                rot += 360
                             }
-                            180 => {
-                                matrix = TMatrix::row_major(
-                                    -1.,
-                                    0.,
-                                    0.,
-                                    -1.,
-                                    bbox.min.x + bbox.max.x,
-                                    bbox.min.y + bbox.max.y,
-                                );
+                            match rot {
+                                90 => {
+                                    matrix = TMatrix::row_major(
+                                        0.,
+                                        -1.,
+                                        1.,
+                                        0.,
+                                        bbox.min.x - bbox.min.y,
+                                        bbox.min.y + bbox.max.x,
+                                    );
+                                }
+                                180 => {
+                                    matrix = TMatrix::row_major(
+                                        -1.,
+                                        0.,
+                                        0.,
+                                        -1.,
+                                        bbox.min.x + bbox.max.x,
+                                        bbox.min.y + bbox.max.y,
+                                    );
+                                }
+                                270 => {
+                                    matrix = TMatrix::row_major(
+                                        0.,
+                                        1.,
+                                        -1.,
+                                        0.,
+                                        bbox.min.x + bbox.max.y,
+                                        bbox.min.y - bbox.min.x,
+                                    );
+                                }
+                                _ => {}
                             }
-                            270 => {
-                                matrix = TMatrix::row_major(
-                                    0.,
-                                    1.,
-                                    -1.,
-                                    0.,
-                                    bbox.min.x + bbox.max.y,
-                                    bbox.min.y - bbox.min.x,
-                                );
-                            }
-                            _ => {}
                         }
                     }
+                } else {
+                    return error(resources);
                 }
-                pdf_release_obj(rotate);
-            } else if !rotate.is_null() {
-                return error(rotate, resources);
             }
 
             if !resources_p.is_null() {
@@ -1150,19 +1147,12 @@ pub unsafe fn pdf_doc_get_page(
             }
             return Some((page_tree, bbox, matrix));
 
-            unsafe fn error(
-                rotate: *mut pdf_obj,
-                resources: *mut pdf_obj,
-            ) -> Option<(DerefObj, Rect, TMatrix)> {
+            unsafe fn error(resources: *mut pdf_obj) -> Option<(DerefObj, Rect, TMatrix)> {
                 warn!("Cannot parse document. Broken PDF file?");
-                error_silent(rotate, resources)
+                error_silent(resources)
             }
 
-            unsafe fn error_silent(
-                rotate: *mut pdf_obj,
-                resources: *mut pdf_obj,
-            ) -> Option<(DerefObj, Rect, TMatrix)> {
-                pdf_release_obj(rotate);
+            unsafe fn error_silent(resources: *mut pdf_obj) -> Option<(DerefObj, Rect, TMatrix)> {
                 pdf_release_obj(resources);
                 None
             }
@@ -1177,19 +1167,19 @@ pub unsafe fn pdf_doc_get_page(
 }
 
 unsafe fn pdf_doc_init_bookmarks(p: &mut pdf_doc, bm_open_depth: i32) {
-    p.opt.outline_open_depth = (if bm_open_depth >= 0i32 {
+    p.opt.outline_open_depth = (if bm_open_depth >= 0 {
         bm_open_depth as u32
     } else {
         256u32.wrapping_sub(bm_open_depth as u32)
     }) as i32;
-    p.outlines.current_depth = 1i32;
+    p.outlines.current_depth = 1;
     let item = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_olitem>() as u64) as u32)
         as *mut pdf_olitem;
     (*item).dict = ptr::null_mut();
     (*item).next = ptr::null_mut();
     (*item).first = ptr::null_mut();
     (*item).parent = ptr::null_mut();
-    (*item).is_open = 1i32;
+    (*item).is_open = 1;
     p.outlines.current = item;
     p.outlines.first = item;
 }
@@ -1203,7 +1193,7 @@ unsafe fn clean_bookmarks(mut item: *mut pdf_olitem) -> i32 {
         free(item as *mut libc::c_void);
         item = next
     }
-    0i32
+    0
 }
 unsafe fn flush_bookmarks(
     node: &mut pdf_olitem,
@@ -1264,7 +1254,7 @@ pub(crate) unsafe fn pdf_doc_bookmarks_up() -> i32 {
     let item = p.outlines.current;
     if item.is_null() || (*item).parent.is_null() {
         warn!("Can\'t go up above the bookmark root node!");
-        return -1i32;
+        return -1;
     }
     let parent = (*item).parent;
     let mut item = (*parent).next;
@@ -1275,12 +1265,12 @@ pub(crate) unsafe fn pdf_doc_bookmarks_up() -> i32 {
         (*item).dict = ptr::null_mut();
         (*item).first = ptr::null_mut();
         (*item).next = ptr::null_mut();
-        (*item).is_open = 0i32;
+        (*item).is_open = 0;
         (*item).parent = (*parent).parent
     }
     p.outlines.current = item;
     p.outlines.current_depth -= 1;
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_doc_bookmarks_down() -> i32 {
@@ -1318,13 +1308,13 @@ pub(crate) unsafe fn pdf_doc_bookmarks_down() -> i32 {
         as *mut pdf_olitem;
     (*item).first = first;
     (*first).dict = ptr::null_mut();
-    (*first).is_open = 0i32;
+    (*first).is_open = 0;
     (*first).parent = item;
     (*first).next = ptr::null_mut();
     (*first).first = ptr::null_mut();
     p.outlines.current = first;
     p.outlines.current_depth += 1;
-    0i32
+    0
 }
 
 pub(crate) unsafe fn pdf_doc_bookmarks_depth() -> i32 {
@@ -1361,7 +1351,7 @@ pub(crate) unsafe fn pdf_doc_bookmarks_add(dict: &mut pdf_obj, is_open: i32) {
     next.dict = ptr::null_mut();
     next.parent = (*item).parent;
     next.first = ptr::null_mut();
-    next.is_open = -1i32;
+    next.is_open = -1;
     next.next = ptr::null_mut();
     p.outlines.current = item;
     pdf_doc_add_goto((*dict).as_dict_mut());
@@ -1380,7 +1370,7 @@ unsafe fn pdf_doc_close_bookmarks(p: &mut pdf_doc) {
     clean_bookmarks(item);
     p.outlines.first = ptr::null_mut();
     p.outlines.current = ptr::null_mut();
-    p.outlines.current_depth = 0i32;
+    p.outlines.current_depth = 0;
 }
 static mut name_dict_categories: [*const i8; 10] = [
     b"Dests\x00" as *const u8 as *const i8,
@@ -1453,7 +1443,7 @@ pub(crate) unsafe fn pdf_doc_add_names(category: &[u8], key: &[u8], value: *mut 
             "Unknown name dictionary category \"{}\".",
             category.display()
         );
-        return -1i32;
+        return -1;
     }
     if (*p.names.offset(i as isize)).data.is_null() {
         (*p.names.offset(i as isize)).data = pdf_new_name_tree()
@@ -1587,7 +1577,7 @@ unsafe fn warn_undef_dests(dests: *mut ht_table, gotos: *mut ht_table) {
         curr: ptr::null_mut(),
         hash: ptr::null_mut(),
     };
-    if ht_set_iter(gotos, &mut iter) < 0i32 {
+    if ht_set_iter(gotos, &mut iter) < 0 {
         return;
     }
     loop {
@@ -1597,7 +1587,7 @@ unsafe fn warn_undef_dests(dests: *mut ht_table, gotos: *mut ht_table) {
             let dest = std::slice::from_raw_parts(key as *const u8, keylen as usize);
             warn!("PDF destination \"{}\" not defined.", dest.display());
         }
-        if !(ht_iter_next(&mut iter) >= 0i32) {
+        if !(ht_iter_next(&mut iter) >= 0) {
             break;
         }
     }
@@ -1910,7 +1900,7 @@ pub(crate) unsafe fn pdf_doc_set_mediabox(page_no: usize, mediabox: &Rect) {
     } else {
         let page = doc_get_page_entry(p, page_no);
         page.cropbox = *mediabox;
-        page.flags |= 1i32 << 0i32
+        page.flags |= 1 << 0
     };
 }
 unsafe fn pdf_doc_get_mediabox(page_no: usize, mediabox: &mut Rect) {
@@ -1919,7 +1909,7 @@ unsafe fn pdf_doc_get_mediabox(page_no: usize, mediabox: &mut Rect) {
         *mediabox = p.pages.mediabox;
     } else {
         let page = doc_get_page_entry(p, page_no);
-        if page.flags & 1i32 << 0i32 != 0 {
+        if page.flags & 1 << 0 != 0 {
             *mediabox = page.cropbox;
         } else {
             *mediabox = p.pages.mediabox;
@@ -2142,7 +2132,7 @@ pub(crate) unsafe fn pdf_doc_set_bgcolor(color: Option<&PdfColor>) {
 }
 unsafe fn doc_fill_page_background(p: &mut pdf_doc) {
     let mut r = Rect::zero();
-    let cm = pdf_dev_get_param(2i32);
+    let cm = pdf_dev_get_param(2);
     if cm == 0 || bgcolor.is_white() {
         return;
     }
@@ -2347,8 +2337,8 @@ pub(crate) unsafe fn pdf_doc_begin_grabbing(
      * Make sure the object is self-contained by adding the
      * current font and color to the object stream.
      */
-    pdf_dev_reset_fonts(1i32); /* force color operators to be added to stream */
-    pdf_dev_reset_color(1i32);
+    pdf_dev_reset_fonts(1); /* force color operators to be added to stream */
+    pdf_dev_reset_color(1);
     xobj_id
 }
 
@@ -2384,8 +2374,8 @@ pub(crate) unsafe fn pdf_doc_end_grabbing(attrib: *mut pdf_obj) {
     pdf_release_obj(attrib);
     p.pending_forms = (*fnode).prev;
     pdf_dev_pop_gstate();
-    pdf_dev_reset_fonts(1i32);
-    pdf_dev_reset_color(0i32);
+    pdf_dev_reset_fonts(1);
+    pdf_dev_reset_color(0);
     free(fnode as *mut libc::c_void);
 }
 static mut breaking_state: BreakingState = BreakingState {
@@ -2399,12 +2389,12 @@ unsafe fn reset_box() {
         point2(core::f64::INFINITY, core::f64::INFINITY),
         point2(core::f64::NEG_INFINITY, core::f64::NEG_INFINITY),
     );
-    breaking_state.dirty = 0i32;
+    breaking_state.dirty = 0;
 }
 
 pub(crate) unsafe fn pdf_doc_begin_annot(dict: *mut pdf_obj) {
     breaking_state.annot_dict = dict;
-    breaking_state.broken = 0i32;
+    breaking_state.broken = 0;
     reset_box();
 }
 
@@ -2426,7 +2416,7 @@ pub(crate) unsafe fn pdf_doc_break_annot() {
             (breaking_state.broken == 0) as i32,
         );
         pdf_release_obj(annot_dict);
-        breaking_state.broken = 1i32
+        breaking_state.broken = 1
     }
     reset_box();
 }

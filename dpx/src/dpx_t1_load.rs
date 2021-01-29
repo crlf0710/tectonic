@@ -802,7 +802,7 @@ unsafe fn parse_encoding(enc_vec: &mut [String], start: &mut *const u8, end: *co
         PstObj::Unknown(data) if data.starts_with(b"ExpertEncoding") => {
             if !enc_vec.is_empty() {
                 warn!("ExpertEncoding not supported.");
-                return -1i32;
+                return -1;
             }
         }
         // Not supported yet.
@@ -863,7 +863,7 @@ unsafe fn parse_encoding(enc_vec: &mut [String], start: &mut *const u8, end: *co
             }
         }
     }
-    0i32
+    0
 }
 unsafe fn parse_subrs(
     font: &cff_font,
@@ -882,7 +882,7 @@ unsafe fn parse_subrs(
             return Err(());
         }
     };
-    if count == 0i32 {
+    if count == 0 {
         *font.subrs.offset(0) = ptr::null_mut();
         return Ok(());
     }
@@ -891,8 +891,8 @@ unsafe fn parse_subrs(
         _ => return Err(()),
     }
     let mut data;
-    if mode != 1i32 {
-        max_size = 65536i32;
+    if mode != 1 {
+        max_size = 65536;
         data = new((max_size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
         offsets =
@@ -903,16 +903,16 @@ unsafe fn parse_subrs(
                 as *mut i32;
         memset(
             offsets as *mut libc::c_void,
-            0i32,
+            0,
             (::std::mem::size_of::<i32>()).wrapping_mul(count as _),
         );
         memset(
             lengths as *mut libc::c_void,
-            0i32,
+            0,
             (::std::mem::size_of::<i32>()).wrapping_mul(count as _),
         );
     } else {
-        max_size = 0i32;
+        max_size = 0;
         data = ptr::null_mut();
         offsets = ptr::null_mut();
         lengths = ptr::null_mut()
@@ -969,9 +969,9 @@ unsafe fn parse_subrs(
                     free(lengths as *mut libc::c_void);
                     return Err(());
                 }
-                if mode != 1i32 {
+                if mode != 1 {
                     if offset + len >= max_size {
-                        max_size += 65536i32;
+                        max_size += 65536;
                         data = renew(
                             data as *mut libc::c_void,
                             (max_size as u32 as u64)
@@ -979,13 +979,13 @@ unsafe fn parse_subrs(
                                 as u32,
                         ) as *mut u8
                     }
-                    if lenIV >= 0i32 {
+                    if lenIV >= 0 {
                         t1_decrypt(4330_u16, data.offset(offset as isize), *start, lenIV, len);
                         *offsets.offset(idx as isize) = offset;
                         let ref mut fresh16 = *lengths.offset(idx as isize);
                         *fresh16 = len - lenIV;
                         offset += *fresh16
-                    } else if len > 0i32 {
+                    } else if len > 0 {
                         *offsets.offset(idx as isize) = offset;
                         *lengths.offset(idx as isize) = len;
                         memcpy(
@@ -1002,7 +1002,7 @@ unsafe fn parse_subrs(
             _ => {}
         }
     }
-    if mode != 1i32 {
+    if mode != 1 {
         if (*font.subrs.offset(0)).is_null() {
             let ref mut fresh17 = *font.subrs.offset(0);
             *fresh17 = cff_new_index(count as u16);
@@ -1010,10 +1010,10 @@ unsafe fn parse_subrs(
             (*subrs).data = new((offset as u32 as u64)
                 .wrapping_mul(::std::mem::size_of::<u8>() as u64)
                 as u32) as *mut u8;
-            offset = 0i32;
+            offset = 0;
             for i in 0..count {
-                *(*subrs).offset.offset(i as isize) = (offset + 1i32) as l_offset;
-                if *lengths.offset(i as isize) > 0i32 {
+                *(*subrs).offset.offset(i as isize) = (offset + 1) as l_offset;
+                if *lengths.offset(i as isize) > 0 {
                     memcpy(
                         (*subrs).data.offset(offset as isize) as *mut libc::c_void,
                         data.offset(*offsets.offset(i as isize) as isize) as *const libc::c_void,
@@ -1022,7 +1022,7 @@ unsafe fn parse_subrs(
                     offset += *lengths.offset(i as isize)
                 }
             }
-            *(*subrs).offset.offset(count as isize) = (offset + 1i32) as l_offset
+            *(*subrs).offset.offset(count as isize) = (offset + 1) as l_offset
         } else {
             /* Adobe's OPO_____.PFB and OPBO____.PFB have two /Subrs dicts,
              * and also have /CharStrings not followed by dicts.
@@ -1053,34 +1053,34 @@ unsafe fn parse_charstrings(
     let tok = pst_get_token(start, end).unwrap(); /* .notdef must be at gid = 0 in CFF */
     match tok {
         PstObj::Integer(count) if (count >= 0 && count < 65000) => {
-            if mode != 1i32 {
+            if mode != 1 {
                 charstrings = cff_new_index(count as u16);
-                max_size = 65536i32;
+                max_size = 65536;
                 (*charstrings).data = new((max_size as u32 as u64)
                     .wrapping_mul(::std::mem::size_of::<u8>() as u64)
                     as u32) as *mut u8
             } else {
                 charstrings = ptr::null_mut();
-                max_size = 0i32
+                max_size = 0
             }
             font.cstrings = charstrings;
             font.charsets =
                 new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
                     as *mut cff_charsets;
             let charset = font.charsets;
-            (*charset).format = 0i32 as u8;
-            (*charset).num_entries = (count - 1i32) as u16;
-            (*charset).data.glyphs = new(((count - 1i32) as u32 as u64)
+            (*charset).format = 0 as u8;
+            (*charset).num_entries = (count - 1) as u16;
+            (*charset).data.glyphs = new(((count - 1) as u32 as u64)
                 .wrapping_mul(::std::mem::size_of::<s_SID>() as u64)
                 as u32) as *mut s_SID;
             memset(
                 (*charset).data.glyphs as *mut libc::c_void,
-                0i32,
+                0,
                 (::std::mem::size_of::<s_SID>()).wrapping_mul(count as usize - 1),
             );
-            let mut offset = 0i32;
-            let mut have_notdef = 0i32;
-            font.is_notdef_notzero = 0i32;
+            let mut offset = 0;
+            let mut have_notdef = 0;
+            font.is_notdef_notzero = 0;
             seek_operator(start, end, b"begin");
             let mut i = 0;
             while i < count {
@@ -1091,7 +1091,7 @@ unsafe fn parse_charstrings(
                 let tok = pst_get_token(start, end).ok_or(())?;
                 let glyph_name = tok.clone().into_string();
                 if i == 0 && !glyph_name.is_empty() && glyph_name != ".notdef" {
-                    font.is_notdef_notzero = 1i32
+                    font.is_notdef_notzero = 1
                 }
                 match tok {
                     PstObj::Name(_) => {
@@ -1104,15 +1104,15 @@ unsafe fn parse_charstrings(
                             gid = 0;
                         } else if have_notdef != 0 {
                             gid = i;
-                        } else if i == count - 1i32 {
+                        } else if i == count - 1 {
                             warn!("No .notdef glyph???");
                             return Err(());
                         } else {
                             gid = i + 1;
                         }
                         if gid > 0 {
-                            *(*charset).data.glyphs.offset((gid - 1i32) as isize) =
-                                cff_add_string(font, &glyph_name, 0i32)
+                            *(*charset).data.glyphs.offset((gid - 1) as isize) =
+                                cff_add_string(font, &glyph_name, 0)
                         }
                         /*
                          * We don't care about duplicate strings here since
@@ -1132,9 +1132,9 @@ unsafe fn parse_charstrings(
                         if (*start).offset(len as isize).offset(1) >= end {
                             return Err(());
                         }
-                        if mode != 1i32 {
+                        if mode != 1 {
                             if offset + len >= max_size {
-                                max_size += if len > 65536i32 { len } else { 65536i32 };
+                                max_size += if len > 65536 { len } else { 65536 };
                                 (*charstrings).data = renew(
                                     (*charstrings).data as *mut libc::c_void,
                                     (max_size as u32 as u64)
@@ -1142,8 +1142,8 @@ unsafe fn parse_charstrings(
                                         as u32,
                                 ) as *mut u8
                             }
-                            if gid == 0i32 {
-                                if lenIV >= 0i32 {
+                            if gid == 0 {
+                                if lenIV >= 0 {
                                     memmove(
                                         (*charstrings)
                                             .data
@@ -1172,11 +1172,11 @@ unsafe fn parse_charstrings(
                             }
                         }
                         *start = (*start).offset(1);
-                        if mode != 1i32 {
-                            if lenIV >= 0i32 {
-                                let offs: i32 = if gid != 0 { offset } else { 0i32 };
+                        if mode != 1 {
+                            if lenIV >= 0 {
+                                let offs: i32 = if gid != 0 { offset } else { 0 };
                                 *(*charstrings).offset.offset(gid as isize) =
-                                    (offs + 1i32) as l_offset;
+                                    (offs + 1) as l_offset;
                                 t1_decrypt(
                                     4330_u16,
                                     (*charstrings).data.offset(offs as isize),
@@ -1186,8 +1186,8 @@ unsafe fn parse_charstrings(
                                 );
                                 offset += len - lenIV
                             } else {
-                                if gid == 0i32 {
-                                    *(*charstrings).offset.offset(gid as isize) = 1i32 as l_offset;
+                                if gid == 0 {
+                                    *(*charstrings).offset.offset(gid as isize) = 1 as l_offset;
                                     memcpy(
                                         &mut *(*charstrings).data.offset(0) as *mut u8
                                             as *mut libc::c_void,
@@ -1196,7 +1196,7 @@ unsafe fn parse_charstrings(
                                     );
                                 } else {
                                     *(*charstrings).offset.offset(gid as isize) =
-                                        (offset + 1i32) as l_offset;
+                                        (offset + 1) as l_offset;
                                     memcpy(
                                         &mut *(*charstrings).data.offset(offset as isize) as *mut u8
                                             as *mut libc::c_void,
@@ -1223,8 +1223,8 @@ unsafe fn parse_charstrings(
                     }
                 }
             }
-            if mode != 1i32 {
-                *(*charstrings).offset.offset(count as isize) = (offset + 1i32) as l_offset
+            if mode != 1 {
+                *(*charstrings).offset.offset(count as isize) = (offset + 1) as l_offset
             }
             font.num_glyphs = count as u16;
         }
@@ -1242,7 +1242,7 @@ unsafe fn parse_part2(
     mode: i32,
 ) -> Result<(), ()> {
     let mut argv: [f64; 127] = [0.; 127];
-    let mut lenIV: i32 = 4i32;
+    let mut lenIV: i32 = 4;
     while *start < end {
         match get_next_key(start, end) {
             None => break,
@@ -1336,7 +1336,7 @@ unsafe fn parse_part1(
      * font dictionary so that parser will not be confused with
      * it. See LMRoman10-Regular (lmr10.pfb) for example.
      */
-    if seek_operator(start, end, b"begin") < 0i32 {
+    if seek_operator(start, end, b"begin") < 0 {
         return Err(());
     }
     while *start < end {
@@ -1517,15 +1517,15 @@ pub(crate) unsafe fn t1_get_standard_glyph(code: i32) -> &'static str {
 }
 
 pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &mut String) -> i32 {
-    let mut fn_found: i32 = 0i32;
+    let mut fn_found: i32 = 0;
     handle.seek(SeekFrom::Start(0)).unwrap();
     let buffer = get_pfb_segment(handle, 1)
         .filter(|v| v.len() > 0)
         .expect("Reading PFB (ASCII part) file failed.");
     let mut start = buffer.as_ptr();
     let end = buffer.as_ptr().offset(buffer.len() as isize - 1);
-    if seek_operator(&mut start, end, b"begin") < 0i32 {
-        return -1i32;
+    if seek_operator(&mut start, end, b"begin") < 0 {
+        return -1;
     }
     while fn_found == 0 && start < end {
         match get_next_key(&mut start, end) {
@@ -1539,14 +1539,14 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &
                             strval.truncate(127);
                         }
                         *fontname = strval;
-                        fn_found = 1i32
+                        fn_found = 1
                     }
                 }
                 _ => {}
             },
         }
     }
-    0i32
+    0
 }
 
 impl cff_font {
@@ -1613,7 +1613,7 @@ pub(crate) unsafe fn t1_load_font(
         55665_u16,
         buffer.as_mut_ptr(),
         buffer.as_ptr(),
-        0i32,
+        0,
         (buffer.len() - 1) as _,
     );
     let mut start = buffer[4..].as_ptr();

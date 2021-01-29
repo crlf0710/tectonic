@@ -235,7 +235,7 @@ impl ReadLengthSpc for &[u8] {
     fn read_length(&mut self, spe: &SpcEnv) -> Result<f64, ()> {
         let mut p = *self; /* inverse magnify */
         let mut u: f64 = 1.0f64;
-        let mut error: i32 = 0i32;
+        let mut error: i32 = 0;
         let v = p.parse_float_decimal_to_f64();
         if v.is_none() {
             *self = p;
@@ -275,7 +275,7 @@ impl ReadLengthSpc for &[u8] {
                 }
             } else {
                 spc_warn!(spe, "Missing unit of measure after \"true\"");
-                error = -1i32
+                error = -1
             }
         }
         *self = p;
@@ -317,7 +317,7 @@ fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<transform
         "hoffset", "voffset", "hsize", "vsize", "hscale", "vscale", "angle", "clip", "llx", "lly",
         "urx", "ury", "rwi", "rhi",
     ];
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     let mut rotate = 0.0f64;
     let mut yoffset = rotate;
     let mut xoffset = yoffset;
@@ -437,7 +437,7 @@ fn spc_read_dimtrns_dvips(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<transform
  */
 fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<transform_info, ()> {
     let mut p = transform_info::new();
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     let mut has_matrix = false;
     let mut has_rotate = has_matrix;
     let mut has_scale = has_rotate; /* default: do clipping */
@@ -446,8 +446,8 @@ fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<transform_
     let mut yscale = 1.0f64;
     let mut xscale = yscale;
     let mut rotate = 0.0f64;
-    p.flags |= 1i32 << 3i32;
-    p.flags &= !(1i32 << 4i32);
+    p.flags |= 1 << 3;
+    p.flags &= !(1 << 4);
     ap.cur.skip_blank();
     while error == 0 && !ap.cur.is_empty() {
         if let Some(kp) = ap.cur.parse_c_ident() {
@@ -558,10 +558,10 @@ fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<transform_
     }
     if error == 0 {
         /* Check consistency */
-        if has_xscale && p.flags & 1i32 << 1i32 != 0 {
+        if has_xscale && p.flags & 1 << 1 != 0 {
             spc_warn!(spe, "Can\'t supply both width and xscale. Ignore xscale.");
             xscale = 1.0f64
-        } else if has_yscale && p.flags & 1i32 << 2i32 != 0 {
+        } else if has_yscale && p.flags & 1 << 2 != 0 {
             spc_warn!(
                 spe,
                 "Can\'t supply both height/depth and yscale. Ignore yscale."
@@ -569,7 +569,7 @@ fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<transform_
             yscale = 1.0f64
         } else if has_scale && (has_xscale || has_yscale) {
             spc_warn!(spe, "Can\'t supply overall scale along with axis scales.");
-            error = -1i32
+            error = -1
         } else if has_matrix && (has_scale || has_xscale || has_yscale || has_rotate) {
             spc_warn!(spe, "Can\'t supply transform matrix along with scales or rotate. Ignore scales and rotate.");
         }
@@ -577,8 +577,8 @@ fn spc_read_dimtrns_pdfm(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<transform_
     if !has_matrix {
         make_transmatrix(&mut p.matrix, 0.0, 0.0, xscale, yscale, rotate);
     }
-    if p.flags & 1i32 << 0i32 == 0 {
-        p.flags &= !(1i32 << 3i32)
+    if p.flags & 1 << 0 == 0 {
+        p.flags &= !(1 << 3)
         /* no clipping needed */
     }
     if error == 0 {
@@ -612,7 +612,7 @@ pub(crate) fn spc_util_read_blahblah(
     bbox_type: &mut Option<i32>,
     ap: &mut SpcArg,
 ) -> i32 {
-    let mut error: i32 = 0i32;
+    let mut error: i32 = 0;
     let mut has_matrix = false; /* default: do clipping */
     let mut has_rotate = has_matrix;
     let mut has_scale = has_rotate;
@@ -621,8 +621,8 @@ pub(crate) fn spc_util_read_blahblah(
     let mut yscale = 1.0f64;
     let mut xscale = yscale;
     let mut rotate = 0.0f64;
-    p.flags |= 1i32 << 3i32;
-    p.flags &= !(1i32 << 4i32);
+    p.flags |= 1 << 3;
+    p.flags &= !(1 << 4);
     ap.cur.skip_blank();
     while error == 0 && !ap.cur.is_empty() {
         if let Some(kp) = ap.cur.parse_c_ident() {
@@ -634,7 +634,7 @@ pub(crate) fn spc_util_read_blahblah(
                     } else {
                         error = -1;
                     }
-                    p.flags |= 1i32 << 1i32
+                    p.flags |= 1 << 1
                 }
                 "height" => {
                     if let Ok(height) = ap.cur.read_length(spe) {
@@ -642,7 +642,7 @@ pub(crate) fn spc_util_read_blahblah(
                     } else {
                         error = -1;
                     }
-                    p.flags |= 1i32 << 2i32
+                    p.flags |= 1 << 2
                 }
                 "depth" => {
                     if let Ok(depth) = ap.cur.read_length(spe) {
@@ -650,7 +650,7 @@ pub(crate) fn spc_util_read_blahblah(
                     } else {
                         error = -1;
                     }
-                    p.flags |= 1i32 << 2i32
+                    p.flags |= 1 << 2
                 }
                 "scale" => {
                     if let Some(vp) = ap.cur.parse_float_decimal_to_f64() {
@@ -658,7 +658,7 @@ pub(crate) fn spc_util_read_blahblah(
                         xscale = yscale;
                         has_scale = true;
                     } else {
-                        error = -1i32
+                        error = -1
                     }
                 }
                 "xscale" => {
@@ -666,7 +666,7 @@ pub(crate) fn spc_util_read_blahblah(
                         xscale = vp;
                         has_xscale = true;
                     } else {
-                        error = -1i32
+                        error = -1
                     }
                 }
                 "yscale" => {
@@ -674,7 +674,7 @@ pub(crate) fn spc_util_read_blahblah(
                         yscale = vp;
                         has_yscale = true;
                     } else {
-                        error = -1i32
+                        error = -1
                     }
                 }
                 "rotate" => {
@@ -682,22 +682,22 @@ pub(crate) fn spc_util_read_blahblah(
                         rotate = PI * vp / 180.0f64;
                         has_rotate = true;
                     } else {
-                        error = -1i32
+                        error = -1
                     }
                 }
                 "bbox" => {
                     let v: ArrayVec<[_; 4]> = read_numbers(ap);
                     if v.len() != 4 {
-                        error = -1i32
+                        error = -1
                     } else {
                         p.bbox = Rect::new(point2(v[0], v[1]), point2(v[2], v[3]));
-                        p.flags |= 1i32 << 0i32
+                        p.flags |= 1 << 0
                     }
                 }
                 "matrix" => {
                     let v_0: ArrayVec<[_; 6]> = read_numbers(ap);
                     if v_0.len() != 6 {
-                        error = -1i32
+                        error = -1
                     } else {
                         let v_0 = v_0.as_slice().try_into().unwrap();
                         p.matrix = TMatrix::from_row_major_array(v_0);
@@ -712,7 +712,7 @@ pub(crate) fn spc_util_read_blahblah(
                             p.flags &= !(1 << 3)
                         }
                     } else {
-                        error = -1i32
+                        error = -1
                     }
                 }
                 "page" => {
@@ -727,7 +727,7 @@ pub(crate) fn spc_util_read_blahblah(
                         error = -1;
                     }
                 }
-                "hide" => p.flags |= 1i32 << 4i32,
+                "hide" => p.flags |= 1 << 4,
                 "pagebox" => {
                     if let Some(q) = ap.cur.parse_c_ident() {
                         // TODO: Maybe remove is_some check
@@ -764,10 +764,10 @@ pub(crate) fn spc_util_read_blahblah(
     }
     if error == 0 {
         /* Check consistency */
-        if has_xscale && p.flags & 1i32 << 1i32 != 0 {
+        if has_xscale && p.flags & 1 << 1 != 0 {
             spc_warn!(spe, "Can\'t supply both width and xscale. Ignore xscale.");
             xscale = 1.0f64
-        } else if has_yscale && p.flags & 1i32 << 2i32 != 0 {
+        } else if has_yscale && p.flags & 1 << 2 != 0 {
             spc_warn!(
                 spe,
                 "Can\'t supply both height/depth and yscale. Ignore yscale."
@@ -775,7 +775,7 @@ pub(crate) fn spc_util_read_blahblah(
             yscale = 1.0f64
         } else if has_scale && (has_xscale || has_yscale) {
             spc_warn!(spe, "Can\'t supply overall scale along with axis scales.");
-            error = -1i32
+            error = -1
         } else if has_matrix && (has_scale || has_xscale || has_yscale || has_rotate) {
             spc_warn!(spe, "Can\'t supply transform matrix along with scales or rotate. Ignore scales and rotate.");
         }
@@ -783,8 +783,8 @@ pub(crate) fn spc_util_read_blahblah(
     if !has_matrix {
         make_transmatrix(&mut p.matrix, 0.0, 0.0, xscale, yscale, rotate);
     }
-    if p.flags & 1i32 << 0i32 == 0 {
-        p.flags &= !(1i32 << 3i32)
+    if p.flags & 1 << 0 == 0 {
+        p.flags &= !(1 << 3)
         /* no clipping needed */
     }
     error

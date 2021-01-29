@@ -107,11 +107,8 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
     } else {
         true
     };
-    if (hdr.bit_count as i32) < 24i32 {
-        if hdr.bit_count as i32 != 1i32
-            && hdr.bit_count as i32 != 4i32
-            && hdr.bit_count as i32 != 8i32
-        {
+    if (hdr.bit_count as i32) < 24 {
+        if hdr.bit_count as i32 != 1 && hdr.bit_count as i32 != 4 && hdr.bit_count as i32 != 8 {
             warn!("Unsupported palette size: {}", hdr.bit_count as i32);
             return Err(());
         }
@@ -121,12 +118,12 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
             .wrapping_sub(14_u32)
             .wrapping_div(hdr.psize as u32) as i32;
         info.bits_per_component = hdr.bit_count as i32;
-        info.num_components = 1i32
-    } else if hdr.bit_count as i32 == 24i32 {
+        info.num_components = 1
+    } else if hdr.bit_count as i32 == 24 {
         /* full color */
-        num_palette = 1i32; /* dummy */
-        info.bits_per_component = 8i32;
-        info.num_components = 3i32
+        num_palette = 1; /* dummy */
+        info.bits_per_component = 8;
+        info.num_components = 3
     } else {
         warn!(
             "Unkown/Unsupported BMP bitCount value: {}",
@@ -134,7 +131,7 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
         );
         return Err(());
     }
-    if info.width == 0i32 || info.height == 0i32 || num_palette < 1i32 {
+    if info.width == 0 || info.height == 0 || num_palette < 1 {
         warn!(
             "Invalid BMP file: width={}, height={}, #palette={}",
             info.width, info.height, num_palette,
@@ -145,9 +142,9 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = stream.get_dict_mut();
     /* Color space: Indexed or DeviceRGB */
-    let colorspace = if (hdr.bit_count as i32) < 24i32 {
+    let colorspace = if (hdr.bit_count as i32) < 24 {
         let mut bgrq: [u8; 4] = [0; 4];
-        let palette = new(((num_palette * 3i32 + 1i32) as u32 as u64)
+        let palette = new(((num_palette * 3 + 1) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
         for i in 0..num_palette {
@@ -157,19 +154,17 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
                 return Err(());
             }
             /* BGR data */
-            *palette.offset((3i32 * i) as isize) = bgrq[2];
-            *palette.offset((3i32 * i + 1i32) as isize) = bgrq[1];
-            *palette.offset((3i32 * i + 2i32) as isize) = bgrq[0];
+            *palette.offset((3 * i) as isize) = bgrq[2];
+            *palette.offset((3 * i + 1) as isize) = bgrq[1];
+            *palette.offset((3 * i + 2) as isize) = bgrq[0];
         }
-        let lookup = pdf_string::new_from_ptr(
-            palette as *const libc::c_void,
-            (num_palette * 3i32) as size_t,
-        );
+        let lookup =
+            pdf_string::new_from_ptr(palette as *const libc::c_void, (num_palette * 3) as size_t);
         free(palette as *mut libc::c_void);
         let mut colorspace = vec![];
         colorspace.push_obj("Indexed");
         colorspace.push_obj("DeviceRGB");
-        colorspace.push_obj((num_palette - 1i32) as f64);
+        colorspace.push_obj((num_palette - 1) as f64);
         colorspace.push_obj(lookup);
         colorspace.into_obj()
     } else {
@@ -178,13 +173,13 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
     stream_dict.set("ColorSpace", colorspace);
     /* Raster data of BMP is four-byte aligned. */
     let mut stream_data;
-    let rowbytes = (info.width * hdr.bit_count as i32 + 7i32) / 8i32;
+    let rowbytes = (info.width * hdr.bit_count as i32 + 7) / 8;
     handle.seek(SeekFrom::Start(hdr.offset as u64)).unwrap();
-    if hdr.compression == 0i32 {
-        let padding = if rowbytes % 4i32 != 0 {
-            4i32 - rowbytes % 4i32
+    if hdr.compression == 0 {
+        let padding = if rowbytes % 4 != 0 {
+            4 - rowbytes % 4
         } else {
-            0i32
+            0
         };
         let dib_rowbytes = rowbytes + padding;
         stream_data = vec![0_u8; (rowbytes * info.height + padding) as usize];
@@ -241,7 +236,7 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
     if hdr.bit_count as i32 >= 24 && info.bits_per_component >= 8 && info.height > 64 {
         pdf_stream_set_predictor(
             &mut stream,
-            15i32,
+            15,
             info.width,
             info.bits_per_component,
             info.num_components,
@@ -299,8 +294,8 @@ fn read_header<R: Read>(handle: &mut R) -> Result<hdr_info, ()> {
             let p = &mut p[2..];
             hdr.bit_count = u16::from_le_byte_slice(&p[..2]);
             //let p = &mut p[2..];
-            hdr.compression = 0i32;
-            hdr.psize = 3i32
+            hdr.compression = 0;
+            hdr.psize = 3
         }
         40 | 64 | 108 | 124 => {
             hdr.width = u32::from_le_byte_slice(&p[..4]);
@@ -322,7 +317,7 @@ fn read_header<R: Read>(handle: &mut R) -> Result<hdr_info, ()> {
             let p = &mut p[4..];
             hdr.y_pix_per_meter = u32::from_le_byte_slice(&p[..4]);
             //let p = &mut p[4..];
-            hdr.psize = 4i32
+            hdr.psize = 4
         }
         _ => {
             warn!("Unknown BMP header type.");
@@ -340,24 +335,24 @@ fn read_raster_rle8<R: Read>(
     let rowbytes = width;
     let mut data = vec![0_u8, (rowbytes * height) as _];
     let mut v = 0;
-    let mut eoi = 0i32;
+    let mut eoi = 0;
     while v < height && eoi == 0 {
         let mut h = 0;
-        let mut eol = 0i32;
+        let mut eol = 0;
         while h < width && eol == 0 {
             let b0 = u8::get(handle);
             let b1 = u8::get(handle);
             count += 2;
             let p = &mut data[(v * rowbytes + h) as usize..];
-            if b0 as i32 == 0i32 {
+            if b0 as i32 == 0 {
                 match b1 as i32 {
                     0 => {
                         /* EOL */
-                        eol = 1i32
+                        eol = 1
                     }
                     1 => {
                         /* EOI */
-                        eoi = 1i32
+                        eoi = 1
                     }
                     2 => {
                         h += u8::get(handle) as i32;
@@ -374,7 +369,7 @@ fn read_raster_rle8<R: Read>(
                             return Err(());
                         }
                         count += u32::from(b1);
-                        if b1 as i32 % 2i32 != 0 {
+                        if b1 as i32 % 2 != 0 {
                             u8::get(handle);
                             count += 1
                         }
@@ -415,28 +410,28 @@ fn read_raster_rle4<R: Read>(
     handle: &mut R,
 ) -> Result<(Vec<u8>, u32), ()> {
     let mut count: u32 = 0;
-    let rowbytes = (width + 1i32) / 2i32;
+    let rowbytes = (width + 1) / 2;
     let mut data = vec![0_u8, (rowbytes * height) as _];
-    let mut v = 0i32;
-    let mut eoi = 0i32;
+    let mut v = 0;
+    let mut eoi = 0;
     while v < height && eoi == 0 {
-        let mut h = 0i32;
-        let mut eol = 0i32;
+        let mut h = 0;
+        let mut eol = 0;
         while h < width && eol == 0 {
             let mut b0 = u8::get(handle);
             let mut b1 = u8::get(handle);
             count += 2;
             let mut p = &mut data[(v * rowbytes + h / 2) as usize..];
-            if b0 as i32 == 0i32 {
+            if b0 as i32 == 0 {
                 match b1 as i32 {
                     0 => {
                         /* Check for EOL and EOI marker */
                         /* EOL */
-                        eol = 1i32
+                        eol = 1
                     }
                     1 => {
                         /* EOI */
-                        eoi = 1i32
+                        eoi = 1
                     }
                     2 => {
                         h += u8::get(handle) as i32;
@@ -449,7 +444,7 @@ fn read_raster_rle4<R: Read>(
                             return Err(());
                         }
                         let nbytes = (u32::from(b1) + 1) / 2;
-                        if h % 2i32 != 0 {
+                        if h % 2 != 0 {
                             /* starting at hi-nib */
                             for _ in 0..nbytes {
                                 let b = u8::get(handle);
@@ -473,19 +468,19 @@ fn read_raster_rle4<R: Read>(
                     warn!("RLE decode failed...");
                     return Err(());
                 }
-                if h % 2i32 != 0 {
-                    p[0] = (b1 as i32 >> 4i32 & 0xfi32) as u8;
+                if h % 2 != 0 {
+                    p[0] = (b1 as i32 >> 4 & 0xf) as u8;
                     p = &mut p[1..];
-                    b1 = ((b1 as i32) << 4i32 & 0xf0i32 | b1 as i32 >> 4i32 & 0xfi32) as u8;
+                    b1 = ((b1 as i32) << 4 & 0xf0 | b1 as i32 >> 4 & 0xf) as u8;
                     b0 = b0.wrapping_sub(1);
                     h += 1
                 }
-                let nbytes = (b0 as i32 + 1i32) / 2i32;
+                let nbytes = (b0 as i32 + 1) / 2;
                 for b in &mut p[..nbytes as usize] {
                     *b = b1;
                 }
                 h += b0 as i32;
-                if h % 2i32 != 0 {
+                if h % 2 != 0 {
                     p[(nbytes - 1) as usize] &= 0xf0;
                 }
             }
@@ -494,7 +489,7 @@ fn read_raster_rle4<R: Read>(
         if eol == 0 && eoi == 0 {
             let b0 = u8::get(handle);
             let b1 = u8::get(handle);
-            if b0 as i32 != 0i32 {
+            if b0 as i32 != 0 {
                 warn!("No EOL/EOI marker. RLE decode failed...");
                 return Err(());
             } else if b1 as i32 == 0x1 {

@@ -64,14 +64,13 @@ pub(crate) struct tt_glyphs {
 
 fn find_empty_slot(g: &tt_glyphs) -> u16 {
     let mut gid = 0_u16;
-    while (gid as i32) < 65534i32 {
-        if g.used_slot[(gid as i32 / 8i32) as usize] as i32 & 1i32 << 7i32 - gid as i32 % 8i32 == 0
-        {
+    while (gid as i32) < 65534 {
+        if g.used_slot[(gid as i32 / 8) as usize] as i32 & 1 << 7 - gid as i32 % 8 == 0 {
             break;
         }
         gid = gid.wrapping_add(1)
     }
-    if gid as i32 == 65534i32 {
+    if gid as i32 == 65534 {
         panic!("No empty glyph slot available.");
     }
     gid
@@ -103,9 +102,7 @@ pub(crate) fn tt_get_index(g: &tt_glyphs, gid: u16) -> u16 {
 }
 
 pub(crate) fn tt_add_glyph(g: &mut tt_glyphs, gid: u16, new_gid: u16) -> u16 {
-    if g.used_slot[(new_gid as i32 / 8i32) as usize] as i32 & 1i32 << 7i32 - new_gid as i32 % 8i32
-        != 0
-    {
+    if g.used_slot[(new_gid as i32 / 8) as usize] as i32 & 1 << 7 - new_gid as i32 % 8 != 0 {
         warn!("Slot {} already used.", new_gid);
     } else {
         if g.gd.len() + 1 >= 65534 {
@@ -125,7 +122,7 @@ pub(crate) fn tt_add_glyph(g: &mut tt_glyphs, gid: u16, new_gid: u16) -> u16 {
             data: Vec::new(),
         });
 
-        g.used_slot[(new_gid as i32 / 8) as usize] |= (1i32 << 7 - new_gid as i32 % 8) as u8;
+        g.used_slot[(new_gid as i32 / 8) as usize] |= (1 << 7 - new_gid as i32 % 8) as u8;
     }
     if new_gid as i32 > g.last_gid as i32 {
         g.last_gid = new_gid
@@ -155,8 +152,7 @@ impl tt_glyphs {
 pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
     /* some information available from other TrueType table */
     /* temp */
-    if sfont.type_0 != 1i32 << 0i32 && sfont.type_0 != 1i32 << 4i32 && sfont.type_0 != 1i32 << 8i32
-    {
+    if sfont.type_0 != 1 << 0 && sfont.type_0 != 1 << 4 && sfont.type_0 != 1 << 8 {
         panic!("Invalid font type");
     }
     if g.gd.len() > 65534 {
@@ -203,11 +199,11 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
     sfnt_locate_table(sfont, sfnt_table_info::LOCA);
     let mut location = Vec::<u32>::with_capacity(maxp.numGlyphs as usize + 1); /* Estimate most frequently appeared width */
     let handle = &mut &*sfont.handle;
-    if head.indexToLocFormat as i32 == 0i32 {
+    if head.indexToLocFormat as i32 == 0 {
         for _ in 0..=maxp.numGlyphs as i32 {
             location.push(2 * (u16::get(handle) as u32));
         }
-    } else if head.indexToLocFormat as i32 == 1i32 {
+    } else if head.indexToLocFormat as i32 == 1 {
         for _ in 0..=maxp.numGlyphs as i32 {
             location.push(u32::get(handle));
         }
@@ -316,22 +312,18 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
                     /*
                      * Just skip remaining part.
                      */
-                    n += if flags as i32 & 1i32 << 0i32 != 0 {
-                        4
-                    } else {
-                        2
-                    };
-                    if flags as i32 & 1i32 << 3i32 != 0 {
+                    n += if flags as i32 & 1 << 0 != 0 { 4 } else { 2 };
+                    if flags as i32 & 1 << 3 != 0 {
                         /* F2Dot14 */
                         n += 2;
-                    } else if flags as i32 & 1i32 << 6i32 != 0 {
+                    } else if flags as i32 & 1 << 6 != 0 {
                         /* F2Dot14 x 2 */
                         n += 4;
-                    } else if flags as i32 & 1i32 << 7i32 != 0 {
+                    } else if flags as i32 & 1 << 7 != 0 {
                         /* F2Dot14 x 4 */
                         n += 8;
                     }
-                    if !(flags as i32 & 1i32 << 5i32 != 0) {
+                    if !(flags as i32 & 1 << 5 != 0) {
                         break;
                     }
                 }
@@ -339,9 +331,9 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
         }
         /* Does not contains any data. */
     }
-    let mut max_count: i32 = -1i32;
+    let mut max_count: i32 = -1;
     g.dw = g.gd[0].advw;
-    for i in 0..g.emsize as i32 + 1i32 {
+    for i in 0..g.emsize as i32 + 1 {
         if w_stat[i as usize] as i32 > max_count {
             max_count = w_stat[i as usize] as i32;
             g.dw = i as u16
@@ -359,8 +351,8 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
         }) as i32;
         glyf_table_size += (i.data.len() as u32) + (padlen as u32);
         if num_hm_known == 0 && last_advw as i32 != i.advw as i32 {
-            hhea.numOfLongHorMetrics = (i.gid as i32 + 2i32) as u16;
-            num_hm_known = 1i32
+            hhea.numOfLongHorMetrics = (i.gid as i32 + 2) as u16;
+            num_hm_known = 1
         }
     }
     /* All advance widths are same. */
@@ -368,17 +360,17 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
         hhea.numOfLongHorMetrics = 1_u16
     }
     let hmtx_table_size =
-        (hhea.numOfLongHorMetrics as i32 * 2i32 + (g.last_gid as i32 + 1i32) * 2i32) as u32;
+        (hhea.numOfLongHorMetrics as i32 * 2 + (g.last_gid as i32 + 1) * 2) as u32;
     /*
      * Choosing short format does not always give good result
      * when compressed. Sometimes increases size.
      */
     let loca_table_size = if (glyf_table_size as u64) < 0x20000 {
         head.indexToLocFormat = 0_i16;
-        ((g.last_gid as i32 + 2i32) * 2i32) as u32
+        ((g.last_gid as i32 + 2) * 2) as u32
     } else {
         head.indexToLocFormat = 1_i16;
-        ((g.last_gid as i32 + 2i32) * 4i32) as u32
+        ((g.last_gid as i32 + 2) * 4) as u32
     };
     let mut hmtx_table_data = Vec::<u8>::with_capacity(hmtx_table_size as usize);
     let mut loca_table_data = Vec::<u8>::with_capacity(loca_table_size as usize);
@@ -386,15 +378,15 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
     let mut offset = 0u64 as u32;
     let mut prev = 0_u16;
     for i in &mut g.gd {
-        let gap = i.gid as i32 - prev as i32 - 1i32;
+        let gap = i.gid as i32 - prev as i32 - 1;
         for j in 1..=gap {
-            if prev as i32 + j == hhea.numOfLongHorMetrics as i32 - 1i32 {
+            if prev as i32 + j == hhea.numOfLongHorMetrics as i32 - 1 {
                 hmtx_table_data.put_be(last_advw as u16);
             } else if prev as i32 + j < hhea.numOfLongHorMetrics as i32 {
                 hmtx_table_data.put_be(0_u16);
             }
             hmtx_table_data.put_be(0_u16);
-            if head.indexToLocFormat as i32 == 0i32 {
+            if head.indexToLocFormat as i32 == 0 {
                 loca_table_data.put_be((offset / 2) as u16);
             } else {
                 loca_table_data.put_be(offset as u32);
@@ -409,7 +401,7 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
             hmtx_table_data.put_be(i.advw as u16);
         }
         hmtx_table_data.put_be(i.lsb as i16);
-        if head.indexToLocFormat as i32 == 0i32 {
+        if head.indexToLocFormat as i32 == 0 {
             loca_table_data.put_be((offset / 2) as u16);
         } else {
             loca_table_data.put_be(offset as u32);
@@ -421,7 +413,7 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
         /* free data here since it consume much memory */
         i.data = Vec::new();
     }
-    if head.indexToLocFormat as i32 == 0i32 {
+    if head.indexToLocFormat as i32 == 0 {
         loca_table_data.put_be((offset / 2) as u16);
     } else {
         loca_table_data.put_be(offset as u32);
@@ -430,12 +422,12 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
     sfnt_set_table(sfont, sfnt_table_info::LOCA, loca_table_data);
     sfnt_set_table(sfont, sfnt_table_info::GLYF, glyf_table_data);
     head.checkSumAdjustment = 0_u32;
-    maxp.numGlyphs = (g.last_gid as i32 + 1i32) as u16;
+    maxp.numGlyphs = (g.last_gid as i32 + 1) as u16;
     /* TODO */
     sfnt_set_table(sfont, sfnt_table_info::MAXP, tt_pack_maxp_table(&maxp));
     sfnt_set_table(sfont, sfnt_table_info::HHEA, tt_pack_hhea_table(&hhea));
     sfnt_set_table(sfont, sfnt_table_info::HEAD, tt_pack_head_table(&head));
-    0i32
+    0
 }
 /* GID in original font */
 /* optimal value for DW */
@@ -444,8 +436,7 @@ pub(crate) fn tt_build_tables(sfont: &mut sfnt, g: &mut tt_glyphs) -> i32 {
 
 pub(crate) fn tt_get_metrics(sfont: &sfnt, g: &mut tt_glyphs) -> i32 {
     /* temp */
-    if sfont.type_0 != 1i32 << 0i32 && sfont.type_0 != 1i32 << 4i32 && sfont.type_0 != 1i32 << 8i32
-    {
+    if sfont.type_0 != 1 << 0 && sfont.type_0 != 1 << 4 && sfont.type_0 != 1 << 8 {
         panic!("Invalid font type");
     }
     /*
@@ -459,7 +450,7 @@ pub(crate) fn tt_get_metrics(sfont: &sfnt, g: &mut tt_glyphs) -> i32 {
     let head = tt_read_head_table(sfont);
     let hhea = tt_read_hhea_table(sfont);
     let maxp = tt_read_maxp_table(sfont);
-    if hhea.metricDataFormat as i32 != 0i32 {
+    if hhea.metricDataFormat as i32 != 0 {
         panic!("Unknown metricDataFormat.");
     }
     g.emsize = head.unitsPerEm;
@@ -488,11 +479,11 @@ pub(crate) fn tt_get_metrics(sfont: &sfnt, g: &mut tt_glyphs) -> i32 {
     sfnt_locate_table(sfont, sfnt_table_info::LOCA);
     let mut location = Vec::<u32>::with_capacity(maxp.numGlyphs as usize + 1);
     let handle = &mut &*sfont.handle;
-    if head.indexToLocFormat as i32 == 0i32 {
+    if head.indexToLocFormat as i32 == 0 {
         for _ in 0..=maxp.numGlyphs as u32 {
             location.push(2 * (u16::get(handle) as u32));
         }
-    } else if head.indexToLocFormat as i32 == 1i32 {
+    } else if head.indexToLocFormat as i32 == 1 {
         for _ in 0..=maxp.numGlyphs as u32 {
             location.push(u32::get(handle));
         }
@@ -549,13 +540,13 @@ pub(crate) fn tt_get_metrics(sfont: &sfnt, g: &mut tt_glyphs) -> i32 {
         }
         /* Does not contains any data. */
     }
-    let mut max_count: i32 = -1i32;
+    let mut max_count: i32 = -1;
     g.dw = g.gd[0].advw;
-    for i in 0..(g.emsize as i32 + 1i32) as u32 {
+    for i in 0..(g.emsize as i32 + 1) as u32 {
         if w_stat[i as usize] as i32 > max_count {
             max_count = w_stat[i as usize] as i32;
             g.dw = i as u16
         }
     }
-    0i32
+    0
 }

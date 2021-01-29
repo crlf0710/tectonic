@@ -175,15 +175,15 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     if check_for_jpeg(handle) == 0 {
         warn!("{}: Not a JPEG file?", "JPEG");
         handle.seek(SeekFrom::Start(0)).unwrap();
-        return -1i32;
+        return -1;
     }
     /* File position is 2 here... */
     let mut info = ximage_info::init();
     JPEG_info_init(&mut j_info);
-    if JPEG_scan_file(&mut j_info, handle) < 0i32 {
+    if JPEG_scan_file(&mut j_info, handle) < 0 {
         warn!("{}: Not a JPEG file?", "JPEG");
         JPEG_info_clear(&mut j_info);
-        return -1i32;
+        return -1;
     }
     let colortype = match j_info.num_components as i32 {
         1 => -1,
@@ -195,11 +195,11 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
                 "JPEG", info.num_components,
             );
             JPEG_info_clear(&mut j_info);
-            return -1i32;
+            return -1;
         }
     };
     /* JPEG image use DCTDecode. */
-    let mut stream = pdf_stream::new(0i32);
+    let mut stream = pdf_stream::new(0);
     let stream_dict = stream.get_dict_mut();
     stream_dict.set("Filter", "DCTDecode");
     /* XMP Metadata */
@@ -262,7 +262,7 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     info.ydensity = ydensity;
     pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
     JPEG_info_clear(&mut j_info);
-    0i32
+    0
 }
 unsafe fn jpeg_get_density(mut j_info: *mut JPEG_info) -> (f64, f64) {
     /*
@@ -285,11 +285,11 @@ unsafe fn JPEG_info_init(mut j_info: *mut JPEG_info) {
     (*j_info).num_components = 0_u8;
     (*j_info).xdpi = 0.0f64;
     (*j_info).ydpi = 0.0f64;
-    (*j_info).flags = 0i32;
+    (*j_info).flags = 0;
     (*j_info).appn = Vec::new();
     memset(
         (*j_info).skipbits.as_mut_ptr() as *mut libc::c_void,
-        0i32,
+        0,
         1024 / 8 + 1,
     );
 }
@@ -326,7 +326,7 @@ unsafe fn JPEG_get_iccp(j_info: *mut JPEG_info) -> Option<pdf_stream> {
     Some(icc_stream)
 }
 unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> pdf_stream {
-    let mut count: i32 = 0i32;
+    let mut count: i32 = 0;
     /* I don't know if XMP Metadata should be compressed here.*/
     let mut XMP_stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = XMP_stream.get_dict_mut();
@@ -342,7 +342,7 @@ unsafe fn JPEG_get_XMP(j_info: *mut JPEG_info) -> pdf_stream {
             count += 1
         }
     }
-    if count > 1i32 {
+    if count > 1 {
         warn!(
             "{}: Multiple XMP segments found in JPEG file. (untested)",
             "JPEG",
@@ -384,17 +384,17 @@ unsafe fn read_APP14_Adobe<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> u
     7_u16
 }
 unsafe fn read_exif_bytes(pp: &mut *mut u8, n: i32, endian: i32) -> i32 {
-    let mut rval: i32 = 0i32;
+    let mut rval: i32 = 0;
     let p: *mut u8 = *pp;
     match endian {
         0 => {
             for i in 0..n {
-                rval = (rval << 8i32) + *p.offset(i as isize) as i32;
+                rval = (rval << 8) + *p.offset(i as isize) as i32;
             }
         }
         1 => {
             for i in (0..n).rev() {
-                rval = (rval << 8i32) + *p.offset(i as isize) as i32;
+                rval = (rval << 8) + *p.offset(i as isize) as i32;
             }
         }
         _ => {}
@@ -410,8 +410,8 @@ unsafe fn read_APP1_Exif<R: Read>(
     let bigendian: i8;
     let mut type_0;
     let mut value;
-    let mut num: i32 = 0i32;
-    let mut den: i32 = 0i32;
+    let mut num: i32 = 0;
+    let mut den: i32 = 0;
     let mut xres: f64 = 0.0f64;
     let mut yres: f64 = 0.0f64;
     let mut res_unit: f64 = 1.0f64;
@@ -444,15 +444,15 @@ unsafe fn read_APP1_Exif<R: Read>(
     }
 
     p = p.offset(2);
-    let mut i = read_exif_bytes(&mut p, 2i32, bigendian as i32);
+    let mut i = read_exif_bytes(&mut p, 2, bigendian as i32);
     if i != 42 {
         warn!("JPEG: Invalid value in Exif TIFF header.");
         return length;
     }
 
-    i = read_exif_bytes(&mut p, 4i32, bigendian as i32);
+    i = read_exif_bytes(&mut p, 4, bigendian as i32);
     p = tiff_header.offset(i as isize);
-    let mut num_fields = read_exif_bytes(&mut p, 2i32, bigendian as i32);
+    let mut num_fields = read_exif_bytes(&mut p, 2, bigendian as i32);
     while num_fields > 0 {
         num_fields -= num_fields - 1;
 
@@ -510,7 +510,7 @@ unsafe fn read_APP1_Exif<R: Read>(
             }
             20752 => {
                 /* PixelUnit */
-                if type_0 != 1i32 || count != 1i32 {
+                if type_0 != 1 || count != 1 {
                     warn!("{}: Invalid data for ResolutionUnit in Exif chunk.", "JPEG");
                     return length;
                 } else {
@@ -592,7 +592,7 @@ unsafe fn read_APP0_JFIF<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> siz
     let Ydensity = u16::get(handle);
     let Xthumbnail = u8::get(handle);
     let Ythumbnail = u8::get(handle);
-    let thumb_data_len = (3i32 * Xthumbnail as i32 * Ythumbnail as i32) as size_t;
+    let thumb_data_len = (3 * Xthumbnail as i32 * Ythumbnail as i32) as size_t;
     let mut thumbnail = vec![0; thumb_data_len as usize];
     if thumb_data_len > 0 {
         handle.read_exact(&mut thumbnail).unwrap();
@@ -625,7 +625,7 @@ unsafe fn read_APP0_JFIF<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> siz
             (*j_info).ydpi = 72.;
         }
     }
-    (9i32 as u64).wrapping_add(thumb_data_len as _) as _
+    (9 as u64).wrapping_add(thumb_data_len as _) as _
 }
 unsafe fn read_APP0_JFXX<R: Read + Seek>(handle: &mut R, length: size_t) -> size_t {
     u8::get(handle);
@@ -748,8 +748,8 @@ unsafe fn JPEG_copy_stream<R: Read + Seek>(
 unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mut R) -> i32 {
     let mut app_sig: [u8; 128] = [0; 128];
     handle.seek(SeekFrom::Start(0)).unwrap();
-    let mut count = 0i32;
-    let mut found_SOFn = 0i32;
+    let mut count = 0;
+    let mut found_SOFn = 0;
     while found_SOFn == 0 {
         let marker = JPEG_get_marker(handle);
         if marker.is_none() {
@@ -759,7 +759,7 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
         if marker as u32 != JM_SOI as i32 as u32
             && ((marker as u32) < JM_RST0 as i32 as u32 || marker as u32 > JM_RST7 as i32 as u32)
         {
-            let mut length: i32 = u16::get(handle) as i32 - 2i32;
+            let mut length: i32 = u16::get(handle) as i32 - 2;
             match marker {
                 JM_SOF0 | JM_SOF1 | JM_SOF2 | JM_SOF3 | JM_SOF5 | JM_SOF6 | JM_SOF7 | JM_SOF9
                 | JM_SOF10 | JM_SOF11 | JM_SOF13 | JM_SOF14 | JM_SOF15 => {
@@ -767,7 +767,7 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
                     (*j_info).height = u16::get(handle);
                     (*j_info).width = u16::get(handle);
                     (*j_info).num_components = u8::get(handle);
-                    found_SOFn = 1i32
+                    found_SOFn = 1
                 }
                 JM_APP0 => {
                     if length > 5 {
@@ -792,11 +792,11 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
                 JM_APP1 => {
                     if length > 5 {
                         if handle.read_exact(&mut app_sig[..5]).is_err() {
-                            return -1i32;
+                            return -1;
                         }
-                        length -= 5i32;
+                        length -= 5;
                         if app_sig.starts_with(b"Exif\x00") {
-                            (*j_info).flags |= 1i32 << 3i32;
+                            (*j_info).flags |= 1 << 3;
                             length = (length as u64).wrapping_sub(read_APP1_Exif(
                                 j_info,
                                 handle,
@@ -809,17 +809,17 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
                             }
                             length -= 24;
                             if app_sig.starts_with(b"//ns.adobe.com/xap/1.0/\x00") {
-                                (*j_info).flags |= 1i32 << 4i32;
+                                (*j_info).flags |= 1 << 4;
                                 length = (length as u64).wrapping_sub(read_APP1_XMP(
                                     j_info,
                                     handle,
                                     length as size_t,
                                 )
                                     as _) as i32 as i32;
-                                if count < 1024i32 {
-                                    (*j_info).skipbits[(count / 8i32) as usize] =
-                                        ((*j_info).skipbits[(count / 8i32) as usize] as i32
-                                            | 1i32 << 7i32 - count % 8i32)
+                                if count < 1024 {
+                                    (*j_info).skipbits[(count / 8) as usize] =
+                                        ((*j_info).skipbits[(count / 8) as usize] as i32
+                                            | 1 << 7 - count % 8)
                                             as i8
                                 }
                             }
@@ -830,21 +830,21 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
                 JM_APP2 => {
                     if length >= 14 {
                         if handle.read_exact(&mut app_sig[..12]).is_err() {
-                            return -1i32;
+                            return -1;
                         }
                         length -= 12;
                         if app_sig.starts_with(b"ICC_PROFILE\x00") {
-                            (*j_info).flags |= 1i32 << 2i32;
+                            (*j_info).flags |= 1 << 2;
                             length = (length as u64).wrapping_sub(read_APP2_ICC(
                                 j_info,
                                 handle,
                                 length as size_t,
                             )
                                 as _) as i32 as i32;
-                            if count < 1024i32 {
-                                (*j_info).skipbits[(count / 8i32) as usize] =
-                                    ((*j_info).skipbits[(count / 8i32) as usize] as i32
-                                        | 1i32 << 7i32 - count % 8i32)
+                            if count < 1024 {
+                                (*j_info).skipbits[(count / 8) as usize] =
+                                    ((*j_info).skipbits[(count / 8) as usize] as i32
+                                        | 1 << 7 - count % 8)
                                         as i8
                             }
                         }
@@ -893,9 +893,9 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
         (*j_info).xdpi = (*j_info).ydpi
     }
     if found_SOFn != 0 {
-        0i32
+        0
     } else {
-        -1i32
+        -1
     }
 }
 
@@ -912,7 +912,7 @@ pub unsafe fn jpeg_get_bbox<R: Read + Seek>(handle: &mut R) -> Result<(u32, u32,
         skipbits: [0; 129],
     };
     JPEG_info_init(&mut j_info);
-    if JPEG_scan_file(&mut j_info, handle) < 0i32 {
+    if JPEG_scan_file(&mut j_info, handle) < 0 {
         warn!("{}: Not a JPEG file?", "JPEG");
         JPEG_info_clear(&mut j_info);
         return Err(());

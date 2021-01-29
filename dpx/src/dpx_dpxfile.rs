@@ -33,7 +33,7 @@ use super::dpx_numbers::GetFromFile;
 use bridge::{InFile, TTInputFormat};
 /* quasi-hack to get the primary input */
 
-pub(crate) static mut keep_cache: i32 = 0i32;
+pub(crate) static mut keep_cache: i32 = 0;
 
 static mut _SBUF: [u8; 128] = [0; 128];
 /*
@@ -124,7 +124,7 @@ pub(crate) unsafe fn dpx_tt_open(
     format: TTInputFormat,
 ) -> Option<InFile> {
     let q = ensuresuffix(filename, suffix);
-    let handle = InFile::open(&q, format, 0i32);
+    let handle = InFile::open(&q, format, 0);
     handle
 }
 /* Search order:
@@ -162,7 +162,7 @@ pub(crate) unsafe fn dpx_open_truetype_file(filename: &str) -> Option<InFile> {
 
 pub(crate) unsafe fn dpx_open_opentype_file(filename: &str) -> Option<InFile> {
     let q = ensuresuffix(filename, ".otf");
-    let handle = InFile::open(&q, TTInputFormat::OPENTYPE, 0i32);
+    let handle = InFile::open(&q, TTInputFormat::OPENTYPE, 0);
     match handle {
         Some(mut handle) => {
             if !check_stream_is_opentype(&mut handle) {
@@ -204,8 +204,8 @@ pub(crate) unsafe fn dpx_open_dfont_file(filename: &str) -> Option<InFile> {
 pub(crate) unsafe fn dpx_delete_old_cache(life: i32) {
     /* This used to delete files in tmpdir, but that code was ripped out since
      * it would have been annoying to port to Windows. */
-    if life == -2i32 {
-        keep_cache = -1i32
+    if life == -2 {
+        keep_cache = -1
     };
 }
 
@@ -233,5 +233,5 @@ pub(crate) unsafe fn dpx_file_apply_filter(
     mut _version: u8,
 ) -> i32 {
     /* Tectonic: defused */
-    -1i32
+    -1
 }

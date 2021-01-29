@@ -74,11 +74,11 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
     let mut maxidx = 257_u16;
     for i in 0..(*post).numberOfGlyphs as i32 {
         let mut idx = u16::get(handle);
-        if idx as i32 >= 258i32 {
+        if idx as i32 >= 258 {
             if idx as i32 > maxidx as i32 {
                 maxidx = idx
             }
-            if idx as i32 > 32767i32 {
+            if idx as i32 > 32767 {
                 /* Although this is strictly speaking out of spec, it seems to work
                 and there are real-life fonts that use it.
                 We show a warning only once, instead of thousands of times */
@@ -97,8 +97,8 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
         }
         *indices.offset(i as isize) = idx;
     }
-    (*post).count = (maxidx as i32 - 257i32) as u16;
-    if ((*post).count as i32) < 1i32 {
+    (*post).count = (maxidx as i32 - 257) as u16;
+    if ((*post).count as i32) < 1 {
         (*post).names = 0 as *mut *mut i8
     } else {
         (*post).names = new(((*post).count as u32 as u64)
@@ -107,8 +107,8 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
         for i in 0..(*post).count as i32 {
             /* read Pascal strings */
             let len = u8::get(handle) as i32;
-            if len > 0i32 {
-                *(*post).names.offset(i as isize) = new(((len + 1i32) as u32 as u64)
+            if len > 0 {
+                *(*post).names.offset(i as isize) = new(((len + 1) as u32 as u64)
                     .wrapping_mul(::std::mem::size_of::<i8>() as u64)
                     as u32) as *mut i8;
                 let slice = std::slice::from_raw_parts_mut(
@@ -127,12 +127,12 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
         as u32) as *mut *const i8;
     for i in 0..(*post).numberOfGlyphs as i32 {
         let idx = *indices.offset(i as isize);
-        if (idx as i32) < 258i32 {
+        if (idx as i32) < 258 {
             *(*post).glyphNamePtr.offset(i as isize) =
                 macglyphorder[idx as usize].as_ptr() as *const i8
-        } else if idx as i32 - 258i32 < (*post).count as i32 {
+        } else if idx as i32 - 258 < (*post).count as i32 {
             *(*post).glyphNamePtr.offset(i as isize) =
-                *(*post).names.offset((idx as i32 - 258i32) as isize)
+                *(*post).names.offset((idx as i32 - 258) as isize)
         } else {
             warn!(
                 "Invalid glyph name index number: {} (>= {})",
@@ -140,11 +140,11 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
                 (*post).count + 258,
             );
             free(indices as *mut libc::c_void);
-            return -1i32;
+            return -1;
         }
     }
     free(indices as *mut libc::c_void);
-    0i32
+    0
 }
 
 pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
@@ -172,7 +172,7 @@ pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
     } else if (*post).Version as u64 == 0x28000 {
         warn!("TrueType \'post\' version 2.5 found (deprecated)");
     } else if (*post).Version as u64 == 0x20000 {
-        if read_v2_post_names(post, handle) < 0i32 {
+        if read_v2_post_names(post, handle) < 0 {
             warn!("Invalid version 2.0 \'post\' table");
             tt_release_post_table(post);
             post = ptr::null_mut()
