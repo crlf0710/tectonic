@@ -2366,25 +2366,25 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
             let mut have_parms: libc::c_int = 0;
             if stream_dict.has("DecodeParms") {
                 /* Dictionary or array */
-                let tmp = pdf_deref_obj(stream_dict.get_mut("DecodeParms"));
-                let tmp = if let Some(tmp) = tmp.as_mut() {
-                    if let Object::Array(array) = &mut tmp.data {
-                        if array.len() > 1 {
-                            warn!("Unexpected size for DecodeParms array.");
-                            return -1;
-                        }
+                let mut tmp =
+                    if let Some(mut tmp) = DerefObj::new(stream_dict.get_mut("DecodeParms")) {
+                        if let Object::Array(array) = &mut tmp.data {
+                            if array.len() > 1 {
+                                warn!("Unexpected size for DecodeParms array.");
+                                return -1;
+                            }
 
-                        if !array.is_empty() {
-                            pdf_deref_obj(Some(&mut *array[0]))
+                            if !array.is_empty() {
+                                DerefObj::new(Some(&mut *array[0]))
+                            } else {
+                                None
+                            }
                         } else {
-                            0 as *mut pdf_obj
+                            Some(tmp)
                         }
                     } else {
-                        tmp
-                    }
-                } else {
-                    tmp
-                };
+                        None
+                    };
                 if let Some(tmp) = tmp.as_mut() {
                     if let Object::Dict(d) = &mut tmp.data {
                         error = get_decode_parms(&mut parms, d);

@@ -1477,8 +1477,6 @@ pub(crate) unsafe fn pdf_doc_add_names(category: &[u8], key: &[u8], value: *mut 
     pdf_names_add_object((*p.names.offset(i as isize)).data, keyptr, keylen, value)
 }
 unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
-    let mut A: *mut pdf_obj = ptr::null_mut();
-    let mut D: *mut pdf_obj = ptr::null_mut();
     if pdoc.check_gotos == 0 {
         return;
     }
@@ -1490,29 +1488,29 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
     if let Some(subtype) = DerefObj::new(annot_dict.get_mut("Subtype")) {
         match &subtype.data {
             Object::Undefined => {
-                return undefined(A, D);
+                return undefined(ptr::null_mut(), ptr::null_mut());
             }
             Object::Name(n) if n.to_bytes() == b"Link" => {}
             Object::Name(_) => {
-                return cleanup(A, D);
+                return;
             }
             _ => {
-                return error(A, D);
+                return error(ptr::null_mut(), ptr::null_mut());
             }
         }
     }
 
     let mut key = "Dest";
-    D = pdf_deref_obj(annot_dict.get_mut(key));
+    let mut D = pdf_deref_obj(annot_dict.get_mut(key));
     let mut dict = annot_dict;
     match D.as_mut() {
         Some(D) if matches!(D.data, Object::Undefined) => {
-            return undefined(A, D);
+            return undefined(ptr::null_mut(), D);
         }
         _ => {}
     }
 
-    A = pdf_deref_obj(dict.get_mut("A"));
+    let A = pdf_deref_obj(dict.get_mut("A"));
     if let Some(A) = A.as_mut() {
         if let Object::Undefined = A.data {
             return undefined(A, D);
