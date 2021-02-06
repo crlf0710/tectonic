@@ -3,8 +3,8 @@ use std::ptr;
 use crate::cmd::{Cmd, InteractionMode};
 use crate::help;
 use crate::xetex_consts::IntPar;
-use crate::xetex_ini::{b16x4, b32x2, memory_word, EqtbWord, Selector, FONT_PTR};
-use crate::xetex_output::Esc;
+use crate::xetex_ini::{b16x4, b32x2, memory_word, EqtbWord, FONT_PTR};
+use crate::xetex_output::{selector, Esc, Selector};
 use crate::xetex_stringpool::{
     init_pool_ptr, init_str_ptr, max_strings, pool_free, pool_ptr, pool_size, str_pool, str_ptr,
     str_start, strings_free,
@@ -120,20 +120,24 @@ pub(crate) unsafe fn store_fmt_file() {
         if interaction == InteractionMode::ErrorStop {
             interaction = InteractionMode::Scroll;
         }
-        if log_opened {
+        if crate::xetex_output::log_opened {
             error();
         }
 
         history = TTHistory::FATAL_ERROR;
         close_files_and_terminate();
-        rust_stdout.as_mut().unwrap().flush().unwrap();
+        crate::xetex_output::rust_stdout
+            .as_mut()
+            .unwrap()
+            .flush()
+            .unwrap();
         panic!("\\dump inside a group");
     }
 
     selector = if interaction == InteractionMode::Batch {
-        Selector::LOG_ONLY
+        Selector::LogOnly
     } else {
-        Selector::TERM_AND_LOG
+        Selector::TermAndLog
     };
 
     let s = format!(

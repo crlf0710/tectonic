@@ -7,7 +7,7 @@ use std::fmt;
 use std::io::Write;
 use std::ptr;
 
-use super::xetex_ini::{input_state_t, EqtbWord, Selector};
+use super::xetex_ini::{input_state_t, EqtbWord};
 use super::xetex_io::{name_of_input_file, u_open_in};
 use crate::cmd::*;
 use crate::core_memory::{mfree, xmalloc_array};
@@ -31,30 +31,28 @@ use crate::xetex_ini::{
     cur_input, cur_l, cur_lang, cur_level, cur_list, cur_loop, cur_mark, cur_name, cur_order,
     cur_pre_head, cur_pre_tail, cur_ptr, cur_q, cur_r, cur_span, cur_tail, cur_tok, dead_cycles,
     def_ref, deletions_allowed, depth_threshold, disc_ptr, error_count, error_line, expand_depth,
-    expand_depth_count, false_bchar, file_offset, first, first_count, fmem_ptr,
-    font_in_short_display, force_eof, gave_char_warning_help, half_error_line, hash_extra,
-    hash_high, hash_used, hi_mem_min, history, if_limit, if_line, ins_disc, insert_penalties,
-    insert_src_special_auto, insert_src_special_every_par, insert_src_special_every_vbox,
-    interaction, is_hyph, is_in_csname, job_name, last, last_badness, last_glue, last_kern,
-    last_leftmost_char, last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack,
-    ligature_present, line, lo_mem_max, log_file, log_opened, long_help_seen, long_state, mag_set,
-    main_f, main_h, main_i, main_j, main_k, main_s, max_buf_stack, max_print_line,
-    max_reg_help_line, max_reg_num, mem_end, name_in_progress, name_of_font,
-    no_new_control_sequence, open_parens, output_active, pack_begin_line, page_contents,
-    page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos, pre_adjust_tail,
-    prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack, read_file, read_open, rover,
-    rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed,
-    shown_mode, skip_line, space_class, stop_at_space, tally, term_offset, texmf_log_name,
-    total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
-    warning_index, write_file, write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr,
-    BCHAR_LABEL, BUFFER, BUF_SIZE, EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR,
-    FONT_DSIZE, FONT_EC, FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING,
-    FONT_MAX, FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE,
-    FULL_SOURCE_FILENAME_STACK, GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR,
-    INPUT_STACK, IN_OPEN, KERN_BASE, LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK,
-    MAX_NEST_STACK, MAX_PARAM_STACK, MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE,
-    PARAM_PTR, PARAM_SIZE, PARAM_STACK, SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR,
-    SOURCE_FILENAME_STACK, STACK_SIZE,
+    expand_depth_count, false_bchar, first, fmem_ptr, font_in_short_display, force_eof,
+    gave_char_warning_help, half_error_line, hash_extra, hash_high, hash_used, hi_mem_min, history,
+    if_limit, if_line, ins_disc, insert_penalties, insert_src_special_auto,
+    insert_src_special_every_par, insert_src_special_every_vbox, interaction, is_hyph,
+    is_in_csname, job_name, last, last_badness, last_glue, last_kern, last_leftmost_char,
+    last_node_type, last_penalty, last_rightmost_char, lft_hit, lig_stack, ligature_present, line,
+    lo_mem_max, long_help_seen, long_state, mag_set, main_f, main_h, main_i, main_j, main_k,
+    main_s, max_buf_stack, max_print_line, max_reg_help_line, max_reg_num, mem_end,
+    name_in_progress, name_of_font, no_new_control_sequence, open_parens, output_active,
+    pack_begin_line, page_contents, page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos,
+    pdf_last_y_pos, pre_adjust_tail, prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack,
+    read_file, read_open, rover, rt_hit, sa_chain, sa_level, sa_root, scanner_status,
+    set_box_allowed, shown_mode, skip_line, space_class, stop_at_space, texmf_log_name,
+    total_shrink, total_stretch, use_err_help, used_tectonic_coda_tokens, warning_index,
+    write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr, BCHAR_LABEL, BUFFER, BUF_SIZE,
+    EOF_SEEN, EQTB, EQTB_TOP, FONT_AREA, FONT_BC, FONT_BCHAR, FONT_DSIZE, FONT_EC,
+    FONT_FALSE_BCHAR, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_MAPPING, FONT_MAX,
+    FONT_MEM_SIZE, FONT_NAME, FONT_PARAMS, FONT_PTR, FONT_SIZE, FULL_SOURCE_FILENAME_STACK,
+    GRP_STACK, HYPHEN_CHAR, IF_STACK, INPUT_FILE, INPUT_PTR, INPUT_STACK, IN_OPEN, KERN_BASE,
+    LIG_KERN_BASE, LINE_STACK, MAX_IN_OPEN, MAX_IN_STACK, MAX_NEST_STACK, MAX_PARAM_STACK,
+    MAX_SAVE_STACK, MEM, NEST, NEST_PTR, NEST_SIZE, PARAM_BASE, PARAM_PTR, PARAM_SIZE, PARAM_STACK,
+    SAVE_PTR, SAVE_SIZE, SAVE_STACK, SKEW_CHAR, SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, memory_word, prefixed_command};
 use crate::xetex_ini::{hash_offset, FONT_LETTER_SPACE};
@@ -66,7 +64,10 @@ use crate::xetex_math::{
     math_fraction, math_left_right, math_limit_switch, math_radical, resume_after_display,
     start_eq_no, sub_sup,
 };
-use crate::xetex_output::{print_chr, print_esc_cstr, print_ln, SaNum};
+use crate::xetex_output::{
+    log_file, log_opened, print_chr, print_esc_cstr, print_ln, rust_stdout, selector, trick_buf,
+    write_file, SaNum, Selector,
+};
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
 use crate::xetex_scaledmath::{
@@ -208,27 +209,17 @@ impl<'a> fmt::Display for TokenList {
 }
 /*:112*/
 /*118:*/
-pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, l: i32) {
+pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, l: usize) {
     let mut match_chr = '#'; // character used in a `match`
     let mut n = b'0'; // the highest parameter number, as an ASCII digit
-    tally = 0;
+    selector.zero_tally();
     while let Some(p) = popt {
-        if tally >= l {
+        if selector.get_max_tally() >= l {
             break;
-        }
-        /*332:*/
-        if let Some(q) = q {
-            if p == q {
-                first_count = tally;
-                trick_count = tally + 1 + error_line - half_error_line;
-                if trick_count < error_line {
-                    trick_count = error_line
-                }
-            }
         }
         // Display token |p|, and |return|
         if p < hi_mem_min as usize || p > mem_end as usize {
-            print_esc_cstr("CLOBBERED.");
+            t_print!("{}.", Esc("CLOBBERED"));
             return;
         }
         let info = *LLIST_info(p as usize);
@@ -238,7 +229,7 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
             let m = Cmd::from((info / MAX_CHAR_VAL) as u16);
             let c = info % MAX_CHAR_VAL;
             if info < 0 {
-                print_esc_cstr("BAD.");
+                t_print!("{}.", Esc("BAD"));
             } else {
                 // Display the token `$(m,c)$`
                 /*306:*/
@@ -251,26 +242,25 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                     | Cmd::SubMark
                     | Cmd::Spacer
                     | Cmd::Letter
-                    | Cmd::OtherChar => print_chr(std::char::from_u32(c as u32).unwrap()),
+                    | Cmd::OtherChar => t_print!("{}", std::char::from_u32(c as u32).unwrap()),
                     Cmd::MacParam => {
                         let c = std::char::from_u32(c as u32).unwrap();
-                        print_chr(c);
-                        print_chr(c);
+                        t_print!("{0}{0}", c);
                     }
                     OUT_PARAM => {
-                        print_chr(match_chr);
+                        t_print!("{}", match_chr);
                         if c <= 0x9 {
-                            print_chr(char::from((c as u8) + b'0'));
+                            t_print!("{}", char::from((c as u8) + b'0'));
                         } else {
-                            print_chr('!');
+                            t_print!("!");
                             return;
                         }
                     }
                     MATCH => {
                         match_chr = std::char::from_u32(c as u32).unwrap();
-                        print_chr(match_chr);
+                        t_print!("{}", match_chr);
                         n += 1;
-                        print_chr(char::from(n));
+                        t_print!("{}", char::from(n));
                         if n > b'9' {
                             return;
                         }
@@ -280,14 +270,101 @@ pub(crate) unsafe fn show_token_list(mut popt: Option<usize>, q: Option<usize>, 
                             t_print!("->");
                         }
                     }
-                    _ => print_esc_cstr("BAD."),
+                    _ => t_print!("{}.", Esc("BAD")),
                 }
             }
         }
         popt = LLIST_link(p as usize).opt();
     }
     if popt.is_some() {
-        print_esc_cstr("ETC.");
+        t_print!("{}.", Esc("ETC"));
+    };
+}
+pub(crate) unsafe fn show_token_list_pseudo(
+    ps: &mut crate::xetex_output::Pseudo,
+    mut popt: Option<usize>,
+    q: Option<usize>,
+    l: usize,
+) {
+    use std::fmt::Write;
+    use std::format_args as fa;
+    let mut match_chr = '#'; // character used in a `match`
+    let mut n = b'0'; // the highest parameter number, as an ASCII digit
+    while let Some(p) = popt {
+        if ps.tally >= l {
+            break;
+        }
+        /*332:*/
+        if let Some(q) = q {
+            if p == q {
+                ps.first_count = ps.tally;
+                ps.trick_count = (ps.tally + 1 + error_line - half_error_line).max(error_line);
+            }
+        }
+        // Display token |p|, and |return|
+        if p < hi_mem_min as usize || p > mem_end as usize {
+            ps.write_fmt(fa!("{}.", Esc("CLOBBERED"))).unwrap();
+            return;
+        }
+        let info = *LLIST_info(p as usize);
+        if info >= CS_TOKEN_FLAG {
+            ps.write_fmt(fa!("{}", Cs(info - CS_TOKEN_FLAG))).unwrap();
+        } else {
+            let m = Cmd::from((info / MAX_CHAR_VAL) as u16);
+            let c = info % MAX_CHAR_VAL;
+            if info < 0 {
+                ps.write_fmt(fa!("{}.", Esc("BAD"))).unwrap();
+            } else {
+                // Display the token `$(m,c)$`
+                /*306:*/
+                match m {
+                    Cmd::LeftBrace
+                    | Cmd::RightBrace
+                    | Cmd::MathShift
+                    | Cmd::TabMark
+                    | Cmd::SupMark
+                    | Cmd::SubMark
+                    | Cmd::Spacer
+                    | Cmd::Letter
+                    | Cmd::OtherChar => ps
+                        .write_char(std::char::from_u32(c as u32).unwrap())
+                        .unwrap(),
+                    Cmd::MacParam => {
+                        let c = std::char::from_u32(c as u32).unwrap();
+                        ps.write_char(c).unwrap();
+                        ps.write_char(c).unwrap();
+                    }
+                    OUT_PARAM => {
+                        ps.write_char(match_chr).unwrap();
+                        if c <= 0x9 {
+                            ps.write_char(char::from((c as u8) + b'0')).unwrap();
+                        } else {
+                            ps.write_char('!').unwrap();
+                            return;
+                        }
+                    }
+                    MATCH => {
+                        match_chr = std::char::from_u32(c as u32).unwrap();
+                        ps.write_char(match_chr).unwrap();
+                        n += 1;
+                        ps.write_char(char::from(n)).unwrap();
+                        if n > b'9' {
+                            return;
+                        }
+                    }
+                    END_MATCH => {
+                        if c == 0 {
+                            ps.write_str("->").unwrap();
+                        }
+                    }
+                    _ => ps.write_fmt(fa!("{}.", Esc("BAD"))).unwrap(),
+                }
+            }
+        }
+        popt = LLIST_link(p as usize).opt();
+    }
+    if popt.is_some() {
+        ps.write_fmt(fa!("{}.", Esc("ETC"))).unwrap();
     };
 }
 /// uses `scanner_status` to print a warning message
@@ -315,7 +392,7 @@ pub(crate) unsafe fn runaway() {
         };
         print_chr('?');
         print_ln();
-        show_token_list(llist_link(p), None, error_line - 10);
+        show_token_list(llist_link(p), error_line - 10);
     };
 }
 pub(crate) unsafe fn get_avail() -> usize {
@@ -674,7 +751,7 @@ pub(crate) unsafe fn print_mark(p: i32) {
     if p < hi_mem_min || p > mem_end {
         print_esc_cstr("CLOBBERED.");
     } else {
-        show_token_list(LLIST_link(p as usize).opt(), None, max_print_line - 10);
+        show_token_list(LLIST_link(p as usize).opt(), max_print_line - 10);
         // TODO
     }
     print_chr('}');
@@ -1809,8 +1886,8 @@ where
     F: Fn(),
 {
     let oldsetting = selector;
-    if get_int_par(IntPar::tracing_online) <= 0 && selector == Selector::TERM_AND_LOG {
-        selector = Selector::LOG_ONLY;
+    if get_int_par(IntPar::tracing_online) <= 0 && selector == Selector::TermAndLog {
+        selector = Selector::LogOnly;
         if history == TTHistory::SPOTLESS {
             history = TTHistory::WARNING_ISSUED
         }
@@ -3350,7 +3427,7 @@ pub(crate) unsafe fn prepare_mag() {
 /// to its reference count; the pointer may be null.
 pub(crate) unsafe fn token_show(p: Option<usize>) {
     if let Some(p) = p {
-        show_token_list(llist_link(p), None, 10000000);
+        show_token_list(llist_link(p), 10000000);
     }
 }
 pub(crate) struct TokenNode(pub Option<usize>);
@@ -3437,8 +3514,8 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                 || input.index != Btl::BackedUp
                 || input.loc.is_some()
             {
-                tally = 0;
-                let old_setting = selector;
+                selector.zero_tally();
+                let mut pseudo = crate::xetex_output::Pseudo::new();
                 let l;
                 if input.state != InputState::TokenList {
                     if input.name <= 17 {
@@ -3464,10 +3541,8 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                         );
                     }
                     print_chr(' ');
-                    l = tally;
-                    tally = 0;
-                    selector = Selector::PSEUDO;
-                    trick_count = 1000000;
+                    l = selector.get_max_tally();
+                    selector.zero_tally();
                     let j = if BUFFER[input.limit as usize] == get_int_par(IntPar::end_line_char) {
                         input.limit
                     } else {
@@ -3476,13 +3551,15 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     if j > 0 {
                         for i in input.start.unwrap()..j {
                             if Some(i) == input.loc {
-                                first_count = tally;
-                                trick_count = tally + 1 + error_line - half_error_line;
-                                if trick_count < error_line {
-                                    trick_count = error_line
-                                }
+                                pseudo.first_count = pseudo.tally;
+                                pseudo.trick_count = (pseudo.tally + 1 + error_line
+                                    - half_error_line)
+                                    .max(error_line);
                             }
-                            print_chr(std::char::from_u32(BUFFER[i as usize] as u32).unwrap());
+                            use std::fmt::Write;
+                            pseudo
+                                .write_char(std::char::from_u32(BUFFER[i as usize] as u32).unwrap())
+                                .unwrap();
                         }
                     }
                 } else {
@@ -3515,10 +3592,8 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                         Btl::WriteText => t_print_nl!("<write> "),
                         Btl::TectonicCodaText => t_print_nl!("<TectonicCodaTokens> "),
                     }
-                    l = tally;
-                    tally = 0;
-                    selector = Selector::PSEUDO;
-                    trick_count = 1_000_000;
+                    l = selector.get_max_tally();
+                    selector.zero_tally();
                     if [
                         Btl::Parameter,
                         Btl::UTemplate,
@@ -3529,55 +3604,56 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                     ]
                     .contains(&input.index)
                     {
-                        show_token_list(input.start, input.loc, 100000);
+                        show_token_list_pseudo(&mut pseudo, input.start, input.loc, 100000);
                     } else {
-                        show_token_list(MEM[input.start.unwrap()].b32.s1.opt(), input.loc, 100_000);
+                        show_token_list_pseudo(
+                            &mut pseudo,
+                            MEM[input.start.unwrap()].b32.s1.opt(),
+                            input.loc,
+                            100_000,
+                        );
                     }
                 }
-                selector = old_setting;
-                if trick_count == 1_000_000 {
-                    first_count = tally;
-                    trick_count = tally + 1 + error_line - half_error_line;
-                    if trick_count < error_line {
-                        trick_count = error_line
-                    }
+                if pseudo.trick_count == 1_000_000 {
+                    pseudo.first_count = pseudo.tally;
+                    pseudo.trick_count =
+                        (pseudo.tally + 1 + error_line - half_error_line).max(error_line);
                 }
-                let m = if tally < trick_count {
-                    tally - first_count
+                let m = if pseudo.tally < pseudo.trick_count {
+                    pseudo.tally - pseudo.first_count
                 } else {
-                    trick_count - first_count
+                    pseudo.trick_count - pseudo.first_count
                 };
-                let p;
-                let n;
-                if l + first_count <= half_error_line {
-                    p = 0;
-                    n = l + first_count
-                } else {
-                    t_print!("...");
-                    p = l + first_count - half_error_line + 3;
-                    n = half_error_line
-                }
                 let nl = get_int_par(IntPar::new_line_char);
                 set_int_par(IntPar::new_line_char, -1);
-                for q in p..first_count {
-                    print_chr(trick_buf[(q % error_line) as usize]);
+                let (first_buf, second_buf) = trick_buf.split_at(pseudo.first_count);
+                let mut n = first_buf.len() + l;
+                if n <= half_error_line {
+                    for &q in first_buf {
+                        print_chr(q);
+                    }
+                } else {
+                    t_print!("...");
+                    for &q in &first_buf[l + first_buf.len() - half_error_line + 3..] {
+                        print_chr(q);
+                    }
+                    n = half_error_line
                 }
                 print_ln();
                 for _ in 0..n {
                     print_chr(' ');
                 }
-                let p = if m + n <= error_line {
-                    first_count + m
+                if m + n <= error_line {
+                    for &q in &second_buf[..m] {
+                        print_chr(q);
+                    }
                 } else {
-                    first_count + (error_line - n - 3)
-                };
-                for q in first_count..p {
-                    print_chr(trick_buf[(q % error_line) as usize]);
-                }
-                set_int_par(IntPar::new_line_char, nl);
-                if m + n > error_line {
+                    for &q in &second_buf[..error_line - n - 3] {
+                        print_chr(q);
+                    }
                     t_print!("...");
-                }
+                };
+                set_int_par(IntPar::new_line_char, nl);
                 nn += 1
             }
         } else if nn == get_int_par(IntPar::error_context_lines) {
@@ -4391,7 +4467,7 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 continue 'restart;
                             }
                             _ => {
-                                if matches!(selector, Selector::NO_PRINT | Selector::TERM_ONLY) {
+                                if matches!(selector, Selector::NoPrint | Selector::TermOnly) {
                                     open_log_file();
                                 }
                                 fatal_error("*** (job aborted, no legal \\end found)");
@@ -4773,7 +4849,7 @@ pub(crate) unsafe fn macro_call(input: &mut input_state_t, chr: i32, cs: i32) {
                     diagnostic(false, || {
                         t_print_nl!("{}", PoolString::from(match_chr as str_number));
                         t_print!("{}<-", n as i32);
-                        show_token_list(pstack[(n as i32 - 1) as usize].opt(), None, 1000);
+                        show_token_list(pstack[(n as i32 - 1) as usize].opt(), 1000);
                     });
                 }
             }
@@ -7716,6 +7792,14 @@ pub(crate) unsafe fn pseudo_start(input: &mut input_state_t, cs: i32) {
     input.limit = input.start.unwrap();
     input.loc = Some(input.limit + 1);
     if get_int_par(IntPar::tracing_scan_tokens) > 0 {
+        let term_offset = match &rust_stdout {
+            Some(out) => out.offset,
+            None => 0,
+        };
+        let file_offset = match &log_file {
+            Some(lg) => lg.offset,
+            None => 0,
+        };
         if term_offset > max_print_line - 3 {
             print_ln();
         } else if term_offset > 0 || file_offset > 0 {
@@ -9021,12 +9105,12 @@ pub(crate) unsafe fn open_log_file() {
         job_name = maketexstring("texput")
     }
     let log_name = pack_job_name(".log");
-    log_file = OutputHandleWrapper::open(&log_name, 0);
+    log_file = OutputHandleWrapper::open(&log_name, 0).map(crate::xetex_output::LogTermOutput::new);
     if log_file.is_none() {
         abort!("cannot open log file output \"{}\"", log_name);
     }
     texmf_log_name = make_name_string(&log_name);
-    selector = Selector::LOG_ONLY;
+    selector = Selector::LogOnly;
     log_opened = true;
     INPUT_STACK[INPUT_PTR] = cur_input;
     /* Here we catch the log file up with anything that has already been
@@ -9046,8 +9130,8 @@ pub(crate) unsafe fn open_log_file() {
     }
     print_ln();
     selector = match old_setting {
-        Selector::NO_PRINT => Selector::LOG_ONLY,
-        Selector::TERM_ONLY => Selector::TERM_AND_LOG,
+        Selector::NoPrint => Selector::LogOnly,
+        Selector::TermOnly => Selector::TermAndLog,
         _ => unreachable!(),
     };
 }
@@ -9140,7 +9224,15 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
         open_log_file(); /* "really a CFDictionaryRef or *mut XeTeXLayoutEngine" */
     } /* = first_math_fontdimen (=10) + lastMathConstant (= radicalDegreeBottomRaisePercent = 55) */
     let fname = PoolString::from(FULL_SOURCE_FILENAME_STACK[IN_OPEN]);
-    if term_offset + (fname.len() as i32) > max_print_line - 2 {
+    let term_offset = match &rust_stdout {
+        Some(out) => out.offset,
+        None => 0,
+    };
+    let file_offset = match &log_file {
+        Some(lg) => lg.offset,
+        None => 0,
+    };
+    if term_offset + fname.len() > max_print_line - 2 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
         t_print!(" ");
@@ -13249,10 +13341,10 @@ pub(crate) unsafe fn new_interaction(chr: i32) {
     print_ln();
     interaction = InteractionMode::n(chr as u8).unwrap();
     selector = match (interaction, log_opened) {
-        (InteractionMode::Batch, false) => Selector::NO_PRINT,
-        (InteractionMode::Batch, true) => Selector::LOG_ONLY,
-        (_, false) => Selector::TERM_ONLY,
-        (_, true) => Selector::TERM_AND_LOG,
+        (InteractionMode::Batch, false) => Selector::NoPrint,
+        (InteractionMode::Batch, true) => Selector::LogOnly,
+        (_, false) => Selector::TermOnly,
+        (_, true) => Selector::TermAndLog,
     };
 }
 pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32) {
@@ -13262,7 +13354,15 @@ pub(crate) unsafe fn issue_message(input: &mut input_state_t, chr: i32, cs: i32)
     flush_list(Some(def_ref));
     if c == 0 {
         /*1315: */
-        if term_offset + (s.len() as i32) > max_print_line - 2 {
+        let term_offset = match &rust_stdout {
+            Some(out) => out.offset,
+            None => 0,
+        };
+        let file_offset = match &log_file {
+            Some(lg) => lg.offset,
+            None => 0,
+        };
+        if term_offset + s.len() > max_print_line - 2 {
             print_ln();
         } else if term_offset > 0 || file_offset > 0 {
             t_print!(" ");
@@ -13395,10 +13495,10 @@ pub(crate) unsafe fn show_whatever(input: &mut input_state_t, chr: i32, cs: i32)
     }
 
     t_eprint!("OK");
-    if selector == Selector::TERM_AND_LOG && get_int_par(IntPar::tracing_online) <= 0 {
-        selector = Selector::TERM_ONLY;
+    if selector == Selector::TermAndLog && get_int_par(IntPar::tracing_online) <= 0 {
+        selector = Selector::TermOnly;
         t_print!(" (see the transcript file)");
-        selector = Selector::TERM_AND_LOG;
+        selector = Selector::TermAndLog;
     }
 
     unsafe fn common_ending() {
@@ -15448,19 +15548,19 @@ pub(crate) unsafe fn close_files_and_terminate() {
     terminate_font_manager();
     for k in 0..=15 {
         if write_open[k] {
-            ttstub_output_close(write_file[k].take().unwrap());
+            ttstub_output_close(write_file[k].take().unwrap().0);
         }
     }
     finalize_dvi_file();
     synctex_terminate(log_opened);
     if log_opened {
         writeln!(log_file.as_mut().unwrap()).unwrap();
-        ttstub_output_close(log_file.take().unwrap());
+        ttstub_output_close(log_file.take().unwrap().handler);
         log_file = None;
         match selector {
-            Selector::LOG_ONLY => selector = Selector::NO_PRINT,
-            Selector::TERM_AND_LOG => {
-                selector = Selector::TERM_ONLY;
+            Selector::LogOnly => selector = Selector::NoPrint,
+            Selector::TermAndLog => {
+                selector = Selector::TermOnly;
                 t_print_nl!(
                     "Transcript written on {}.",
                     PoolString::from(texmf_log_name)

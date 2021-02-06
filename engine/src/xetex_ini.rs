@@ -12,7 +12,7 @@ use crate::trie::*;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, overflow};
 use crate::xetex_layout_interface::{destroy_font_manager, set_cp_code};
-use crate::xetex_output::Esc;
+use crate::xetex_output::{selector, Esc, Selector};
 use crate::xetex_pagebuilder::initialize_pagebuilder_variables;
 use crate::xetex_shipout::{deinitialize_shipout_variables, initialize_shipout_variables};
 use crate::xetex_stringpool::{
@@ -51,7 +51,6 @@ use dpx::{pdf_files_close, pdf_files_init};
 
 use bridge::TTHistory;
 
-use bridge::OutputHandleWrapper;
 /* quasi-hack to get the primary input */
 /* tectonic/xetex-core.h: core XeTeX types and #includes.
    Copyright 2016 the Tectonic Project
@@ -63,17 +62,6 @@ use bridge::OutputHandleWrapper;
 /* harfbuzz */
 /* Endianness foo */
 /* our typedefs */
-
-#[repr(C)]
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum Selector {
-    NO_PRINT,
-    TERM_ONLY,
-    LOG_ONLY,
-    TERM_AND_LOG,
-    PSEUDO,
-    File(u8),
-}
 
 /*18: */
 pub(crate) type UnicodeScalar = i32;
@@ -383,11 +371,11 @@ pub(crate) static mut max_buf_stack: usize = 0;
 #[no_mangle]
 pub(crate) static mut in_initex_mode: bool = false;
 #[no_mangle]
-pub(crate) static mut error_line: i32 = 0;
+pub(crate) static mut error_line: usize = 0;
 #[no_mangle]
-pub(crate) static mut half_error_line: i32 = 0;
+pub(crate) static mut half_error_line: usize = 0;
 #[no_mangle]
-pub(crate) static mut max_print_line: i32 = 0;
+pub(crate) static mut max_print_line: usize = 0;
 #[no_mangle]
 pub(crate) static mut FONT_MEM_SIZE: usize = 0;
 #[no_mangle]
@@ -420,25 +408,6 @@ pub(crate) static mut insert_src_special_every_par: bool = false;
 pub(crate) static mut insert_src_special_every_math: bool = false;
 #[no_mangle]
 pub(crate) static mut insert_src_special_every_vbox: bool = false;
-
-#[no_mangle]
-pub(crate) static mut rust_stdout: Option<OutputHandleWrapper> = None;
-#[no_mangle]
-pub(crate) static mut log_file: Option<OutputHandleWrapper> = None;
-#[no_mangle]
-pub(crate) static mut selector: Selector = Selector::File(0);
-#[no_mangle]
-pub(crate) static mut tally: i32 = 0;
-#[no_mangle]
-pub(crate) static mut term_offset: i32 = 0;
-#[no_mangle]
-pub(crate) static mut file_offset: i32 = 0;
-#[no_mangle]
-pub(crate) static mut trick_buf: [char; 256] = ['\u{0}'; 256];
-#[no_mangle]
-pub(crate) static mut trick_count: i32 = 0;
-#[no_mangle]
-pub(crate) static mut first_count: i32 = 0;
 #[no_mangle]
 pub(crate) static mut interaction: InteractionMode = InteractionMode::Batch;
 #[no_mangle]
@@ -678,8 +647,6 @@ pub(crate) static mut name_in_progress: bool = false;
 #[no_mangle]
 pub(crate) static mut job_name: str_number = 0;
 #[no_mangle]
-pub(crate) static mut log_opened: bool = false;
-#[no_mangle]
 pub(crate) static mut output_file_extension: String = String::new();
 #[no_mangle]
 pub(crate) static mut texmf_log_name: str_number = 0;
@@ -912,10 +879,6 @@ pub(crate) static mut after_token: i32 = 0;
 pub(crate) static mut long_help_seen: bool = false;
 #[no_mangle]
 pub(crate) static mut format_ident: str_number = 0;
-#[no_mangle]
-pub(crate) static mut write_file: [Option<OutputHandleWrapper>; 16] = [
-    None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
-];
 #[no_mangle]
 pub(crate) static mut write_open: [bool; 18] = [false; 18];
 #[no_mangle]
@@ -2110,11 +2073,11 @@ unsafe fn final_cleanup(input: &mut input_state_t) {
     }
     if history != TTHistory::SPOTLESS
         && (history == TTHistory::WARNING_ISSUED || interaction != InteractionMode::ErrorStop)
-        && selector == Selector::TERM_AND_LOG
+        && selector == Selector::TermAndLog
     {
-        selector = Selector::TERM_ONLY;
+        selector = Selector::TermOnly;
         t_print_nl!("(see the transcript file for additional information)");
-        selector = Selector::TERM_AND_LOG
+        selector = Selector::TermAndLog
     }
     if c == 1 {
         if in_initex_mode {
@@ -3546,7 +3509,8 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     /* Miscellaneous initializations that were mostly originally done in the
      * main() driver routines. */
     /* Get our stdout handle */
-    rust_stdout = ttstub_output_open_stdout();
+    crate::xetex_output::rust_stdout =
+        ttstub_output_open_stdout().map(crate::xetex_output::LogTermOutput::new);
     TEX_format_default = dump_name.to_string();
     /* Not sure why these get custom initializations. */
     if file_line_error_style_p < 0 {
@@ -3685,13 +3649,10 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     initialize_pagebuilder_variables();
     initialize_shipout_variables();
 
-    selector = Selector::TERM_ONLY;
-    tally = 0;
-    term_offset = 0;
-    file_offset = 0;
+    selector = Selector::TermOnly;
     job_name = 0;
     name_in_progress = false;
-    log_opened = false;
+    crate::xetex_output::log_opened = false;
 
     if semantic_pagination_enabled {
         output_file_extension = ".spx".to_string();
@@ -4277,9 +4238,9 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     font_used = vec![false; FONT_MAX + 1];
 
     selector = if interaction == InteractionMode::Batch {
-        Selector::NO_PRINT
+        Selector::NoPrint
     } else {
-        Selector::TERM_ONLY
+        Selector::TermOnly
     };
     if semantic_pagination_enabled {
         set_int_par(IntPar::xetex_generate_actual_text, 1);

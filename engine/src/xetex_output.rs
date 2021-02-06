@@ -14,11 +14,9 @@ use crate::cmd::Cmd;
 use crate::node::NativeWord;
 use crate::xetex_stringpool::{str_ptr, PoolString};
 
-use super::xetex_ini::Selector;
 use super::xetex_ini::{
-    error_line, file_offset, hash_offset, line, log_file, max_print_line, rust_stdout, selector,
-    tally, term_offset, trick_buf, trick_count, write_file, yhash, EQTB_TOP,
-    FULL_SOURCE_FILENAME_STACK, IN_OPEN, LINE_STACK, MEM,
+    hash_offset, line, max_print_line, yhash, EQTB_TOP, FULL_SOURCE_FILENAME_STACK, IN_OPEN,
+    LINE_STACK, MEM,
 };
 
 /* Extra stuff used in various change files for various reasons.  */
@@ -30,214 +28,288 @@ use super::xetex_ini::{
  * Copyright 2016 the Tectonic Project
  * Licensed under the MIT License.
 */
-pub(crate) unsafe fn print_ln() {
-    use io::Write;
-    match selector {
-        Selector::TERM_AND_LOG => {
-            let stdout = rust_stdout.as_mut().unwrap();
-            write_term_ln(stdout).unwrap();
-            let lg = log_file.as_mut().unwrap();
-            write_log_ln(lg).unwrap();
+
+pub(crate) static mut write_file: [Option<WFile>; 16] = [
+    None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+];
+
+pub(crate) static mut selector: Selector = Selector::NoPrint;
+
+pub(crate) static mut rust_stdout: Option<LogTermOutput> = None;
+
+pub(crate) static mut log_file: Option<LogTermOutput> = None;
+
+pub(crate) static mut log_opened: bool = false;
+
+pub(crate) static mut trick_buf: Vec<char> = Vec::new();
+
+use bridge::OutputHandleWrapper;
+
+#[repr(C)]
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Selector {
+    NoPrint,
+    TermOnly,
+    LogOnly,
+    TermAndLog,
+}
+
+impl Selector {
+    #[inline]
+    pub unsafe fn zero_tally(&mut self) {
+        match self {
+            Selector::TermAndLog => {
+                rust_stdout.as_mut().unwrap().tally = 0;
+                log_file.as_mut().unwrap().tally = 0;
+            }
+            Selector::LogOnly => {
+                log_file.as_mut().unwrap().tally = 0;
+            }
+            Selector::TermOnly => {
+                rust_stdout.as_mut().unwrap().tally = 0;
+            }
+            Selector::NoPrint => {}
         }
-        Selector::LOG_ONLY => {
-            let lg = log_file.as_mut().unwrap();
-            write_log_ln(lg).unwrap();
-        }
-        Selector::TERM_ONLY => {
-            let stdout = rust_stdout.as_mut().unwrap();
-            write_term_ln(stdout).unwrap();
-        }
-        Selector::NO_PRINT | Selector::PSEUDO => {}
-        Selector::File(u) => {
-            write_file[u as usize]
-                .as_mut()
+    }
+    #[inline]
+    pub unsafe fn get_max_tally(&self) -> usize {
+        match self {
+            Selector::TermAndLog => rust_stdout
+                .as_ref()
                 .unwrap()
-                .write_all(b"\n")
-                .unwrap();
+                .tally
+                .max(log_file.as_ref().unwrap().tally),
+            Selector::LogOnly => log_file.as_ref().unwrap().tally,
+            Selector::TermOnly => rust_stdout.as_ref().unwrap().tally,
+            Selector::NoPrint => 0,
         }
+    }
+}
+
+pub(crate) struct WFile(pub(crate) OutputHandleWrapper);
+impl WFile {
+    pub(crate) fn new(handler: OutputHandleWrapper) -> Self {
+        Self(handler)
+    }
+    #[inline]
+    pub(crate) fn write_ln(&mut self) -> std::io::Result<()> {
+        use std::io::Write;
+        self.write_all(b"\n")
+    }
+    #[inline]
+    fn print_char(&mut self, s: char, nl: i32) -> io::Result<()> {
+        use std::io::Write;
+        if (s as i32) == nl {
+            self.write_all(b"\n")?;
+        } else if s.is_control() {
+            let (buf, len) = replace_control(s);
+            for &c in &buf[..len] {
+                write!(self, "{}", char::from(c))?;
+            }
+        } else {
+            write!(self, "{}", s)?;
+        }
+        Ok(())
+    }
+}
+impl core::ops::Deref for WFile {
+    type Target = OutputHandleWrapper;
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl core::ops::DerefMut for WFile {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+pub(crate) struct LogTermOutput {
+    pub(crate) handler: OutputHandleWrapper,
+    pub(crate) offset: usize,
+    pub(crate) max_line_width: usize,
+    pub(crate) tally: usize,
+}
+
+impl LogTermOutput {
+    pub(crate) fn new(handler: OutputHandleWrapper) -> Self {
+        Self {
+            handler,
+            offset: 0,
+            max_line_width: unsafe { max_print_line },
+            tally: 0,
+        }
+    }
+    #[inline]
+    fn write_ln(&mut self) -> std::io::Result<()> {
+        use std::io::Write;
+        self.offset = 0;
+        self.write_all(b"\n")
+    }
+    #[inline]
+    fn write_chr(&mut self, c: char) -> std::io::Result<()> {
+        use std::io::Write;
+        write!(self, "{}", c)?;
+        self.offset += 1;
+        if self.offset == self.max_line_width {
+            self.write_ln()?;
+        }
+        Ok(())
+    }
+    #[inline]
+    fn print_char(&mut self, s: char, nl: i32) -> io::Result<()> {
+        if (s as i32) == nl {
+            self.write_ln()?;
+        } else {
+            if s.is_control() {
+                let (buf, len) = replace_control(s);
+                for &c in &buf[..len] {
+                    self.write_chr(char::from(c))?;
+                }
+            } else {
+                self.write_chr(s)?;
+            }
+            self.tally += 1;
+        }
+        Ok(())
+    }
+}
+
+impl core::ops::Deref for LogTermOutput {
+    type Target = OutputHandleWrapper;
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &self.handler
+    }
+}
+impl core::ops::DerefMut for LogTermOutput {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.handler
+    }
+}
+
+#[inline]
+pub(crate) unsafe fn print_ln() {
+    match selector {
+        Selector::TermAndLog => {
+            rust_stdout.as_mut().unwrap().write_ln().unwrap();
+            log_file.as_mut().unwrap().write_ln().unwrap();
+        }
+        Selector::LogOnly => {
+            log_file.as_mut().unwrap().write_ln().unwrap();
+        }
+        Selector::TermOnly => {
+            rust_stdout.as_mut().unwrap().write_ln().unwrap();
+        }
+        Selector::NoPrint => {}
     };
 }
 
 use std::io;
-unsafe fn write_term_ln<W: io::Write>(out: &mut W) -> io::Result<()> {
-    term_offset = 0;
-    out.write_all(b"\n")
-}
-unsafe fn write_log_ln<W: io::Write>(lg: &mut W) -> io::Result<()> {
-    file_offset = 0;
-    lg.write_all(b"\n")
-}
-unsafe fn write_term_char<W: io::Write>(out: &mut W, c: char) -> io::Result<()> {
-    write!(out, "{}", c)?;
-    term_offset += 1;
-    if term_offset == max_print_line {
-        write_term_ln(out)?;
-    }
-    Ok(())
-}
 
-unsafe fn write_log_char<W: io::Write>(lg: &mut W, c: char) -> io::Result<()> {
-    write!(lg, "{}", c)?;
-    file_offset += 1;
-    if file_offset == max_print_line {
-        write_log_ln(lg)?;
-    }
-    Ok(())
+pub(crate) struct Pseudo {
+    pub(crate) tally: usize,
+    pub(crate) first_count: usize,
+    pub(crate) trick_count: usize,
 }
-
-unsafe fn print_term_log_char<W: io::Write>(
-    stdout: &mut W,
-    lg: &mut W,
-    s: char,
-    nl: i32,
-) -> io::Result<()> {
-    if (s as i32) == nl {
-        write_term_ln(stdout)?;
-        write_log_ln(lg)?;
-    } else {
-        if s.is_control() {
-            let (buf, len) = replace_control(s);
-            for &c in &buf[..len] {
-                let c = char::from(c);
-                write_term_char(stdout, c)?;
-                write_log_char(lg, c)?;
+impl Pseudo {
+    pub(crate) fn new() -> Self {
+        unsafe {
+            trick_buf.clear();
+        }
+        Self {
+            tally: 0,
+            first_count: 0,
+            trick_count: 1_000_000,
+        }
+    }
+}
+impl fmt::Write for Pseudo {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for c in s.chars() {
+            self.write_char(c)?;
+        }
+        Ok(())
+    }
+    #[inline]
+    fn write_char(&mut self, s: char) -> fmt::Result {
+        unsafe {
+            let mut count;
+            if s.is_control() {
+                let (buf, len) = replace_control(s);
+                count = 0;
+                for &c in &buf[..len] {
+                    if self.tally < self.trick_count {
+                        trick_buf.push(char::from(c));
+                    }
+                    count += 1;
+                }
+            } else {
+                count = 1;
+                if self.tally < self.trick_count {
+                    trick_buf.push(s);
+                }
             }
-        } else {
-            write_term_char(stdout, s)?;
-            write_log_char(lg, s)?;
+            self.tally += count;
         }
-        tally += 1;
+        Ok(())
     }
-    Ok(())
 }
 
-unsafe fn print_log_char<W: io::Write>(lg: &mut W, s: char, nl: i32) -> io::Result<()> {
-    if (s as i32) == nl {
-        write_log_ln(lg)?;
-    } else {
-        if s.is_control() {
-            let (buf, len) = replace_control(s);
-            for &c in &buf[..len] {
-                write_log_char(lg, char::from(c))?;
-            }
-        } else {
-            write_log_char(lg, s)?;
-        }
-        tally += 1;
-    }
-    Ok(())
-}
-unsafe fn print_term_char<W: io::Write>(stdout: &mut W, s: char, nl: i32) -> io::Result<()> {
-    if (s as i32) == nl {
-        write_term_ln(stdout)?;
-    } else {
-        if s.is_control() {
-            let (buf, len) = replace_control(s);
-            for &c in &buf[..len] {
-                write_term_char(stdout, char::from(c))?;
-            }
-        } else {
-            write_term_char(stdout, s)?;
-        }
-        tally += 1;
-    }
-    Ok(())
-}
-
-unsafe fn print_file_char<W: io::Write>(file: &mut W, s: char, nl: i32) -> io::Result<()> {
-    if (s as i32) == nl {
-        file.write_all(b"\n")?;
-    } else if s.is_control() {
-        let (buf, len) = replace_control(s);
-        for &c in &buf[..len] {
-            write!(file, "{}", char::from(c))?;
-        }
-    } else {
-        write!(file, "{}", s)?;
-    }
-    Ok(())
-}
-
+#[inline]
 pub(crate) unsafe fn print_chr(c: char) {
     use std::fmt::Write;
     selector.write_char(c).unwrap();
 }
 
 use std::fmt;
+impl fmt::Write for LogTermOutput {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        use std::ops::DerefMut;
+        let nl = unsafe { get_int_par(IntPar::new_line_char) };
+        let bytelen = s.len();
+        if (self.offset + bytelen < self.max_line_width)
+            && !s.contains(|c: char| (c as i32) == nl || c.is_control())
+        {
+            std::io::Write::write(self.deref_mut(), s.as_bytes()).unwrap();
+            self.offset += bytelen;
+            self.tally += bytelen;
+        } else {
+            for c in s.chars() {
+                self.print_char(c, nl).unwrap();
+            }
+        }
+        Ok(())
+    }
+    #[inline]
+    fn write_char(&mut self, s: char) -> fmt::Result {
+        let nl = unsafe { get_int_par(IntPar::new_line_char) };
+        self.print_char(s, nl).unwrap();
+        Ok(())
+    }
+}
+
 impl fmt::Write for Selector {
     #[inline]
     fn write_str(&mut self, s: &str) -> fmt::Result {
         unsafe {
             match self {
-                Selector::TERM_AND_LOG => {
-                    let stdout = rust_stdout.as_mut().unwrap();
-                    let lg = log_file.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    let bytelen = s.len() as i32;
-                    if (file_offset + bytelen < max_print_line)
-                        && (term_offset + bytelen < max_print_line)
-                        && !s.contains(|c: char| (c as i32) == nl || c.is_control())
-                    {
-                        io::Write::write(lg, s.as_bytes()).unwrap();
-                        file_offset += bytelen;
-                        io::Write::write(stdout, s.as_bytes()).unwrap();
-                        term_offset += bytelen;
-                        tally += bytelen;
-                    } else {
-                        for c in s.chars() {
-                            print_term_log_char(stdout, lg, c, nl).unwrap();
-                        }
-                    }
+                Selector::TermAndLog => {
+                    rust_stdout.as_mut().unwrap().write_str(s).unwrap();
+                    log_file.as_mut().unwrap().write_str(s).unwrap();
                 }
-                Selector::LOG_ONLY => {
-                    let lg = log_file.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    let bytelen = s.len() as i32;
-                    if (file_offset + bytelen < max_print_line)
-                        && !s.contains(|c: char| (c as i32) == nl || c.is_control())
-                    {
-                        io::Write::write(lg, s.as_bytes()).unwrap();
-                        file_offset += bytelen;
-                        tally += bytelen;
-                    } else {
-                        for c in s.chars() {
-                            print_log_char(lg, c, nl).unwrap();
-                        }
-                    }
+                Selector::LogOnly => {
+                    log_file.as_mut().unwrap().write_str(s).unwrap();
                 }
-                Selector::TERM_ONLY => {
-                    let stdout = rust_stdout.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    let bytelen = s.len() as i32;
-                    if (term_offset + bytelen < max_print_line)
-                        && !s.contains(|c: char| (c as i32) == nl || c.is_control())
-                    {
-                        io::Write::write(stdout, s.as_bytes()).unwrap();
-                        term_offset += bytelen;
-                        tally += bytelen;
-                    } else {
-                        for c in s.chars() {
-                            print_term_char(stdout, c, nl).unwrap();
-                        }
-                    }
+                Selector::TermOnly => {
+                    rust_stdout.as_mut().unwrap().write_str(s).unwrap();
                 }
-                Selector::NO_PRINT => {}
-                Selector::PSEUDO => {
-                    for c in s.chars() {
-                        self.write_char(c)?;
-                    }
-                }
-                Selector::File(u) => {
-                    let file = write_file[*u as usize].as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    if !s.contains(|c: char| (c as i32) == nl || c.is_control()) {
-                        io::Write::write(file, s.as_bytes()).unwrap();
-                    } else {
-                        for c in s.chars() {
-                            print_file_char(file, c, nl).unwrap();
-                        }
-                    }
-                }
+                Selector::NoPrint => {}
             }
         }
         Ok(())
@@ -247,54 +319,51 @@ impl fmt::Write for Selector {
     fn write_char(&mut self, s: char) -> fmt::Result {
         unsafe {
             match selector {
-                Selector::TERM_AND_LOG => {
-                    let stdout = rust_stdout.as_mut().unwrap();
-                    let lg = log_file.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    print_term_log_char(stdout, lg, s, nl).unwrap();
+                Selector::TermAndLog => {
+                    rust_stdout.as_mut().unwrap().write_char(s).unwrap();
+                    log_file.as_mut().unwrap().write_char(s).unwrap();
                 }
-                Selector::LOG_ONLY => {
-                    let lg = log_file.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    print_log_char(lg, s, nl).unwrap();
+                Selector::LogOnly => {
+                    log_file.as_mut().unwrap().write_char(s).unwrap();
                 }
-                Selector::TERM_ONLY => {
-                    let stdout = rust_stdout.as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    print_term_char(stdout, s, nl).unwrap();
+                Selector::TermOnly => {
+                    rust_stdout.as_mut().unwrap().write_char(s).unwrap();
                 }
-                Selector::NO_PRINT => {}
-                Selector::PSEUDO => {
-                    let mut count;
-                    if s.is_control() {
-                        let (buf, len) = replace_control(s);
-                        count = 0;
-                        for &c in &buf[..len] {
-                            if tally < trick_count {
-                                trick_buf[((tally + count) % error_line) as usize] = char::from(c);
-                            }
-                            count += 1;
-                        }
-                    } else {
-                        count = 1;
-                        if tally < trick_count {
-                            trick_buf[(tally % error_line) as usize] = s;
-                        }
-                    }
-                    tally += count;
-                }
-                Selector::File(u) => {
-                    let file = write_file[u as usize].as_mut().unwrap();
-                    let nl = get_int_par(IntPar::new_line_char);
-                    print_file_char(file, s, nl).unwrap();
-                }
+                Selector::NoPrint => {}
             }
         }
         Ok(())
     }
 }
+impl fmt::Write for WFile {
+    #[inline]
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        use std::io::Write as IoWrite;
+        use std::ops::DerefMut;
+        unsafe {
+            let nl = get_int_par(IntPar::new_line_char);
+            if !s.contains(|c: char| (c as i32) == nl || c.is_control()) {
+                IoWrite::write(self.deref_mut(), s.as_bytes()).unwrap();
+            } else {
+                for c in s.chars() {
+                    self.print_char(c, nl).unwrap();
+                }
+            }
+        }
+        Ok(())
+    }
+    #[inline]
+    fn write_char(&mut self, s: char) -> fmt::Result {
+        unsafe {
+            let nl = get_int_par(IntPar::new_line_char);
+            self.print_char(s, nl).unwrap();
+        }
+        Ok(())
+    }
+}
 
-unsafe fn replace_control(s: char) -> ([u8; 4], usize) {
+#[inline]
+fn replace_control(s: char) -> ([u8; 4], usize) {
     match s {
         '\u{0}'..='\u{1f}' => ([b'^', b'^', (s as u8) + 0x40, 0], 3),
         '\u{7f}' => ([b'^', b'^', b'?', 0], 3),
@@ -325,11 +394,32 @@ unsafe fn replace_control(s: char) -> ([u8; 4], usize) {
     }
 }
 
+#[inline]
 pub(crate) unsafe fn printnl() {
     match selector {
-        Selector::TERM_ONLY | Selector::TERM_AND_LOG if term_offset > 0 => print_ln(),
-        Selector::LOG_ONLY | Selector::TERM_AND_LOG if file_offset > 0 => print_ln(),
-        _ => {}
+        Selector::TermAndLog => {
+            let stdout = rust_stdout.as_mut().unwrap();
+            if stdout.offset > 0 {
+                stdout.write_ln().unwrap();
+            }
+            let lg = log_file.as_mut().unwrap();
+            if lg.offset > 0 {
+                lg.write_ln().unwrap();
+            }
+        }
+        Selector::TermOnly => {
+            let stdout = rust_stdout.as_mut().unwrap();
+            if stdout.offset > 0 {
+                stdout.write_ln().unwrap();
+            }
+        }
+        Selector::LogOnly => {
+            let lg = log_file.as_mut().unwrap();
+            if lg.offset > 0 {
+                lg.write_ln().unwrap();
+            }
+        }
+        Selector::NoPrint => {}
     }
 }
 pub(crate) struct Esc<'a>(pub &'a str);
@@ -342,6 +432,7 @@ impl<'a> fmt::Display for Esc<'a> {
         self.0.fmt(f)
     }
 }
+#[inline]
 pub(crate) unsafe fn print_esc_cstr(s: &str) {
     t_print!("{}", Esc(s));
 }

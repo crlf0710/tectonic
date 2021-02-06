@@ -8,18 +8,18 @@ use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error};
 use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
 use crate::xetex_ini::shell_escape_enabled;
-use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
     avail, cur_dir, cur_h, cur_h_offset, cur_input, cur_list, cur_page_height, cur_page_width,
-    cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, file_offset, font_used,
-    input_state_t, job_name, last_bop, log_opened, max_h, max_print_line, max_push, max_v,
-    output_file_extension, pdf_last_x_pos, pdf_last_y_pos, rule_dp, rule_ht, rule_wd, rust_stdout,
-    selector, semantic_pagination_enabled, term_offset, write_file, write_loc, write_open,
+    cur_v, cur_v_offset, dead_cycles, def_ref, doing_leaders, font_used, input_state_t, job_name,
+    last_bop, max_h, max_print_line, max_push, max_v, output_file_extension, pdf_last_x_pos,
+    pdf_last_y_pos, rule_dp, rule_ht, rule_wd, semantic_pagination_enabled, write_loc, write_open,
     xtx_ligature_present, LR_problems, LR_ptr, CHAR_BASE, FONT_AREA, FONT_BC, FONT_CHECK,
     FONT_DSIZE, FONT_EC, FONT_GLUE, FONT_INFO, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE, FONT_MAPPING,
     FONT_NAME, FONT_PTR, FONT_SIZE, MEM, TOTAL_PAGES, WIDTH_BASE,
 };
-use crate::xetex_output::{print_chr, print_ln};
+use crate::xetex_output::{
+    log_file, log_opened, print_chr, print_ln, rust_stdout, selector, write_file, Selector,
+};
 use crate::xetex_scaledmath::{tex_round, Scaled};
 use crate::xetex_stringpool::{pool_ptr, str_pool, str_ptr, str_start, PoolString, TOO_BIG_CHAR};
 use crate::xetex_synctex::{
@@ -104,6 +104,14 @@ pub(crate) unsafe fn ship_out(mut p: List) {
         t_print!("Completed box being shipped out");
     }
 
+    let term_offset = match &rust_stdout {
+        Some(out) => out.offset,
+        None => 0,
+    };
+    let file_offset = match &log_file {
+        Some(lg) => lg.offset,
+        None => 0,
+    };
     if term_offset > max_print_line - 9 {
         print_ln();
     } else if term_offset > 0 || file_offset > 0 {
@@ -1713,7 +1721,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
             j = p.id() as i16;
 
             if write_open[j as usize] {
-                ttstub_output_close(write_file[j as usize].take().unwrap());
+                ttstub_output_close(write_file[j as usize].take().unwrap().0);
             }
 
             if j >= 16 {
@@ -1730,7 +1738,8 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
             let file = FileName { name, area, ext };
             let fullname = file.to_string();
 
-            write_file[j as usize] = OutputHandleWrapper::open(&fullname, 0);
+            write_file[j as usize] =
+                OutputHandleWrapper::open(&fullname, 0).map(crate::xetex_output::WFile::new);
             if write_file[j as usize].is_none() {
                 abort!("cannot open output file \"{}\"", fullname);
             }
@@ -1740,9 +1749,9 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
             if log_opened {
                 let old_setting = selector;
                 if get_int_par(IntPar::tracing_online) <= 0 {
-                    selector = Selector::LOG_ONLY
+                    selector = Selector::LogOnly
                 } else {
-                    selector = Selector::TERM_AND_LOG
+                    selector = Selector::TermAndLog
                 }
                 t_print_nl!("\\openout{} = `{:#}\'.", j as i32, file);
                 t_print_nl!("");
@@ -1763,7 +1772,7 @@ pub(crate) unsafe fn out_what(input: &mut input_state_t, p: &WhatsIt) {
 
             j = p.id() as i16;
             if write_open[j as usize] {
-                ttstub_output_close(write_file[j as usize].take().unwrap());
+                ttstub_output_close(write_file[j as usize].take().unwrap().0);
             }
 
             write_open[j as usize] = false;
@@ -2041,18 +2050,18 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
     end_token_list(input);
 
     let j = p.id() as i16;
-    let old_setting = selector;
 
     if j == 18 {
+        let old_setting = selector;
         let s = format!("{}", TokenNode(Some(def_ref)));
         flush_list(Some(def_ref));
         if get_int_par(IntPar::tracing_online) <= 0 {
-            selector = Selector::LOG_ONLY
+            selector = Selector::LogOnly
         } else {
-            selector = Selector::TERM_AND_LOG
+            selector = Selector::TermAndLog
         }
         if !log_opened {
-            selector = Selector::TERM_ONLY
+            selector = Selector::TermOnly
         }
 
         if !shell_escape_enabled {
@@ -2066,22 +2075,25 @@ unsafe fn write_out(input: &mut input_state_t, p: &WriteFile) {
 
         t_print_nl!("");
         print_ln();
+        selector = old_setting;
     } else if write_open[j as usize] {
-        selector = Selector::File(j as u8);
-        token_show(Some(def_ref));
-        print_ln();
+        use std::fmt::Write;
+        let file = write_file[j as usize].as_mut().unwrap();
+        file.write_fmt(std::format_args!("{}", TokenNode(Some(def_ref))))
+            .unwrap();
+        file.write_ln().unwrap();
         flush_list(Some(def_ref));
     } else {
-        if j == 17 && (selector == Selector::TERM_AND_LOG) {
-            selector = Selector::LOG_ONLY
+        let old_setting = selector;
+        if j == 17 && (selector == Selector::TermAndLog) {
+            selector = Selector::LogOnly
         }
         t_print_nl!("");
         token_show(Some(def_ref));
         print_ln();
         flush_list(Some(def_ref));
+        selector = old_setting;
     }
-
-    selector = old_setting;
 }
 
 unsafe fn pic_out(p: &Picture) {

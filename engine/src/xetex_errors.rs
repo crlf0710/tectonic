@@ -12,15 +12,14 @@ use crate::{t_eprint, t_print, t_print_nl};
 use crate::cmd::InteractionMode;
 use crate::xetex_ini::tt_cleanup;
 use crate::xetex_ini::{
-    error_count, halt_on_error_p, help_line, help_ptr, history, interaction, job_name, log_opened,
-    rust_stdout, selector, use_err_help,
+    error_count, halt_on_error_p, help_line, help_ptr, history, interaction, job_name, use_err_help,
 };
-use crate::xetex_output::print_ln;
+use crate::xetex_output::{log_opened, print_ln, rust_stdout, selector, Selector};
 use crate::xetex_xetex0::{close_files_and_terminate, give_err_help, open_log_file, show_context};
 
 use bridge::TTHistory;
 
-use crate::xetex_ini::{cur_input, Selector, INPUT_PTR, INPUT_STACK};
+use crate::xetex_ini::{cur_input, INPUT_PTR, INPUT_STACK};
 
 pub(crate) trait Confuse {
     type Output;
@@ -41,17 +40,17 @@ impl<T> Confuse for Option<T> {
 unsafe fn pre_error_message() {
     /* FKA normalize_selector(): */
     if log_opened {
-        selector = Selector::TERM_AND_LOG
+        selector = Selector::TermAndLog
     } else {
-        selector = Selector::TERM_ONLY
+        selector = Selector::TermOnly
     }
     if job_name == 0 {
         open_log_file();
     }
     if interaction == InteractionMode::Batch {
         selector = match selector {
-            Selector::TERM_ONLY => Selector::NO_PRINT,
-            Selector::TERM_AND_LOG => Selector::LOG_ONLY,
+            Selector::TermOnly => Selector::NoPrint,
+            Selector::TermAndLog => Selector::LogOnly,
             _ => unreachable!(),
         };
     }
@@ -93,8 +92,8 @@ pub(crate) unsafe fn error() {
     }
     if interaction != InteractionMode::Batch {
         selector = match selector {
-            Selector::TERM_ONLY => Selector::NO_PRINT,
-            Selector::TERM_AND_LOG => Selector::LOG_ONLY,
+            Selector::TermOnly => Selector::NoPrint,
+            Selector::TermAndLog => Selector::LogOnly,
             _ => unreachable!(),
         }
     }
@@ -110,8 +109,8 @@ pub(crate) unsafe fn error() {
     print_ln();
     if interaction != InteractionMode::Batch {
         selector = match selector {
-            Selector::NO_PRINT => Selector::TERM_ONLY,
-            Selector::LOG_ONLY => Selector::TERM_AND_LOG,
+            Selector::NoPrint => Selector::TermOnly,
+            Selector::LogOnly => Selector::TermAndLog,
             _ => unreachable!(),
         }
     }

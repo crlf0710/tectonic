@@ -4,7 +4,6 @@
 {\write}
 {blank space  }
 {\openout}
-
 ! Bad number (-7).
 <to be read again> 
                    8
@@ -56,7 +55,6 @@ log file only0
 \openout10 = `tripos.tex'.
 
 {no mode: \number}
-
 ! Missing number, treated as zero.
 <to be read again> 
                    {
@@ -6292,7 +6290,6 @@ Completed box being shipped out [-1.2.-1118806.0.11.196608.327680.1572864.10737
 Āwrite->Āif 01{Āelse unbal}Āfi 
 {no mode: Āif}
 {false}
-
 ! Unbalanced write command.
 <write> Āif 01{Āelse unbal}Āfi 
                                
