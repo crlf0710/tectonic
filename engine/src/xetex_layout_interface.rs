@@ -83,7 +83,6 @@ mod opentype_math;
 
 pub(crate) use opentype_math::*;
 
-use crate::xetex_ext::{D2Fix, Fix2D};
 use libc::{free, strlen};
 
 #[repr(C)]
@@ -124,16 +123,12 @@ pub struct gr_slot {
 
 extern "C" {
     #[cfg(not(target_os = "macos"))]
-    fn FcPatternGetInteger(
-        p: *const FcPattern,
-        object: *const libc::c_char,
-        n: i32,
-        i: *mut i32,
-    ) -> FcResult;
+    fn FcPatternGetInteger(p: *const FcPattern, object: *const i8, n: i32, i: *mut i32)
+        -> FcResult;
     #[cfg(not(target_os = "macos"))]
     fn FcPatternGetString(
         p: *const FcPattern,
-        object: *const libc::c_char,
+        object: *const i8,
         n: i32,
         s: *mut *mut u8,
     ) -> FcResult;
@@ -243,7 +238,7 @@ pub(crate) struct XeTeXLayoutEngine {
 }
 
 pub(crate) struct ShaperList {
-    pub(crate) list: *mut *mut libc::c_char,
+    pub(crate) list: *mut *const i8,
     pub(crate) to_free: bool,
 }
 
@@ -387,27 +382,27 @@ pub(crate) unsafe fn createFont(
         let mut pathname = ptr::null_mut();
         FcPatternGetString(
             fontRef as *const FcPattern,
-            b"file\x00" as *const u8 as *const libc::c_char,
+            b"file\x00".as_ptr() as *const i8,
             0,
             &mut pathname,
         );
         let mut index: i32 = 0;
         FcPatternGetInteger(
             fontRef as *const FcPattern,
-            b"index\x00" as *const u8 as *const libc::c_char,
+            b"index\x00".as_ptr() as *const i8,
             0,
             &mut index,
         );
         font = XeTeXFont::create(
             c_pointer_to_str(pathname as *const i8),
             index,
-            Fix2D(pointSize) as f32,
+            pointSize.into(),
             &mut status,
         );
     }
     #[cfg(target_os = "macos")]
     {
-        font = XeTeXFont::create(fontRef, Fix2D(pointSize) as f32, &mut status);
+        font = XeTeXFont::create(fontRef, pointSize.into(), &mut status);
     }
     if status {
         None
@@ -424,11 +419,11 @@ pub(crate) unsafe fn createFontFromFile(
     let font = {
         #[cfg(not(target_os = "macos"))]
         {
-            XeTeXFont::create(filename, index as _, Fix2D(pointSize) as f32, &mut status)
+            XeTeXFont::create(filename, index as _, pointSize.into(), &mut status)
         }
         #[cfg(target_os = "macos")]
         {
-            XeTeXFont::wrapper(filename, index as _, Fix2D(pointSize) as f32, &mut status)
+            XeTeXFont::wrapper(filename, index as _, pointSize.into(), &mut status)
         }
     };
     if status {
@@ -466,7 +461,9 @@ pub(crate) unsafe fn getFontTablePtr(font: &XeTeXFontInst, tableTag: u32) -> *mu
 }
 pub(crate) unsafe fn getSlant(font: &XeTeXFontInst) -> Scaled {
     let italAngle = font.get_italic_angle();
-    D2Fix((-italAngle as f64 * std::f64::consts::PI / 180.).tan())
+    (-italAngle as f64 * std::f64::consts::PI / 180.)
+        .tan()
+        .into()
 }
 unsafe fn getLargerScriptListTable(font: &XeTeXFontInst, scriptList: *mut *mut hb_tag_t) -> u32 {
     let face = hb_font_get_face(font.get_hb_font());
@@ -786,13 +783,13 @@ pub(crate) unsafe fn getGraphiteFeatureDefaultSetting(
 pub(crate) unsafe fn getGraphiteFeatureLabel(
     engine: &XeTeXLayoutEngine,
     featureID: u32,
-) -> *mut libc::c_char {
+) -> *mut i8 {
     let hbFace = hb_font_get_face(engine.font.get_hb_font());
     if let Some(grFace) = hb_graphite2_face_get_gr_face(hbFace).as_ref() {
         let feature = gr_face_find_fref(grFace, featureID);
         let mut len = 0;
         let mut langID = 0x409;
-        gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut libc::c_char
+        gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut i8
     } else {
         ptr::null_mut()
     }
@@ -801,7 +798,7 @@ pub(crate) unsafe fn getGraphiteFeatureSettingLabel(
     engine: &XeTeXLayoutEngine,
     featureID: u32,
     settingID: u32,
-) -> *mut libc::c_char {
+) -> *mut i8 {
     let hbFace = hb_font_get_face(engine.font.get_hb_font());
     if let Some(grFace) = hb_graphite2_face_get_gr_face(hbFace).as_ref() {
         let feature = gr_face_find_fref(grFace, featureID);
@@ -809,8 +806,7 @@ pub(crate) unsafe fn getGraphiteFeatureSettingLabel(
             if settingID as i32 == gr_fref_value(feature, i) as i32 {
                 let mut len = 0;
                 let mut langID = 0x409;
-                return gr_fref_value_label(feature, i, &mut langID, gr_utf8, &mut len)
-                    as *mut libc::c_char;
+                return gr_fref_value_label(feature, i, &mut langID, gr_utf8, &mut len) as *mut i8;
             }
         }
     }
@@ -857,7 +853,7 @@ pub(crate) unsafe fn findGraphiteFeatureNamed(engine: &XeTeXLayoutEngine, name: 
             let mut langID = 0x409;
             // the first call is to get the length of the string
             gr_fref_label(feature, &mut langID, gr_utf8, &mut len);
-            let label = gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut libc::c_char;
+            let label = gr_fref_label(feature, &mut langID, gr_utf8, &mut len) as *mut i8;
             if std::ffi::CStr::from_ptr(label).to_bytes() == name {
                 let rval = gr_fref_id(feature) as i64;
                 gr_label_destroy(label as *mut libc::c_void);
@@ -882,8 +878,7 @@ pub(crate) unsafe fn findGraphiteFeatureSettingNamed(
             let mut langID = 0x409;
             // the first call is to get the length of the string
             gr_fref_value_label(feature, i, &mut langID, gr_utf8, &mut len);
-            let label = gr_fref_value_label(feature, i, &mut langID, gr_utf8, &mut len)
-                as *mut libc::c_char;
+            let label = gr_fref_value_label(feature, i, &mut langID, gr_utf8, &mut len) as *mut i8;
             if std::ffi::CStr::from_ptr(label).to_bytes() == name {
                 let rval = gr_fref_value(feature, i) as i64;
                 gr_label_destroy(label as *mut libc::c_void);
@@ -900,7 +895,7 @@ pub(crate) unsafe fn countGlyphs(font: &XeTeXFontInst) -> u32 {
 }
 
 impl XeTeXLayoutEngine {
-    pub(crate) unsafe fn get_font(&self) -> &XeTeXFontInst {
+    pub(crate) fn get_font(&self) -> &XeTeXFontInst {
         &*self.font
     }
     pub(crate) fn get_extend_factor(&self) -> f32 {
@@ -922,7 +917,7 @@ impl XeTeXLayoutEngine {
         script: hb_tag_t,
         language: String,
         features: Vec<hb_feature_t>,
-        shapers: *mut *mut libc::c_char,
+        shapers: *mut *const i8,
         rgbValue: u32,
         extend: f32,
         slant: f32,
@@ -1027,10 +1022,9 @@ impl XeTeXLayoutEngine {
             // XeTeX preferred OpenType over Graphite, so we are doing the same
             // here for sake of backward compatibility. Since "ot" shaper never
             // fails, we set the shaper list to just include it.
-            self.shaper_list.list = xcalloc(2, ::std::mem::size_of::<*mut libc::c_char>() as _)
-                as *mut *mut libc::c_char;
-            *self.shaper_list.list.offset(0) =
-                b"ot\x00" as *const u8 as *const libc::c_char as *mut libc::c_char;
+            self.shaper_list.list =
+                xcalloc(2, ::std::mem::size_of::<*const i8>() as _) as *mut *const i8;
+            *self.shaper_list.list.offset(0) = b"ot\x00".as_ptr() as *const i8;
             *self.shaper_list.list.offset(1) = ptr::null_mut();
             self.shaper_list.to_free = true;
         }
@@ -1039,7 +1033,7 @@ impl XeTeXLayoutEngine {
             &segment_props,
             self.features.as_ptr(),
             self.features.len() as u32,
-            self.shaper_list.list as *const *const libc::c_char,
+            self.shaper_list.list as *const *const i8,
         );
         let res = hb_shape_plan_execute(
             shape_plan,
@@ -1210,10 +1204,7 @@ impl XeTeXLayoutEngine {
         }
     }
 }
-pub(crate) unsafe fn mapGlyphToIndex(
-    engine: &XeTeXLayoutEngine,
-    glyphName: *const libc::c_char,
-) -> i32 {
+pub(crate) unsafe fn mapGlyphToIndex(engine: &XeTeXLayoutEngine, glyphName: *const i8) -> i32 {
     engine.font.map_glyph_to_index(glyphName) as i32
 }
 static mut grSegment: *mut gr_segment = ptr::null_mut();

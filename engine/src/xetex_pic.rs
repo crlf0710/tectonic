@@ -7,7 +7,6 @@ use std::ptr;
 use crate::help;
 use crate::node::Picture;
 use crate::xetex_errors::error;
-use crate::xetex_ext::{D2Fix, Fix2D};
 use crate::xetex_ini::{cur_list, input_state_t};
 use crate::xetex_scaledmath::Scaled;
 use crate::xetex_xetex0::{scan_decimal, scan_dimen, scan_file_name, scan_int, scan_keyword};
@@ -228,7 +227,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
                 );
                 error();
             } else {
-                x_size_req = Fix2D(val)
+                x_size_req = val.into();
             }
         } else if scan_keyword(input, "height") {
             let val = scan_dimen(input, false, false, None);
@@ -240,7 +239,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
                 );
                 error();
             } else {
-                y_size_req = Fix2D(val)
+                y_size_req = val.into();
             }
         } else if scan_keyword(input, "rotated") {
             let val = scan_decimal(input);
@@ -263,7 +262,7 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
                 y_size_req = 0.0f64;
                 t = t.post_transform(&t2);
             }
-            let t2 = Transform::create_rotation(Angle::degrees(Fix2D(val)));
+            let t2 = Transform::create_rotation(Angle::degrees(val.into()));
 
             corners = t2.transform_rect(&corners.to_f64()).to_f32();
             corners = Rect::from_points(&to_points(&corners));
@@ -314,16 +313,16 @@ pub(crate) unsafe fn load_picture(input: &mut input_state_t, is_pdf: bool) {
             .set_page(page as u16)
             .set_pagebox(pdf_box_type as u16);
         tail_pic
-            .set_width(D2Fix(xmax - xmin))
-            .set_height(D2Fix(ymax - ymin))
+            .set_width((xmax - xmin).into())
+            .set_height((ymax - ymin).into())
             .set_depth(Scaled::ZERO);
         tail_pic.set_transform_matrix([
-            D2Fix(t.m11),
-            D2Fix(t.m12),
-            D2Fix(t.m21),
-            D2Fix(t.m22),
-            D2Fix(t.m31),
-            D2Fix(t.m32),
+            t.m11.into(),
+            t.m12.into(),
+            t.m21.into(),
+            t.m22.into(),
+            t.m31.into(),
+            t.m32.into(),
         ]);
 
         tail_pic.path_mut().copy_from_slice(pic_path.as_bytes());

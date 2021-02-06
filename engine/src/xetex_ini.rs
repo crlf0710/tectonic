@@ -972,7 +972,7 @@ pub(crate) static mut xtx_ligature_present: bool = false;
 #[no_mangle]
 pub(crate) static mut delta: Scaled = Scaled::ZERO;
 #[no_mangle]
-pub(crate) static mut synctex_enabled: i32 = 0;
+pub(crate) static mut synctex_enabled: bool = false;
 #[no_mangle]
 pub(crate) static mut used_tectonic_coda_tokens: bool = false;
 #[no_mangle]

@@ -488,7 +488,7 @@ pub(crate) unsafe fn copy_native_glyph_info(src: &NativeWord, dest: &mut NativeW
         let glyph_count = src.glyph_count() as i32;
         let bytesize =
             glyph_count as usize * (std::mem::size_of::<FixedPoint>() + std::mem::size_of::<u16>());
-        dest.set_glyph_info_ptr(xmalloc_array::<libc::c_char>(bytesize) as *mut _);
+        dest.set_glyph_info_ptr(xmalloc_array::<u8>(bytesize) as *mut _);
         dest.set_glyph_count(glyph_count as u16);
         dest.locations_mut().copy_from_slice(src.locations());
         dest.glyph_ids_mut().copy_from_slice(src.glyph_ids());

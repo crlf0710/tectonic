@@ -38,7 +38,6 @@ use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_scaledmath::Scaled;
 
 use crate::xetex_layout_interface::GlyphAssembly;
-use crate::xetex_layout_interface::{D2Fix, Fix2D};
 
 use crate::xetex_ini::{FONT_LAYOUT_ENGINE, FONT_SIZE};
 
@@ -96,7 +95,7 @@ pub(crate) unsafe fn get_ot_math_constant(f: usize, n: i32) -> Scaled {
         /* scale according to font size, except the ones that are percentages */
         match constant as u32 {
             0 | 1 | 55 => Scaled::ZERO,
-            _ => D2Fix(font.units_to_points(rval as f32) as f64),
+            _ => (font.units_to_points(rval as f32) as f64).into(),
         }
     } else {
         Scaled::ZERO
@@ -106,14 +105,14 @@ pub(crate) unsafe fn get_ot_math_constant(f: usize, n: i32) -> Scaled {
 /* height of fraction lines above the baseline */
 #[no_mangle]
 pub(crate) static mut TeX_sym_to_OT_map: [hb_ot_math_constant_t; 23] = [
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
+    u32::MAX,
+    u32::MAX,
+    u32::MAX,
+    u32::MAX,
+    u32::MAX,
     HB_OT_MATH_CONSTANT_ACCENT_BASE_HEIGHT,
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
+    u32::MAX,
+    u32::MAX,
     HB_OT_MATH_CONSTANT_FRACTION_NUMERATOR_DISPLAY_STYLE_SHIFT_UP,
     HB_OT_MATH_CONSTANT_FRACTION_NUMERATOR_SHIFT_UP,
     HB_OT_MATH_CONSTANT_STACK_TOP_SHIFT_UP,
@@ -127,7 +126,7 @@ pub(crate) static mut TeX_sym_to_OT_map: [hb_ot_math_constant_t; 23] = [
     HB_OT_MATH_CONSTANT_SUPERSCRIPT_BASELINE_DROP_MAX,
     HB_OT_MATH_CONSTANT_SUBSCRIPT_BASELINE_DROP_MIN,
     HB_OT_MATH_CONSTANT_DELIMITED_SUB_FORMULA_MIN_HEIGHT,
-    4294967295 as hb_ot_math_constant_t,
+    u32::MAX,
     HB_OT_MATH_CONSTANT_AXIS_HEIGHT,
 ];
 
@@ -146,11 +145,11 @@ pub(crate) unsafe fn get_native_mathsy_param(f: usize, n: i32) -> Scaled {
             as i32
     {
         let ot_index = TeX_sym_to_OT_map[n as usize];
-        if ot_index as u32 != 4294967295 {
+        if ot_index as u32 != u32::MAX {
             rval = get_ot_math_constant(f, ot_index as i32)
         }
     }
-    //  fprintf(stderr, " math_sy(%d, %d) returns %.3f\n", f, n, Fix2D(rval));
+    //  fprintf(stderr, " math_sy(%d, %d) returns %.3f\n", f, n, f64::from(rval));
     rval
 }
 /* fontdimen IDs for math extension font (family 3) */
@@ -162,14 +161,14 @@ pub(crate) unsafe fn get_native_mathsy_param(f: usize, n: i32) -> Scaled {
 /* padding above and below displayed limits */
 #[no_mangle]
 pub(crate) static mut TeX_ext_to_OT_map: [hb_ot_math_constant_t; 14] = [
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
+    u32::MAX,
+    u32::MAX,
+    u32::MAX,
+    u32::MAX,
+    u32::MAX,
     HB_OT_MATH_CONSTANT_ACCENT_BASE_HEIGHT,
-    4294967295 as hb_ot_math_constant_t,
-    4294967295 as hb_ot_math_constant_t,
+    u32::MAX,
+    u32::MAX,
     HB_OT_MATH_CONSTANT_FRACTION_RULE_THICKNESS,
     HB_OT_MATH_CONSTANT_UPPER_LIMIT_GAP_MIN,
     HB_OT_MATH_CONSTANT_LOWER_LIMIT_GAP_MIN,
@@ -187,11 +186,11 @@ pub(crate) unsafe fn get_native_mathex_param(f: usize, n: i32) -> Scaled {
             as i32
     {
         let ot_index = TeX_ext_to_OT_map[n as usize];
-        if ot_index as u32 != 4294967295 {
+        if ot_index as u32 != u32::MAX {
             rval = get_ot_math_constant(f, ot_index as i32)
         }
     }
-    //  fprintf(stderr, " math_ex(%d, %d) returns %.3f\n", f, n, Fix2D(rval));
+    //  fprintf(stderr, " math_ex(%d, %d) returns %.3f\n", f, n, f64::from(rval));
     rval
 }
 pub(crate) unsafe fn get_ot_math_variant(
@@ -225,7 +224,7 @@ pub(crate) unsafe fn get_ot_math_variant(
         );
         if count > 0 {
             rval = (*variant.as_mut_ptr()).glyph;
-            *adv = D2Fix(font.units_to_points((*variant.as_mut_ptr()).advance as f32) as f64)
+            *adv = (font.units_to_points((*variant.as_mut_ptr()).advance as f32) as f64).into();
         }
     }
     rval as i32
@@ -275,7 +274,7 @@ pub(crate) unsafe fn get_ot_math_ital_corr(f: usize, g: i32) -> Scaled {
         let font = e.get_font();
         let hbFont = font.get_hb_font();
         let rval = hb_ot_math_get_glyph_italics_correction(hbFont, g as hb_codepoint_t);
-        D2Fix(font.units_to_points(rval as f32) as f64)
+        (font.units_to_points(rval as f32) as f64).into()
     } else {
         Scaled::ZERO
     }
@@ -285,7 +284,7 @@ pub(crate) unsafe fn get_ot_math_accent_pos(f: usize, g: i32) -> Scaled {
         let font = e.get_font();
         let hbFont = font.get_hb_font();
         let rval = hb_ot_math_get_glyph_top_accent_attachment(hbFont, g as hb_codepoint_t);
-        D2Fix(font.units_to_points(rval as f32) as f64)
+        (font.units_to_points(rval as f32) as f64).into()
     } else {
         Scaled::INFINITY
     }
@@ -295,7 +294,7 @@ pub(crate) unsafe fn ot_min_connector_overlap(f: usize) -> Scaled {
         let font = e.get_font();
         let hbFont = font.get_hb_font();
         let rval = hb_ot_math_get_min_connector_overlap(hbFont, HB_DIRECTION_RTL);
-        D2Fix(font.units_to_points(rval as f32) as f64)
+        (font.units_to_points(rval as f32) as f64).into()
     } else {
         Scaled::ZERO
     }
@@ -345,73 +344,25 @@ pub(crate) unsafe fn get_ot_math_kern(
             // superscript
             let corr_height_top = font.points_to_units(glyph_height(f, g));
             let corr_height_bot =
-                -font.points_to_units((glyph_depth(sf, sg) as f64 + Fix2D(shift)) as f32);
-            let kern = getMathKernAt(
-                f,
-                g,
-                HB_OT_MATH_KERN_TOP_RIGHT,
-                corr_height_top as libc::c_int,
-            )
-            .0;
-            let skern = getMathKernAt(
-                sf,
-                sg,
-                HB_OT_MATH_KERN_BOTTOM_LEFT,
-                corr_height_top as libc::c_int,
-            )
-            .0;
+                -font.points_to_units((glyph_depth(sf, sg) as f64 + f64::from(shift)) as f32);
+            let kern = getMathKernAt(f, g, HB_OT_MATH_KERN_TOP_RIGHT, corr_height_top as _);
+            let skern = getMathKernAt(sf, sg, HB_OT_MATH_KERN_BOTTOM_LEFT, corr_height_top as _);
             rval = kern + skern;
-            let kern = getMathKernAt(
-                f,
-                g,
-                HB_OT_MATH_KERN_TOP_RIGHT,
-                corr_height_bot as libc::c_int,
-            )
-            .0;
-            let skern = getMathKernAt(
-                sf,
-                sg,
-                HB_OT_MATH_KERN_BOTTOM_LEFT,
-                corr_height_bot as libc::c_int,
-            )
-            .0;
+            let kern = getMathKernAt(f, g, HB_OT_MATH_KERN_TOP_RIGHT, corr_height_bot as _);
+            let skern = getMathKernAt(sf, sg, HB_OT_MATH_KERN_BOTTOM_LEFT, corr_height_bot as _);
             if kern + skern < rval {
                 rval = kern + skern
             }
         } else if cmd == 1 {
             // subscript
             let corr_height_top =
-                font.points_to_units((glyph_height(sf, sg) as f64 - Fix2D(shift)) as f32);
+                font.points_to_units((glyph_height(sf, sg) as f64 - f64::from(shift)) as f32);
             let corr_height_bot = -font.points_to_units(glyph_depth(f, g));
-            let kern = getMathKernAt(
-                f,
-                g,
-                HB_OT_MATH_KERN_BOTTOM_RIGHT,
-                corr_height_top as libc::c_int,
-            )
-            .0;
-            let skern = getMathKernAt(
-                sf,
-                sg,
-                HB_OT_MATH_KERN_TOP_LEFT,
-                corr_height_top as libc::c_int,
-            )
-            .0;
+            let kern = getMathKernAt(f, g, HB_OT_MATH_KERN_BOTTOM_RIGHT, corr_height_top as _);
+            let skern = getMathKernAt(sf, sg, HB_OT_MATH_KERN_TOP_LEFT, corr_height_top as _);
             rval = kern + skern;
-            let kern = getMathKernAt(
-                f,
-                g,
-                HB_OT_MATH_KERN_BOTTOM_RIGHT,
-                corr_height_bot as libc::c_int,
-            )
-            .0;
-            let skern = getMathKernAt(
-                sf,
-                sg,
-                HB_OT_MATH_KERN_TOP_LEFT,
-                corr_height_bot as libc::c_int,
-            )
-            .0;
+            let kern = getMathKernAt(f, g, HB_OT_MATH_KERN_BOTTOM_RIGHT, corr_height_bot as _);
+            let skern = getMathKernAt(sf, sg, HB_OT_MATH_KERN_TOP_LEFT, corr_height_bot as _);
             if kern + skern < rval {
                 rval = kern + skern
             }
@@ -419,7 +370,7 @@ pub(crate) unsafe fn get_ot_math_kern(
             unreachable!()
             // we should not reach here
         }
-        D2Fix(font.units_to_points(rval as f32) as f64)
+        (font.units_to_points(rval.0 as f32) as f64).into()
     } else {
         Scaled::ZERO
     }
@@ -427,32 +378,32 @@ pub(crate) unsafe fn get_ot_math_kern(
 pub(crate) fn ot_part_count(a: &GlyphAssembly) -> i32 {
     a.parts.len() as i32
 }
-pub(crate) unsafe fn ot_part_glyph(a: &GlyphAssembly, i: i32) -> i32 {
+pub(crate) fn ot_part_glyph(a: &GlyphAssembly, i: i32) -> i32 {
     a.parts[i as usize].glyph as i32
 }
-pub(crate) unsafe fn ot_part_is_extender(a: &GlyphAssembly, i: i32) -> bool {
+pub(crate) fn ot_part_is_extender(a: &GlyphAssembly, i: i32) -> bool {
     a.parts[i as usize].flags as u32 & HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER as u32 != 0
 }
-pub(crate) unsafe fn ot_part_start_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
-    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
+pub(crate) fn ot_part_start_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
+    if let Font::Native(Otgr(e)) = unsafe { &FONT_LAYOUT_ENGINE[f] } {
         let font = e.get_font();
-        D2Fix(font.units_to_points(a.parts[i as usize].start_connector_length as f32) as f64)
+        (font.units_to_points(a.parts[i as usize].start_connector_length as f32) as f64).into()
     } else {
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn ot_part_end_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
-    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
+pub(crate) fn ot_part_end_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
+    if let Font::Native(Otgr(e)) = unsafe { &FONT_LAYOUT_ENGINE[f] } {
         let font = e.get_font();
-        D2Fix(font.units_to_points(a.parts[i as usize].end_connector_length as f32) as f64)
+        (font.units_to_points(a.parts[i as usize].end_connector_length as f32) as f64).into()
     } else {
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn ot_part_full_advance(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
-    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f as usize] {
+pub(crate) fn ot_part_full_advance(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
+    if let Font::Native(Otgr(e)) = unsafe { &FONT_LAYOUT_ENGINE[f as usize] } {
         let font = e.get_font();
-        D2Fix(font.units_to_points(a.parts[i as usize].full_advance as f32) as f64)
+        (font.units_to_points(a.parts[i as usize].full_advance as f32) as f64).into()
     } else {
         Scaled::ZERO
     }

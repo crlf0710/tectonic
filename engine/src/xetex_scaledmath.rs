@@ -135,6 +135,22 @@ impl std::fmt::Display for Scaled {
     }
 }
 
+impl From<f64> for Scaled {
+    fn from(d: f64) -> Self {
+        Self((d * 65536. + 0.5) as i32)
+    }
+}
+impl From<Scaled> for f64 {
+    fn from(s: Scaled) -> Self {
+        s.0 as f64 / 65536.
+    }
+}
+impl From<Scaled> for f32 {
+    fn from(s: Scaled) -> Self {
+        f64::from(s) as f32
+    }
+}
+
 impl From<i32> for Scaled {
     fn from(v: i32) -> Self {
         Self(v * Self::ONE.0)

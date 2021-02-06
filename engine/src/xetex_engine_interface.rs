@@ -24,7 +24,7 @@ pub unsafe fn tt_xetex_set_int_variable(var_name: &str, value: i32) -> i32 {
     } else if var_name == "in_initex_mode" {
         in_initex_mode = value != 0
     } else if var_name == "synctex_enabled" {
-        synctex_enabled = (value != 0) as i32
+        synctex_enabled = value != 0
     } else if var_name == "semantic_pagination_enabled" {
         semantic_pagination_enabled = value != 0
     } else if var_name == "shell_escape_enabled" {
