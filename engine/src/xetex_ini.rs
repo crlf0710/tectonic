@@ -2146,7 +2146,7 @@ unsafe fn init_io(input: &mut input_state_t) {
     /* This is largely vestigial at this point */
     INPUT_FILE[0] = Some(Box::new(UFILE {
         handle: None,
-        savedChar: -1,
+        savedChar: None,
         skipNextLF: 0,
         encodingMode: UnicodeMode::Utf8,
         conversionData: 0 as *mut libc::c_void,

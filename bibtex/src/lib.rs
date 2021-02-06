@@ -52,8 +52,8 @@ mod core_memory {
 }
 
 use bridge::{
-    ttstub_input_getc, ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout,
-    ttstub_output_putc, InFile, OutputHandleWrapper, TTHistory, TTInputFormat,
+    ttstub_output_close, ttstub_output_open, ttstub_output_open_stdout, ttstub_output_putc, InFile,
+    OutputHandleWrapper, TTHistory, TTInputFormat,
 };
 use libc::{free, strcpy, strlen};
 use std::panic;
@@ -182,17 +182,19 @@ unsafe fn peekable_open(
     })
 }
 unsafe fn peekable_getc(peekable: &mut peekable_input_t) -> i32 {
+    use bridge::ReadByte;
     let mut rv: i32 = 0;
     if peekable.peek_char != -1i32 {
         rv = peekable.peek_char;
         peekable.peek_char = -1i32;
         return rv;
     }
-    rv = ttstub_input_getc(&mut peekable.handle);
-    if rv == -1i32 {
-        peekable.saw_eof = true
+    if let Some(rv) = peekable.handle.read_byte() {
+        rv as i32
+    } else {
+        peekable.saw_eof = true;
+        -1
     }
-    rv
 }
 unsafe fn peekable_ungetc(peekable: &mut peekable_input_t, mut c: i32) {
     /* TODO: assert c != EOF */

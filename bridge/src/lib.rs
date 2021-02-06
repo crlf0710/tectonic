@@ -427,12 +427,17 @@ pub unsafe fn ttstub_input_read_rust_style(
     )
 }
 
-pub fn ttstub_input_getc<R: Read>(handle: &mut R) -> i32 {
-    let mut byte = [0u8; 1];
-
-    match handle.read(&mut byte[..1]) {
-        Ok(1) => byte[0] as i32,
-        _ => -1,
+pub trait ReadByte {
+    fn read_byte(&mut self) -> Option<u8>;
+}
+impl<R> ReadByte for R
+where
+    R: std::io::Read,
+{
+    fn read_byte(&mut self) -> Option<u8> {
+        let mut buf = [0_u8];
+        self.read_exact(&mut buf).ok()?;
+        Some(buf[0])
     }
 }
 

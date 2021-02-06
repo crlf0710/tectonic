@@ -58,7 +58,7 @@ use crate::xetex_ini::{
 };
 use crate::xetex_ini::{b16x4, memory_word, prefixed_command};
 use crate::xetex_ini::{hash_offset, FONT_LETTER_SPACE};
-use crate::xetex_io::{input_line, open_or_close_in, set_input_file_encoding};
+use crate::xetex_io::{open_or_close_in, set_input_file_encoding};
 use crate::xetex_layout_interface::*;
 use crate::xetex_linebreak::line_break;
 use crate::xetex_math::{
@@ -4312,7 +4312,10 @@ pub(crate) unsafe fn get_next(input: &mut input_state_t) -> (Cmd, i32, i32) {
                                 } else {
                                     force_eof = true
                                 }
-                            } else if input_line(INPUT_FILE[input.index as usize].as_mut().unwrap())
+                            } else if INPUT_FILE[input.index as usize]
+                                .as_mut()
+                                .unwrap()
+                                .input_line()
                             {
                                 // not end of file
                                 input.limit = last;
@@ -8331,13 +8334,13 @@ pub(crate) unsafe fn read_toks(input: &mut input_state_t, n: i32, r: i32, j: i32
         /*505:*/
         if read_open[m as usize] == OpenMode::JustOpen {
             // Input the first line of `read_file[m]`
-            if input_line(read_file[m as usize].as_mut().unwrap()) {
+            if read_file[m as usize].as_mut().unwrap().input_line() {
                 read_open[m as usize] = OpenMode::Normal;
             } else {
                 let _ = read_file[m as usize].take();
                 read_open[m as usize] = OpenMode::Closed;
             }
-        } else if !input_line(read_file[m as usize].as_mut().unwrap()) {
+        } else if !read_file[m as usize].as_mut().unwrap().input_line() {
             // Input the next line of |read_file[m]|
             let _ = read_file[m as usize].take();
             read_open[m as usize] = OpenMode::Closed;
@@ -9150,7 +9153,10 @@ pub(crate) unsafe fn start_input(input: &mut input_state_t, primary_input_name: 
 
     // Read the first line of the new file
     line = 1;
-    input_line(INPUT_FILE[input.index as usize].as_mut().unwrap());
+    INPUT_FILE[input.index as usize]
+        .as_mut()
+        .unwrap()
+        .input_line();
     input.limit = last;
     if get_int_par(IntPar::end_line_char) < 0 || get_int_par(IntPar::end_line_char) > 255 {
         input.limit -= 1
