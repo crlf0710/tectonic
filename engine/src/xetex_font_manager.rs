@@ -14,7 +14,6 @@ pub(crate) mod imp;
 #[path = "xetex_font_manager_coretext.rs"]
 pub(crate) mod imp;
 
-use crate::xetex_ext::Fix2D;
 use crate::xetex_ini::loaded_font_design_size;
 use crate::xetex_layout_interface::createFont;
 use crate::xetex_xetex0::{diagnostic, get_tracing_fonts_state};
@@ -784,7 +783,7 @@ impl XeTeXFontMgrFont {
             let postTable = font.get_font_table_ft(FT_SFNT_POST) as *const TT_Postscript;
             if !postTable.is_null() {
                 self.slant = (1000_f64
-                    * (Fix2D(Scaled(-(*postTable).italicAngle as i32)) * std::f64::consts::PI
+                    * (f64::from(Scaled(-(*postTable).italicAngle as i32)) * std::f64::consts::PI
                         / 180.)
                         .tan()) as i32 as i16
             }

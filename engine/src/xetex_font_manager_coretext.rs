@@ -203,7 +203,7 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
         }
     }
     unsafe fn get_platform_font_desc(&self, descriptor: Self::FontRef) -> String {
-        let mut path: *mut libc::c_char = ptr::null_mut();
+        let mut path = String::new();
         let ctFont = CTFontCreateWithFontDescriptor(descriptor, 0.0f64, ptr::null());
         if !ctFont.is_null() {
             let url = CTFontCopyAttribute(ctFont, kCTFontURLAttribute) as CFURLRef;
@@ -212,20 +212,16 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
                 if CFURLGetFileSystemRepresentation(url, 1 as Boolean, posixPath.as_mut_ptr(), 1024)
                     != 0
                 {
-                    path = strdup(posixPath.as_mut_ptr() as *mut libc::c_char)
+                    path = crate::c_pointer_to_str(posixPath.as_mut_ptr() as *mut i8).to_string();
                 }
                 CFRelease(url as CFTypeRef);
             }
             CFRelease(ctFont as CFTypeRef);
         }
         if strlen(path) == 0 {
-            free(path as *mut libc::c_void);
-            path = ptr::null_mut()
-        }
-        if path.is_null() {
             "[unknown]".to_string()
         } else {
-            crate::c_pointer_to_str(path).to_string()
+            path
         }
     }
     unsafe fn search_for_host_platform_fonts(&mut self, name: &str) {

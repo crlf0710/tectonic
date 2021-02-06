@@ -94,7 +94,7 @@ unsafe fn convertToUtf8(
         conv,
         buffer1.as_mut_ptr(),
         bufSize,
-        name as *const libc::c_char,
+        name as *const i8,
         len,
         &mut status,
     );
@@ -139,9 +139,9 @@ impl XeTeXFontMgr_FC {
             for i in 0.. {
                 if FcPatternGetString(
                     pat,
-                    b"family\x00" as *const u8 as *const libc::c_char,
+                    b"family\x00".as_ptr() as *const i8,
                     i,
-                    &mut s as *mut *mut libc::c_char as *mut *mut u8,
+                    &mut s as *mut *mut i8 as *mut *mut u8,
                 ) as u32
                     != FcResultMatch as _
                 {
@@ -169,27 +169,23 @@ impl XeTeXFontMgr_FC {
             abort!("FreeType initialization failed");
         }
         let mut err: icu::UErrorCode = icu::U_ZERO_ERROR;
-        macRomanConv = icu::ucnv_open(
-            b"macintosh\x00" as *const u8 as *const libc::c_char,
-            &mut err,
-        );
-        utf16beConv = icu::ucnv_open(b"UTF16BE\x00" as *const u8 as *const libc::c_char, &mut err);
-        utf8Conv = icu::ucnv_open(b"UTF8\x00" as *const u8 as *const libc::c_char, &mut err);
+        macRomanConv = icu::ucnv_open(b"macintosh\x00".as_ptr() as *const i8, &mut err);
+        utf16beConv = icu::ucnv_open(b"UTF16BE\x00".as_ptr() as *const i8, &mut err);
+        utf8Conv = icu::ucnv_open(b"UTF8\x00".as_ptr() as *const i8, &mut err);
         if err as u64 != 0 {
             abort!("cannot read font names");
         }
-        let pat =
-            FcNameParse(b":outline=true\x00" as *const u8 as *const libc::c_char as *const u8);
+        let pat = FcNameParse(b":outline=true\x00".as_ptr() as *const i8 as *const u8);
         let os = FcObjectSetBuild(
-            b"family\x00" as *const u8 as *mut u8 as *mut i8,
-            b"style\x00" as *const u8 as *mut u8 as *mut i8,
-            b"file\x00" as *const u8 as *mut u8 as *mut i8,
-            b"index\x00" as *const u8 as *mut u8 as *mut i8,
-            b"fullname\x00" as *const u8 as *mut u8 as *mut i8,
-            b"weight\x00" as *const u8 as *mut u8 as *mut i8,
-            b"width\x00" as *const u8 as *mut u8 as *mut i8,
-            b"slant\x00" as *const u8 as *mut u8 as *mut i8,
-            b"fontformat\x00" as *const u8 as *mut u8 as *mut i8,
+            b"family\x00".as_ptr() as *mut u8 as *mut i8,
+            b"style\x00".as_ptr() as *mut u8 as *mut i8,
+            b"file\x00".as_ptr() as *mut u8 as *mut i8,
+            b"index\x00".as_ptr() as *mut u8 as *mut i8,
+            b"fullname\x00".as_ptr() as *mut u8 as *mut i8,
+            b"weight\x00".as_ptr() as *mut u8 as *mut i8,
+            b"width\x00".as_ptr() as *mut u8 as *mut i8,
+            b"slant\x00".as_ptr() as *mut u8 as *mut i8,
+            b"fontformat\x00".as_ptr() as *mut u8 as *mut i8,
             ptr::null_mut::<i8>(),
         );
         self.allFonts = FcFontList(FcConfigGetCurrent(), pat, os);
@@ -223,13 +219,13 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         let mut s: *mut u8 = ptr::null_mut();
         if FcPatternGetString(
             font,
-            b"file\x00" as *const u8 as *const libc::c_char,
+            b"file\x00".as_ptr() as *const i8,
             0,
             &mut s as *mut *mut u8,
         ) as u32
             == FcResultMatch as u32
         {
-            crate::c_pointer_to_str(s as *const libc::c_char).to_string()
+            crate::c_pointer_to_str(s as *const i8).to_string()
         } else {
             "[unknown]".to_string()
         }
@@ -259,13 +255,13 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                     continue;
                 }
 
-                let mut s: *mut libc::c_char = ptr::null_mut();
+                let mut s: *mut i8 = ptr::null_mut();
                 let mut i = 0;
                 while FcPatternGetString(
                     pat,
-                    b"fullname\x00" as *const u8 as *const libc::c_char,
+                    b"fullname\x00".as_ptr() as *const i8,
                     i,
-                    &mut s as *mut *mut libc::c_char as *mut *mut u8,
+                    &mut s as *mut *mut i8 as *mut *mut u8,
                 ) == FcResultMatch
                 {
                     if name.as_bytes() == CStr::from_ptr(s).to_bytes() {
@@ -281,9 +277,9 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                 let mut i = 0;
                 while FcPatternGetString(
                     pat,
-                    b"family\x00" as *const u8 as *const libc::c_char,
+                    b"family\x00".as_ptr() as *const i8,
                     i,
-                    &mut s as *mut *mut libc::c_char as *mut *mut u8,
+                    &mut s as *mut *mut i8 as *mut *mut u8,
                 ) == FcResultMatch
                 {
                     if name.as_bytes() == CStr::from_ptr(s).to_bytes()
@@ -296,13 +292,13 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                         continue 'traverse_fonts;
                     }
 
-                    let mut t: *mut libc::c_char = 0 as _;
+                    let mut t: *mut i8 = 0 as _;
                     let mut j = 0;
                     while FcPatternGetString(
                         pat,
-                        b"style\x00" as *const u8 as *const libc::c_char,
+                        b"style\x00".as_ptr() as *const i8,
                         j,
-                        &mut t as *mut *mut libc::c_char as *mut *mut u8,
+                        &mut t as *mut *mut i8 as *mut *mut u8,
                     ) == FcResultMatch
                     {
                         let mut full = Vec::new();
@@ -336,21 +332,16 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         let mut pathname = ptr::null_mut();
         if FcPatternGetString(
             pat,
-            b"file\x00" as *const u8 as *const libc::c_char,
+            b"file\x00".as_ptr() as *const i8,
             0,
-            &mut pathname as *mut *mut libc::c_char as *mut *mut u8,
+            &mut pathname as *mut *mut i8 as *mut *mut u8,
         ) as u32
             != FcResultMatch as u32
         {
             return names;
         }
         let mut index = 0;
-        if FcPatternGetInteger(
-            pat,
-            b"index\x00" as *const u8 as *const libc::c_char,
-            0,
-            &mut index,
-        ) as u32
+        if FcPatternGetInteger(pat, b"index\x00".as_ptr() as *const i8, 0, &mut index) as u32
             != FcResultMatch as u32
         {
             return names;
@@ -359,7 +350,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         if FT_New_Face(gFreeTypeLibrary, pathname, index as FT_Long, &mut face) != 0 {
             return names;
         }
-        let mut name: *const libc::c_char = FT_Get_Postscript_Name(face);
+        let mut name: *const i8 = FT_Get_Postscript_Name(face);
         if name.is_null() {
             return names;
         }
@@ -433,9 +424,9 @@ impl FontMgrExt for XeTeXFontMgr_FC {
             let mut index = 0;
             while FcPatternGetString(
                 pat,
-                b"fullname\x00" as *const u8 as *const libc::c_char,
+                b"fullname\x00".as_ptr() as *const i8,
                 index,
-                &mut name as *mut *const libc::c_char as *mut *mut u8,
+                &mut name as *mut *const i8 as *mut *mut u8,
             ) == FcResultMatch
             {
                 index += 1;
@@ -446,9 +437,9 @@ impl FontMgrExt for XeTeXFontMgr_FC {
             let mut index = 0;
             while FcPatternGetString(
                 pat,
-                b"family\x00" as *const u8 as *const libc::c_char,
+                b"family\x00".as_ptr() as *const i8,
                 index,
-                &mut name as *mut *const libc::c_char as *mut *mut u8,
+                &mut name as *mut *const i8 as *mut *mut u8,
             ) == FcResultMatch
             {
                 index += 1;
@@ -459,9 +450,9 @@ impl FontMgrExt for XeTeXFontMgr_FC {
             let mut index = 0;
             while FcPatternGetString(
                 pat,
-                b"style\x00" as *const u8 as *const libc::c_char,
+                b"style\x00".as_ptr() as *const i8,
                 index,
-                &mut name as *mut *const libc::c_char as *mut *mut u8,
+                &mut name as *mut *const i8 as *mut *mut u8,
             ) == FcResultMatch
             {
                 index += 1;
@@ -487,30 +478,18 @@ impl FontMgrExt for XeTeXFontMgr_FC {
             // try to get values from FontConfig, as it apparently wasn't an sfnt
             let pat = theFont.fontRef;
             let mut value = 0;
-            if FcPatternGetInteger(
-                pat,
-                b"weight\x00" as *const u8 as *const libc::c_char,
-                0,
-                &mut value,
-            ) == FcResultMatch
+            if FcPatternGetInteger(pat, b"weight\x00".as_ptr() as *const i8, 0, &mut value)
+                == FcResultMatch
             {
                 theFont.weight = value as u16
             }
-            if FcPatternGetInteger(
-                pat,
-                b"width\x00" as *const u8 as *const libc::c_char,
-                0,
-                &mut value,
-            ) == FcResultMatch
+            if FcPatternGetInteger(pat, b"width\x00".as_ptr() as *const i8, 0, &mut value)
+                == FcResultMatch
             {
                 theFont.width = value as u16
             }
-            if FcPatternGetInteger(
-                pat,
-                b"slant\x00" as *const u8 as *const libc::c_char,
-                0,
-                &mut value,
-            ) == FcResultMatch
+            if FcPatternGetInteger(pat, b"slant\x00".as_ptr() as *const i8, 0, &mut value)
+                == FcResultMatch
             {
                 theFont.slant = value as i16
             }

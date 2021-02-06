@@ -346,7 +346,7 @@ pub(crate) mod cf_prelude {
         // Missing
         pub(crate) fn CFStringCreateWithCStringNoCopy(
             alloc: CFAllocatorRef,
-            cStr: *const libc::c_char,
+            cStr: *const i8,
             encoding: CFStringEncoding,
             contentsDeallocator: CFAllocatorRef,
         ) -> CFStringRef;

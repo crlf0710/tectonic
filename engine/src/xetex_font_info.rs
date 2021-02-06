@@ -78,7 +78,6 @@ pub(crate) mod imp {}
 #[path = "xetex_font_info_coretext.rs"]
 pub(crate) mod imp;
 
-use crate::xetex_ext::Fix2D;
 use libc::free;
 extern "C" {
     // TODO: NOTE: this api doesn't included in harfbuzz_sys
@@ -386,7 +385,7 @@ unsafe extern "C" fn _get_glyph_name(
     mut _hbf: *mut hb_font_t,
     font_data: *mut libc::c_void,
     gid: hb_codepoint_t,
-    name: *mut libc::c_char,
+    name: *mut i8,
     size: u32,
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
@@ -482,14 +481,13 @@ unsafe extern "C" fn _get_table(
     let mut blob = ptr::null_mut();
     let error = FT_Load_Sfnt_Table(face, tag as FT_ULong, 0, ptr::null_mut(), &mut length);
     if error == 0 {
-        let table = xmalloc(
-            length.wrapping_mul(::std::mem::size_of::<libc::c_char>() as libc::c_ulong) as _,
-        ) as *mut FT_Byte;
+        let table = xmalloc(length.wrapping_mul(::std::mem::size_of::<i8>() as libc::c_ulong) as _)
+            as *mut FT_Byte;
         if !table.is_null() {
             let error = FT_Load_Sfnt_Table(face, tag as FT_ULong, 0, table, &mut length);
             if error == 0 {
                 blob = hb_blob_create(
-                    table as *const libc::c_char,
+                    table as *const i8,
                     length as u32,
                     HB_MEMORY_MODE_WRITABLE,
                     table as *mut libc::c_void,
@@ -587,7 +585,7 @@ impl XeTeXFontInst {
         self.m_descent = self.units_to_points((*self.m_ftFace).descender as f32);
         let postTable = self.get_font_table_ft(FT_SFNT_POST) as *mut TT_Postscript;
         if !postTable.is_null() {
-            self.m_italicAngle = Fix2D(Scaled((*postTable).italicAngle as i32)) as f32
+            self.m_italicAngle = Scaled((*postTable).italicAngle as i32).into();
         }
         let os2Table = self.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
         if !os2Table.is_null() {
@@ -646,9 +644,8 @@ impl XeTeXFontInst {
         if error != 0 {
             return 0 as *mut libc::c_void;
         }
-        let table = xmalloc(
-            tmpLength.wrapping_mul(::std::mem::size_of::<libc::c_char>() as libc::c_ulong) as _,
-        );
+        let table =
+            xmalloc(tmpLength.wrapping_mul(::std::mem::size_of::<i8>() as libc::c_ulong) as _);
         if !table.is_null() {
             error = FT_Load_Sfnt_Table(
                 self.m_ftFace,
@@ -731,20 +728,20 @@ impl XeTeXFontInst {
         }
     }
 
-    pub(crate) unsafe fn map_glyph_to_index(&self, glyphName: *const libc::c_char) -> GlyphID {
-        FT_Get_Name_Index(self.m_ftFace, glyphName as *mut libc::c_char) as GlyphID
+    pub(crate) unsafe fn map_glyph_to_index(&self, glyphName: *const i8) -> GlyphID {
+        FT_Get_Name_Index(self.m_ftFace, glyphName as *mut i8) as GlyphID
     }
 
     pub(crate) unsafe fn get_glyph_name(&self, gid: GlyphID) -> String {
         if (*self.m_ftFace).face_flags & 1 << 9 != 0 {
-            static mut buffer: [libc::c_char; 256] = [0; 256];
+            static mut buffer: [i8; 256] = [0; 256];
             FT_Get_Glyph_Name(
                 self.m_ftFace,
                 gid as FT_UInt,
                 buffer.as_mut_ptr() as FT_Pointer,
                 256i32 as FT_UInt,
             );
-            crate::c_pointer_to_str(*buffer.as_mut_ptr() as *mut libc::c_char).to_string()
+            crate::c_pointer_to_str(*buffer.as_mut_ptr() as *mut i8).to_string()
         } else {
             String::new()
         }
