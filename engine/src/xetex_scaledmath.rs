@@ -5,6 +5,7 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::xetex_ini::arith_error;
+use crate::{help, t_eprint};
 
 #[derive(
     Copy,
@@ -186,11 +187,11 @@ impl core::ops::Rem for Scaled {
 
 pub(crate) unsafe fn tex_round(r: f64) -> Scaled {
     /* We must reproduce very particular rounding semantics to pass the TRIP
-     * test. Specifically, values within the 32-bit range of TeX integers are
-     * rounded to the nearest integer with half-integral values going away
+     * test. Specifically, values within the 32-bit range of TeX i32s are
+     * rounded to the nearest i32 with half-integral values going away
      * from zero: 0.5 => 1, -0.5 => -1.
      *
-     * `r` does not necessarily lie within the range of a 32-bit TeX integer;
+     * `r` does not necessarily lie within the range of a 32-bit TeX i32;
      * if it doesn't, we clip. The following LaTeX document allegedly triggers
      * that codepath:
      *
@@ -210,7 +211,7 @@ pub(crate) unsafe fn tex_round(r: f64) -> Scaled {
         /* -0x80000000 */
         return Scaled(-2147483648);
     }
-    /* ANSI defines the float-to-integer cast to truncate towards zero, so the
+    /* ANSI defines the f32-to-i32 cast to truncate towards zero, so the
      * following code is all that's necessary to get the desired behavior. The
      * truncation technically causes an uncaught "inexact" floating-point
      * exception, but exception is virtually impossible to avoid in real
@@ -305,4 +306,348 @@ pub(crate) unsafe fn round_xn_over_d(x: Scaled, n: i32, d: i32) -> Scaled {
     } else {
         Scaled(-u)
     }
+}
+
+pub(crate) unsafe fn make_frac(mut p: i32, mut q: i32) -> i32 {
+    let mut negative;
+    if p >= 0 {
+        negative = false;
+    } else {
+        p = -p;
+        negative = true;
+    }
+
+    if q <= 0 {
+        q = -q;
+        negative = !negative;
+    }
+
+    let n = p / q;
+    p = p % q;
+
+    if n >= 8 {
+        arith_error = true;
+        if negative {
+            -0x7FFF_FFFF
+        } else {
+            0x7FFF_FFFF
+        }
+    } else {
+        let n = (n - 1) * 0x1000_0000;
+        let mut f = 1;
+
+        loop {
+            let be_careful = p - q;
+            p = be_careful + p;
+            if p >= 0 {
+                f = f + f + 1;
+            } else {
+                f = f + f;
+                p = p + q;
+            }
+            if f >= 0x1000_0000 {
+                break;
+            }
+        }
+
+        let be_careful = p - q;
+        if be_careful + p >= 0 {
+            f += 1;
+        }
+
+        if negative {
+            -(f + n)
+        } else {
+            f + n
+        }
+    }
+}
+
+pub(crate) unsafe fn take_frac(mut q: i32, mut f: i32) -> i32 {
+    let mut negative;
+    if f >= 0 {
+        negative = false;
+    } else {
+        f = -f;
+        negative = true;
+    }
+
+    if q < 0 {
+        q = -q;
+        negative = !negative;
+    }
+
+    let mut n;
+    if f < 0x1000_0000 {
+        n = 0;
+    } else {
+        n = f / 0x1000_0000;
+        f = f % 0x1000_0000;
+
+        if q <= 0x7FFF_FFFF / n {
+            n = n * q;
+        } else {
+            arith_error = true;
+            n = 0x7FFF_FFFF;
+        }
+    }
+
+    f = f + 0x1000_0000;
+    let mut p = 0x0800_0000;
+
+    if q < 0x4000_0000 {
+        loop {
+            if f % 2 != 0 {
+                p = (p + q) / 2;
+            } else {
+                p = p / 2;
+            }
+            f = f / 2;
+            if f == 1 {
+                break;
+            }
+        }
+    } else {
+        loop {
+            if f % 2 != 0 {
+                p = p + (q - p) / 2;
+            } else {
+                p = p / 2;
+            }
+            f = f / 2;
+            if f == 1 {
+                break;
+            }
+        } /*:120 */
+    }
+
+    let be_careful = n - 0x7FFF_FFFF;
+    if be_careful + p > 0 {
+        arith_error = true;
+        n = 0x7FFF_FFFF - p;
+    }
+
+    if negative {
+        -(n + p)
+    } else {
+        n + p
+    }
+}
+
+use crate::xetex_errors::error;
+use crate::xetex_ini::{spec_log, two_to_the};
+pub(crate) unsafe fn m_log(mut x: i32) -> i32 {
+    if x <= 0 {
+        /*125: */
+        t_eprint!("Logarithm of {} has been replaced by 0", Scaled(x));
+        help!(
+            "Since I don't take logs of non-positive numbers,",
+            "I'm zeroing this one. Proceed, with fingers crossed."
+        );
+        error();
+        0
+    } else {
+        let mut y = 1_302_456_860;
+        let mut z = 6_581_195;
+
+        while x < 0x4000_0000 {
+            x = x + x;
+            y = y - 93_032_639;
+            z = z - 48_782;
+        }
+
+        y = y + z / 65536;
+        let mut k = 2;
+
+        while x > 0x4000_0004 {
+            /*124: */
+            z = ((x - 1) / two_to_the[k]) + 1;
+
+            while x < 0x4000_0000 + z {
+                z = (z + 1) / 2;
+                k = k + 1;
+            }
+
+            y = y + spec_log[k];
+            x = x - z;
+        }
+
+        y / 8
+    }
+}
+
+pub(crate) fn ab_vs_cd(mut a: i32, mut b: i32, mut c: i32, mut d: i32) -> i32 {
+    if a < 0 {
+        a = -a;
+        b = -b;
+    }
+
+    if c < 0 {
+        c = -c;
+        d = -d;
+    }
+
+    if d <= 0 {
+        if b >= 0 {
+            if (a == 0 || b == 0) && (c == 0 || d == 0) {
+                return 0;
+            } else {
+                return 1;
+            }
+        }
+
+        if d == 0 {
+            if a == 0 {
+                return 0;
+            } else {
+                return -1;
+            }
+        }
+
+        std::mem::swap(&mut a, &mut c);
+        let q = -b;
+        b = -d;
+        d = q;
+    } else if b <= 0 {
+        if b < 0 {
+            if a > 0 {
+                return -1;
+            }
+        }
+
+        if c == 0 {
+            return 0;
+        } else {
+            return -1;
+        }
+    }
+
+    loop {
+        let q = a / d;
+        let r = c / b;
+
+        if q != r {
+            if q > r {
+                return 1;
+            } else {
+                return -1;
+            }
+        }
+
+        let q = a % d;
+        let r = c % b;
+
+        if r == 0 {
+            if q == 0 {
+                return 0;
+            } else {
+                return 1;
+            }
+        }
+
+        if q == 0 {
+            return -1;
+        }
+
+        a = b;
+        b = q;
+        c = d;
+        d = r;
+    }
+}
+
+use crate::xetex_ini::{j_random, randoms};
+pub(crate) unsafe fn new_randoms() {
+    for k in 0..24 {
+        let mut x = randoms[k] - randoms[k + 31];
+        if x < 0 {
+            x = x + 0x10000000;
+        }
+        randoms[k] = x;
+    }
+
+    for k in 24..55 {
+        let mut x = randoms[k] - randoms[k - 24];
+        if x < 0 {
+            x = x + 0x10000000;
+        }
+        randoms[k] = x;
+    }
+
+    j_random = 54;
+}
+
+pub(crate) unsafe fn init_randoms(seed: i32) {
+    let mut j = seed.abs();
+
+    while j >= 0x1000_0000 {
+        j = j / 2;
+    }
+
+    let mut k = 1;
+
+    for i in 0..55 {
+        let jj = k;
+        k = j - k;
+        j = jj;
+        if k < 0 {
+            k = k + 0x1000_0000;
+        }
+        randoms[(i * 21) % 55] = j;
+    }
+
+    new_randoms();
+    new_randoms();
+    new_randoms();
+}
+
+pub(crate) unsafe fn unif_rand(x: i32) -> i32 {
+    if j_random == 0 {
+        new_randoms();
+    } else {
+        j_random -= 1;
+    }
+
+    let y = take_frac(x.abs(), randoms[j_random as usize]);
+    if y == x.abs() {
+        0
+    } else if x > 0 {
+        y
+    } else {
+        -y
+    }
+}
+pub(crate) unsafe fn norm_rand() -> i32 {
+    let mut x;
+    loop {
+        let mut u;
+        loop {
+            if j_random == 0 {
+                new_randoms();
+            } else {
+                j_random -= 1;
+            }
+
+            x = take_frac(112429, randoms[j_random as usize] - 0x0800_0000);
+
+            if j_random == 0 {
+                new_randoms();
+            } else {
+                j_random -= 1;
+            }
+
+            u = randoms[j_random as usize];
+            if x.abs() < u {
+                break;
+            }
+        }
+
+        x = make_frac(x, u);
+        let l = 139548960 - m_log(u);
+        if ab_vs_cd(1024, l, x, x) >= 0 {
+            break;
+        }
+    }
+
+    x
 }

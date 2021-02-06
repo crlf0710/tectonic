@@ -63,12 +63,13 @@ use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
 #[derive(Copy, Clone, Default)]
-pub(crate) struct XeTeXFontMgrOpSizeRec {
-    pub(crate) designSize: u32,
+#[repr(C)]
+pub(crate) struct OpSizeRec {
+    pub(crate) designSize: f64,
+    pub(crate) minSize: f64,
+    pub(crate) maxSize: f64,
     pub(crate) subFamilyID: u32,
     pub(crate) nameCode: u32,
-    pub(crate) minSize: u32,
-    pub(crate) maxSize: u32,
 }
 #[derive(Clone)]
 #[repr(C)]
@@ -90,7 +91,7 @@ pub(crate) struct XeTeXFontMgrFont {
     pub(crate) m_styleName: Option<String>,
     pub(crate) parent: Option<Rc<RefCell<XeTeXFontMgrFamily>>>,
     pub(crate) fontRef: PlatformFontRef,
-    pub(crate) opSizeInfo: XeTeXFontMgrOpSizeRec,
+    pub(crate) opSizeInfo: OpSizeRec,
     pub(crate) weight: u16,
     pub(crate) width: u16,
     pub(crate) slant: i16,
@@ -173,7 +174,6 @@ use crate::xetex_font_info::XeTeXFontInst;
 
 impl XeTeXFontMgrFamily {
     unsafe fn new() -> Self {
-        /* default to 10bp */
         Self {
             minWeight: 0,
             maxWeight: 0,
@@ -200,12 +200,12 @@ impl XeTeXFontMgrFont {
             isReg: false,
             isBold: false,
             isItalic: false,
-            opSizeInfo: XeTeXFontMgrOpSizeRec {
+            opSizeInfo: OpSizeRec {
                 subFamilyID: 0,
-                designSize: 100,
+                designSize: 10., /* default to 10.0pt */
                 nameCode: 0,
-                minSize: 0,
-                maxSize: 0,
+                minSize: 0.,
+                maxSize: 0.,
             },
         }
     }
@@ -323,13 +323,13 @@ where
         // ptSize is in TeX points, or negative for 'scaled' factor
         // "variant" string will be shortened (in-place) by removal of /B and /I if present
         let mut font: Option<Rc<XeTeXFontMgrFont>> = None;
-        let mut dsize: i32 = 100;
+        let mut dsize = 10.;
         loaded_font_design_size = Scaled(655360);
         for pass in 0..2 {
             // try full name as given
             if let Some(font) = self.m_nameToFont.get(name) {
-                if font.opSizeInfo.designSize != 0 {
-                    dsize = font.opSizeInfo.designSize as i32
+                if font.opSizeInfo.designSize != 0. {
+                    dsize = font.opSizeInfo.designSize;
                 }
                 break;
             }
@@ -339,8 +339,8 @@ where
                 if let Some(family_ptr) = self.m_nameToFamily.get(&family) {
                     let style = name[hyph + 1..].to_string();
                     if let Some(style_FONT_PTR) = family_ptr.borrow().styles.get(&style).cloned() {
-                        if style_FONT_PTR.opSizeInfo.designSize != 0 {
-                            dsize = style_FONT_PTR.opSizeInfo.designSize as i32
+                        if style_FONT_PTR.opSizeInfo.designSize != 0. {
+                            dsize = style_FONT_PTR.opSizeInfo.designSize;
                         }
                         font = Some(style_FONT_PTR);
                         break;
@@ -349,8 +349,8 @@ where
             }
             // try as PostScript name
             if let Some(font) = self.m_psNameToFont.get(name) {
-                if font.opSizeInfo.designSize != 0 {
-                    dsize = font.opSizeInfo.designSize as i32
+                if font.opSizeInfo.designSize != 0. {
+                    dsize = font.opSizeInfo.designSize;
                 }
                 break;
             }
@@ -609,11 +609,10 @@ where
         };
         // if there's optical size info, try to apply it
         if ptSize < 0.0f64 {
-            ptSize = dsize as f64 / 10.0f64
-        } // convert to decipoints for comparison with the opSize values
+            ptSize = dsize;
+        }
         if let Some(fnt) = font.as_ref() {
             if fnt.opSizeInfo.subFamilyID != 0 && ptSize > 0. {
-                ptSize *= 10.;
                 let mut bestMismatch: f64 = my_fmax(
                     fnt.opSizeInfo.minSize as f64 - ptSize,
                     ptSize - fnt.opSizeInfo.maxSize as f64,
@@ -641,9 +640,9 @@ where
             }
         }
         if let Some(font) = font.as_ref() {
-            if font.opSizeInfo.designSize != 0 {
+            if font.opSizeInfo.designSize != 0. {
                 loaded_font_design_size =
-                    Scaled((font.opSizeInfo.designSize << 16).wrapping_div(10) as i32)
+                    Scaled((font.opSizeInfo.designSize * 65536. + 0.5) as u32 as i32)
             }
         }
         let font = font.unwrap();
@@ -712,22 +711,29 @@ impl XeTeXFontMgrFont {
     }
 }
 impl XeTeXFontInst {
-    pub(crate) unsafe fn get_op_size(&self) -> Option<XeTeXFontMgrOpSizeRec> {
+    pub(crate) unsafe fn get_op_size(&self) -> Option<OpSizeRec> {
         let hbFont = self.get_hb_font();
         if hbFont.is_null() {
             return None;
         }
+        let mut designSize = 0_u32;
+        let mut minSize = 0_u32;
+        let mut maxSize = 0_u32;
         let face = hb_font_get_face(hbFont);
-        let mut size_rec = XeTeXFontMgrOpSizeRec::default();
+        let mut size_rec = OpSizeRec::default();
         let ok = hb_ot_layout_get_size_params(
             face,
-            &mut size_rec.designSize,
+            &mut designSize,
             &mut size_rec.subFamilyID,
             &mut size_rec.nameCode,
-            &mut size_rec.minSize,
-            &mut size_rec.maxSize,
+            &mut minSize,
+            &mut maxSize,
         ) != 0;
         if ok {
+            // Convert sizes from PostScript deci-points to TeX points
+            size_rec.designSize = (designSize as f64) * 72.27 / 72. / 10.;
+            size_rec.minSize = (minSize as f64) * 72.27 / 72. / 10.;
+            size_rec.maxSize = (maxSize as f64) * 72.27 / 72. / 10.;
             Some(size_rec)
         } else {
             None
@@ -735,7 +741,8 @@ impl XeTeXFontInst {
     }
     pub(crate) unsafe fn get_design_size(&self) -> f64 {
         if let Some(size_rec) = self.get_op_size() {
-            size_rec.designSize as f64 / 10.
+            /* Tectonic: make sure not to leak pSizeRec */
+            size_rec.designSize
         } else {
             10.
         }
@@ -750,9 +757,10 @@ impl XeTeXFontMgrFont {
                 self.opSizeInfo.designSize = size_rec.designSize;
                 if size_rec.subFamilyID == 0
                     && size_rec.nameCode == 0
-                    && size_rec.minSize == 0
-                    && size_rec.maxSize == 0
+                    && size_rec.minSize == 0.
+                    && size_rec.maxSize == 0.
                 {
+                    /* Tectonic: make sure not to leak pSizeRec */
                     // feature is valid, but no 'size' range
                 } else {
                     self.opSizeInfo.subFamilyID = size_rec.subFamilyID;

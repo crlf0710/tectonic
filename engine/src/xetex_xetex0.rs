@@ -42,8 +42,8 @@ use crate::xetex_ini::{
     max_reg_help_line, max_reg_num, mem_end, name_in_progress, name_of_font,
     no_new_control_sequence, open_parens, output_active, pack_begin_line, page_contents,
     page_so_far, page_tail, par_loc, par_token, pdf_last_x_pos, pdf_last_y_pos, pre_adjust_tail,
-    prev_class, prim, prim_eqtb, prim_used, pseudo_files, pstack, read_file, read_open, rover,
-    rt_hit, rust_stdout, sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed,
+    prev_class, prim, prim_used, pseudo_files, pstack, read_file, read_open, rover, rt_hit,
+    rust_stdout, sa_chain, sa_level, sa_root, scanner_status, selector, set_box_allowed,
     shown_mode, skip_line, space_class, stop_at_space, tally, term_offset, texmf_log_name,
     total_shrink, total_stretch, trick_buf, trick_count, use_err_help, used_tectonic_coda_tokens,
     warning_index, write_file, write_open, xtx_ligature_present, yhash, LR_problems, LR_ptr,
@@ -57,6 +57,7 @@ use crate::xetex_ini::{
     SOURCE_FILENAME_STACK, STACK_SIZE,
 };
 use crate::xetex_ini::{b16x4, memory_word, prefixed_command};
+use crate::xetex_ini::{epochseconds, microseconds, random_seed};
 use crate::xetex_ini::{hash_offset, FONT_LETTER_SPACE};
 use crate::xetex_io::{open_or_close_in, set_input_file_encoding};
 use crate::xetex_layout_interface::*;
@@ -69,6 +70,7 @@ use crate::xetex_math::{
 use crate::xetex_output::{print_chr, print_esc_cstr, print_ln, SaNum};
 use crate::xetex_pagebuilder::build_page;
 use crate::xetex_pic::{count_pdf_file_pages, load_picture};
+use crate::xetex_scaledmath::{init_randoms, norm_rand, unif_rand};
 use crate::xetex_scaledmath::{
     mult_and_add, round_xn_over_d, tex_round, x_over_n, xn_over_d, Scaled,
 };
@@ -79,6 +81,8 @@ use crate::xetex_stringpool::{
     TOO_BIG_CHAR,
 };
 use crate::xetex_synctex::{synctex_start_input, synctex_terminate};
+use crate::xetex_texmfmp::get_seconds_and_micros;
+use crate::xetex_texmfmp::{getcreationdate, getfiledump, getfilemoddate, getfilesize};
 use crate::xetex_texmfmp::{
     getmd5sum, gettexstring, is_new_source, make_src_special, maketexstring, remember_source_info,
 };
@@ -564,6 +568,24 @@ pub(crate) unsafe fn prev_rightmost(s: Option<usize>, e: Option<usize>) -> Optio
         None
     }
 }
+
+unsafe fn get_microinterval() -> i32 {
+    let mut s = 0;
+    let mut m = 0;
+
+    get_seconds_and_micros(&mut s, &mut m);
+
+    if s - epochseconds > 0x7FFF {
+        -1
+    } else if microseconds > m {
+        ((((s - 1 - epochseconds) * 65536) as f64)
+            + (((m + 1000000 - microseconds) as f64 / 100.0) * 65536.) / 10000.0) as i32
+    } else {
+        ((((s - epochseconds) * 65536) as f64)
+            + (((m - microseconds) as f64 / 100.0) * 65536.) / 10000.0) as i32
+    }
+}
+
 pub(crate) unsafe fn short_display(mut popt: Option<usize>) {
     while let Some(mut p) = popt.filter(|&p| p != 0) {
         if is_char_node(Some(p)) {
@@ -943,6 +965,7 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                             l.rhm() as i32
                         );
                     }
+                    WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
                     WhatsIt::NativeWord(nw) => {
                         t_print!(
                             "{} {}",
@@ -971,7 +994,6 @@ pub(crate) unsafe fn show_node_list(mut popt: Option<usize>) {
                         }
                         t_print!("( {}\"", std::str::from_utf8(p.path()).unwrap());
                     }
-                    WhatsIt::PdfSavePos(_) => print_esc_cstr("pdfsavepos"),
                 },
                 TxtNode::Glue(g) => {
                     if g.param() >= A_LEADERS {
@@ -2145,7 +2167,6 @@ impl fmt::Display for CmdChr {
                     LastKern => "lastkern",
                     LastSkip => "lastskip",
                     InputLineNo => "inputlineno",
-                    PdfShellEscape => "shellescape",
                     LastNodeType => "lastnodetype",
                     EtexVersion => "eTeXversion",
                     XetexVersion => "XeTeXversion",
@@ -2176,8 +2197,6 @@ impl fmt::Display for CmdChr {
                     XetexFontType => "XeTeXfonttype",
                     XetexFirstChar => "XeTeXfirstfontchar",
                     XetexLastChar => "XeTeXlastfontchar",
-                    PdfLastXPos => "pdflastxpos",
-                    PdfLastYPos => "pdflastypos",
                     XetexPdfPageCount => "XeTeXpdfpagecount",
                     CurrentGroupLevel => "currentgrouplevel",
                     CurrentGroupType => "currentgrouptype",
@@ -2201,6 +2220,11 @@ impl fmt::Display for CmdChr {
                     GlueShrink => "glueshrink",
                     MuToGlue => "mutoglue",
                     GlueToMu => "gluetomu",
+                    PdfLastXPos => "pdflastxpos",
+                    PdfLastYPos => "pdflastypos",
+                    ElapsedTime => "elapsedtime",
+                    PdfShellEscape => "shellescape",
+                    RandomSeed => "randomseed",
                     Badness => "badness",
                 }
             })
@@ -2213,11 +2237,18 @@ impl fmt::Display for CmdChr {
                     String => "string",
                     Meaning => "meaning",
                     FontName => "fontname",
-                    PdfStrcmp => "strcmp",
-                    PdfMdfiveSum => "mdfivesum",
+                    EtexRevision => "eTeXrevision",
+                    Expanded => "expanded",
                     LeftMarginKern => "leftmarginkern",
                     RightMarginKern => "rightmarginkern",
-                    EtexRevision => "eTeXrevision",
+                    PdfCreationDate => "creationdate",
+                    PdfFileModDate => "filemoddate",
+                    PdfFileSize => "filesize",
+                    PdfMdfiveSum => "mdfivesum",
+                    PdfFileDump => "filedump",
+                    PdfStrcmp => "strcmp",
+                    UniformDeviate => "uniformdeviate",
+                    NormalDeviate => "normaldeviate",
                     XetexRevision => "XeTeXrevision",
                     XetexVariationName => "XeTeXvariationname",
                     XetexFeatureName => "XeTeXfeaturename",
@@ -2226,6 +2257,7 @@ impl fmt::Display for CmdChr {
                     XetexUchar => "Uchar",
                     XetexUcharcat => "Ucharcat",
                     JobName => "jobname",
+                    _ => unreachable!(), // XetexFeatureNameOld and XetexSelectorNameOld
                 }
             })
             .fmt(f),
@@ -2597,19 +2629,21 @@ impl fmt::Display for CmdChr {
             }
             Cmd::EndTemplate => Esc("outer endtemplate").fmt(f),
             Cmd::Extension => match chr_code as u16 {
-                0 => Esc("openout").fmt(f),               // WhatsIt::Open
-                1 => Esc("write").fmt(f),                 // WhatsIt::Write
-                2 => Esc("closeout").fmt(f),              // WhatsIt::Close
-                3 => Esc("special").fmt(f),               // WhatsIt::Special
-                4 => Esc("immediate").fmt(f),             // IMMEDIATE_CODE
-                5 => Esc("setlanguage").fmt(f),           // SET_LANGUAGE_CODE
-                41 => Esc("XeTeXpicfile").fmt(f),         // PIC_FILE_CODE
-                42 => Esc("XeTeXpdffile").fmt(f),         // PDF_FILE_CODE
-                43 => Esc("XeTeXglyph").fmt(f),           // GLYPH_CODE
-                46 => Esc("XeTeXlinebreaklocale").fmt(f), // XETEX_LINEBREAK_LOCALE_EXTENSION_CODE
-                44 => Esc("XeTeXinputencoding").fmt(f),   // XETEX_INPUT_ENCODING_EXTENSION_CODE
-                45 => Esc("XeTeXdefaultencoding").fmt(f), // XETEX_DEFAULT_ENCODING_EXTENSION_CODE
-                6 => Esc("pdfsavepos").fmt(f),            // WhatsIt::PdfSavePos
+                OPEN_NODE => Esc("openout").fmt(f),
+                WRITE_NODE => Esc("write").fmt(f),
+                CLOSE_NODE => Esc("closeout").fmt(f),
+                SPECIAL_NODE => Esc("special").fmt(f),
+                IMMEDIATE_CODE => Esc("immediate").fmt(f),
+                SET_LANGUAGE_CODE => Esc("setlanguage").fmt(f),
+                PDF_SAVE_POS_NODE => Esc("pdfsavepos").fmt(f),
+                RESET_TIMER_CODE => Esc("resettimer").fmt(f),
+                SET_RANDOM_SEED_CODE => Esc("setrandomseed").fmt(f),
+                PIC_FILE_CODE => Esc("XeTeXpicfile").fmt(f),
+                PDF_FILE_CODE => Esc("XeTeXpdffile").fmt(f),
+                GLYPH_CODE => Esc("XeTeXglyph").fmt(f),
+                XETEX_LINEBREAK_LOCALE_EXTENSION_CODE => Esc("XeTeXlinebreaklocale").fmt(f),
+                XETEX_INPUT_ENCODING_EXTENSION_CODE => Esc("XeTeXinputencoding").fmt(f),
+                XETEX_DEFAULT_ENCODING_EXTENSION_CODE => Esc("XeTeXdefaultencoding").fmt(f),
                 _ => ("[unknown extension!]").fmt(f),
             },
             _ => ("[unknown command code!]").fmt(f),
@@ -5056,10 +5090,10 @@ pub(crate) unsafe fn expand(input: &mut input_state_t, cmd: Cmd, chr: i32, cs: i
                         if cs == UNDEFINED_PRIMITIVE {
                             break;
                         }
-                        let t = prim_eqtb[cs as usize].cmd as i32;
+                        let t = EQTB[PRIM_EQTB_BASE + cs as usize].cmd as i32;
                         if t > MAX_COMMAND as i32 {
                             ocmd = Cmd::from(t as u16);
-                            ochr = prim_eqtb[cs as usize].val;
+                            ochr = EQTB[PRIM_EQTB_BASE + cs as usize].val;
                             //otok = ocmd as i32 * MAX_CHAR_VAL + ochr;
                             ocs = 0;
                         } else {
@@ -6043,7 +6077,7 @@ unsafe fn restart_scan_something_internal(
             };
             (true, val, ValLevel::Dimen)
         }
-        Cmd::CharGiven | Cmd::MathGiven => (true, chr, ValLevel::Int),
+        Cmd::CharGiven | Cmd::MathGiven | Cmd::XetexMathGiven => (true, chr, ValLevel::Int),
         Cmd::AssignFontDimen => {
             let val = find_font_dimen(input, false);
             FONT_INFO[fmem_ptr as usize].b32.s1 = 0;
@@ -6114,7 +6148,7 @@ unsafe fn restart_scan_something_internal(
             }
         }
         Cmd::LastItem => {
-            let m = LastItemCode::n(chr as u8).unwrap();
+            let m = LastItemCode::n(chr as u8).unwrap_or_else(|| panic!("{}", chr));
             if m >= LastItemCode::InputLineNo {
                 if m >= LastItemCode::MuToGlue {
                     /*1568:*/
@@ -6261,6 +6295,8 @@ unsafe fn restart_scan_something_internal(
                     let val = match m {
                         LastItemCode::InputLineNo => line,
                         LastItemCode::Badness => last_badness,
+                        LastItemCode::ElapsedTime => get_microinterval(),
+                        LastItemCode::RandomSeed => random_seed,
                         LastItemCode::PdfShellEscape => 0,
                         LastItemCode::EtexVersion => ETEX_VERSION,
                         LastItemCode::XetexVersion => XETEX_VERSION,
@@ -6269,7 +6305,7 @@ unsafe fn restart_scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => aat::aat_font_get(m.into(), *e),
-                                Font::Native(Otgr(e)) => ot_font_get((m as i32) - 14, e),
+                                Font::Native(Otgr(e)) => ot_font_get((m as i32) - XETEX_INT, e),
                                 _ => 0,
                             }
                         }
@@ -6279,7 +6315,7 @@ unsafe fn restart_scan_something_internal(
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => aat::aat_font_get(m.into(), *e),
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
-                                    ot_font_get((m as i32) - 14, e)
+                                    ot_font_get((m as i32) - XETEX_INT, e)
                                 }
                                 _ => 0,
                             }
@@ -6304,7 +6340,7 @@ unsafe fn restart_scan_something_internal(
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
-                                    ot_font_get_1((m as i32) - 14, e, k)
+                                    ot_font_get_1((m as i32) - XETEX_INT, e, k)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6324,7 +6360,7 @@ unsafe fn restart_scan_something_internal(
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
                                     let val = scan_int(input);
-                                    ot_font_get_2((m as i32) - 14, e, k, val)
+                                    ot_font_get_2((m as i32) - XETEX_INT, e, k, val)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6356,7 +6392,7 @@ unsafe fn restart_scan_something_internal(
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let name = scan_file_name(input).0.to_string();
-                                    gr_font_get_named(&name, (m as i32) - 14, e)
+                                    gr_font_get_named(&name, (m as i32) - XETEX_INT, e)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6376,7 +6412,7 @@ unsafe fn restart_scan_something_internal(
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
                                     let name = scan_file_name(input).0.to_string();
-                                    gr_font_get_named_1(&name, (m as i32) - 14, e, k)
+                                    gr_font_get_named_1(&name, (m as i32) - XETEX_INT, e, k)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6388,7 +6424,7 @@ unsafe fn restart_scan_something_internal(
                             let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
-                                    ot_font_get((m as i32) - 14, e)
+                                    ot_font_get((m as i32) - XETEX_INT, e)
                                 }
                                 _ => 0,
                             }
@@ -6398,7 +6434,7 @@ unsafe fn restart_scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
                                     let val = scan_int(input);
-                                    ot_font_get_1((m as i32) - 14, e, val)
+                                    ot_font_get_1((m as i32) - XETEX_INT, e, val)
                                 }
                                 _ => {
                                     not_ot_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6412,7 +6448,7 @@ unsafe fn restart_scan_something_internal(
                                 Font::Native(Otgr(e)) if e.using_open_type() => {
                                     let k = scan_int(input);
                                     let val = scan_int(input);
-                                    ot_font_get_2((m as i32) - 14, e, k, val)
+                                    ot_font_get_2((m as i32) - XETEX_INT, e, k, val)
                                 }
                                 _ => {
                                     not_ot_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6427,7 +6463,7 @@ unsafe fn restart_scan_something_internal(
                                     let k = scan_int(input);
                                     let kk = scan_int(input);
                                     let val = scan_int(input);
-                                    ot_font_get_3((m as i32) - 14, e, k, kk, val)
+                                    ot_font_get_3((m as i32) - XETEX_INT, e, k, kk, val)
                                 }
                                 _ => {
                                     not_ot_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6616,6 +6652,40 @@ unsafe fn restart_scan_something_internal(
                 (true, val, val_level)
             }
         }
+        Cmd::IgnoreSpaces => {
+            if chr == 1 {
+                /*406: */
+                let cs = get_token(input).3;
+
+                let cs = if cs < HASH_BASE as i32 {
+                    prim_lookup(cs - SINGLE_BASE as i32)
+                } else {
+                    prim_lookup(yhash[cs as usize - hash_offset].s1)
+                };
+
+                if cs != UNDEFINED_PRIMITIVE as usize {
+                    restart_scan_something_internal(
+                        input,
+                        CS_TOKEN_FLAG + PRIM_EQTB_BASE as i32 + cs as i32,
+                        eq_type(PRIM_EQTB_BASE + cs),
+                        EQTB[PRIM_EQTB_BASE + cs].val,
+                        level,
+                        negative,
+                    )
+                } else {
+                    restart_scan_something_internal(
+                        input,
+                        CS_TOKEN_FLAG + FROZEN_RELAX as i32,
+                        Cmd::Relax,
+                        0,
+                        level,
+                        negative,
+                    )
+                }
+            } else {
+                unreachable!()
+            }
+        }
         _ => {
             t_eprint!(
                 "You can\'t use `{}\' after {}",
@@ -6681,8 +6751,6 @@ pub(crate) unsafe fn scan_int(input: &mut input_state_t) -> i32 {
     scan_int_with_radix(input).0
 }
 pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16, i32) {
-    let mut radix: i16 = 0;
-    let mut OK_so_far = true;
     let mut negative = false;
     let mut tok;
     let mut cmd;
@@ -6707,7 +6775,21 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         }
     }
 
+    let (mut ival, radix, tok) = scan_int_positive(input, tok, cmd, chr);
+
+    if negative {
+        ival = -ival;
+    };
+    (ival, radix, tok)
+}
+unsafe fn scan_int_positive(
+    input: &mut input_state_t,
+    mut tok: i32,
+    mut cmd: Cmd,
+    mut chr: i32,
+) -> (i32, i16, i32) {
     let mut ival;
+    let mut radix: i16 = 0;
     if tok == ALPHA_TOKEN as i32 {
         /*460:*/
         let next = get_token(input);
@@ -6746,6 +6828,26 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
                 back_input(input, tok);
             }
         }
+    } else if tok == CS_TOKEN_FLAG + FROZEN_PRIMITIVE as i32 {
+        /*406:*/
+        let cs = get_token(input).3;
+
+        let cs = if cs < HASH_BASE as i32 {
+            prim_lookup(cs - SINGLE_BASE as i32)
+        } else {
+            prim_lookup(yhash[cs as usize - hash_offset].s1)
+        };
+
+        return if cs != UNDEFINED_PRIMITIVE as usize {
+            scan_int_positive(
+                input,
+                CS_TOKEN_FLAG + PRIM_EQTB_BASE as i32 + cs as i32,
+                eq_type(PRIM_EQTB_BASE + cs),
+                EQTB[PRIM_EQTB_BASE + cs].val,
+            )
+        } else {
+            scan_int_positive(input, CS_TOKEN_FLAG + FROZEN_RELAX as i32, Cmd::Relax, 0)
+        };
     } else if cmd >= MIN_INTERNAL && cmd <= MAX_INTERNAL {
         let (val, _) = scan_something_internal(input, tok, cmd, chr, ValLevel::Int, false);
         ival = val;
@@ -6767,6 +6869,7 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
         }
         let mut vacuous = true;
         ival = 0;
+        let mut OK_so_far = true;
         loop {
             let d;
             if tok < ZERO_TOKEN + radix as i32 && tok >= ZERO_TOKEN && tok <= ZERO_TOKEN + 9 {
@@ -6816,9 +6919,6 @@ pub(crate) unsafe fn scan_int_with_radix(input: &mut input_state_t) -> (i32, i16
             back_input(input, tok);
         }
     }
-    if negative {
-        ival = -ival;
-    };
     (ival, radix, tok)
 }
 pub(crate) unsafe fn xetex_scan_dimen(
@@ -7746,6 +7846,8 @@ pub(crate) unsafe fn str_toks_cat_utf8(buf: &str, cat: i16) -> usize {
             SPACE_TOKEN
         } else if cat == 0 {
             OTHER_TOKEN + c as i32
+        } else if cat == ACTIVE_CHAR {
+            CS_TOKEN_FLAG + 1 + c as i32
         } else {
             MAX_CHAR_VAL * cat as i32 + c as i32
         };
@@ -7843,6 +7945,200 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             scanner_status = save_scanner_status;
         }
         ConvertCode::FontName => oval = Some(scan_font_ident(input)),
+
+        ConvertCode::Expanded => {
+            let save_scanner_status = scanner_status;
+            let save_warning_index = warning_index;
+            let save_def_ref = def_ref;
+            let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
+                make_string()
+            } else {
+                0
+            };
+            scan_pdf_ext_toks(input, cs);
+            warning_index = save_warning_index;
+            scanner_status = save_scanner_status;
+            begin_token_list(input, MEM[def_ref].b32.s1.opt(), Btl::Inserted);
+            def_ref = save_def_ref;
+            if u != 0 {
+                str_ptr -= 1;
+            }
+            return;
+        }
+        ConvertCode::LeftMarginKern | ConvertCode::RightMarginKern => {
+            let val = scan_register_num(input);
+            p = if val < 256 {
+                get_box_reg(val as usize)
+            } else {
+                find_sa_element(ValLevel::Ident, val, false);
+                cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt())
+            };
+            match p.map(TxtNode::from) {
+                Some(TxtNode::List(b)) if b.is_horizontal() => {}
+                _ => pdf_error("marginkern", "a non-empty hbox expected"),
+            }
+        }
+
+        ConvertCode::PdfCreationDate => {
+            let s = getcreationdate();
+            MEM[GARBAGE].b32.s1 = str_toks_cat_utf8(s, 0) as i32;
+            begin_token_list(input, llist_link(TEMP_HEAD), Btl::Inserted);
+        }
+
+        ConvertCode::PdfFileModDate => {
+            let save_scanner_status = scanner_status;
+            let save_warning_index = warning_index;
+            let save_def_ref = def_ref;
+            let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
+                make_string()
+            } else {
+                0
+            };
+            scan_pdf_ext_toks(input, cs);
+
+            let s = format!("{}", TokenNode(Some(def_ref)));
+            delete_token_ref(def_ref);
+            def_ref = save_def_ref;
+            warning_index = save_warning_index;
+            scanner_status = save_scanner_status;
+            let fmd = getfilemoddate(&s).unwrap(); /* <= the difference-maker */
+            MEM[GARBAGE].b32.s1 = str_toks_cat_utf8(&fmd, 0) as i32;
+
+            begin_token_list(input, llist_link(TEMP_HEAD), Btl::Inserted);
+            if u != 0 {
+                str_ptr -= 1;
+            }
+            return;
+        }
+
+        ConvertCode::PdfFileSize => {
+            let save_scanner_status = scanner_status;
+            let save_warning_index = warning_index;
+            let save_def_ref = def_ref;
+            let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
+                make_string()
+            } else {
+                0
+            };
+            scan_pdf_ext_toks(input, cs);
+
+            let s = format!("{}", TokenNode(Some(def_ref)));
+            delete_token_ref(def_ref);
+            def_ref = save_def_ref;
+            warning_index = save_warning_index;
+            scanner_status = save_scanner_status;
+            let fs = getfilesize(&s).unwrap(); /* <= the difference-maker */
+            MEM[GARBAGE].b32.s1 = str_toks_cat_utf8(&fs, 0) as i32;
+
+            begin_token_list(input, llist_link(TEMP_HEAD), Btl::Inserted);
+            if u != 0 {
+                str_ptr -= 1;
+            }
+            return;
+        }
+        ConvertCode::PdfMdfiveSum => {
+            let save_scanner_status = scanner_status;
+            let save_warning_index = warning_index;
+            let save_def_ref = def_ref;
+            let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
+                make_string()
+            } else {
+                0
+            };
+            let boolvar = scan_keyword(input, "file");
+            scan_pdf_ext_toks(input, cs);
+            let s = format!("{}", TokenList(llist_link(def_ref)));
+            delete_token_ref(def_ref);
+            def_ref = save_def_ref;
+            warning_index = save_warning_index;
+            scanner_status = save_scanner_status;
+            let md5 = getmd5sum(&s, boolvar); /* <== the difference-maker */
+            *LLIST_link(GARBAGE as usize) = Some(str_toks_cat_utf8(&md5, 0)).tex_int();
+            begin_token_list(input, llist_link(TEMP_HEAD), Btl::Inserted);
+            if u != 0 {
+                str_ptr -= 1;
+            }
+            return;
+        }
+
+        ConvertCode::PdfFileDump => {
+            let save_scanner_status = scanner_status;
+            let save_warning_index = warning_index;
+            let save_def_ref = def_ref;
+            let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
+                make_string()
+            } else {
+                0
+            };
+
+            let mut val = 0;
+
+            if scan_keyword(input, "offset") {
+                val = scan_int(input);
+
+                if val < 0 {
+                    t_eprint!("Bad file offset");
+                    help!(
+                        "A file offset must be between 0 and 2^_31_-1,",
+                        "I changed this one to zero."
+                    );
+                    int_error(val);
+                    val = 0;
+                }
+            }
+
+            let i = val;
+            let mut val = 0;
+
+            if scan_keyword(input, "length") {
+                val = scan_int(input);
+
+                if val < 0 {
+                    t_eprint!("Bad dump length");
+                    help!(
+                        "A dump length must be between 0 and 2^_31_-1,",
+                        "I changed this one to zero."
+                    );
+                    int_error(val);
+                    val = 0;
+                }
+            }
+
+            let j = val;
+
+            scan_pdf_ext_toks(input, cs);
+
+            let s = format!("{}", TokenList(llist_link(def_ref)));
+            delete_token_ref(def_ref);
+            def_ref = save_def_ref;
+            warning_index = save_warning_index;
+            scanner_status = save_scanner_status;
+            let fd = getfiledump(&s, i, j).unwrap(); /* <=== non-boilerplate */
+            *LLIST_link(GARBAGE as usize) = Some(str_toks_cat_utf8(&fd, 0)).tex_int();
+            begin_token_list(input, llist_link(TEMP_HEAD), Btl::Inserted);
+            if u != 0 {
+                str_ptr -= 1;
+            }
+            return;
+        }
+        ConvertCode::PdfStrcmp => {
+            let save_scanner_status = scanner_status;
+            let save_warning_index = warning_index;
+            let save_def_ref = def_ref;
+            let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
+                make_string()
+            } else {
+                0
+            };
+            oval = Some(compare_strings(input, cs));
+            def_ref = save_def_ref;
+            warning_index = save_warning_index;
+            scanner_status = save_scanner_status;
+            if u != 0 {
+                str_ptr -= 1;
+            }
+        }
+
         ConvertCode::XetexUchar => oval = Some(scan_usv_num(input)),
         ConvertCode::XetexUcharcat => {
             let saved_chr = scan_usv_num(input);
@@ -7864,47 +8160,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
             oval = Some(saved_chr);
         }
-        ConvertCode::PdfStrcmp => {
-            let save_scanner_status = scanner_status;
-            let save_warning_index = warning_index;
-            let save_def_ref = def_ref;
-            let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
-                make_string()
-            } else {
-                0
-            };
-            oval = Some(compare_strings(input, cs));
-            def_ref = save_def_ref;
-            warning_index = save_warning_index;
-            scanner_status = save_scanner_status;
-            if u != 0 {
-                str_ptr -= 1;
-            }
-        }
-        ConvertCode::PdfMdfiveSum => {
-            let save_scanner_status = scanner_status;
-            let save_warning_index = warning_index;
-            let save_def_ref = def_ref;
-            let u = if str_start[(str_ptr - TOO_BIG_CHAR) as usize] < pool_ptr {
-                make_string()
-            } else {
-                0
-            };
-            let boolvar = scan_keyword(input, "file");
-            scan_pdf_ext_toks(input, cs);
-            let s = format!("{}", TokenList(llist_link(def_ref)));
-            delete_token_ref(def_ref);
-            def_ref = save_def_ref;
-            warning_index = save_warning_index;
-            scanner_status = save_scanner_status;
-            let md5 = getmd5sum(&s, boolvar);
-            *LLIST_link(GARBAGE as usize) = Some(str_toks_cat_utf8(&md5, 0)).tex_int();
-            begin_token_list(input, llist_link(TEMP_HEAD), Btl::Inserted);
-            if u != 0 {
-                str_ptr -= 1;
-            }
-            return;
-        }
+
         ConvertCode::XetexVariationName => {
             let val = scan_font_ident(input);
             fnt = val as usize;
@@ -7958,25 +8214,14 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 not_native_font_error(Cmd::Convert, c as i32, fnt);
             }
         }
-        ConvertCode::LeftMarginKern | ConvertCode::RightMarginKern => {
-            let val = scan_register_num(input);
-            p = if val < 256 {
-                get_box_reg(val as usize)
-            } else {
-                find_sa_element(ValLevel::Ident, val, false);
-                cur_ptr.and_then(|p| MEM[p + 1].b32.s1.opt())
-            };
-            match p.map(TxtNode::from) {
-                Some(TxtNode::List(b)) if b.is_horizontal() => {}
-                _ => pdf_error("marginkern", "a non-empty hbox expected"),
-            }
-        }
         ConvertCode::JobName => {
             if job_name == 0 {
                 open_log_file();
             }
         }
-        ConvertCode::EtexRevision | ConvertCode::XetexRevision => {}
+        ConvertCode::UniformDeviate => oval = Some(scan_int(input)),
+        ConvertCode::NormalDeviate | ConvertCode::EtexRevision | ConvertCode::XetexRevision => {}
+        _ => unreachable!(), // XetexFeatureNameOld and XetexSelectorNameOld
     }
     let s = match c {
         ConvertCode::Number => format!("{}", oval.unwrap()),
@@ -8011,35 +8256,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
             s
         }
-        ConvertCode::XetexUchar | ConvertCode::XetexUcharcat => {
-            format!("{}", std::char::from_u32(oval.unwrap() as u32).unwrap())
-        }
         ConvertCode::EtexRevision => ".6".to_string(),
-        ConvertCode::PdfStrcmp => format!("{}", oval.unwrap()),
-        ConvertCode::XetexRevision => ".99998".to_string(),
-        ConvertCode::XetexVariationName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
-            #[cfg(target_os = "macos")]
-            Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
-            _ => String::new(),
-        },
-        ConvertCode::XetexFeatureName | ConvertCode::XetexSelectorName => {
-            match &FONT_LAYOUT_ENGINE[fnt as usize] {
-                #[cfg(target_os = "macos")]
-                Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
-                Font::Native(Otgr(e)) if e.using_graphite() => {
-                    gr_get_font_name(c as i32, e, arg1, arg2)
-                }
-                _ => String::new(),
-            }
-        }
-        ConvertCode::XetexGlyphName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
-            #[cfg(target_os = "macos")]
-            Font::Native(Aat(attributes)) => {
-                aat::GetGlyphNameFromCTFont(aat::font_from_attributes(*attributes), arg1 as u16)
-            }
-            Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(arg1 as u16),
-            _ => panic!("bad native font flag in `print_glyph_name`"),
-        },
         ConvertCode::LeftMarginKern => {
             let mut popt = List::from(p.unwrap()).list_ptr().opt();
             while let Some(p) = popt {
@@ -8103,6 +8320,36 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
                 _ => "0pt".to_string(),
             }
         }
+        ConvertCode::PdfStrcmp => format!("{}", oval.unwrap()),
+        ConvertCode::UniformDeviate => unif_rand(oval.unwrap()).to_string(),
+        ConvertCode::NormalDeviate => norm_rand().to_string(),
+        ConvertCode::XetexUchar | ConvertCode::XetexUcharcat => {
+            format!("{}", std::char::from_u32(oval.unwrap() as u32).unwrap())
+        }
+        ConvertCode::XetexRevision => ".99992".to_string(),
+        ConvertCode::XetexVariationName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
+            #[cfg(target_os = "macos")]
+            Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
+            _ => String::new(),
+        },
+        ConvertCode::XetexFeatureName | ConvertCode::XetexSelectorName => {
+            match &FONT_LAYOUT_ENGINE[fnt as usize] {
+                #[cfg(target_os = "macos")]
+                Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
+                Font::Native(Otgr(e)) if e.using_graphite() => {
+                    gr_get_font_name(c as i32, e, arg1, arg2)
+                }
+                _ => String::new(),
+            }
+        }
+        ConvertCode::XetexGlyphName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
+            #[cfg(target_os = "macos")]
+            Font::Native(Aat(attributes)) => {
+                aat::GetGlyphNameFromCTFont(aat::font_from_attributes(*attributes), arg1 as u16)
+            }
+            Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(arg1 as u16),
+            _ => panic!("bad native font flag in `print_glyph_name`"),
+        },
         ConvertCode::JobName => format!(
             "{:#}",
             FileName {
@@ -8631,9 +8878,12 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
         IfTestCode::IfEof => {
             let val = scan_four_bit_int_or_18(input);
             b = if val == 18 {
+                dbg!("AAAA");
                 true
             } else {
-                read_open[val as usize] == OpenMode::Closed
+                let r = read_open[val as usize] == OpenMode::Closed;
+                dbg!(r);
+                r
             };
         }
 
@@ -8776,8 +9026,8 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             } as i32;
             b = cmd != Cmd::UndefinedCS
                 && m != UNDEFINED_PRIMITIVE
-                && cmd == Cmd::from(prim_eqtb[m as usize].cmd)
-                && chr == prim_eqtb[m as usize].val;
+                && cmd == Cmd::from(EQTB[PRIM_EQTB_BASE + m as usize].cmd)
+                && chr == EQTB[PRIM_EQTB_BASE + m as usize].val;
         }
     }
 
@@ -8984,31 +9234,71 @@ pub(crate) unsafe fn make_name_string(name: &str) -> str_number {
     result
 }
 
-pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, bool, Option<u8>) {
-    name_in_progress = true;
+unsafe fn scan_file_name_braced(
+    input: &mut input_state_t,
+    cs: i32,
+) -> (FileName, bool, Option<u8>) {
+    let save_scanner_status = scanner_status;
+    let save_def_ref = def_ref;
+    scan_toks(input, cs, false, true);
+
+    let filename = format!("{}", TokenNode(Some(def_ref)));
+    delete_token_ref(def_ref);
+    def_ref = save_def_ref;
+    scanner_status = save_scanner_status;
+    let save_stop_at_space = stop_at_space;
+
     let res = make_name(|a, e, q, qc| {
-        let (mut tok, mut cmd, mut chr, _) = loop {
-            let next = get_x_token(input);
-            if !(next.1 == Cmd::Spacer) {
-                break next;
-            }
-        };
-        loop {
-            if cmd > Cmd::OtherChar || chr >= TOO_BIG_CHAR {
-                back_input(input, tok);
+        for k in filename.encode_utf16() {
+            if !more_name(k, false, a, e, q, qc) {
                 break;
-            } else {
-                if !more_name(chr as UTF16_code, stop_at_space, a, e, q, qc) {
-                    break;
-                }
-                let next = get_x_token(input);
-                tok = next.0;
-                cmd = next.1;
-                chr = next.2;
             }
         }
     });
-    name_in_progress = false;
+    stop_at_space = save_stop_at_space;
+    res
+}
+
+pub(crate) unsafe fn scan_file_name(input: &mut input_state_t) -> (FileName, bool, Option<u8>) {
+    let save_warning_index = warning_index;
+    //warning_index = cur_cs;
+    let (tok, cmd, ..) = loop {
+        let next = get_x_token(input);
+        if !(next.1 == Cmd::Spacer || next.1 == Cmd::Relax) {
+            break next;
+        }
+    };
+    back_input(input, tok);
+    let res = if cmd == Cmd::LeftBrace {
+        scan_file_name_braced(input, warning_index)
+    } else {
+        name_in_progress = true;
+        let res = make_name(|a, e, q, qc| {
+            let (mut tok, mut cmd, mut chr, _) = loop {
+                let next = get_x_token(input);
+                if !(next.1 == Cmd::Spacer) {
+                    break next;
+                }
+            };
+            loop {
+                if cmd > Cmd::OtherChar || chr >= TOO_BIG_CHAR {
+                    back_input(input, tok);
+                    break;
+                } else {
+                    if !more_name(chr as UTF16_code, stop_at_space, a, e, q, qc) {
+                        break;
+                    }
+                    let next = get_x_token(input);
+                    tok = next.0;
+                    cmd = next.1;
+                    chr = next.2;
+                }
+            }
+        });
+        name_in_progress = false;
+        res
+    };
+    warning_index = save_warning_index;
     res
 }
 pub(crate) unsafe fn pack_job_name(ext: &str) -> String {
@@ -13433,8 +13723,7 @@ pub(crate) unsafe fn do_extension(
 ) {
     let mut j: i32 = 0;
     match chr as u16 {
-        0 => {
-            // OpenFile
+        OPEN_NODE => {
             let mut o = OpenFile::new_node();
             *LLIST_link(cur_list.tail) = Some(o.ptr()).tex_int();
             cur_list.tail = o.ptr();
@@ -13444,8 +13733,7 @@ pub(crate) unsafe fn do_extension(
             let (file, ..) = scan_file_name(input);
             o.set_name(file.name).set_area(file.area).set_ext(file.ext);
         }
-        1 => {
-            // WriteFile
+        WRITE_NODE => {
             let k = cs;
             let mut w = WriteFile::new_node();
             *LLIST_link(cur_list.tail) = Some(w.ptr()).tex_int();
@@ -13462,8 +13750,7 @@ pub(crate) unsafe fn do_extension(
             scan_toks(input, k, false, false);
             w.set_tokens(def_ref as i32);
         }
-        2 => {
-            // CloseFile
+        CLOSE_NODE => {
             let mut c = CloseFile::new_node();
             *LLIST_link(cur_list.tail) = Some(c.ptr()).tex_int();
             cur_list.tail = c.ptr();
@@ -13478,7 +13765,7 @@ pub(crate) unsafe fn do_extension(
             c.set_id(val);
             MEM[cur_list.tail + 1].b32.s1 = None.tex_int()
         }
-        3 => {
+        SPECIAL_NODE => {
             let mut s = Special::new_node();
             *LLIST_link(cur_list.tail) = Some(s.ptr()).tex_int();
             cur_list.tail = s.ptr();
@@ -13519,6 +13806,22 @@ pub(crate) unsafe fn do_extension(
             } else {
                 load_picture(input, false);
             }
+        }
+        PDF_SAVE_POS_NODE => {
+            let p = PdfSavePos::new_node();
+            *LLIST_link(cur_list.tail) = Some(p.ptr()).tex_int();
+            cur_list.tail = p.ptr();
+        }
+        RESET_TIMER_CODE => {
+            get_seconds_and_micros(&mut epochseconds, &mut microseconds);
+        }
+        SET_RANDOM_SEED_CODE => {
+            let mut val = scan_int(input);
+            if val < 0 {
+                val = -val;
+            }
+            random_seed = val;
+            init_randoms(random_seed);
         }
         PDF_FILE_CODE => {
             if cur_list.mode.1 == ListMode::MMode {
@@ -13587,11 +13890,6 @@ pub(crate) unsafe fn do_extension(
             } else {
                 set_int_par(IntPar::xetex_linebreak_locale, file.name);
             }
-        }
-        6 => {
-            let p = PdfSavePos::new_node();
-            *LLIST_link(cur_list.tail) = Some(p.ptr()).tex_int();
-            cur_list.tail = p.ptr();
         }
         _ => confusion("ext1"),
     };
@@ -13886,7 +14184,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                         false,
                     );
-                    if let Some(c) = cur_ptr {
+                    if let Some(c) = cur_ptr.filter(|&c| ETEX_SA_ptr(c).is_some()) {
                         let tok = if cur_cs == 0 {
                             if cur_cmd == Cmd::CharNum {
                                 cur_cmd = Cmd::OtherChar;
@@ -13939,8 +14237,9 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 prim_lookup(yhash[cs as usize - hash_offset].s1) as i32
                             };
                             if cur_cs != UNDEFINED_PRIMITIVE {
-                                cur_cmd = Cmd::from(prim_eqtb[cur_cs as usize].cmd);
-                                cur_chr = prim_eqtb[cur_cs as usize].val;
+                                cur_cmd = Cmd::from(EQTB[PRIM_EQTB_BASE + cur_cs as usize].cmd);
+                                cur_chr = EQTB[PRIM_EQTB_BASE + cur_cs as usize].val;
+                                cur_tok = CS_TOKEN_FLAG + PRIM_EQTB_BASE as i32 + cur_cs;
                                 big_switch = false;
                             }
                         }
@@ -14499,7 +14798,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                 false,
                             );
-                            if let Some(c) = cur_ptr {
+                            if let Some(c) = cur_ptr.filter(|&c| ETEX_SA_ptr(c).is_some()) {
                                 if cur_cmd != Cmd::Letter {
                                     cur_cmd = Cmd::OtherChar;
                                 }
@@ -14520,7 +14819,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                             prev_class * CHAR_CLASS_LIMIT + space_class,
                             false,
                         );
-                        if let Some(c) = cur_ptr {
+                        if let Some(c) = cur_ptr.filter(|&c| ETEX_SA_ptr(c).is_some()) {
                             if cur_cmd != Cmd::Letter {
                                 cur_cmd = Cmd::OtherChar;
                             }
@@ -14578,7 +14877,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                     false,
                 );
-                if let Some(c) = cur_ptr {
+                if let Some(c) = cur_ptr.filter(|&c| ETEX_SA_ptr(c).is_some()) {
                     let tok = if cur_cs == 0 {
                         if cur_cmd == Cmd::CharNum {
                             cur_cmd = Cmd::OtherChar;
@@ -14621,16 +14920,14 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
             if cur_list.mode == (false, ListMode::HMode) {
                 let mut main_pp = cur_list.tail;
                 let mut main_ppp = cur_list.head;
-                if main_ppp != main_pp {
-                    while llist_link(main_ppp) != Some(main_pp) {
-                        if let CharOrText::Text(TxtNode::Disc(d)) = CharOrText::from(main_ppp) {
-                            for _ in 0..d.replace_count() {
-                                main_ppp = llist_link(main_ppp).unwrap();
-                            }
-                        }
-                        if main_ppp != main_pp {
+                while main_ppp != main_pp && llist_link(main_ppp) != Some(main_pp) {
+                    if let CharOrText::Text(TxtNode::Disc(d)) = CharOrText::from(main_ppp) {
+                        for _ in 0..d.replace_count() {
                             main_ppp = llist_link(main_ppp).unwrap();
                         }
+                    }
+                    if main_ppp != main_pp {
+                        main_ppp = llist_link(main_ppp).unwrap();
                     }
                 }
                 let mut tmp_ptr = 0;
@@ -14718,16 +15015,14 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
             } else {
                 let main_pp = cur_list.tail;
                 let mut main_ppp = cur_list.head;
-                if main_ppp != main_pp {
-                    while llist_link(main_ppp) != Some(main_pp) {
-                        if let CharOrText::Text(TxtNode::Disc(d)) = CharOrText::from(main_ppp) {
-                            for _ in 0..d.replace_count() {
-                                main_ppp = *LLIST_link(main_ppp) as usize;
-                            }
-                        }
-                        if main_ppp != main_pp {
+                while main_ppp != main_pp && llist_link(main_ppp) != Some(main_pp) {
+                    if let CharOrText::Text(TxtNode::Disc(d)) = CharOrText::from(main_ppp) {
+                        for _ in 0..d.replace_count() {
                             main_ppp = *LLIST_link(main_ppp) as usize;
                         }
+                    }
+                    if main_ppp != main_pp {
+                        main_ppp = *LLIST_link(main_ppp) as usize;
                     }
                 }
                 match CharOrText::from(main_pp) {
@@ -14881,7 +15176,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                         (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                         false,
                     );
-                    if let Some(c) = cur_ptr {
+                    if let Some(c) = cur_ptr.filter(|&c| ETEX_SA_ptr(c).is_some()) {
                         if cur_cmd != Cmd::Letter {
                             cur_cmd = Cmd::OtherChar;
                         }
@@ -14898,7 +15193,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                     prev_class * CHAR_CLASS_LIMIT + space_class,
                     false,
                 );
-                if let Some(c) = cur_ptr {
+                if let Some(c) = cur_ptr.filter(|&c| ETEX_SA_ptr(c).is_some()) {
                     if cur_cmd != Cmd::Letter {
                         cur_cmd = Cmd::OtherChar;
                     }
@@ -15227,7 +15522,9 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                             (CHAR_CLASS_LIMIT - 1) * CHAR_CLASS_LIMIT + space_class,
                                             false,
                                         );
-                                        if let Some(c) = cur_ptr {
+                                        if let Some(c) =
+                                            cur_ptr.filter(|&c| ETEX_SA_ptr(c).is_some())
+                                        {
                                             if cur_cmd != Cmd::Letter {
                                                 cur_cmd = Cmd::OtherChar
                                             }
@@ -15248,7 +15545,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                         prev_class * CHAR_CLASS_LIMIT + space_class,
                                         false,
                                     );
-                                    if let Some(c) = cur_ptr {
+                                    if let Some(c) = cur_ptr.filter(|&c| ETEX_SA_ptr(c).is_some()) {
                                         if cur_cmd != Cmd::Letter {
                                             cur_cmd = Cmd::OtherChar;
                                         }
@@ -15405,7 +15702,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                 space_class * CHAR_CLASS_LIMIT + (CHAR_CLASS_LIMIT - 1),
                 false,
             );
-            if let Some(c) = cur_ptr {
+            if let Some(c) = cur_ptr.filter(|&c| ETEX_SA_ptr(c).is_some()) {
                 let tok = if cs == 0 {
                     if cmd == Cmd::CharNum {
                         cmd = Cmd::OtherChar;

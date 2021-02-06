@@ -121,7 +121,9 @@ pub(crate) const END_WRITE: usize = FROZEN_CONTROL_SEQUENCE + 8;
 pub(crate) const FROZEN_DONT_EXPAND: usize = FROZEN_CONTROL_SEQUENCE + 9;
 pub(crate) const FROZEN_SPECIAL: usize = FROZEN_CONTROL_SEQUENCE + 10;
 pub(crate) const FROZEN_PRIMITIVE: usize = FROZEN_CONTROL_SEQUENCE + 11;
-pub(crate) const FROZEN_NULL_FONT: usize = FROZEN_CONTROL_SEQUENCE + 12;
+pub(crate) const PRIM_SIZE: usize = 500;
+pub(crate) const FROZEN_NULL_FONT: usize = FROZEN_CONTROL_SEQUENCE + 12 + PRIM_SIZE;
+pub(crate) const PRIM_EQTB_BASE: usize = FROZEN_PRIMITIVE + 1;
 /// nominally minus FONT_BASE, but that's 0
 pub(crate) const FONT_ID_BASE: usize = FROZEN_NULL_FONT;
 pub(crate) const UNDEFINED_CONTROL_SEQUENCE: usize = FROZEN_NULL_FONT + MAX_FONT_MAX + 1;
@@ -1028,7 +1030,6 @@ pub(crate) const TOO_BIG_LANG: placeholdertype = 256;
 pub(crate) const BOX_VAL_LIMIT: u16 = 320;
 pub(crate) const TOK_VAL_LIMIT: u16 = 384;
 pub(crate) const PRIM_PRIME: usize = 431;
-pub(crate) const PRIM_SIZE: usize = 500;
 pub(crate) const HYPH_PRIME: placeholdertype = 607;
 pub(crate) const HYPHENATABLE_LENGTH_LIMIT: usize = 4095;
 pub(crate) const CHAR_CLASS_LIMIT: placeholdertype = 4096;
@@ -1135,7 +1136,7 @@ impl From<i32> for MoveDir {
  * of the "format" files must be regenerated -- this includes changes to the
  * string pool. KEEP SYNCHRONIZED WITH src/lib.rs!!! */
 
-pub(crate) const FORMAT_SERIAL: placeholdertype = 28;
+pub(crate) const FORMAT_SERIAL: placeholdertype = 29;
 
 /// Unicode file reading modes
 #[repr(i32)]
@@ -1154,3 +1155,12 @@ impl From<i32> for UnicodeMode {
         Self::n(n).unwrap_or_else(|| panic!("incorrect unicode encoding mode = {}", n))
     }
 }
+
+/// base number for XeTeX special integer codes
+pub(crate) const XETEX_INT: i32 = 27;
+pub(crate) const ACTIVE_CHAR: i16 = 13;
+
+pub(crate) const OPEN_NODE: u16 = 0;
+pub(crate) const WRITE_NODE: u16 = 1;
+pub(crate) const CLOSE_NODE: u16 = 2;
+pub(crate) const SPECIAL_NODE: u16 = 3;

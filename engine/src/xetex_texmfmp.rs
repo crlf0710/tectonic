@@ -6,8 +6,6 @@ use crate::xetex_stringpool::{
 use bridge::ttstub_get_file_md5;
 use std::ffi::CString;
 
-use std::env;
-
 pub(crate) type str_number = i32;
 /* texmfmp.c: Hand-coded routines for TeX or Metafont in C.  Originally
 written by Tim Morgan, drawing from other Unix ports of TeX.  This is
@@ -17,19 +15,62 @@ possible) to do in C.
 This file is public domain.  */
 static mut last_source_name: String = String::new();
 static mut last_lineno: i32 = 0;
+
+static mut start_time_str: String = String::new();
+/* minimum size for time_str is 24: "D:YYYYmmddHHMMSS+HH'MM'" */
+
+use chrono::prelude::*;
+
+trait TexTimeFormat {
+    fn time_format(&self) -> String;
+}
+
+impl TexTimeFormat for DateTime<Utc> {
+    fn time_format(&self) -> String {
+        const TIMEFORMAT: &str = "D:%Y%m%d%H%M%S";
+        format!("{}-00'00'", self.format(TIMEFORMAT))
+    }
+}
+impl TexTimeFormat for DateTime<Local> {
+    fn time_format(&self) -> String {
+        const TIMEFORMAT: &str = "D:%Y%m%d%H%M%S";
+        let tz = format!("{}", self.format("%z"));
+        format!("{}{}'{}'", self.format(TIMEFORMAT), &tz[0..3], &tz[3..])
+    }
+}
+
+use std::time::SystemTime;
+pub(crate) fn get_unique_time_if_given() -> Option<SystemTime> {
+    use std::time::Duration;
+    std::env::var("SOURCE_DATE_EPOCH")
+        .ok()
+        .map(|x| {
+            x.trim()
+                .parse::<u64>()
+                .ok()
+                .map(|x| SystemTime::UNIX_EPOCH.checked_add(Duration::new(x, 0)))
+        })
+        .unwrap_or(None)
+        .unwrap_or(None)
+}
+
+pub(crate) unsafe fn init_start_time() {
+    start_time_str = match get_unique_time_if_given() {
+        Some(x) => DateTime::<Utc>::from(x).time_format(),
+        None => Local::now().time_format(),
+    };
+}
+
+pub(crate) unsafe fn getcreationdate() -> &'static str {
+    &start_time_str
+}
+
 pub(crate) fn get_date_and_time() -> (i32, i32, i32, i32) {
     use chrono::prelude::*;
 
-    let tm = match env::var("SOURCE_DATE_EPOCH").ok() {
-        Some(s) => {
-            let epoch = u64::from_str_radix(&s, 10).expect("invalid build date (not a number)");
-            std::time::SystemTime::UNIX_EPOCH
-                .checked_add(std::time::Duration::from_secs(epoch))
-                .expect("time overflow")
-                .into()
-        }
-        None => Local::now(),
-    };
+    let tm: DateTime<Local> = get_unique_time_if_given()
+        .unwrap_or_else(SystemTime::now)
+        .into();
 
     let year = tm.year();
     let month = tm.month();
@@ -38,6 +79,50 @@ pub(crate) fn get_date_and_time() -> (i32, i32, i32, i32) {
 
     (minutes as _, day as _, month as _, year)
 }
+
+pub(crate) fn get_seconds_and_micros(seconds: &mut i32, micros: &mut i32) {
+    let tm = chrono::Local::now();
+    *seconds = tm.timestamp_millis() as i32;
+    *micros = tm.timestamp_subsec_micros() as i32;
+}
+
+pub(crate) fn getfilemoddate(path: &str) -> std::io::Result<String> {
+    use std::fs::File;
+    let f = File::open(path)?;
+    let meta = f.metadata()?;
+    // TODO: use_utc = FORCE_SOURCE_DATE_set && SOURCE_DATE_EPOCH_set
+    let stm = match meta.modified().ok().or_else(|| {
+        get_unique_time_if_given().filter(|_| std::env::var("FORCE_SOURCE_DATE").is_ok())
+    }) {
+        Some(x) => DateTime::<Utc>::from(x).time_format(),
+        None => Local::now().time_format(),
+    };
+    Ok(stm)
+}
+pub(crate) fn getfilesize(path: &str) -> std::io::Result<String> {
+    use std::fs::File;
+    let f = File::open(path)?;
+    let meta = f.metadata()?;
+    Ok(meta.len().to_string())
+}
+pub(crate) fn getfiledump(path: &str, offset: i32, length: i32) -> std::io::Result<String> {
+    use std::fs::File;
+    use std::io::{Read, Seek, SeekFrom};
+    if length == 0 {
+        return Ok(String::new());
+    }
+    let length = length as usize;
+    let mut f = File::open(path)?;
+    f.seek(SeekFrom::Start(offset as _))?;
+    let mut buffer = vec![0; length];
+    f.read(&mut buffer)?;
+    let mut s = String::with_capacity(3 * length);
+    for b in buffer.iter() {
+        s.push_str(&format!("{:.2X}", b)); // TODO: check format
+    }
+    Ok(s)
+}
+
 pub(crate) unsafe fn maketexstring(s: &str) -> i32 {
     if s.is_empty() {
         return EMPTY_STRING;

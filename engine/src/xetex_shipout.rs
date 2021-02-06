@@ -49,6 +49,9 @@ const DVI_BUF_SIZE: usize = 16384;
 const HALF_BUF: usize = 8192;
 const FNT_NUM_0: u8 = 171; /* DVI code */
 
+// These magic numbers are in the original XeTeX source (72.27)
+const S_72_27: Scaled = Scaled(4736286);
+
 static mut dvi_file: Option<OutputHandleWrapper> = None;
 static mut output_file_name: str_number = 0;
 static mut dvi_buf: Vec<u8> = Vec::new();
@@ -816,9 +819,10 @@ unsafe fn hlist_out(this_box: &mut List) {
                             cur_v = base_line
                         }
                         WhatsIt::PdfSavePos(_) => {
-                            pdf_last_x_pos = cur_h + cur_h_offset;
+                            // These magic numbers are in the original XeTeX source.
+                            pdf_last_x_pos = cur_h + S_72_27;
                             pdf_last_y_pos =
-                                cur_page_height - cur_v - cur_v_offset
+                                cur_page_height - cur_v - S_72_27;
                         }
                         _ => { out_what(&mut cur_input, &p); }
                     }
@@ -1295,8 +1299,8 @@ unsafe fn vlist_out(this_box: &List) {
                     cur_h = left_edge;
                 }
                 WhatsIt::PdfSavePos(_) => {
-                    pdf_last_x_pos = cur_h + cur_h_offset;
-                    pdf_last_y_pos = cur_page_height - cur_v - cur_v_offset
+                    pdf_last_x_pos = cur_h + S_72_27;
+                    pdf_last_y_pos = cur_page_height - cur_v - S_72_27;
                 }
                 _ => out_what(&mut cur_input, p),
             },

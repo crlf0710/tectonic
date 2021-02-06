@@ -152,3 +152,14 @@ pub(crate) fn set_family(x: i32) -> i32 {
 pub(crate) fn set_class(x: i32) -> i32 {
     ((x as u32 & 0x7) << 21) as i32
 }
+
+/* e-TeX sparse arrays for large-numebered registers, etc. */
+/*pub(crate) unsafe fn ETEX_SA_ref<'a>(p: usize) -> &'a mut i32 {
+    &mut MEM[p + 1].b32.s0
+}*/
+pub(crate) unsafe fn ETEX_SA_ptr<'a>(p: usize) -> Option<usize> {
+    MEM[p + 1].b32.s1.opt()
+}
+/*pub(crate) unsafe fn ETEX_SA_num<'a>(p: usize) -> &'a mut i32 {
+    &mut MEM[p + 1].b32.s1
+}*/

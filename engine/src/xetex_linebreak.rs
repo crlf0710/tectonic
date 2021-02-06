@@ -723,7 +723,13 @@ pub(crate) unsafe fn line_break(d: bool) {
                                         if *LC_CODE(c as usize) != 0 {
                                             hf = s.font() as usize;
                                             prev_s = s.ptr();
-                                            break 's_786;
+                                            if *LC_CODE(c as usize) == c as i32
+                                                || get_int_par(IntPar::uc_hyph) > 0
+                                            {
+                                                break 's_786;
+                                            } else {
+                                                return c;
+                                            }
                                         } else {
                                             if c as i64 >= 65536 {
                                                 l += 1
