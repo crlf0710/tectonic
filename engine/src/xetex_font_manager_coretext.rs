@@ -21,8 +21,6 @@ type id = *mut Object;
 
 use super::{XeTeXFontMgr, XeTeXFontMgrFont, XeTeXFontMgrNameCollection};
 
-use libc::{free, strdup, strlen};
-
 pub(crate) type Boolean = libc::c_uchar;
 use crate::cf_prelude::*;
 
@@ -218,7 +216,7 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
             }
             CFRelease(ctFont as CFTypeRef);
         }
-        if strlen(path) == 0 {
+        if path.is_empty() {
             "[unknown]".to_string()
         } else {
             path

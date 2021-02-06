@@ -914,7 +914,7 @@ pub(crate) unsafe fn aat_get_font_metrics(
     let descent = CTFontGetDescent(font).into();
     let xheight = CTFontGetXHeight(font).into();
     let capheight = CTFontGetCapHeight(font).into();
-    let slant = ((-CTFontGetSlantAngle(font) * std::f64::consts::PI / 180.).tan(),).into();
+    let slant = ((-CTFontGetSlantAngle(font) * std::f64::consts::PI / 180.).tan()).into();
     (ascent, descent, xheight, capheight, slant)
 }
 

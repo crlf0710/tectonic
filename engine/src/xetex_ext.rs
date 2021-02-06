@@ -566,7 +566,6 @@ unsafe fn loadOTfont(
     mut cp1: &[u8],
 ) -> Option<NativeFont> {
     let mut font = Some(font);
-    let mut current_block: u64;
     let mut script = 0;
     let mut shapers: *mut *mut i8 = ptr::null_mut();
     let mut nShapers: usize = 0;
@@ -629,26 +628,24 @@ unsafe fn loadOTfont(
         }
         if let Some(mut cp3) = strstartswith(cp1, b"script") {
             if cp3[0] != b'=' {
-                current_block = 10622493848381539643;
+                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
             } else {
                 cp3 = &cp3[1..];
                 script =
                     hb_tag_from_string(cp3.as_ptr() as *const i8, (cp3.len() - cp2.len()) as _);
-                current_block = 13857423536159756434;
             }
         } else if let Some(mut cp3) = strstartswith(cp1, b"language") {
             if cp3[0] != b'=' {
-                current_block = 10622493848381539643;
+                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
             } else {
                 cp3 = &cp3[1..];
                 language = std::str::from_utf8(&cp3[..cp3.len() - cp2.len()])
                     .unwrap()
                     .to_string();
-                current_block = 13857423536159756434;
             }
         } else if let Some(mut cp3) = strstartswith(cp1, b"shaper") {
             if cp3[0] != b'=' {
-                current_block = 10622493848381539643;
+                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
             } else {
                 cp3 = &cp3[1..];
                 shapers = xrealloc(
@@ -662,7 +659,6 @@ unsafe fn loadOTfont(
                 *shapers.add(nShapers) = strdup(ccp3.as_ptr());
                 *(*shapers.add(nShapers)).add(len) = 0;
                 nShapers += 1;
-                current_block = 13857423536159756434;
             }
         } else {
             let i = readCommonFeatures(
@@ -675,10 +671,10 @@ unsafe fn loadOTfont(
                 &mut rgbValue,
             );
             if i == 1 {
-                current_block = 13857423536159756434;
             } else if i == -1 {
-                current_block = 10622493848381539643;
+                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
             } else {
+                let mut flag = false;
                 if reqEngine == b'G' {
                     if let Some((tag, value)) = readFeatureNumber(&cp1[..cp1.len() - cp2.len()])
                         .or_else(|| {
@@ -694,74 +690,61 @@ unsafe fn loadOTfont(
                             start: 0,
                             end: -1_i32 as u32,
                         });
-                        current_block = 13857423536159756434;
-                    } else {
-                        current_block = 15669289850109000831;
+                        flag = true;
                     }
-                } else {
-                    current_block = 15669289850109000831;
                 }
-                match current_block {
-                    13857423536159756434 => {}
-                    _ => {
-                        if cp1[0] == b'+' {
-                            let mut param = 0;
-                            let tag = read_tag_with_param(&cp1[1..], &mut param);
-                            let start = 0;
-                            let end = -1_i32 as u32;
-                            // for backward compatibility with pre-0.9999 where feature
-                            // indices started from 0
-                            if param >= 0 {
-                                param += 1
-                            }
-                            let value = param as u32;
-                            features.push(hb_feature_t {
-                                tag,
-                                value,
-                                start,
-                                end,
-                            });
-                            current_block = 13857423536159756434;
-                        } else if cp1[0] == b'-' {
-                            cp1 = &cp1[1..];
-                            let tag = hb_tag_from_string(
-                                cp1.as_ptr() as *const i8,
-                                (cp1.len() - cp2.len()) as _,
-                            );
-                            features.push(hb_feature_t {
-                                tag,
-                                start: 0,
-                                end: -1_i32 as u32,
-                                value: 0,
-                            });
-                            current_block = 13857423536159756434;
-                        } else if cp1.starts_with(b"vertical") {
-                            let mut n = cp1.len() - cp2.len();
-                            if b";:".contains(&cp1[n]) {
-                                n -= 1;
-                            }
-                            while n != 0 || b" \t".contains(&cp1[n]) {
-                                n -= 1;
-                            }
-                            if n != 0 {
-                                // TODO: check
-                                n += 1;
-                            }
-                            if n == 8 {
-                                loaded_font_flags = (loaded_font_flags as i32 | 0x2) as i8;
-                                current_block = 13857423536159756434;
-                            } else {
-                                current_block = 10622493848381539643;
-                            }
-                        } else {
-                            current_block = 10622493848381539643;
+                if !flag {
+                    if cp1[0] == b'+' {
+                        let mut param = 0;
+                        let tag = read_tag_with_param(&cp1[1..], &mut param);
+                        let start = 0;
+                        let end = -1_i32 as u32;
+                        // for backward compatibility with pre-0.9999 where feature
+                        // indices started from 0
+                        if param >= 0 {
+                            param += 1
                         }
+                        let value = param as u32;
+                        features.push(hb_feature_t {
+                            tag,
+                            value,
+                            start,
+                            end,
+                        });
+                    } else if cp1[0] == b'-' {
+                        cp1 = &cp1[1..];
+                        let tag = hb_tag_from_string(
+                            cp1.as_ptr() as *const i8,
+                            (cp1.len() - cp2.len()) as _,
+                        );
+                        features.push(hb_feature_t {
+                            tag,
+                            start: 0,
+                            end: -1_i32 as u32,
+                            value: 0,
+                        });
+                    } else if cp1.starts_with(b"vertical") {
+                        let mut n = cp1.len() - cp2.len();
+                        if b";:".contains(&cp1[n]) {
+                            n -= 1;
+                        }
+                        while n != 0 || b" \t".contains(&cp1[n]) {
+                            n -= 1;
+                        }
+                        if n != 0 {
+                            // TODO: check
+                            n += 1;
+                        }
+                        if n == 8 {
+                            loaded_font_flags = (loaded_font_flags as i32 | 0x2) as i8;
+                        } else {
+                            font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
+                        }
+                    } else {
+                        font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
                     }
                 }
             }
-        }
-        if current_block == 10622493848381539643 {
-            font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
         }
         cp1 = cp2;
     }

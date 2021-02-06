@@ -402,7 +402,7 @@ pub(crate) unsafe fn createFont(
     }
     #[cfg(target_os = "macos")]
     {
-        font = XeTeXFont::create(fontRef, pointSize, into(), &mut status);
+        font = XeTeXFont::create(fontRef, pointSize.into(), &mut status);
     }
     if status {
         None
