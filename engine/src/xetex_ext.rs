@@ -391,13 +391,13 @@ pub(crate) fn read_double(s: &mut &[u8]) -> f64 {
         val
     }
 }
-unsafe fn read_tag_with_param(mut cp: &[u8], param: *mut i32) -> hb_tag_t {
-    let mut cp2 = cp;
-    while !cp2.is_empty() && !b":;,=".contains(&cp2[0]) {
-        cp2 = &cp2[1..]
+unsafe fn read_tag_with_param(cp: &[u8], param: *mut i32) -> hb_tag_t {
+    let mut n = 0;
+    while n != cp.len() && !b":;,=".contains(&cp[n]) {
+        n += 1;
     }
-    let tag = hb_tag_from_string(cp.as_ptr() as *const i8, (cp.len() - cp2.len()) as _);
-    cp = cp2;
+    let (tag, mut cp) = cp.split_at(n);
+    let tag = hb_tag_from_string(tag.as_ptr() as *const i8, tag.len() as _);
     if cp[0] == b'=' {
         let mut neg: i32 = 0;
         cp = &cp[1..];
@@ -458,7 +458,6 @@ pub(crate) fn read_rgb_a(cp: &mut &[u8]) -> u32 {
 }
 pub(crate) unsafe fn readCommonFeatures(
     feat: &[u8],
-    end: usize,
     extend: *mut f32,
     slant: *mut f32,
     embolden: *mut f32,
@@ -471,57 +470,48 @@ pub(crate) unsafe fn readCommonFeatures(
         if sep[0] != b'=' {
             return -1;
         }
-        loaded_font_mapping =
-            load_mapping_file(std::str::from_utf8(&sep[1..end - 7]).unwrap(), 0_i8);
-        return 1;
-    }
-    if let Some(mut sep) = strstartswith(feat, b"extend") {
+        loaded_font_mapping = load_mapping_file(std::str::from_utf8(&sep[1..]).unwrap(), 0);
+        1
+    } else if let Some(sep) = strstartswith(feat, b"extend") {
+        if sep[0] != b'=' {
+            return -1;
+        }
+        *extend = read_double(&mut &sep[1..]) as f32;
+        1
+    } else if let Some(sep) = strstartswith(feat, b"slant") {
+        if sep[0] != b'=' {
+            return -1;
+        }
+        *slant = read_double(&mut &sep[1..]) as f32;
+        1
+    } else if let Some(sep) = strstartswith(feat, b"embolden") {
+        if sep[0] != b'=' {
+            return -1;
+        }
+        *embolden = read_double(&mut &sep[1..]) as f32;
+        1
+    } else if let Some(sep) = strstartswith(feat, b"letterspace") {
+        if sep[0] != b'=' {
+            return -1;
+        }
+        *letterspace = read_double(&mut &sep[1..]) as f32;
+        1
+    } else if let Some(mut sep) = strstartswith(feat, b"color") {
         if sep[0] != b'=' {
             return -1;
         }
         sep = &sep[1..];
-        *extend = read_double(&mut sep) as f32;
-        return 1;
-    }
-    if let Some(mut sep) = strstartswith(feat, b"slant") {
-        if sep[0] != b'=' {
-            return -1;
-        }
-        sep = &sep[1..];
-        *slant = read_double(&mut sep) as f32;
-        return 1;
-    }
-    if let Some(mut sep) = strstartswith(feat, b"embolden") {
-        if sep[0] != b'=' {
-            return -1;
-        }
-        sep = &sep[1..];
-        *embolden = read_double(&mut sep) as f32;
-        return 1;
-    }
-    if let Some(mut sep) = strstartswith(feat, b"letterspace") {
-        if sep[0] != b'=' {
-            return -1;
-        }
-        sep = &sep[1..];
-        *letterspace = read_double(&mut sep) as f32;
-        return 1;
-    }
-    if let Some(mut sep) = strstartswith(feat, b"color") {
-        if sep[0] != b'=' {
-            return -1;
-        }
-        sep = &sep[1..];
-        let s = sep;
+        let seplen = sep.len();
         *rgbValue = read_rgb_a(&mut sep);
-        if sep.len() == s.len() - 6 || sep.len() == s.len() - 8 {
+        if sep.len() == seplen - 6 || sep.len() == seplen - 8 {
             loaded_font_flags = (loaded_font_flags as i32 | 0x1) as i8
         } else {
             return -1;
         }
-        return 1;
+        1
+    } else {
+        0
     }
-    0
 }
 unsafe fn readFeatureNumber(mut s: &[u8]) -> Option<(hb_tag_t, i32)>
 /* s...e is a "id=setting" string; */ {
@@ -622,30 +612,28 @@ unsafe fn loadOTfont(
         if cp1.is_empty() {
             break;
         }
-        let mut cp2 = cp1;
-        while !cp2.is_empty() && !b":;,".contains(&cp2[0]) {
-            cp2 = &cp2[1..];
+        let mut n = 0;
+        while n != cp1.len() && !b":;,".contains(&cp1[n]) {
+            n += 1;
         }
-        if let Some(mut cp3) = strstartswith(cp1, b"script") {
+        let (feat, cp2) = cp1.split_at(n);
+        if let Some(mut cp3) = strstartswith(feat, b"script") {
             if cp3[0] != b'=' {
-                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
+                font_feature_warning(feat, &[]);
             } else {
                 cp3 = &cp3[1..];
-                script =
-                    hb_tag_from_string(cp3.as_ptr() as *const i8, (cp3.len() - cp2.len()) as _);
+                script = hb_tag_from_string(cp3.as_ptr() as *const i8, cp3.len() as _);
             }
-        } else if let Some(mut cp3) = strstartswith(cp1, b"language") {
+        } else if let Some(mut cp3) = strstartswith(feat, b"language") {
             if cp3[0] != b'=' {
-                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
+                font_feature_warning(feat, &[]);
             } else {
                 cp3 = &cp3[1..];
-                language = std::str::from_utf8(&cp3[..cp3.len() - cp2.len()])
-                    .unwrap()
-                    .to_string();
+                language = std::str::from_utf8(&cp3).unwrap().to_string();
             }
-        } else if let Some(mut cp3) = strstartswith(cp1, b"shaper") {
+        } else if let Some(mut cp3) = strstartswith(feat, b"shaper") {
             if cp3[0] != b'=' {
-                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
+                font_feature_warning(feat, &[]);
             } else {
                 cp3 = &cp3[1..];
                 shapers = xrealloc(
@@ -654,98 +642,89 @@ unsafe fn loadOTfont(
                         as _,
                 ) as *mut *mut i8;
                 /* some dumb systems have no strndup() */
-                let len = cp3.len() - cp2.len();
                 let ccp3 = CString::new(cp3).unwrap();
                 *shapers.add(nShapers) = strdup(ccp3.as_ptr());
-                *(*shapers.add(nShapers)).add(len) = 0;
                 nShapers += 1;
             }
         } else {
-            let i = readCommonFeatures(
-                cp1,
-                cp1.len() - cp2.len(),
+            match readCommonFeatures(
+                feat,
                 &mut extend,
                 &mut slant,
                 &mut embolden,
                 &mut letterspace,
                 &mut rgbValue,
-            );
-            if i == 1 {
-            } else if i == -1 {
-                font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
-            } else {
-                let mut flag = false;
-                if reqEngine == b'G' {
-                    if let Some((tag, value)) = readFeatureNumber(&cp1[..cp1.len() - cp2.len()])
-                        .or_else(|| {
-                            findGraphiteFeature(
-                                engine.as_ref().unwrap(),
-                                &cp1[..cp1.len() - cp2.len()],
-                            )
-                        })
-                    {
-                        features.push(hb_feature_t {
-                            tag,
-                            value: value as u32,
-                            start: 0,
-                            end: -1_i32 as u32,
-                        });
-                        flag = true;
+            ) {
+                1 => {}
+                -1 => font_feature_warning(feat, &[]),
+                _ => {
+                    let mut flag = false;
+                    if reqEngine == b'G' {
+                        if let Some((tag, value)) = readFeatureNumber(feat)
+                            .or_else(|| findGraphiteFeature(engine.as_ref().unwrap(), feat))
+                        {
+                            features.push(hb_feature_t {
+                                tag,
+                                value: value as u32,
+                                start: 0,
+                                end: -1_i32 as u32,
+                            });
+                            flag = true;
+                        }
                     }
-                }
-                if !flag {
-                    if cp1[0] == b'+' {
-                        let mut param = 0;
-                        let tag = read_tag_with_param(&cp1[1..], &mut param);
-                        let start = 0;
-                        let end = -1_i32 as u32;
-                        // for backward compatibility with pre-0.9999 where feature
-                        // indices started from 0
-                        if param >= 0 {
-                            param += 1
-                        }
-                        let value = param as u32;
-                        features.push(hb_feature_t {
-                            tag,
-                            value,
-                            start,
-                            end,
-                        });
-                    } else if cp1[0] == b'-' {
-                        cp1 = &cp1[1..];
-                        let tag = hb_tag_from_string(
-                            cp1.as_ptr() as *const i8,
-                            (cp1.len() - cp2.len()) as _,
-                        );
-                        features.push(hb_feature_t {
-                            tag,
-                            start: 0,
-                            end: -1_i32 as u32,
-                            value: 0,
-                        });
-                    } else if cp1.starts_with(b"vertical") {
-                        let mut n = cp1.len() - cp2.len();
-                        if b";:".contains(&cp1[n]) {
-                            n -= 1;
-                        }
-                        while n != 0 || b" \t".contains(&cp1[n]) {
-                            n -= 1;
-                        }
-                        if n != 0 {
-                            // TODO: check
-                            n += 1;
-                        }
-                        if n == 8 {
-                            loaded_font_flags = (loaded_font_flags as i32 | 0x2) as i8;
+                    if !flag {
+                        if feat[0] == b'+' {
+                            let mut param = 0;
+                            let tag = read_tag_with_param(&cp1[1..], &mut param);
+                            let start = 0;
+                            let end = -1_i32 as u32;
+                            // for backward compatibility with pre-0.9999 where feature
+                            // indices started from 0
+                            if param >= 0 {
+                                param += 1
+                            }
+                            let value = param as u32;
+                            features.push(hb_feature_t {
+                                tag,
+                                value,
+                                start,
+                                end,
+                            });
+                        } else if feat[0] == b'-' {
+                            let feat = &feat[1..];
+                            let tag =
+                                hb_tag_from_string(feat.as_ptr() as *const i8, feat.len() as _);
+                            features.push(hb_feature_t {
+                                tag,
+                                start: 0,
+                                end: -1_i32 as u32,
+                                value: 0,
+                            });
+                        } else if feat.starts_with(b"vertical") {
+                            let mut n = feat.len();
+                            if b";:".contains(&cp2[0]) {
+                                n -= 1;
+                            }
+                            while n != 0 || b" \t".contains(&feat[n]) {
+                                n -= 1;
+                            }
+                            if n != 0 {
+                                // TODO: check
+                                n += 1;
+                            }
+                            if n == 8 {
+                                loaded_font_flags = (loaded_font_flags as i32 | 0x2) as i8;
+                            } else {
+                                font_feature_warning(feat, &[]);
+                            }
                         } else {
-                            font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
+                            font_feature_warning(feat, &[]);
                         }
-                    } else {
-                        font_feature_warning(&cp1[..cp1.len() - cp2.len()], &[]);
                     }
                 }
             }
         }
+        // next option
         cp1 = cp2;
     }
     /* break if end of string */

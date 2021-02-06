@@ -218,7 +218,6 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
                     let ref mut fresh1 = (*locations.add(i_0)).x;
                     *fresh1 += lsDelta;
                     lsDelta += lsUnit;
-                    i_0 += 1
                 }
                 if lsDelta != Scaled::ZERO {
                     lsDelta -= lsUnit;
@@ -612,7 +611,6 @@ pub(crate) unsafe fn loadAATfont(
     scaled_size: Scaled,
     mut cp1: &[u8],
 ) -> Option<NativeFont> {
-    let mut current_block: u64;
     let mut extend = 1_f32;
     let mut slant = 0_f32;
     let mut embolden = 0_f32;
@@ -663,6 +661,7 @@ pub(crate) unsafe fn loadAATfont(
             while cp3.len() > cp2.len() && cp3[0] != b'=' {
                 cp3 = &cp3[1..];
             }
+            let mut current_block: u64;
             if cp3.len() == cp2.len() {
                 current_block = 4154772336439402900;
             } else {
@@ -729,41 +728,39 @@ pub(crate) unsafe fn loadAATfont(
                     current_block = 15938117740974259152;
                 } else {
                     // didn't find feature, try other options...
-                    let ret = readCommonFeatures(
-                        cp1,
-                        cp1.len() - cp2.len(),
+                    match readCommonFeatures(
+                        &cp1[..cp1.len() - cp2.len()],
                         &mut extend,
                         &mut slant,
                         &mut embolden,
                         &mut letterspace,
                         &mut rgbValue,
-                    );
-                    if ret == 1 {
-                        current_block = 15938117740974259152;
-                    } else if ret == -1 {
-                        current_block = 4154772336439402900;
-                    } else {
-                        if let Some(mut cp3) = strstartswith(cp1, b"tracking") {
-                            if cp3[0] != b'=' {
-                                current_block = 4154772336439402900;
+                    ) {
+                        1 => current_block = 15938117740974259152,
+                        -1 => current_block = 4154772336439402900,
+                        _ => {
+                            if let Some(mut cp3) = strstartswith(cp1, b"tracking") {
+                                if cp3[0] != b'=' {
+                                    current_block = 4154772336439402900;
+                                } else {
+                                    cp3 = &cp3[1..];
+                                    let mut tracking = read_double(&mut cp3);
+                                    let trackingNumber = CFNumberCreate(
+                                        0 as CFAllocatorRef,
+                                        kCFNumberDoubleType as i32 as CFNumberType,
+                                        &mut tracking as *mut f64 as *const libc::c_void,
+                                    );
+                                    CFDictionaryAddValue(
+                                        stringAttributes,
+                                        kCTKernAttributeName as *const libc::c_void,
+                                        trackingNumber as *const libc::c_void,
+                                    );
+                                    CFRelease(trackingNumber as CFTypeRef);
+                                    current_block = 15938117740974259152;
+                                }
                             } else {
-                                cp3 = &cp3[1..];
-                                let mut tracking = read_double(&mut cp3);
-                                let trackingNumber = CFNumberCreate(
-                                    0 as CFAllocatorRef,
-                                    kCFNumberDoubleType as i32 as CFNumberType,
-                                    &mut tracking as *mut f64 as *const libc::c_void,
-                                );
-                                CFDictionaryAddValue(
-                                    stringAttributes,
-                                    kCTKernAttributeName as *const libc::c_void,
-                                    trackingNumber as *const libc::c_void,
-                                );
-                                CFRelease(trackingNumber as CFTypeRef);
-                                current_block = 15938117740974259152;
+                                current_block = 4154772336439402900;
                             }
-                        } else {
-                            current_block = 4154772336439402900;
                         }
                     }
                 }
