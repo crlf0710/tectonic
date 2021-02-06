@@ -739,7 +739,7 @@ impl XeTeXFontInst {
                 self.m_ftFace,
                 gid as FT_UInt,
                 buffer.as_mut_ptr() as FT_Pointer,
-                256i32 as FT_UInt,
+                256,
             );
             crate::c_pointer_to_str(*buffer.as_mut_ptr() as *mut i8).to_string()
         } else {

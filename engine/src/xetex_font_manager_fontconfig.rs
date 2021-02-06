@@ -82,11 +82,7 @@ impl core::ops::DerefMut for XeTeXFontMgr_FC {
 static mut macRomanConv: *mut icu::UConverter = 0 as *mut icu::UConverter;
 static mut utf16beConv: *mut icu::UConverter = 0 as *mut icu::UConverter;
 static mut utf8Conv: *mut icu::UConverter = 0 as *mut icu::UConverter;
-unsafe fn convertToUtf8(
-    conv: *mut icu::UConverter,
-    name: *const libc::c_uchar,
-    mut len: i32,
-) -> String {
+unsafe fn convertToUtf8(conv: *mut icu::UConverter, name: *const u8, mut len: i32) -> String {
     let mut buffer1 = vec![0_u16; len as usize + 50];
     let bufSize = 2 * len + 100;
     let mut status: icu::UErrorCode = icu::U_ZERO_ERROR;

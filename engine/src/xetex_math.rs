@@ -2003,9 +2003,8 @@ unsafe fn make_op(q: &mut Operator) -> Scaled {
                         let mut height = p.height();
                         if cur_style.0 == MathStyle::Display {
                             let mut h1 = get_ot_math_constant(f, DISPLAYOPERATORMINHEIGHT);
-                            if (h1.0 as f64) < ((p.height() + p.depth()) * 5).0 as f64 / 4_f64 {
-                                h1 =
-                                    Scaled((((p.height() + p.depth()) * 5).0 as f64 / 4_f64) as i32)
+                            if (h1.0 as f64) < ((p.height() + p.depth()) * 5).0 as f64 / 4. {
+                                h1 = Scaled((((p.height() + p.depth()) * 5).0 as f64 / 4.) as i32)
                             }
                             let c = p.glyph();
                             let mut n = 0;

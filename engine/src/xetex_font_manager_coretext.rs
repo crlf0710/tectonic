@@ -21,7 +21,7 @@ type id = *mut Object;
 
 use super::{XeTeXFontMgr, XeTeXFontMgrFont, XeTeXFontMgrNameCollection};
 
-pub(crate) type Boolean = libc::c_uchar;
+pub(crate) type Boolean = u8;
 use crate::cf_prelude::*;
 
 use super::PlatformFontRef;
@@ -202,7 +202,7 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
     }
     unsafe fn get_platform_font_desc(&self, descriptor: Self::FontRef) -> String {
         let mut path = String::new();
-        let ctFont = CTFontCreateWithFontDescriptor(descriptor, 0.0f64, ptr::null());
+        let ctFont = CTFontCreateWithFontDescriptor(descriptor, 0., ptr::null());
         if !ctFont.is_null() {
             let url = CTFontCopyAttribute(ctFont, kCTFontURLAttribute) as CFURLRef;
             if !url.is_null() {

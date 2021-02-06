@@ -22,7 +22,7 @@ use crate::xetex_ini::{
 };
 use crate::xetex_xetex0::font_feature_warning;
 use libc::free;
-pub(crate) type Boolean = libc::c_uchar;
+pub(crate) type Boolean = u8;
 
 use crate::xetex_scaledmath::Scaled;
 type Fract = i32;

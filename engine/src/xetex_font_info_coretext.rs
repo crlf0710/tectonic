@@ -4,7 +4,7 @@
 use crate::xetex_aatfont::getFileNameFromCTFont;
 use std::ptr;
 
-pub(crate) type Boolean = libc::c_uchar;
+pub(crate) type Boolean = u8;
 
 use crate::cf_prelude::*;
 
@@ -87,7 +87,7 @@ impl XeTeXFontInst_Mac {
         CFRelease(attributes as CFTypeRef);
         m_fontRef = CTFontCreateWithFontDescriptor(
             m_descriptor,
-            super_.m_pointSize as f64 * 72.0f64 / 72.27f64,
+            super_.m_pointSize as f64 * 72. / 72.27,
             ptr::null(),
         );
         if !m_fontRef.is_null() {

@@ -557,7 +557,7 @@ unsafe fn loadOTfont(
 ) -> Option<NativeFont> {
     let mut font = Some(font);
     let mut script = 0;
-    let mut shapers: *mut *mut i8 = ptr::null_mut();
+    let mut shapers: *mut *const i8 = ptr::null_mut();
     let mut nShapers: usize = 0;
     let mut rgbValue: u32 = 0xff_u32;
     let mut extend: f32 = 1.;
@@ -568,19 +568,19 @@ unsafe fn loadOTfont(
     if reqEngine == b'O' || reqEngine == b'G' {
         shapers = xrealloc(
             shapers as *mut libc::c_void,
-            ((nShapers + 1) as u64).wrapping_mul(std::mem::size_of::<*mut i8>() as u64) as _,
-        ) as *mut *mut i8;
+            ((nShapers + 1) as u64).wrapping_mul(std::mem::size_of::<*const i8>() as u64) as _,
+        ) as *mut *const i8;
         if reqEngine == b'O' {
             static mut ot_const: [i8; 3] = [111, 116, 0];
-            *shapers.add(nShapers) = ot_const.as_mut_ptr()
+            *shapers.add(nShapers) = ot_const.as_ptr()
         } else if reqEngine == b'G' {
             static mut graphite2_const: [i8; 10] = [103, 114, 97, 112, 104, 105, 116, 101, 50, 0];
-            *shapers.add(nShapers) = graphite2_const.as_mut_ptr()
+            *shapers.add(nShapers) = graphite2_const.as_ptr()
         }
         nShapers += 1;
     }
     let engine = if reqEngine == b'G' {
-        let mut tmpShapers: [*mut i8; 1] = [*shapers.offset(0)];
+        let mut tmpShapers: [*const i8; 1] = [*shapers.offset(0)];
         /* create a default engine so we can query the font for Graphite features;
          * because of font caching, it's cheap to discard this and create the real one later */
         Some(XeTeXLayoutEngine::create(
@@ -638,9 +638,9 @@ unsafe fn loadOTfont(
                 cp3 = &cp3[1..];
                 shapers = xrealloc(
                     shapers as *mut libc::c_void,
-                    ((nShapers + 1) as u64).wrapping_mul(std::mem::size_of::<*mut i8>() as u64)
+                    ((nShapers + 1) as u64).wrapping_mul(std::mem::size_of::<*const i8>() as u64)
                         as _,
-                ) as *mut *mut i8;
+                ) as *mut *const i8;
                 /* some dumb systems have no strndup() */
                 let ccp3 = CString::new(cp3).unwrap();
                 *shapers.add(nShapers) = strdup(ccp3.as_ptr());
@@ -731,8 +731,8 @@ unsafe fn loadOTfont(
     if !shapers.is_null() {
         shapers = xrealloc(
             shapers as *mut libc::c_void,
-            ((nShapers + 1) as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as _,
-        ) as *mut *mut i8;
+            ((nShapers + 1) as u64).wrapping_mul(::std::mem::size_of::<*const i8>() as u64) as _,
+        ) as *mut *const i8;
         *shapers.add(nShapers) = ptr::null_mut();
     }
     if embolden as f64 != 0. {

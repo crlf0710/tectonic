@@ -345,35 +345,11 @@ pub(crate) unsafe fn get_ot_math_kern(
             let corr_height_top = font.points_to_units(glyph_height(f, g));
             let corr_height_bot =
                 -font.points_to_units((glyph_depth(sf, sg) as f64 + f64::from(shift)) as f32);
-            let kern = getMathKernAt(
-                f,
-                g,
-                HB_OT_MATH_KERN_TOP_RIGHT,
-                corr_height_top as libc::c_int,
-            )
-            .0;
-            let skern = getMathKernAt(
-                sf,
-                sg,
-                HB_OT_MATH_KERN_BOTTOM_LEFT,
-                corr_height_top as libc::c_int,
-            )
-            .0;
+            let kern = getMathKernAt(f, g, HB_OT_MATH_KERN_TOP_RIGHT, corr_height_top as _);
+            let skern = getMathKernAt(sf, sg, HB_OT_MATH_KERN_BOTTOM_LEFT, corr_height_top as _);
             rval = kern + skern;
-            let kern = getMathKernAt(
-                f,
-                g,
-                HB_OT_MATH_KERN_TOP_RIGHT,
-                corr_height_bot as libc::c_int,
-            )
-            .0;
-            let skern = getMathKernAt(
-                sf,
-                sg,
-                HB_OT_MATH_KERN_BOTTOM_LEFT,
-                corr_height_bot as libc::c_int,
-            )
-            .0;
+            let kern = getMathKernAt(f, g, HB_OT_MATH_KERN_TOP_RIGHT, corr_height_bot as _);
+            let skern = getMathKernAt(sf, sg, HB_OT_MATH_KERN_BOTTOM_LEFT, corr_height_bot as _);
             if kern + skern < rval {
                 rval = kern + skern
             }
@@ -382,35 +358,11 @@ pub(crate) unsafe fn get_ot_math_kern(
             let corr_height_top =
                 font.points_to_units((glyph_height(sf, sg) as f64 - f64::from(shift)) as f32);
             let corr_height_bot = -font.points_to_units(glyph_depth(f, g));
-            let kern = getMathKernAt(
-                f,
-                g,
-                HB_OT_MATH_KERN_BOTTOM_RIGHT,
-                corr_height_top as libc::c_int,
-            )
-            .0;
-            let skern = getMathKernAt(
-                sf,
-                sg,
-                HB_OT_MATH_KERN_TOP_LEFT,
-                corr_height_top as libc::c_int,
-            )
-            .0;
+            let kern = getMathKernAt(f, g, HB_OT_MATH_KERN_BOTTOM_RIGHT, corr_height_top as _);
+            let skern = getMathKernAt(sf, sg, HB_OT_MATH_KERN_TOP_LEFT, corr_height_top as _);
             rval = kern + skern;
-            let kern = getMathKernAt(
-                f,
-                g,
-                HB_OT_MATH_KERN_BOTTOM_RIGHT,
-                corr_height_bot as libc::c_int,
-            )
-            .0;
-            let skern = getMathKernAt(
-                sf,
-                sg,
-                HB_OT_MATH_KERN_TOP_LEFT,
-                corr_height_bot as libc::c_int,
-            )
-            .0;
+            let kern = getMathKernAt(f, g, HB_OT_MATH_KERN_BOTTOM_RIGHT, corr_height_bot as _);
+            let skern = getMathKernAt(sf, sg, HB_OT_MATH_KERN_TOP_LEFT, corr_height_bot as _);
             if kern + skern < rval {
                 rval = kern + skern
             }
@@ -418,7 +370,7 @@ pub(crate) unsafe fn get_ot_math_kern(
             unreachable!()
             // we should not reach here
         }
-        (font.units_to_points(rval as f32) as f64).into()
+        (font.units_to_points(rval.0 as f32) as f64).into()
     } else {
         Scaled::ZERO
     }
@@ -426,30 +378,30 @@ pub(crate) unsafe fn get_ot_math_kern(
 pub(crate) fn ot_part_count(a: &GlyphAssembly) -> i32 {
     a.parts.len() as i32
 }
-pub(crate) unsafe fn ot_part_glyph(a: &GlyphAssembly, i: i32) -> i32 {
+pub(crate) fn ot_part_glyph(a: &GlyphAssembly, i: i32) -> i32 {
     a.parts[i as usize].glyph as i32
 }
-pub(crate) unsafe fn ot_part_is_extender(a: &GlyphAssembly, i: i32) -> bool {
+pub(crate) fn ot_part_is_extender(a: &GlyphAssembly, i: i32) -> bool {
     a.parts[i as usize].flags as u32 & HB_OT_MATH_GLYPH_PART_FLAG_EXTENDER as u32 != 0
 }
-pub(crate) unsafe fn ot_part_start_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
-    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
+pub(crate) fn ot_part_start_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
+    if let Font::Native(Otgr(e)) = unsafe { &FONT_LAYOUT_ENGINE[f] } {
         let font = e.get_font();
         (font.units_to_points(a.parts[i as usize].start_connector_length as f32) as f64).into()
     } else {
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn ot_part_end_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
-    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
+pub(crate) fn ot_part_end_connector(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
+    if let Font::Native(Otgr(e)) = unsafe { &FONT_LAYOUT_ENGINE[f] } {
         let font = e.get_font();
         (font.units_to_points(a.parts[i as usize].end_connector_length as f32) as f64).into()
     } else {
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn ot_part_full_advance(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
-    if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f as usize] {
+pub(crate) fn ot_part_full_advance(f: usize, a: &GlyphAssembly, i: i32) -> Scaled {
+    if let Font::Native(Otgr(e)) = unsafe { &FONT_LAYOUT_ENGINE[f as usize] } {
         let font = e.get_font();
         (font.units_to_points(a.parts[i as usize].full_advance as f32) as f64).into()
     } else {

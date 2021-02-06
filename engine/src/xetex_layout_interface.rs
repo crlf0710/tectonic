@@ -238,7 +238,7 @@ pub(crate) struct XeTeXLayoutEngine {
 }
 
 pub(crate) struct ShaperList {
-    pub(crate) list: *mut *mut i8,
+    pub(crate) list: *mut *const i8,
     pub(crate) to_free: bool,
 }
 
@@ -895,7 +895,7 @@ pub(crate) unsafe fn countGlyphs(font: &XeTeXFontInst) -> u32 {
 }
 
 impl XeTeXLayoutEngine {
-    pub(crate) unsafe fn get_font(&self) -> &XeTeXFontInst {
+    pub(crate) fn get_font(&self) -> &XeTeXFontInst {
         &*self.font
     }
     pub(crate) fn get_extend_factor(&self) -> f32 {
@@ -917,7 +917,7 @@ impl XeTeXLayoutEngine {
         script: hb_tag_t,
         language: String,
         features: Vec<hb_feature_t>,
-        shapers: *mut *mut i8,
+        shapers: *mut *const i8,
         rgbValue: u32,
         extend: f32,
         slant: f32,
@@ -1023,8 +1023,8 @@ impl XeTeXLayoutEngine {
             // here for sake of backward compatibility. Since "ot" shaper never
             // fails, we set the shaper list to just include it.
             self.shaper_list.list =
-                xcalloc(2, ::std::mem::size_of::<*mut i8>() as _) as *mut *mut i8;
-            *self.shaper_list.list.offset(0) = b"ot\x00".as_ptr() as *const i8 as *mut i8;
+                xcalloc(2, ::std::mem::size_of::<*const i8>() as _) as *mut *const i8;
+            *self.shaper_list.list.offset(0) = b"ot\x00".as_ptr() as *const i8;
             *self.shaper_list.list.offset(1) = ptr::null_mut();
             self.shaper_list.to_free = true;
         }

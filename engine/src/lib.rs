@@ -538,7 +538,7 @@ pub(crate) mod cf_prelude {
         pub(crate) fn CTFontGetSize(font: CTFontRef) -> CGFloat;
         pub(crate) fn CTFontGetMatrix(font: CTFontRef) -> CGAffineTransform;
         pub(crate) fn CGColorGetComponents(color: CGColorRef) -> *const CGFloat;
-        pub(crate) fn CFBooleanGetValue(boolean: CFBooleanRef) -> libc::c_uchar;
+        pub(crate) fn CFBooleanGetValue(boolean: CFBooleanRef) -> u8;
     }
 
     pub(crate) type UniChar = u16;

@@ -146,7 +146,7 @@ pub(crate) unsafe fn synctex_init_command() {
      * argument. */
     /* Reset state */
     synctex_ctxt = default_synctex_ctxt;
-    if synctex_enabled != 0 {
+    if synctex_enabled {
         set_int_par(IntPar::synctex, 1);
     } else {
         set_int_par(IntPar::synctex, 0);
