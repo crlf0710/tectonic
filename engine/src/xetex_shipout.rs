@@ -1689,7 +1689,7 @@ unsafe fn reverse(
         }
         let m = new_math(Scaled::ZERO, Math(LR_ptr as usize).subtype_i32());
         popt = Some(m.ptr());
-        LR_problems += 10000i32
+        LR_problems += 10000;
     }
     l.tex_int()
 }

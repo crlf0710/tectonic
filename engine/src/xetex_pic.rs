@@ -28,7 +28,7 @@ type Point = euclid::Point2D<f32, ()>;
 type Rect = euclid::Rect<f32, ()>;
 
 pub(crate) unsafe fn count_pdf_file_pages(filename: &str) -> i32 {
-    let handle = InFile::open(filename, TTInputFormat::PICT, 0i32);
+    let handle = InFile::open(filename, TTInputFormat::PICT, 0);
     if handle.is_none() {
         return 0;
     }
@@ -128,12 +128,12 @@ unsafe fn get_image_size_in_inches(handle: &mut InFile) -> Result<(f32, f32), i3
   return bounds (tex points) in *bounds
 */
 unsafe fn find_pic_file(filename: &str, pdfBoxType: i32, page: i32) -> Result<(Rect, String), i32> {
-    let handle = InFile::open(filename, TTInputFormat::PICT, 0i32);
+    let handle = InFile::open(filename, TTInputFormat::PICT, 0);
     if handle.is_none() {
         return Err(1);
     }
     let mut handle = handle.unwrap();
-    let bounds = if pdfBoxType != 0i32 {
+    let bounds = if pdfBoxType != 0 {
         /* if cmd was \XeTeXpdffile, use xpdflib to read it */
         let name = CString::new(filename).unwrap();
         pdf_get_rect(name.as_ptr(), handle, page, pdfBoxType).map_err(|_| -1)?

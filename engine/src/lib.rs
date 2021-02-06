@@ -49,12 +49,12 @@ pub unsafe fn dvipdfmx_simple_main(
             pdfname,
             dviname,
             ptr::null(),
-            0i32,
+            0,
             false,
             compress,
             deterministic_tags,
             false,
-            0_u32,
+            0,
         ) as i32
     })
     .unwrap_or(99)
@@ -556,14 +556,12 @@ pub(crate) mod cf_prelude {
 
     pub(crate) unsafe fn cgColorToRGBA32(color: CGColorRef) -> u32 {
         let components = CGColorGetComponents(color);
-        let mut rval: u32 = (*components.offset(0) * 255.0f64 + 0.5f64) as u8 as u32;
-        rval <<= 8i32;
-        rval = (rval as u32).wrapping_add((*components.offset(1) * 255.0f64 + 0.5f64) as u8 as u32);
-        rval <<= 8i32;
-        rval = (rval as u32).wrapping_add((*components.offset(2) * 255.0f64 + 0.5f64) as u8 as u32);
-        rval <<= 8i32;
-        rval = (rval as u32).wrapping_add((*components.offset(3) * 255.0f64 + 0.5f64) as u8 as u32);
-        return rval;
+        u32::from_be_bytes([
+            (*components.offset(0) * 255. + 0.5) as u8,
+            (*components.offset(1) * 255. + 0.5) as u8,
+            (*components.offset(2) * 255. + 0.5) as u8,
+            (*components.offset(3) * 255. + 0.5) as u8,
+        ])
     }
 }
 

@@ -61,8 +61,8 @@ use freetype::freetype_sys::{
     FT_Get_Sfnt_Table, FT_Glyph_Get_CBox, FT_Init_FreeType, FT_Load_Glyph, FT_New_Memory_Face,
 };
 use freetype::freetype_sys::{
-    FT_BBox, FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Glyph, FT_Int32, FT_Library, FT_Long,
-    FT_Pointer, FT_Sfnt_Tag, FT_UInt, FT_ULong, FT_Vector,
+    FT_BBox, FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Glyph, FT_Library, FT_Long, FT_Pointer,
+    FT_Sfnt_Tag, FT_UInt, FT_ULong, FT_Vector,
 };
 
 use bridge::{ttstub_input_get_size, InFile};
@@ -256,9 +256,9 @@ unsafe extern "C" fn _get_glyph(
 }
 unsafe extern "C" fn _get_glyph_advance(face: FT_Face, gid: FT_UInt, vertical: bool) -> FT_Fixed {
     let mut advance = 0;
-    let mut flags: libc::c_int = (1i64 << 0i32) as libc::c_int;
+    let mut flags = 1 << 0;
     if vertical {
-        flags = (flags as libc::c_long | 1 << 4i32) as libc::c_int
+        flags |= 1 << 4;
     }
     let error = FT_Get_Advance(face, gid, flags, &mut advance);
     if error != 0 {
@@ -323,7 +323,7 @@ unsafe extern "C" fn _get_glyph_h_kerning(
         face,
         gid1,
         gid2,
-        FT_KERNING_UNSCALED as libc::c_int as FT_UInt,
+        FT_KERNING_UNSCALED as i32 as FT_UInt,
         &mut kerning,
     );
     if error != 0 {
@@ -350,14 +350,14 @@ unsafe extern "C" fn _get_glyph_extents(
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
     let face = font_data as FT_Face;
-    let error = FT_Load_Glyph(face, gid, (1i64 << 0i32) as FT_Int32);
+    let error = FT_Load_Glyph(face, gid, 1 << 0);
     if error == 0 {
         (*extents).x_bearing = (*(*face).glyph).metrics.horiBearingX as hb_position_t;
         (*extents).y_bearing = (*(*face).glyph).metrics.horiBearingY as hb_position_t;
         (*extents).width = (*(*face).glyph).metrics.width as hb_position_t;
         (*extents).height = -(*(*face).glyph).metrics.height as hb_position_t
     }
-    (error == 0) as libc::c_int
+    (error == 0) as i32
 }
 unsafe extern "C" fn _get_glyph_contour_point(
     mut _hbf: *mut hb_font_t,
@@ -371,7 +371,7 @@ unsafe extern "C" fn _get_glyph_contour_point(
     use freetype::freetype_sys::FT_GLYPH_FORMAT_OUTLINE;
     let face = font_data as FT_Face;
     let mut ret = false;
-    let error = FT_Load_Glyph(face, gid, (1i64 << 0i32) as FT_Int32);
+    let error = FT_Load_Glyph(face, gid, 1 << 0);
     if error == 0
         && (*(*face).glyph).format as u32 == FT_GLYPH_FORMAT_OUTLINE as u32
         && point_index < (*(*face).glyph).outline.n_points as u32
@@ -392,7 +392,7 @@ unsafe extern "C" fn _get_glyph_name(
 ) -> hb_bool_t {
     let face = font_data as FT_Face;
     let mut ret = FT_Get_Glyph_Name(face, gid, name as FT_Pointer, size) == 0;
-    if ret as libc::c_int != 0 && (size != 0 && *name == 0) {
+    if ret && (size != 0 && *name == 0) {
         ret = false;
     }
     ret as hb_bool_t
@@ -478,22 +478,15 @@ unsafe extern "C" fn _get_table(
     user_data: *mut libc::c_void,
 ) -> *mut hb_blob_t {
     let face = user_data as FT_Face;
-    let mut length: FT_ULong = 0i32 as FT_ULong;
+    let mut length = 0;
     let mut blob = ptr::null_mut();
-    let error = FT_Load_Sfnt_Table(
-        face,
-        tag as FT_ULong,
-        0i32 as FT_Long,
-        ptr::null_mut(),
-        &mut length,
-    );
+    let error = FT_Load_Sfnt_Table(face, tag as FT_ULong, 0, ptr::null_mut(), &mut length);
     if error == 0 {
         let table = xmalloc(
             length.wrapping_mul(::std::mem::size_of::<libc::c_char>() as libc::c_ulong) as _,
         ) as *mut FT_Byte;
         if !table.is_null() {
-            let error =
-                FT_Load_Sfnt_Table(face, tag as FT_ULong, 0i32 as FT_Long, table, &mut length);
+            let error = FT_Load_Sfnt_Table(face, tag as FT_ULong, 0, table, &mut length);
             if error == 0 {
                 blob = hb_blob_create(
                     table as *const libc::c_char,
@@ -510,12 +503,7 @@ unsafe extern "C" fn _get_table(
     blob
 }
 impl XeTeXFontInst {
-    pub(crate) unsafe fn initialize(
-        &mut self,
-        pathname: &str,
-        index: libc::c_int,
-        status: &mut bool,
-    ) {
+    pub(crate) unsafe fn initialize(&mut self, pathname: &str, index: i32, status: &mut bool) {
         use crate::freetype_sys_patch::{FT_SFNT_OS2, FT_SFNT_POST};
         use freetype::freetype_sys::FT_Open_Args;
         use freetype::freetype_sys::{TT_Postscript, TT_OS2};
@@ -549,12 +537,12 @@ impl XeTeXFontInst {
             index as FT_Long,
             &mut self.m_ftFace,
         );
-        if (*self.m_ftFace).face_flags & 1 << 0i32 == 0 {
+        if (*self.m_ftFace).face_flags & 1 << 0 == 0 {
             *status = true;
             return;
         }
         /* for non-sfnt-packaged fonts (presumably Type 1), see if there is an AFM file we can attach */
-        if index == 0i32 && (*self.m_ftFace).face_flags & 1 << 3i32 == 0 {
+        if index == 0 && (*self.m_ftFace).face_flags & 1 << 3 == 0 {
             // Tectonic: this code used to use kpse_find_file and FT_Attach_File
             // to try to find metrics for this font. Thanks to the existence of
             // FT_Attach_Stream we can emulate this behavior while going through
@@ -566,7 +554,7 @@ impl XeTeXFontInst {
                     afm += ".afm";
                 }
             }
-            let afm_handle = InFile::open(&afm, TTInputFormat::AFM, 0i32);
+            let afm_handle = InFile::open(&afm, TTInputFormat::AFM, 0);
             if let Some(mut afm_handle) = afm_handle {
                 let sz = ttstub_input_get_size(&mut afm_handle) as usize;
                 self.m_backingData2 = vec![0; sz];
@@ -586,7 +574,7 @@ impl XeTeXFontInst {
                     num_params: 0,
                     params: ptr::null_mut(),
                 };
-                open_args.flags = 0x1i32 as FT_UInt;
+                open_args.flags = 0x1;
                 open_args.memory_base = self.m_backingData2.as_ptr();
                 open_args.memory_size = sz as FT_Long;
                 FT_Attach_Stream(self.m_ftFace, &mut open_args);
@@ -634,8 +622,8 @@ impl XeTeXFontInst {
         );
         hb_font_set_scale(
             self.m_hbFont,
-            self.m_unitsPerEM as libc::c_int,
-            self.m_unitsPerEM as libc::c_int,
+            self.m_unitsPerEM as i32,
+            self.m_unitsPerEM as i32,
         );
         // We don’t want device tables adjustments
         hb_font_set_ppem(self.m_hbFont, 0, 0);
@@ -647,11 +635,11 @@ impl XeTeXFontInst {
 
     #[cfg(target_os = "macos")]
     pub(crate) unsafe fn get_font_table(&self, tag: u32) -> *mut libc::c_void {
-        let mut tmpLength: FT_ULong = 0i32 as FT_ULong;
+        let mut tmpLength = 0;
         let mut error: FT_Error = FT_Load_Sfnt_Table(
             self.m_ftFace,
             tag as FT_ULong,
-            0i32 as FT_Long,
+            0,
             0 as *mut FT_Byte,
             &mut tmpLength,
         );
@@ -665,7 +653,7 @@ impl XeTeXFontInst {
             error = FT_Load_Sfnt_Table(
                 self.m_ftFace,
                 tag as FT_ULong,
-                0i32 as FT_Long,
+                0,
                 table as *mut FT_Byte,
                 &mut tmpLength,
             );
@@ -683,14 +671,13 @@ impl XeTeXFontInst {
     pub(crate) unsafe fn get_glyph_bounds(&self, gid: GlyphID) -> GlyphBBox {
         use freetype::freetype_sys::FT_GLYPH_BBOX_UNSCALED;
         let mut bbox = GlyphBBox::default();
-        let mut error: FT_Error =
-            FT_Load_Glyph(self.m_ftFace, gid as FT_UInt, (1i64 << 0i32) as FT_Int32);
+        let mut error: FT_Error = FT_Load_Glyph(self.m_ftFace, gid as FT_UInt, 1 << 0);
         if error != 0 {
             return bbox;
         }
         let mut glyph: FT_Glyph = 0 as FT_Glyph;
         error = FT_Get_Glyph((*self.m_ftFace).glyph, &mut glyph);
-        if error == 0i32 {
+        if error == 0 {
             let mut ft_bbox: FT_BBox = FT_BBox {
                 xMin: 0,
                 yMin: 0,
@@ -699,7 +686,7 @@ impl XeTeXFontInst {
             };
             FT_Glyph_Get_CBox(
                 glyph,
-                FT_GLYPH_BBOX_UNSCALED as libc::c_int as FT_UInt,
+                FT_GLYPH_BBOX_UNSCALED as i32 as FT_UInt,
                 &mut ft_bbox,
             );
             bbox.xMin = self.units_to_points(ft_bbox.xMin as f32);
@@ -749,7 +736,7 @@ impl XeTeXFontInst {
     }
 
     pub(crate) unsafe fn get_glyph_name(&self, gid: GlyphID) -> String {
-        if (*self.m_ftFace).face_flags & 1 << 9i32 != 0 {
+        if (*self.m_ftFace).face_flags & 1 << 9 != 0 {
             static mut buffer: [libc::c_char; 256] = [0; 256];
             FT_Get_Glyph_Name(
                 self.m_ftFace,

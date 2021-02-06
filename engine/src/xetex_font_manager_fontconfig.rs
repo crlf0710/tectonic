@@ -85,7 +85,7 @@ static mut utf8Conv: *mut icu::UConverter = 0 as *mut icu::UConverter;
 unsafe fn convertToUtf8(
     conv: *mut icu::UConverter,
     name: *const libc::c_uchar,
-    mut len: libc::c_int,
+    mut len: i32,
 ) -> String {
     let mut buffer1 = vec![0_u16; len as usize + 50];
     let bufSize = 2 * len + 100;
@@ -356,7 +356,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
             return names;
         }
         let mut face = ptr::null_mut();
-        if FT_New_Face(gFreeTypeLibrary, pathname, index as FT_Long, &mut face) != 0i32 {
+        if FT_New_Face(gFreeTypeLibrary, pathname, index as FT_Long, &mut face) != 0 {
             return names;
         }
         let mut name: *const libc::c_char = FT_Get_Postscript_Name(face);
@@ -367,7 +367,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
         /* this string is *not* null-terminated! */
         /* in bytes                              */
         // for sfnt containers, we'll read the name table ourselves, not rely on Fontconfig
-        if (*face).face_flags & 1 << 3i32 != 0 {
+        if (*face).face_flags & 1 << 3 != 0 {
             let mut familyNames = VecDeque::default();
             let mut subFamilyNames = VecDeque::default();
             let mut nameRec: FT_SfntName = FT_SfntName {
@@ -380,7 +380,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
             };
             for i in 0..FT_Get_Sfnt_Name_Count(face) {
                 if FT_Get_Sfnt_Name(face, i, &mut nameRec) == 0 {
-                    match nameRec.name_id as libc::c_int {
+                    match nameRec.name_id as i32 {
                         4 | 1 | 2 | 16 | 17 => {
                             let mut preferredName = false;
                             let utf8name = if nameRec.platform_id == 1
@@ -390,7 +390,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                                 let utf8name = Some(convertToUtf8(
                                     macRomanConv,
                                     nameRec.string,
-                                    nameRec.string_len as libc::c_int,
+                                    nameRec.string_len as i32,
                                 ));
                                 preferredName = true;
                                 utf8name
@@ -398,13 +398,13 @@ impl FontMgrExt for XeTeXFontMgr_FC {
                                 Some(convertToUtf8(
                                     utf16beConv,
                                     nameRec.string,
-                                    nameRec.string_len as libc::c_int,
+                                    nameRec.string_len as i32,
                                 ))
                             } else {
                                 None
                             };
                             if let Some(utf8name) = utf8name {
-                                let nameList = match nameRec.name_id as libc::c_int {
+                                let nameList = match nameRec.name_id as i32 {
                                     4 => &mut names.m_fullNames,
                                     1 => &mut names.m_familyNames,
                                     2 => &mut names.m_styleNames,

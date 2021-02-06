@@ -22,17 +22,17 @@ pub unsafe fn tt_xetex_set_int_variable(var_name: &str, value: i32) -> i32 {
     if var_name == "halt_on_error_p" {
         halt_on_error_p = value
     } else if var_name == "in_initex_mode" {
-        in_initex_mode = value != 0i32
+        in_initex_mode = value != 0
     } else if var_name == "synctex_enabled" {
-        synctex_enabled = (value != 0i32) as i32
+        synctex_enabled = (value != 0) as i32
     } else if var_name == "semantic_pagination_enabled" {
-        semantic_pagination_enabled = value != 0i32
+        semantic_pagination_enabled = value != 0
     } else if var_name == "shell_escape_enabled" {
-        shell_escape_enabled = value != 0i32
+        shell_escape_enabled = value != 0
     } else {
-        return 1i32;
+        return 1;
     } /* Uh oh: unrecognized variable */
-    0i32
+    0
     /* success */
 }
 /*pub(crate) unsafe fn tt_xetex_set_string_variable(

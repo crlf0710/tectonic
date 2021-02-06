@@ -369,7 +369,7 @@ pub(crate) unsafe fn init_math(input: &mut input_state_t) {
         }
         push_math(GroupCode::MathShift);
         cur_list.mode = (false, ListMode::MMode);
-        eq_word_define(INT_BASE as usize + IntPar::cur_fam as usize, -1i32);
+        eq_word_define(INT_BASE as usize + IntPar::cur_fam as usize, -1);
         eq_word_define(
             DIMEN_BASE as usize + DimenPar::pre_display_size as usize,
             w.0,
@@ -479,7 +479,7 @@ unsafe fn scan_delimiter(
         back_error(input, tok);
         val = 0;
     }
-    if val >= 0x40000000i32 {
+    if val >= 0x40000000 {
         d.chr1 = MathChar {
             family: (val / 0x200000 % 0x100) as u8,
             character2: (val % 0x200000 / 0x10000) as u8,
@@ -1226,7 +1226,7 @@ unsafe fn num1(size_code: usize) -> Scaled {
 unsafe fn num2(size_code: usize) -> Scaled {
     let f = MATH_FONT(2 + size_code);
     match &FONT_LAYOUT_ENGINE[f] {
-        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 9i32),
+        Font::Native(Otgr(e)) if e.is_open_type_math_font() => get_native_mathsy_param(f, 9),
         _ => Scaled(FONT_INFO[(9 + PARAM_BASE[f]) as usize].b32.s1),
     }
 }

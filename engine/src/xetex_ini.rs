@@ -1452,8 +1452,8 @@ pub(crate) unsafe fn prefixed_command(
             }
         }
         Cmd::Def => {
-            if ochr & 1i32 != 0 && (a as i32) < 4i32 && get_int_par(IntPar::global_defs) >= 0 {
-                a = (a as i32 + 4i32) as i16
+            if ochr & 1 != 0 && (a as i32) < 4 && get_int_par(IntPar::global_defs) >= 0 {
+                a = (a as i32 + 4) as i16
             }
             let e = ochr >= 2;
             let p = get_r_token(input).3;
@@ -2276,7 +2276,7 @@ unsafe fn initialize_more_variables() {
     }
 
     LR_ptr = None.tex_int();
-    LR_problems = 0i32;
+    LR_problems = 0;
     cur_dir = LR::LeftToRight;
     pseudo_files = None.tex_int();
     sa_root[ValLevel::Mark as usize] = None;
@@ -3704,7 +3704,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
     SOURCE_FILENAME_STACK[0] = 0;
     FULL_SOURCE_FILENAME_STACK[0] = 0;
     IN_OPEN = 0;
-    open_parens = 0i32;
+    open_parens = 0;
     max_buf_stack = 0;
     GRP_STACK[0] = 0;
     IF_STACK[0] = None;
@@ -3715,7 +3715,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
 
     /*memset(
         buffer as *mut libc::c_void,
-        0i32,
+        0,
         (BUF_SIZE as usize).wrapping_mul(::std::mem::size_of::<UnicodeScalar>()),
     );*/
     first = 0;

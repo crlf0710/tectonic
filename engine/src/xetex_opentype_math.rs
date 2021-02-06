@@ -87,7 +87,7 @@ shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in this Software without prior written
 authorization from the copyright holders.
 \****************************************************************************/
-pub(crate) unsafe fn get_ot_math_constant(f: usize, n: libc::c_int) -> Scaled {
+pub(crate) unsafe fn get_ot_math_constant(f: usize, n: i32) -> Scaled {
     let constant = n as hb_ot_math_constant_t;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
@@ -131,7 +131,7 @@ pub(crate) static mut TeX_sym_to_OT_map: [hb_ot_math_constant_t; 23] = [
     HB_OT_MATH_CONSTANT_AXIS_HEIGHT,
 ];
 
-pub(crate) unsafe fn get_native_mathsy_param(f: usize, n: libc::c_int) -> Scaled {
+pub(crate) unsafe fn get_native_mathsy_param(f: usize, n: i32) -> Scaled {
     let mut rval = Scaled::ZERO;
     if n == 6 {
         rval = FONT_SIZE[f as usize];
@@ -143,11 +143,11 @@ pub(crate) unsafe fn get_native_mathsy_param(f: usize, n: libc::c_int) -> Scaled
     } else if n
         < (::std::mem::size_of::<[hb_ot_math_constant_t; 23]>() as libc::c_ulong)
             .wrapping_div(::std::mem::size_of::<hb_ot_math_constant_t>() as libc::c_ulong)
-            as libc::c_int
+            as i32
     {
         let ot_index = TeX_sym_to_OT_map[n as usize];
         if ot_index as u32 != 4294967295 {
-            rval = get_ot_math_constant(f, ot_index as libc::c_int)
+            rval = get_ot_math_constant(f, ot_index as i32)
         }
     }
     //  fprintf(stderr, " math_sy(%d, %d) returns %.3f\n", f, n, Fix2D(rval));
@@ -177,18 +177,18 @@ pub(crate) static mut TeX_ext_to_OT_map: [hb_ot_math_constant_t; 14] = [
     HB_OT_MATH_CONSTANT_LOWER_LIMIT_BASELINE_DROP_MIN,
     HB_OT_MATH_CONSTANT_STACK_GAP_MIN,
 ];
-pub(crate) unsafe fn get_native_mathex_param(f: usize, n: libc::c_int) -> Scaled {
+pub(crate) unsafe fn get_native_mathex_param(f: usize, n: i32) -> Scaled {
     let mut rval = Scaled::ZERO;
-    if n == 6i32 {
+    if n == 6 {
         rval = FONT_SIZE[f as usize];
     } else if n
         < (::std::mem::size_of::<[hb_ot_math_constant_t; 14]>() as libc::c_ulong)
             .wrapping_div(::std::mem::size_of::<hb_ot_math_constant_t>() as libc::c_ulong)
-            as libc::c_int
+            as i32
     {
         let ot_index = TeX_ext_to_OT_map[n as usize];
         if ot_index as u32 != 4294967295 {
-            rval = get_ot_math_constant(f, ot_index as libc::c_int)
+            rval = get_ot_math_constant(f, ot_index as i32)
         }
     }
     //  fprintf(stderr, " math_ex(%d, %d) returns %.3f\n", f, n, Fix2D(rval));
@@ -230,11 +230,7 @@ pub(crate) unsafe fn get_ot_math_variant(
     }
     rval as i32
 }
-pub(crate) unsafe fn get_ot_assembly_ptr(
-    f: usize,
-    g: libc::c_int,
-    horiz: libc::c_int,
-) -> Option<GlyphAssembly> {
+pub(crate) unsafe fn get_ot_assembly_ptr(f: usize, g: i32, horiz: i32) -> Option<GlyphAssembly> {
     let mut rval = None;
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
@@ -243,9 +239,9 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
             hbFont,
             g as hb_codepoint_t,
             (if horiz != 0 {
-                HB_DIRECTION_RTL as libc::c_int
+                HB_DIRECTION_RTL as i32
             } else {
-                HB_DIRECTION_TTB as libc::c_int
+                HB_DIRECTION_TTB as i32
             }) as hb_direction_t,
             0,
             ptr::null_mut(),
@@ -260,9 +256,9 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
                 hbFont,
                 g as hb_codepoint_t,
                 (if horiz != 0 {
-                    HB_DIRECTION_RTL as libc::c_int
+                    HB_DIRECTION_RTL as i32
                 } else {
-                    HB_DIRECTION_TTB as libc::c_int
+                    HB_DIRECTION_TTB as i32
                 }) as hb_direction_t,
                 0,
                 &mut count,
@@ -274,7 +270,7 @@ pub(crate) unsafe fn get_ot_assembly_ptr(
     }
     rval
 }
-pub(crate) unsafe fn get_ot_math_ital_corr(f: usize, g: libc::c_int) -> Scaled {
+pub(crate) unsafe fn get_ot_math_ital_corr(f: usize, g: i32) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let hbFont = font.get_hb_font();
@@ -284,7 +280,7 @@ pub(crate) unsafe fn get_ot_math_ital_corr(f: usize, g: libc::c_int) -> Scaled {
         Scaled::ZERO
     }
 }
-pub(crate) unsafe fn get_ot_math_accent_pos(f: usize, g: libc::c_int) -> Scaled {
+pub(crate) unsafe fn get_ot_math_accent_pos(f: usize, g: i32) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let hbFont = font.get_hb_font();
@@ -304,12 +300,7 @@ pub(crate) unsafe fn ot_min_connector_overlap(f: usize) -> Scaled {
         Scaled::ZERO
     }
 }
-unsafe fn getMathKernAt(
-    f: usize,
-    g: libc::c_int,
-    side: hb_ot_math_kern_t,
-    height: libc::c_int,
-) -> Scaled {
+unsafe fn getMathKernAt(f: usize, g: i32, side: hb_ot_math_kern_t, height: i32) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let hbFont = font.get_hb_font();
@@ -341,16 +332,16 @@ unsafe fn glyph_depth(f: usize, g: i32) -> f32 {
 }
 pub(crate) unsafe fn get_ot_math_kern(
     f: usize,
-    g: libc::c_int,
+    g: i32,
     sf: usize,
-    sg: libc::c_int,
-    cmd: libc::c_int,
+    sg: i32,
+    cmd: i32,
     shift: Scaled,
 ) -> Scaled {
     if let Font::Native(Otgr(e)) = &FONT_LAYOUT_ENGINE[f] {
         let font = e.get_font();
         let mut rval;
-        if cmd == 0i32 {
+        if cmd == 0 {
             // superscript
             let corr_height_top = font.points_to_units(glyph_height(f, g));
             let corr_height_bot =
@@ -387,7 +378,7 @@ pub(crate) unsafe fn get_ot_math_kern(
             if kern + skern < rval {
                 rval = kern + skern
             }
-        } else if cmd == 1i32 {
+        } else if cmd == 1 {
             // subscript
             let corr_height_top =
                 font.points_to_units((glyph_height(sf, sg) as f64 - Fix2D(shift)) as f32);

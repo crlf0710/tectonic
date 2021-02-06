@@ -266,7 +266,7 @@ pub(crate) unsafe fn xn_over_d(x: Scaled, n: Scaled, d: i32) -> (Scaled, i32) {
 }
 pub(crate) unsafe fn round_xn_over_d(x: Scaled, n: i32, d: i32) -> Scaled {
     let mut x = x.0;
-    let positive = if x >= 0i32 {
+    let positive = if x >= 0 {
         true
     } else {
         x = -x;
@@ -281,7 +281,7 @@ pub(crate) unsafe fn round_xn_over_d(x: Scaled, n: i32, d: i32) -> Scaled {
         u = (32768 * (u / d) as i64 + (v / d) as i64) as i32
     }
     let v = v % d;
-    if 2i32 * v >= d {
+    if 2 * v >= d {
         u += 1
     }
     if positive {

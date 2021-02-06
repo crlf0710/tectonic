@@ -195,9 +195,9 @@ impl XeTeXFontMgrFont {
             m_styleName: None,
             parent: None,
             fontRef: ref_0,
-            weight: 0i32 as u16,
-            width: 0i32 as u16,
-            slant: 0i32 as i16,
+            weight: 0,
+            width: 0,
+            slant: 0,
             isReg: false,
             isBold: false,
             isItalic: false,
@@ -250,7 +250,7 @@ pub(crate) type FontMgr = self::imp::XeTeXFontMgr_Mac;
 
 pub(crate) static mut XeTeXFontMgr_sFontManager: Option<Box<FontMgr>> = None;
 #[no_mangle]
-pub(crate) static mut XeTeXFontMgr_sReqEngine: libc::c_char = 0i32 as libc::c_char;
+pub(crate) static mut XeTeXFontMgr_sReqEngine: u8 = 0;
 /* use our own fmax function because it seems to be missing on certain platforms
 (solaris2.9, at least) */
 #[inline]
@@ -281,15 +281,12 @@ pub(crate) unsafe fn XeTeXFontMgr_Destroy() {
     // Here we actually fully destroy the font manager.
     let _ = XeTeXFontMgr_sFontManager.take();
 }
-pub(crate) unsafe fn XeTeXFontMgr_getReqEngine(mut _self_0: &XeTeXFontMgr) -> libc::c_char {
+pub(crate) unsafe fn XeTeXFontMgr_getReqEngine(mut _self_0: &XeTeXFontMgr) -> u8 {
     // return the requested rendering technology for the most recent findFont
     // or 0 if no specific technology was requested
     XeTeXFontMgr_sReqEngine
 }
-pub(crate) unsafe fn XeTeXFontMgr_setReqEngine(
-    mut _self_0: &XeTeXFontMgr,
-    reqEngine: libc::c_char,
-) {
+pub(crate) unsafe fn XeTeXFontMgr_setReqEngine(mut _self_0: &XeTeXFontMgr, reqEngine: u8) {
     XeTeXFontMgr_sReqEngine = reqEngine;
 }
 // above are singleton operation.
@@ -327,7 +324,7 @@ where
         // ptSize is in TeX points, or negative for 'scaled' factor
         // "variant" string will be shortened (in-place) by removal of /B and /I if present
         let mut font: Option<Rc<XeTeXFontMgrFont>> = None;
-        let mut dsize: i32 = 100i32;
+        let mut dsize: i32 = 100;
         loaded_font_design_size = Scaled(655360);
         for pass in 0..2 {
             // try full name as given
@@ -390,7 +387,7 @@ where
                     break;
                 }
             }
-            if pass == 0i32 {
+            if pass == 0 {
                 // didn't find it in our caches, so do a platform search (may be relatively expensive);
                 // this will update the caches with any fonts that seem to match the name given,
                 // so that the second pass might find it
@@ -405,7 +402,7 @@ where
         let parent = parent_clone.as_ref().unwrap().borrow();
         // if there are variant requests, try to apply them
         // and delete B, I, and S=... codes from the string, just retain /engine option
-        XeTeXFontMgr_sReqEngine = 0i32 as libc::c_char;
+        XeTeXFontMgr_sReqEngine = 0;
         let mut reqBold = false;
         let mut reqItal = false;
         let mut font = if !variant.is_empty() {
@@ -413,7 +410,7 @@ where
             let mut cp = variant.as_bytes();
             while !cp.is_empty() {
                 if cp.starts_with(b"AAT") {
-                    XeTeXFontMgr_sReqEngine = 'A' as i32 as libc::c_char;
+                    XeTeXFontMgr_sReqEngine = b'A';
                     cp = &cp[3..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -422,7 +419,7 @@ where
                     varString += "AAT";
                 } else if cp.starts_with(b"ICU") {
                     // for backword compatability
-                    XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
+                    XeTeXFontMgr_sReqEngine = b'O';
                     cp = &cp[3..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -430,7 +427,7 @@ where
                     }
                     varString += "OT";
                 } else if cp.starts_with(b"OT") {
-                    XeTeXFontMgr_sReqEngine = 'O' as i32 as libc::c_char;
+                    XeTeXFontMgr_sReqEngine = b'O';
                     cp = &cp[2..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -438,7 +435,7 @@ where
                     }
                     varString += "OT";
                 } else if cp.starts_with(b"GR") {
-                    XeTeXFontMgr_sReqEngine = 'G' as i32 as libc::c_char;
+                    XeTeXFontMgr_sReqEngine = b'G';
                     cp = &cp[2..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -565,8 +562,8 @@ where
                     bestMatch_0 = self.best_match_from_family(
                         &parent,
                         font.weight as i32
-                            + (parent.maxWeight as i32 - parent.minWeight as i32) / 2i32
-                            + 1i32,
+                            + (parent.maxWeight as i32 - parent.minWeight as i32) / 2
+                            + 1,
                         font.width as i32,
                         font.slant as i32,
                     );
@@ -651,7 +648,7 @@ where
             }
         }
         let font = font.unwrap();
-        if get_tracing_fonts_state() > 0i32 {
+        if get_tracing_fonts_state() > 0 {
             diagnostic(false, || {
                 t_print_nl!(" -> {}", self.get_platform_font_desc(Self::font_ref(&font)));
             });

@@ -75,19 +75,19 @@ type synctex_recorder_t = Option<unsafe fn(_: usize) -> ()>;
 const default_synctex_ctxt: Context = Context {
     file: None,
     root_name: String::new(),
-    count: 0i32,
+    count: 0,
     node: 0,
     recorder: None,
-    tag: 0i32,
-    line: 0i32,
+    tag: 0,
+    line: 0,
     curh: Scaled::ZERO,
     curv: Scaled::ZERO,
-    magnification: 0i32,
-    unit: 0i32,
+    magnification: 0,
+    unit: 0,
     total_length: 0,
     lastv: Scaled(-1),
-    form_depth: 0i32,
-    synctex_tag_counter: 0_u32,
+    form_depth: 0,
+    synctex_tag_counter: 0,
     flags: Flags::empty(),
 };
 static mut synctex_ctxt: Context = default_synctex_ctxt;
@@ -187,13 +187,13 @@ unsafe fn synctex_dot_open() -> bool {
         the_name += synctex_suffix_gz;
         synctex_ctxt.file = OutputHandleWrapper::open(&the_name, 1);
         if synctex_ctxt.file.is_some() && synctex_record_preamble() == 0 {
-            synctex_ctxt.magnification = 1000i32;
-            synctex_ctxt.unit = 1i32;
+            synctex_ctxt.magnification = 1000;
+            synctex_ctxt.unit = 1;
             if !synctex_ctxt.root_name.is_empty() {
-                synctex_record_input(1i32, &synctex_ctxt.root_name);
+                synctex_record_input(1, &synctex_ctxt.root_name);
                 synctex_ctxt.root_name = String::new();
             }
-            synctex_ctxt.count = 0i32;
+            synctex_ctxt.count = 0;
             return true;
         }
     }
@@ -210,7 +210,7 @@ unsafe fn synctex_prepare_content() -> bool {
     if synctex_ctxt.flags.contains(Flags::CONTENT_READY) {
         return synctex_ctxt.file.is_some();
     }
-    if synctex_dot_open() && 0i32 == synctex_record_settings() && 0i32 == synctex_record_content() {
+    if synctex_dot_open() && 0 == synctex_record_settings() && 0 == synctex_record_content() {
         synctex_ctxt.flags.insert(Flags::CONTENT_READY);
         return synctex_ctxt.file.is_some();
     }
@@ -317,7 +317,7 @@ pub(crate) unsafe fn synctex_sheet(mag: i32) {
          *  from the source file and not from the CLI. */
         if TOTAL_PAGES == 0 {
             /*  Now it is time to properly set up the scale factor. */
-            if mag > 0i32 {
+            if mag > 0 {
                 synctex_ctxt.magnification = mag
             }
         }
@@ -523,8 +523,8 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
         TxtNode::Rule(r) => {
             if synctex_ctxt.flags.contains(Flags::OFF)
                 || get_int_par(IntPar::synctex) == 0
-                || 0i32 >= *SYNCTEX_tag(r.ptr(), RULE_NODE_SIZE)
-                || 0i32 >= *SYNCTEX_line(r.ptr(), RULE_NODE_SIZE)
+                || 0 >= *SYNCTEX_tag(r.ptr(), RULE_NODE_SIZE)
+                || 0 >= *SYNCTEX_line(r.ptr(), RULE_NODE_SIZE)
             {
                 return;
             }
@@ -532,8 +532,8 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
         TxtNode::Glue(g) => {
             if synctex_ctxt.flags.contains(Flags::OFF)
                 || get_int_par(IntPar::synctex) == 0
-                || 0i32 >= *SYNCTEX_tag(g.ptr(), MEDIUM_NODE_SIZE)
-                || 0i32 >= *SYNCTEX_line(g.ptr(), MEDIUM_NODE_SIZE)
+                || 0 >= *SYNCTEX_tag(g.ptr(), MEDIUM_NODE_SIZE)
+                || 0 >= *SYNCTEX_line(g.ptr(), MEDIUM_NODE_SIZE)
             {
                 return;
             }
@@ -541,8 +541,8 @@ pub(crate) unsafe fn synctex_horizontal_rule_or_glue(p: usize, mut _this_box: us
         TxtNode::Kern(k) => {
             if synctex_ctxt.flags.contains(Flags::OFF)
                 || get_int_par(IntPar::synctex) == 0
-                || 0i32 >= *SYNCTEX_tag(k.ptr(), MEDIUM_NODE_SIZE)
-                || 0i32 >= *SYNCTEX_line(k.ptr(), MEDIUM_NODE_SIZE)
+                || 0 >= *SYNCTEX_tag(k.ptr(), MEDIUM_NODE_SIZE)
+                || 0 >= *SYNCTEX_line(k.ptr(), MEDIUM_NODE_SIZE)
             {
                 return;
             }
@@ -588,8 +588,8 @@ See: @ @<Output the non-|char_node| |p| for...    */
 pub(crate) unsafe fn synctex_kern(p: usize, this_box: usize) {
     if synctex_ctxt.flags.contains(Flags::OFF)
         || get_int_par(IntPar::synctex) == 0
-        || 0i32 >= *SYNCTEX_tag(p, MEDIUM_NODE_SIZE)
-        || 0i32 >= *SYNCTEX_line(p, MEDIUM_NODE_SIZE)
+        || 0 >= *SYNCTEX_tag(p, MEDIUM_NODE_SIZE)
+        || 0 >= *SYNCTEX_line(p, MEDIUM_NODE_SIZE)
     {
         return;
     }
@@ -653,7 +653,7 @@ pub(crate) unsafe fn synctex_current() {
 #[inline]
 unsafe fn synctex_record_settings() -> i32 {
     if synctex_ctxt.file.is_none() {
-        return 0i32;
+        return 0;
     }
     let s = format!(
         "Output:pdf\nMagnification:{}\nUnit:{}\nX Offset:0\nY Offset:0\n",
@@ -661,30 +661,30 @@ unsafe fn synctex_record_settings() -> i32 {
     );
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
-        return 0i32;
+        return 0;
     }
     synctexabort();
-    -1i32
+    -1
 }
 #[inline]
 unsafe fn synctex_record_preamble() -> i32 {
     let s = format!("SyncTeX Version:{}\n", 1,);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length = len;
-        return 0i32;
+        return 0;
     }
     synctexabort();
-    -1i32
+    -1
 }
 #[inline]
 unsafe fn synctex_record_input(tag: i32, name: &str) -> i32 {
     let s = format!("Input:{}:{}\n", tag, name);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
-        return 0i32;
+        return 0;
     }
     synctexabort();
-    -1i32
+    -1
 }
 #[inline]
 unsafe fn synctex_record_anchor() -> i32 {
@@ -692,46 +692,46 @@ unsafe fn synctex_record_anchor() -> i32 {
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length = len;
         synctex_ctxt.count += 1;
-        return 0i32;
+        return 0;
     }
     synctexabort();
-    -1i32
+    -1
 }
 #[inline]
 unsafe fn synctex_record_content() -> i32 {
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b"Content:\n") {
         synctex_ctxt.total_length += len;
-        return 0i32;
+        return 0;
     }
     synctexabort();
-    -1i32
+    -1
 }
 #[inline]
 unsafe fn synctex_record_sheet(sheet: usize) -> i32 {
-    if 0i32 == synctex_record_anchor() {
+    if 0 == synctex_record_anchor() {
         let s = format!("{{{}\n", sheet);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;
-            return 0i32;
+            return 0;
         }
     }
     synctexabort();
-    -1i32
+    -1
 }
 /*  Recording a "}..." or a ">" line  */
 #[inline]
 unsafe fn synctex_record_teehs(sheet: usize) -> i32 {
-    if 0i32 == synctex_record_anchor() {
+    if 0 == synctex_record_anchor() {
         let s = format!("}}{}\n", sheet);
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;
-            return 0i32;
+            return 0;
         }
     }
     synctexabort();
-    -1i32
+    -1
 }
 /*  Recording the "<..." line.  In pdftex.web, use synctex_pdfxform(p) at
  *  the very beginning of the pdf_ship_out procedure.
@@ -770,7 +770,7 @@ unsafe fn synctex_record_pdfxform(mut _form: i32) -> i32 {
         || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
-        return 0i32;
+        return 0;
     } else {
         /* XXX Tectonic: guessing that SYNCTEX_PDF_CUR_FORM = synctex_ctxt.form_depth here */
         synctex_ctxt.form_depth += 1;
@@ -778,26 +778,26 @@ unsafe fn synctex_record_pdfxform(mut _form: i32) -> i32 {
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;
-            return 0i32;
+            return 0;
         }
     }
     synctexabort();
-    -1i32
+    -1
 }*/
 /*  Recording a ">" line  */
 /*#[inline]
 unsafe fn synctex_record_mrofxfdp() -> i32 {
-    if 0i32 == synctex_record_anchor() {
+    if 0 == synctex_record_anchor() {
         /* XXX Tectonic: mistake here in original source, no %d in format string */
         synctex_ctxt.form_depth -= 1;
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b">\n") {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;
-            return 0i32;
+            return 0;
         }
     }
     synctexabort();
-    -1i32
+    -1
 }*/
 /*  Recording a "f..." line  */
 /*#[inline]
@@ -809,7 +809,7 @@ unsafe fn synctex_record_node_pdfrefxform(objnum: i32) -> i32
         || get_int_par(IntPar::synctex) == 0
         || synctex_ctxt.file.is_none()
     {
-        return 0i32;
+        return 0;
     } else {
         let s = format!(
             "f{}:{},{}\n",
@@ -821,11 +821,11 @@ unsafe fn synctex_record_node_pdfrefxform(objnum: i32) -> i32
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
             synctex_ctxt.total_length += len;
             synctex_ctxt.count += 1;
-            return 0i32;
+            return 0;
         }
     }
     synctexabort();
-    -1i32
+    -1
 }*/
 #[inline]
 unsafe fn synctex_record_node_void_vlist(p: &List) {
@@ -932,14 +932,14 @@ unsafe fn synctex_record_count() -> i32 {
     let s = format!("Count:{}\n", synctex_ctxt.count,);
     if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(s.as_bytes()) {
         synctex_ctxt.total_length += len;
-        return 0i32;
+        return 0;
     }
     synctexabort();
-    -1i32
+    -1
 }
 #[inline]
 unsafe fn synctex_record_postamble() -> i32 {
-    if 0i32 == synctex_record_anchor() {
+    if 0 == synctex_record_anchor() {
         if let Ok(len) = synctex_ctxt.file.as_mut().unwrap().write(b"Postamble:\n") {
             synctex_ctxt.total_length += len;
             if synctex_record_count() == 0 && synctex_record_anchor() == 0 {
@@ -950,13 +950,13 @@ unsafe fn synctex_record_postamble() -> i32 {
                     .write(b"Post scriptum:\n")
                 {
                     synctex_ctxt.total_length += len;
-                    return 0i32;
+                    return 0;
                 }
             }
         }
     }
     synctexabort();
-    -1i32
+    -1
 }
 #[inline]
 unsafe fn synctex_record_node_glue(p: usize) {

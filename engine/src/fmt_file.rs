@@ -1017,7 +1017,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     for _k in 1..=HYPH_COUNT {
         fmt_in.undump_one(&mut j);
-        if j < 0i32 {
+        if j < 0 {
             bad_fmt();
         }
         if j > 65535 {
@@ -1118,7 +1118,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
     let mut k = BIGGEST_LANG + 1;
     while j > 0 {
         fmt_in.undump_one(&mut x);
-        if x < 0i32 || x > k - 1i32 {
+        if x < 0 || x > k - 1 {
             bad_fmt();
         } else {
             k = x;
