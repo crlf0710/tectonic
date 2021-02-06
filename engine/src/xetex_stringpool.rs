@@ -154,11 +154,11 @@ impl std::fmt::Display for PoolString {
 
 const string_constants: [&str; 2] = ["this marks the start of the stringpool", ""];
 pub(crate) unsafe fn load_pool_strings(spare_size: usize) -> i32 {
-    let mut g: str_number = 0i32;
+    let mut g: str_number = 0;
     for s in &string_constants {
         let total_len = s.len();
         if total_len >= spare_size {
-            return 0i32;
+            return 0;
         }
         for b in s.as_bytes() {
             str_pool[pool_ptr] = *b as _;

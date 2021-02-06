@@ -2755,7 +2755,7 @@ pub(crate) unsafe fn prim_lookup(s: str_number) -> usize {
         } else if prim[p].s1 == 1 + s {
             return p;
         }
-        if prim[p].s0 == 0i32 {
+        if prim[p].s0 == 0 {
             if no_new_control_sequence {
                 p = UNDEFINED_PRIMITIVE as usize;
             } else {
@@ -2773,7 +2773,7 @@ pub(crate) unsafe fn prim_lookup(s: str_number) -> usize {
                     prim[p].s0 = prim_used as i32;
                     p = prim_used
                 }
-                prim[p].s1 = s + 1i32
+                prim[p].s1 = s + 1;
             }
             return p;
         }
@@ -3437,7 +3437,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                 || input.index != Btl::BackedUp
                 || input.loc.is_some()
             {
-                tally = 0i32;
+                tally = 0;
                 let old_setting = selector;
                 let l;
                 if input.state != InputState::TokenList {
@@ -3516,7 +3516,7 @@ pub(crate) unsafe fn show_context(input_stack: &[input_state_t]) {
                         Btl::TectonicCodaText => t_print_nl!("<TectonicCodaTokens> "),
                     }
                     l = tally;
-                    tally = 0i32;
+                    tally = 0;
                     selector = Selector::PSEUDO;
                     trick_count = 1_000_000;
                     if [
@@ -5893,7 +5893,7 @@ unsafe fn restart_scan_something_internal(
                 (true, 0, ValLevel::Dimen)
             } else if cmd <= Cmd::AssignToks {
                 let val = if cmd < Cmd::AssignToks {
-                    if m == 0i32 {
+                    if m == 0 {
                         let val = scan_register_num(input);
                         if val < 256 {
                             EQTB[TOKS_BASE + val as usize].val
@@ -7826,10 +7826,10 @@ pub(crate) unsafe fn ins_the_toks(input: &mut input_state_t, chr: i32, cs: i32) 
 /// we have to create a temporary string that is destroyed immediately after.
 pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
     let mut fnt: usize = 0;
-    let mut arg1: i32 = 0i32;
-    let mut arg2: i32 = 0i32;
+    let mut arg1: i32 = 0;
+    let mut arg2: i32 = 0;
     let mut p = None;
-    let mut cat = 0i32 as i16;
+    let mut cat = 0;
     let c = ConvertCode::n(chr as u8).unwrap();
     let mut oval = None;
     let mut o = None;
@@ -8562,7 +8562,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
 
         IfTestCode::IfOdd => {
             let val = scan_int(input);
-            b = val & 1i32 != 0;
+            b = val & 1 != 0;
         }
 
         IfTestCode::IfVMode => {
@@ -11669,13 +11669,13 @@ pub(crate) unsafe fn extra_right_brace(group: GroupCode) {
 }
 pub(crate) unsafe fn normal_paragraph() {
     if get_int_par(IntPar::looseness) != 0 {
-        eq_word_define(INT_BASE as usize + (IntPar::looseness as usize), 0i32);
+        eq_word_define(INT_BASE as usize + (IntPar::looseness as usize), 0);
     }
     if get_dimen_par(DimenPar::hang_indent) != Scaled::ZERO {
-        eq_word_define(DIMEN_BASE as usize + (DimenPar::hang_indent as usize), 0i32);
+        eq_word_define(DIMEN_BASE as usize + (DimenPar::hang_indent as usize), 0);
     }
     if get_int_par(IntPar::hang_after) != 1 {
-        eq_word_define(INT_BASE as usize + (IntPar::hang_after as usize), 1i32);
+        eq_word_define(INT_BASE as usize + (IntPar::hang_after as usize), 1);
     }
     if LOCAL(Local::par_shape).opt().is_some() {
         eq_define(

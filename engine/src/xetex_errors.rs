@@ -133,7 +133,7 @@ pub(crate) unsafe fn overflow(s: &str, n: usize) -> ! {
         "If you really absolutely need more capacity,",
         "you can ask a wizard to enlarge me."
     );
-    post_error_message(1i32);
+    post_error_message(1);
     panic!("halted on overflow()");
 }
 pub(crate) unsafe fn confusion(s: &str) -> ! {
@@ -148,7 +148,7 @@ pub(crate) unsafe fn confusion(s: &str) -> ! {
             "in fact, I\'m barely conscious. Please fix it and try again."
         );
     }
-    post_error_message(1i32);
+    post_error_message(1);
     panic!("halted on confusion()");
 }
 /* xetex-errors */
@@ -159,6 +159,6 @@ pub(crate) unsafe fn pdf_error(t: &str, p: &str) -> ! {
         t_print!(" ({})", t);
     }
     t_print!(": {}", p);
-    post_error_message(1i32);
+    post_error_message(1);
     panic!("halted on pdf_error()");
 }

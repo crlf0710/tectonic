@@ -443,10 +443,10 @@ pub(crate) unsafe fn setFontLayoutDir(font: &mut XeTeXFontInst, vertical: i32) {
 pub(crate) unsafe fn findFontByName(name: &str, var: &mut String, size: f64) -> PlatformFontRef {
     XeTeXFontMgr_GetFontManager().find_font(name, var, size)
 }
-pub(crate) unsafe fn getReqEngine() -> libc::c_char {
+pub(crate) unsafe fn getReqEngine() -> u8 {
     XeTeXFontMgr_getReqEngine(XeTeXFontMgr_GetFontManager())
 }
-pub(crate) unsafe fn setReqEngine(reqEngine: libc::c_char) {
+pub(crate) unsafe fn setReqEngine(reqEngine: u8) {
     XeTeXFontMgr_setReqEngine(XeTeXFontMgr_GetFontManager(), reqEngine);
 }
 pub(crate) unsafe fn getFullName(fontRef: PlatformFontRef) -> String {
@@ -830,7 +830,7 @@ pub(crate) unsafe fn findGraphiteFeature(
     }
     let tmp = findGraphiteFeatureNamed(engine, &s[..s.len() - cp.len()]);
     let f = tmp as hb_tag_t;
-    if tmp == -1i32 as libc::c_long {
+    if tmp == -1 {
         return None;
     }
     cp = &cp[1..];
@@ -928,7 +928,7 @@ impl XeTeXLayoutEngine {
         slant: f32,
         embolden: f32,
     ) -> Box<Self> {
-        let language = if getReqEngine() as i32 == 'G' as i32 {
+        let language = if getReqEngine() == b'G' {
             hb_language_from_string(language.as_ptr() as *const i8, language.len() as _)
         } else {
             hb_ot_tag_to_language(hb_tag_from_string(
@@ -1251,7 +1251,7 @@ pub(crate) unsafe fn initGraphiteBreaking(engine: &XeTeXLayoutEngine, txt: &[u16
             gr_utf16,
             txt.as_ptr() as *const libc::c_void,
             txt.len() as _,
-            0i32,
+            0,
         );
         grPrevSlot = gr_seg_first_slot(grSegment);
         grTextLen = txt.len() as _;
@@ -1260,7 +1260,7 @@ pub(crate) unsafe fn initGraphiteBreaking(engine: &XeTeXLayoutEngine, txt: &[u16
     false
 }
 pub(crate) unsafe fn findNextGraphiteBreak() -> i32 {
-    let mut ret: i32 = -1i32;
+    let mut ret = -1;
     if !grSegment.is_null() && !grPrevSlot.is_null() && grPrevSlot != gr_seg_last_slot(grSegment) {
         let mut s: *const gr_slot = gr_slot_next_in_segment(grPrevSlot);
         while !s.is_null() {

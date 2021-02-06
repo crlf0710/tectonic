@@ -1854,7 +1854,7 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
                         match current_block {
                             11849408527845460430 => {}
                             _ => {
-                                b = 0i32;
+                                b = 0;
                                 fit_class = DECENT_FIT;
                                 current_block = 8633396468472091231;
                             }
@@ -2011,7 +2011,7 @@ unsafe fn try_break(mut pi: i32, break_type: BreakType) {
 }
 unsafe fn hyphenate() {
     let mut current_block: u64 = 0;
-    let mut c: UnicodeScalar = 0i32;
+    let mut c: UnicodeScalar = 0;
 
     for j in 0..=hn {
         hyf[j] = 0_u8;

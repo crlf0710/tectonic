@@ -84,7 +84,7 @@ pub(crate) const bytesFromUTF8: [u8; 256] = [
     2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5,
 ];
 pub(crate) unsafe fn set_input_file_encoding(f: &mut UFILE, mode: UnicodeMode, encodingData: i32) {
-    if f.encodingMode as i32 == 5i32 && !f.conversionData.is_null() {
+    if f.encodingMode as i32 == 5 && !f.conversionData.is_null() {
         icu::ucnv_close(f.conversionData as *mut icu::UConverter);
     }
     f.conversionData = ptr::null_mut();
@@ -174,18 +174,18 @@ unsafe fn apply_normalization(buf: *mut u32, len: i32, norm: i32) {
         [0 as teckit::TECkit_Converter, 0 as teckit::TECkit_Converter];
     let mut inUsed: u32 = 0;
     let mut outUsed: u32 = 0;
-    let normPtr = &mut *normalizers.as_mut_ptr().offset((norm - 1i32) as isize)
-        as *mut teckit::TECkit_Converter;
+    let normPtr =
+        &mut *normalizers.as_mut_ptr().offset((norm - 1) as isize) as *mut teckit::TECkit_Converter;
     if (*normPtr).is_null() {
         let status = teckit::TECkit_CreateConverter(
             ptr::null_mut(),
-            0i32 as u32,
-            1i32 as u8,
-            6i32 as u16,
-            (6i32 | (if norm == 1i32 { 0x100i32 } else { 0x200i32 })) as u16,
+            0,
+            1,
+            6,
+            (6 | (if norm == 1 { 0x100 } else { 0x200 })) as u16,
             normPtr,
         );
-        if status != 0i32 as i64 {
+        if status != 0 {
             panic!(
                 "failed to create normalizer: error code = {}",
                 status as i32,
@@ -200,9 +200,9 @@ unsafe fn apply_normalization(buf: *mut u32, len: i32, norm: i32) {
         &mut BUFFER[first as usize] as *mut UnicodeScalar as *mut u8,
         (std::mem::size_of::<UnicodeScalar>() * (BUF_SIZE - first)) as u32,
         &mut outUsed,
-        1i32 as u8,
+        1,
     );
-    if status != 0i32 as i64 {
+    if status != 0 {
         buffer_overflow();
     }
     last = first + (outUsed as usize) / std::mem::size_of::<UnicodeScalar>();

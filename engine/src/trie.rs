@@ -264,7 +264,7 @@ pub(crate) unsafe fn init_trie() {
         trie_pack(trie_r[0]);
         hyph_start = trie_hash[trie_r[0] as usize];
     }
-    if trie_max == 0i32 {
+    if trie_max == 0 {
         for r in 0..=max_hyph_char {
             trie_trl[r as usize] = 0;
             trie_tro[r as usize] = 0;

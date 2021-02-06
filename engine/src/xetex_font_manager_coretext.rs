@@ -105,7 +105,7 @@ impl XeTeXFontMgr_Mac {
             0 as CFAllocatorRef,
             &mut keys as *mut [CFStringRef; 1] as *mut *const libc::c_void,
             &mut values as *mut [CFTypeRef; 1] as *mut *const libc::c_void,
-            1i32 as CFIndex,
+            1,
             &kCFTypeDictionaryKeyCallBacks,
             &kCFTypeDictionaryValueCallBacks,
         );
@@ -114,7 +114,7 @@ impl XeTeXFontMgr_Mac {
         let mandatoryAttributes = CFSetCreate(
             0 as CFAllocatorRef,
             &mut keys as *mut [CFStringRef; 1] as *mut *const libc::c_void,
-            1i32 as CFIndex,
+            1,
             &kCFTypeSetCallBacks,
         );
         let matches =
@@ -124,7 +124,7 @@ impl XeTeXFontMgr_Mac {
         let mut matched: CTFontDescriptorRef = 0 as CTFontDescriptorRef;
         if !matches.is_null() {
             if CFArrayGetCount(matches) != 0 {
-                matched = CFArrayGetValueAtIndex(matches, 0i32 as CFIndex) as CTFontDescriptorRef;
+                matched = CFArrayGetValueAtIndex(matches, 0) as CTFontDescriptorRef;
                 CFRetain(matched as CFTypeRef);
             }
             CFRelease(matches as CFTypeRef);
@@ -209,12 +209,8 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
             let url = CTFontCopyAttribute(ctFont, kCTFontURLAttribute) as CFURLRef;
             if !url.is_null() {
                 let mut posixPath: [u8; 1024] = [0; 1024];
-                if CFURLGetFileSystemRepresentation(
-                    url,
-                    1i32 as Boolean,
-                    posixPath.as_mut_ptr(),
-                    1024i32 as CFIndex,
-                ) != 0
+                if CFURLGetFileSystemRepresentation(url, 1 as Boolean, posixPath.as_mut_ptr(), 1024)
+                    != 0
                 {
                     path = strdup(posixPath.as_mut_ptr() as *mut libc::c_char)
                 }
@@ -243,7 +239,7 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
         let nameStr = CFStringCreateWithCString(
             kCFAllocatorDefault,
             cname.as_ptr(),
-            kCFStringEncodingUTF8 as libc::c_int as CFStringEncoding,
+            kCFStringEncodingUTF8 as i32 as CFStringEncoding,
         );
         let mut matched: CTFontDescriptorRef =
             XeTeXFontMgr_Mac::find_font_with_name(nameStr, kCTFontDisplayNameAttribute);
@@ -258,14 +254,14 @@ impl FontMgrExt for XeTeXFontMgr_Mac {
             let familyStr = CFStringCreateWithCString(
                 kCFAllocatorDefault,
                 family.as_ptr(),
-                kCFStringEncodingUTF8 as libc::c_int as CFStringEncoding,
+                kCFStringEncodingUTF8 as i32 as CFStringEncoding,
             );
             let shared_font_manager: *const NSFontManager =
                 msg_send![class!(NSFontManager), sharedFontManager];
             let familyMembers: *mut NSArray<NSFont, Shared> =
                 msg_send![shared_font_manager, availableMembersOfFontFamily: familyStr];
             let count: i32 = msg_send![familyMembers, count];
-            if count > 0i32 {
+            if count > 0 {
                 self.add_fonts_to_caches(familyMembers as CFArrayRef);
                 return;
             }

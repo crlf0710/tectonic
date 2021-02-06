@@ -49,7 +49,7 @@ impl XeTeXFontInst_Mac {
         pointSize: f32,
         status: &mut bool,
     ) -> Self {
-        let mut super_ = XeTeXFontInst::base_ctor("", 0i32, pointSize, status);
+        let mut super_ = XeTeXFontInst::base_ctor("", 0, pointSize, status);
         let mut m_descriptor = descriptor;
         let mut m_fontRef = 0 as CTFontRef;
 
@@ -68,7 +68,7 @@ impl XeTeXFontInst_Mac {
         let emptyCascadeList = CFArrayCreate(
             0 as CFAllocatorRef,
             0 as *mut *const libc::c_void,
-            0i32 as CFIndex,
+            0,
             &kCFTypeArrayCallBacks,
         );
         let mut values: [*const libc::c_void; 1] = [emptyCascadeList as *const libc::c_void];
@@ -78,7 +78,7 @@ impl XeTeXFontInst_Mac {
             0 as CFAllocatorRef,
             attributeKeys.as_mut_ptr(),
             values.as_mut_ptr(),
-            1i32 as CFIndex,
+            1,
             &kCFTypeDictionaryKeyCallBacks,
             &kCFTypeDictionaryValueCallBacks,
         );
@@ -93,12 +93,7 @@ impl XeTeXFontInst_Mac {
         if !m_fontRef.is_null() {
             let mut index = 0;
             let pathname = getFileNameFromCTFont(m_fontRef, &mut index);
-            super_ = XeTeXFontInst::base_ctor(
-                &pathname,
-                index as libc::c_int,
-                super_.m_pointSize,
-                status,
-            );
+            super_ = XeTeXFontInst::base_ctor(&pathname, index as i32, super_.m_pointSize, status);
         } else {
             *status = true;
             CFRelease(m_descriptor as CFTypeRef);
@@ -122,7 +117,7 @@ impl XeTeXFontInst_Mac {
 
     pub(crate) unsafe fn wrapper(
         pathname: &str,
-        index: libc::c_int,
+        index: i32,
         pointSize: f32,
         status: &mut bool,
     ) -> Box<Self> {
