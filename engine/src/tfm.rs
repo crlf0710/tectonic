@@ -649,7 +649,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
 
     let (ascent, descent, x_ht, cap_ht, font_slant) = match &font_engine {
         #[cfg(target_os = "macos")]
-        Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(*fe),
+        Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(fe.attributes),
         Otgr(fe) => ot_get_font_metrics(fe),
     };
     HEIGHT_BASE[FONT_PTR] = ascent.0;

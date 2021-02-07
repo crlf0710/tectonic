@@ -113,20 +113,6 @@ mod core_memory {
         }
         new_mem
     }
-    #[no_mangle]
-    pub(crate) unsafe fn xrealloc(old_ptr: *mut libc::c_void, size: size_t) -> *mut libc::c_void {
-        let size = size as libc::size_t; //FIXME
-        let new_mem;
-        if old_ptr.is_null() {
-            new_mem = xmalloc(size as size_t)
-        } else {
-            new_mem = libc::realloc(old_ptr, if size != 0 { size } else { 1 });
-            if new_mem.is_null() {
-                panic!("xrealloc() to {} bytes failed", size,);
-            }
-        }
-        new_mem
-    }
 
     #[inline]
     pub(crate) unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {

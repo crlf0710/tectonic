@@ -3,7 +3,8 @@
 // XXX: should be no harfbuzz in the interface
 use crate::node::NativeWord;
 use crate::xetex_font_info::{GlyphBBox, XeTeXFontInst};
-use crate::xetex_font_manager::PlatformFontRef;
+//use crate::xetex_font_manager::PlatformFontRef;
+use crate::xetex_font_info::GlyphID;
 use crate::xetex_layout_interface::FixedPoint;
 use crate::xetex_scaledmath::Scaled;
 use harfbuzz_sys::hb_tag_t;
@@ -40,12 +41,15 @@ pub(crate) struct LayoutRequest<'a> {
     // let f = let mut f: libc::c_uint = (*node.offset(4)).b16.s2 as libc::c_uint;
     // *font_letter_space.offset(f as usize)
     pub letter_space_unit: Scaled,
+
+    /// Only used by AAT
+    pub justify: bool,
 }
 
 impl<'a> LayoutRequest<'a> {
     /// Unsafety: obviously, dereferences raw node pointer. The lifetime is also pulled out of
     /// thin air, so just keep it in scope, ok?
-    pub(crate) unsafe fn from_node(node: &'a NativeWord) -> LayoutRequest<'a> {
+    pub(crate) unsafe fn from_node(node: &'a NativeWord, justify: bool) -> LayoutRequest<'a> {
         use crate::xetex_ini::FONT_LETTER_SPACE;
 
         let text = node.text();
@@ -56,6 +60,7 @@ impl<'a> LayoutRequest<'a> {
             text,
             line_width,
             letter_space_unit,
+            justify,
         }
     }
 }
@@ -87,14 +92,6 @@ trait FontInstance {
     unsafe fn countGlyphs(font: *mut XeTeXFontInst) -> u32;
     unsafe fn getGlyphWidth(font: *mut XeTeXFontInst, gid: u32) -> f32;
     unsafe fn setFontLayoutDir(font: *mut XeTeXFontInst, vertical: libc::c_int);
-
-    /// getGlyphName
-    /// Only used for debugging. Should be a String/CStr then!
-    unsafe fn glyph_name(
-        font: *mut XeTeXFontInst,
-        gid: u16,
-        len: *mut libc::c_int,
-    ) -> *const libc::c_char;
 
     unsafe fn getIndLanguage(font: *mut XeTeXFontInst, script: hb_tag_t, index: u32) -> hb_tag_t;
     unsafe fn countFeatures(font: *mut XeTeXFontInst, script: hb_tag_t, language: hb_tag_t) -> u32;
@@ -184,35 +181,38 @@ pub(crate) trait TextLayoutEngine {
     /// getFontFilename
     fn font_filename(&self, index: &mut u32) -> String;
 
-    /// getFontRef
-    fn platform_font_ref(&self) -> PlatformFontRef;
-
     /// getFontInst
-    fn font_instance(&self) -> &XeTeXFontInst;
+    //fn font_instance(&self) -> &XeTeXFontInst;
 
     // should implement Drop
     // unsafe fn deleteLayoutEngine(mut engine: XeTeXLayoutEngine);
 
+    unsafe fn glyph_width(&self, gid: u32) -> f64;
+
+    // XXX: make a single struct for make_font_def to consume, of all the required values
+
     /// getExtendFactor
-    fn extend_factor(&self) -> f32;
+    fn extend_factor(&self) -> f64;
     /// getPointSize
-    fn point_size(&self) -> f32;
+    fn point_size(&self) -> f64;
     /// getAscentAndDescent
     fn ascent_and_descent(&self) -> (f32, f32);
     /// getCapAndXHeight
     fn cap_and_x_height(&self) -> (f32, f32);
     /// getEmboldenFactor
     fn embolden_factor(&self) -> f32;
-    /// getDefaultDirection
-    // TODO: TextDirection
-    fn default_direction(&self) -> i32;
-    /// getRgbValue
+    /// as r,g,b,a bytes, in order (careful of endianness maybe at output phase)
     fn rgb_value(&self) -> u32;
+    /// getSlantFactor
+    unsafe fn slant_factor(&self) -> f64;
+
+    /// getGlyphName
+    unsafe fn glyph_name(&self, gid: GlyphID) -> String;
 
     /// getGlyphBounds (had out param)
     unsafe fn glyph_bbox(&self, glyphID: u32) -> Option<GlyphBBox>;
 
-    unsafe fn get_glyph_width_from_engine(&self, glyphID: u32) -> f32;
+    unsafe fn get_glyph_width_from_engine(&self, glyphID: u32) -> f64;
 
     /// getGlyphHeightDepth (had out params height, depth)
     unsafe fn glyph_height_depth(&self, glyphID: u32) -> Option<(f32, f32)>;
@@ -221,7 +221,7 @@ pub(crate) trait TextLayoutEngine {
     unsafe fn glyph_sidebearings(&self, glyphID: u32) -> Option<(f32, f32)>;
 
     /// getGlyphItalCorr
-    unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f32>;
+    unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f64>;
 
     /// mapCharToGlyph
     /// Should probably just use engine.font as this just passes on the call

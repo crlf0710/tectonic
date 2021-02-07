@@ -6269,7 +6269,7 @@ unsafe fn restart_scan_something_internal(
                             let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                Font::Native(Aat(e)) => aat::aat_font_get(m.into(), *e),
+                                Font::Native(Aat(e)) => aat::aat_font_get(m.into(), e.attributes),
                                 Font::Native(Otgr(e)) => ot_font_get((m as i32) - 14, e),
                                 _ => 0,
                             }
@@ -6278,7 +6278,7 @@ unsafe fn restart_scan_something_internal(
                             let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                Font::Native(Aat(e)) => aat::aat_font_get(m.into(), *e),
+                                Font::Native(Aat(e)) => aat::aat_font_get(m.into(), e.attributes),
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     ot_font_get((m as i32) - 14, e)
                                 }
@@ -6301,7 +6301,7 @@ unsafe fn restart_scan_something_internal(
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     let k = scan_int(input);
-                                    aat::aat_font_get_1(m.into(), *e, k)
+                                    aat::aat_font_get_1(m.into(), e.attributes, k)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
@@ -6320,7 +6320,7 @@ unsafe fn restart_scan_something_internal(
                                 Font::Native(Aat(e)) => {
                                     let k = scan_int(input);
                                     let val = scan_int(input);
-                                    aat::aat_font_get_2(m.into(), *e, k, val)
+                                    aat::aat_font_get_2(m.into(), e.attributes, k, val)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
@@ -6339,7 +6339,7 @@ unsafe fn restart_scan_something_internal(
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     let name = scan_file_name(input).0.to_string();
-                                    aat::aat_font_get_named(&name, m.into(), *e)
+                                    aat::aat_font_get_named(&name, m.into(), e.attributes)
                                 }
                                 _ => {
                                     not_aat_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6353,7 +6353,7 @@ unsafe fn restart_scan_something_internal(
                                 #[cfg(target_os = "macos")]
                                 Font::Native(Aat(e)) => {
                                     let name = scan_file_name(input).0.to_string();
-                                    aat::aat_font_get_named(&name, m.into(), *e)
+                                    aat::aat_font_get_named(&name, m.into(), e.attributes)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let name = scan_file_name(input).0.to_string();
@@ -6372,7 +6372,7 @@ unsafe fn restart_scan_something_internal(
                                 Font::Native(Aat(e)) => {
                                     let k = scan_int(input);
                                     let name = scan_file_name(input).0.to_string();
-                                    aat::aat_font_get_named_1(&name, m.into(), *e, k)
+                                    aat::aat_font_get_named_1(&name, m.into(), e.attributes, k)
                                 }
                                 Font::Native(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
@@ -8020,13 +8020,13 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
         ConvertCode::XetexRevision => ".99998".to_string(),
         ConvertCode::XetexVariationName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
             #[cfg(target_os = "macos")]
-            Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
+            Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, e.attributes, arg1, arg2),
             _ => String::new(),
         },
         ConvertCode::XetexFeatureName | ConvertCode::XetexSelectorName => {
             match &FONT_LAYOUT_ENGINE[fnt as usize] {
                 #[cfg(target_os = "macos")]
-                Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, *e, arg1, arg2),
+                Font::Native(Aat(e)) => aat::aat_get_font_name(c as i32, e.attributes, arg1, arg2),
                 Font::Native(Otgr(e)) if e.using_graphite() => {
                     gr_get_font_name(c as i32, e, arg1, arg2)
                 }
@@ -8035,10 +8035,8 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
         }
         ConvertCode::XetexGlyphName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
             #[cfg(target_os = "macos")]
-            Font::Native(Aat(attributes)) => {
-                aat::GetGlyphNameFromCTFont(aat::font_from_attributes(*attributes), arg1 as u16)
-            }
-            Font::Native(Otgr(engine)) => engine.get_font().get_glyph_name(arg1 as u16),
+            Font::Native(Aat(engine)) => engine.glyph_name(arg1 as u16),
+            Font::Native(Otgr(engine)) => engine.glyph_name(arg1 as u16),
             _ => panic!("bad native font flag in `print_glyph_name`"),
         },
         ConvertCode::LeftMarginKern => {
@@ -9227,7 +9225,10 @@ pub(crate) unsafe fn new_native_word_node(f: usize, n: i32) -> NativeWord {
 }
 pub(crate) unsafe fn new_native_character(f: internal_font_number, c: char) -> NativeWord {
     let mut p;
-    let nf = FONT_LAYOUT_ENGINE[f].as_native();
+    let nf = match &FONT_LAYOUT_ENGINE[f] {
+        Font::Native(nf) => nf,
+        _ => panic!("Not native font"),
+    };
     if !(FONT_MAPPING[f]).is_null() {
         let mut buf = [0; 2];
         let b = c.encode_utf16(&mut buf);

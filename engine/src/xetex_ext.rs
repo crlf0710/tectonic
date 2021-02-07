@@ -8,7 +8,7 @@ use crate::node::{Glyph, NativeWord};
 use crate::strstartswith;
 use crate::stub_icu as icu;
 use crate::stub_teckit as teckit;
-use crate::text_layout_engine::{LayoutRequest, TextLayoutEngine};
+use crate::text_layout_engine::{GlyphEdge, LayoutRequest, TextLayoutEngine};
 use crate::xetex_consts::{Side, UnicodeMode};
 use crate::xetex_font_manager::ShaperRequest;
 use bridge::{ttstub_input_get_size, InFile, TTInputFormat};
@@ -45,25 +45,18 @@ pub(crate) enum Font {
     Native(NativeFont),
 }
 
-impl Font {
-    pub(crate) fn as_native(&self) -> &NativeFont {
-        match self {
-            Font::Native(nf) => nf,
-            _ => panic!("Not native font"),
-        }
-    }
-}
-
 pub(crate) enum NativeFont {
     #[cfg(target_os = "macos")]
-    Aat(crate::cf_prelude::CFMutableDictionaryRef),
+    Aat(crate::xetex_aatfont::AATLayoutEngine),
     Otgr(Box<XeTeXLayoutEngine>),
 }
 impl Drop for NativeFont {
     fn drop(&mut self) {
         #[cfg(target_os = "macos")]
         match self {
-            Self::Aat(engine) => unsafe { CFRelease(*engine as CFDictionaryRef as CFTypeRef) },
+            Self::Aat(engine) => unsafe {
+                CFRelease(engine.attributes as CFDictionaryRef as CFTypeRef)
+            },
             _ => {}
         }
     }
@@ -936,9 +929,9 @@ pub(crate) unsafe fn ot_get_font_metrics(
     let (a, d) = engine.ascent_and_descent();
     let ascent = (a as f64).into();
     let descent = (d as f64).into();
-    let slant = (f64::from(getSlant(engine.get_font())) * engine.get_extend_factor() as f64
-        + engine.get_slant_factor() as f64)
-        .into();
+    let slant = (f64::from(getSlant(engine.get_font())) * engine.extend_factor()
+        + engine.slant_factor())
+    .into();
     /* get cap and x height from OS/2 table */
     let (a, d) = engine.cap_and_x_height();
     let mut capheight = (a as f64).into();
@@ -1103,7 +1096,7 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     // XXX: seems like a good idea to make a struct FontDef
     let mut flags: u16 = 0_u16;
     #[allow(unused_assignments)]
-    let mut rgba: u32 = 0;
+    let rgba;
     let size;
     let filename: String;
     let mut index: u32 = 0;
@@ -1112,60 +1105,40 @@ pub(crate) unsafe fn make_font_def(f: usize) -> Vec<u8> {
     let slant;
     #[allow(unused_assignments)]
     let mut embolden: f32 = 0.;
-    match &FONT_LAYOUT_ENGINE[f].as_native() {
+    match &FONT_LAYOUT_ENGINE[f] {
         #[cfg(target_os = "macos")]
-        Aat(attributes) => {
-            let font =
-                CFDictionaryGetValue(*attributes, kCTFontAttributeName as *const libc::c_void)
-                    as CTFontRef;
-            filename = crate::xetex_aatfont::getFileNameFromCTFont(font, &mut index);
+        Font::Native(Aat(engine)) => {
+            filename = engine.font_filename(&mut index);
             assert!(!filename.is_empty());
             if !CFDictionaryGetValue(
-                *attributes,
+                engine.attributes,
                 kCTVerticalFormsAttributeName as *const libc::c_void,
             )
             .is_null()
             {
                 flags = (flags as i32 | 0x100) as u16
             }
-            let color = CFDictionaryGetValue(
-                *attributes,
-                kCTForegroundColorAttributeName as *const libc::c_void,
-            ) as CGColorRef;
-            if !color.is_null() {
-                rgba = cgColorToRGBA32(color)
-            }
-            let t = CTFontGetMatrix(font);
-            extend = t.a as f32;
-            slant = t.c as f32;
-            let emboldenNumber = CFDictionaryGetValue(
-                *attributes,
-                aat::getkXeTeXEmboldenAttributeName() as *const libc::c_void,
-            ) as CFNumberRef;
-            if !emboldenNumber.is_null() {
-                CFNumberGetValue(
-                    emboldenNumber,
-                    kCFNumberFloatType as i32 as CFNumberType,
-                    &mut embolden as *mut f32 as *mut libc::c_void,
-                );
-            }
-            let fSize = CTFontGetSize(font);
-            size = Scaled::from(fSize);
+            rgba = engine.rgb_value();
+            extend = engine.extend_factor();
+            slant = engine.slant_factor();
+            embolden = engine.embolden_factor();
+            size = Scaled::from(engine.point_size());
         }
-        Otgr(engine) => {
+        Font::Native(Otgr(engine)) => {
             /* fontRef = */
-            getFontRef(engine);
+            //getFontRef(engine);
             filename = engine.font_filename(&mut index);
             assert!(!filename.is_empty());
             rgba = engine.rgb_value();
             if FONT_FLAGS[f] as i32 & 0x2 != 0 {
                 flags = (flags as i32 | 0x100) as u16
             }
-            extend = engine.get_extend_factor();
-            slant = engine.get_slant_factor();
-            embolden = engine.get_embolden_factor();
+            extend = engine.extend_factor();
+            slant = engine.slant_factor();
+            embolden = engine.embolden_factor();
             size = Scaled::from(engine.point_size() as f64)
         }
+        _ => panic!("Not native font"),
     }
     /* parameters after internal font ID:
     //  size[4]
@@ -1257,12 +1230,9 @@ pub(crate) unsafe fn get_native_char_height_depth(font: usize, ch: char) -> (Sca
     const CAP_HEIGHT: i32 = 8;
     let (ht, dp) = match &FONT_LAYOUT_ENGINE[font] {
         #[cfg(target_os = "macos")]
-        Font::Native(Aat(attributes)) => {
-            let mut ht: f32 = 0.;
-            let mut dp: f32 = 0.;
-            let gid: i32 = aat::MapCharToGlyph_AAT(*attributes, ch);
-            aat::GetGlyphHeightDepth_AAT(*attributes, gid as u16, &mut ht, &mut dp);
-            (ht, dp)
+        Font::Native(Aat(engine)) => {
+            let gid = engine.map_char_to_glyph(ch) as i32;
+            engine.glyph_height_depth(gid as u32).unwrap()
         }
         Font::Native(Otgr(engine)) => {
             let gid = engine.map_char_to_glyph(ch) as i32;
@@ -1301,12 +1271,9 @@ pub(crate) unsafe fn getnativechardp(f: usize, c: char) -> Scaled {
 pub(crate) unsafe fn get_native_char_sidebearings(font: &NativeFont, ch: char) -> (Scaled, Scaled) {
     let (l, r) = match font {
         #[cfg(target_os = "macos")]
-        Aat(attributes) => {
-            let mut l: f32 = 0.;
-            let mut r: f32 = 0.;
-            let gid = aat::MapCharToGlyph_AAT(*attributes, ch);
-            aat::GetGlyphSidebearings_AAT(*attributes, gid as u16, &mut l, &mut r);
-            (l, r)
+        Aat(engine) => {
+            let gid = engine.map_char_to_glyph(ch) as i32;
+            engine.glyph_sidebearings(gid as u32).unwrap()
         }
         Otgr(engine) => {
             let gid = engine.map_char_to_glyph(ch) as i32;
@@ -1316,23 +1283,18 @@ pub(crate) unsafe fn get_native_char_sidebearings(font: &NativeFont, ch: char) -
     ((l as f64).into(), (r as f64).into())
 }
 
-use crate::text_layout_engine::GlyphEdge;
-
 pub(crate) unsafe fn get_glyph_bounds(font: usize, edge: i32, gid: i32) -> Scaled {
     GlyphEdge::from_int(edge)
         .map(|edge| {
             /* edge codes 1,2,3,4 => L T R B */
             let (a, b) = match &FONT_LAYOUT_ENGINE[font] {
                 #[cfg(target_os = "macos")]
-                Font::Native(Aat(attributes)) => {
-                    let mut a: f32 = 0.;
-                    let mut b: f32 = 0.;
-                    if edge & 1 != 0 {
-                        aat::GetGlyphSidebearings_AAT(*attributes, gid as u16, &mut a, &mut b);
+                Font::Native(Aat(engine)) => {
+                    if edge.is_side() {
+                        engine.glyph_sidebearings(gid as u32).unwrap()
                     } else {
-                        aat::GetGlyphHeightDepth_AAT(*attributes, gid as u16, &mut a, &mut b);
+                        engine.glyph_height_depth(gid as u32).unwrap()
                     }
-                    (a, b)
                 }
                 Font::Native(Otgr(engine)) => {
                     if edge.is_side() {
@@ -1361,9 +1323,9 @@ pub(crate) unsafe fn getnativecharic(f: &NativeFont, letter_space: Scaled, c: ch
 pub(crate) unsafe fn getnativecharwd(f: usize, c: char) -> Scaled {
     match &FONT_LAYOUT_ENGINE[f] {
         #[cfg(target_os = "macos")]
-        Font::Native(Aat(attributes)) => {
-            let gid = aat::MapCharToGlyph_AAT(*attributes, c);
-            (aat::GetGlyphWidth_AAT(*attributes, gid as u16)).into()
+        Font::Native(Aat(engine)) => {
+            let gid = engine.map_char_to_glyph(c) as i32;
+            (engine.get_glyph_width_from_engine(gid as u32) as f64).into()
         }
         Font::Native(Otgr(engine)) => {
             let gid = engine.map_char_to_glyph(c) as i32;
@@ -1382,15 +1344,16 @@ pub(crate) unsafe fn real_get_native_glyph(node: &NativeWord, index: u32) -> u16
 }
 pub(crate) unsafe fn store_justified_native_glyphs(node: &mut NativeWord) {
     let f = node.font() as usize;
-    let nf = FONT_LAYOUT_ENGINE[f].as_native();
-    match nf {
+    match &mut FONT_LAYOUT_ENGINE[f] {
         #[cfg(target_os = "macos")]
-        Aat(_) => {
+        Font::Native(Aat(engine)) => {
             /* separate Mac-only codepath for AAT fonts */
-            aat::do_aat_layout(node, true);
+            let request = LayoutRequest::from_node(node, true);
+            let layout = engine.layout_text(request);
+            layout.write_node(node);
             return;
         }
-        Otgr(_) => {
+        Font::Native(Otgr(engine)) => {
             /* save desired width */
             let savedWidth = node.width();
             node.set_metrics(false);
@@ -1400,7 +1363,7 @@ pub(crate) unsafe fn store_justified_native_glyphs(node: &mut NativeWord) {
                 /* apply justification to spaces (or if there are none, distribute it to all glyphs as a last resort) */
                 let glyph_count = node.glyph_count() as usize;
                 let mut spaceCount: i32 = 0;
-                let spaceGlyph: i32 = map_char_to_glyph(nf, ' ');
+                let spaceGlyph = engine.map_char_to_glyph(' ') as i32;
                 for i in 0..glyph_count {
                     if node.glyph_ids()[i] as i32 == spaceGlyph {
                         spaceCount += 1
@@ -1428,23 +1391,22 @@ pub(crate) unsafe fn store_justified_native_glyphs(node: &mut NativeWord) {
                 node.set_width(savedWidth);
             };
         }
+        _ => panic!("Not native font"),
     }
 }
 pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metrics: bool) {
     let f = node.font() as usize;
-    match &mut FONT_LAYOUT_ENGINE[f] {
+    let request = LayoutRequest::from_node(node, false);
+    let layout = match &mut FONT_LAYOUT_ENGINE[f] {
         #[cfg(target_os = "macos")]
-        Font::Native(Aat(_)) => {
+        Font::Native(Aat(engine)) => {
             /* we're using this font in AAT mode, so font_layout_engine[f] is actually a CFDictionaryRef */
-            aat::do_aat_layout(node, false);
+            engine.layout_text(request)
         }
-        Font::Native(Otgr(engine)) => {
-            let request = LayoutRequest::from_node(node);
-            let layout = engine.layout_text(request);
-            layout.write_node(node);
-        }
+        Font::Native(Otgr(engine)) => engine.layout_text(request),
         _ => panic!("bad native font flag in `measure_native_node`"),
-    }
+    };
+    layout.write_node(node);
     if !use_glyph_metrics || node.glyph_count() == 0 {
         /* for efficiency, height and depth are the font's ascent/descent,
         not true values based on the actual content of the word,
@@ -1462,7 +1424,10 @@ pub(crate) unsafe fn measure_native_node(node: &mut NativeWord, use_glyph_metric
             let bbox = getCachedGlyphBBox(f as u16, glyph_ids[i]).unwrap_or_else(|| {
                 let bbox = match &FONT_LAYOUT_ENGINE[f] {
                     #[cfg(target_os = "macos")]
-                    Font::Native(Aat(engine)) => aat::GetGlyphBBox_AAT(*engine, glyph_ids[i]),
+                    Font::Native(Aat(engine)) => {
+                        aat::GetGlyphBBox_AAT(engine.attributes, glyph_ids[i])
+                            .unwrap_or(GlyphBBox::zero())
+                    }
                     Font::Native(Otgr(engine)) => engine
                         .font
                         .get_glyph_bounds(glyph_ids[i])
@@ -1493,8 +1458,11 @@ pub(crate) unsafe fn real_get_native_italic_correction(node: &NativeWord) -> Sca
         match &FONT_LAYOUT_ENGINE[f] {
             #[cfg(target_os = "macos")]
             Font::Native(Aat(engine)) => {
-                Scaled::from(aat::GetGlyphItalCorr_AAT(*engine, glyph_ids[n - 1]))
-                    + FONT_LETTER_SPACE[f]
+                Scaled::from(
+                    engine
+                        .glyph_ital_correction(glyph_ids[n - 1] as u32)
+                        .unwrap() as f64,
+                ) + FONT_LETTER_SPACE[f]
             }
             Font::Native(Otgr(engine)) => {
                 Scaled::from(
@@ -1514,7 +1482,9 @@ pub(crate) unsafe fn real_get_native_glyph_italic_correction(node: &Glyph) -> Sc
     let f = node.font() as usize;
     match &FONT_LAYOUT_ENGINE[f] {
         #[cfg(target_os = "macos")]
-        Font::Native(Aat(engine)) => (aat::GetGlyphItalCorr_AAT(*engine, gid)).into(),
+        Font::Native(Aat(engine)) => {
+            (engine.glyph_ital_correction(gid as u32).unwrap() as f64).into()
+        }
         Font::Native(Otgr(engine)) => {
             (engine.glyph_ital_correction(gid as u32).unwrap() as f64).into()
         }
@@ -1529,18 +1499,16 @@ pub(crate) unsafe fn measure_native_glyph(node: &mut Glyph, use_glyph_metrics: b
     let f = node.font() as usize;
     let (ht, dp) = match &FONT_LAYOUT_ENGINE[f] {
         #[cfg(target_os = "macos")]
-        Font::Native(Aat(attributes)) => {
-            node.set_width((aat::GetGlyphWidth_AAT(*attributes, gid)).into());
-            let mut ht = 0_f32;
-            let mut dp = 0_f32;
+        Font::Native(Aat(engine)) => {
+            node.set_width((engine.glyph_width(gid as u32)).into());
             if use_glyph_metrics {
-                aat::GetGlyphHeightDepth_AAT(*attributes, gid, &mut ht, &mut dp);
+                engine.glyph_height_depth(gid as u32).unwrap()
+            } else {
+                (0., 0.)
             }
-            (ht, dp)
         }
         Font::Native(Otgr(engine)) => {
-            let fontInst = engine.get_font();
-            node.set_width((fontInst.get_glyph_width(gid as u16) as f64).into());
+            node.set_width((engine.glyph_width(gid as u32)).into());
             if use_glyph_metrics {
                 engine.glyph_height_depth(gid as u32).unwrap()
             } else {
@@ -1560,7 +1528,7 @@ pub(crate) unsafe fn measure_native_glyph(node: &mut Glyph, use_glyph_metrics: b
 pub(crate) unsafe fn map_char_to_glyph(font: &NativeFont, ch: char) -> i32 {
     match font {
         #[cfg(target_os = "macos")]
-        Aat(engine) => aat::MapCharToGlyph_AAT(*engine, ch),
+        Aat(engine) => engine.map_char_to_glyph(ch) as i32,
         Otgr(engine) => engine.map_char_to_glyph(ch) as i32,
     }
 }
@@ -1568,14 +1536,14 @@ pub(crate) unsafe fn map_glyph_to_index(font: &NativeFont, name: &str) -> i32 {
     let name = CString::new(name).unwrap();
     match font {
         #[cfg(target_os = "macos")]
-        Aat(engine) => aat::MapGlyphToIndex_AAT(*engine, name.as_ptr()),
+        Aat(engine) => engine.map_glyph_to_index(name.as_ptr()),
         Otgr(engine) => engine.map_glyph_to_index(name.as_ptr()),
     }
 }
 pub(crate) unsafe fn get_font_char_range(font: usize, first: i32) -> i32 {
     match &mut FONT_LAYOUT_ENGINE[font] {
         #[cfg(target_os = "macos")]
-        Font::Native(Aat(engine)) => aat::GetFontCharRange_AAT(*engine, first),
+        Font::Native(Aat(engine)) => engine.font_char_range(first),
         Font::Native(Otgr(engine)) => engine.font_char_range(first),
         _ => panic!("bad native font flag in `get_font_char_range\'`"),
     }
