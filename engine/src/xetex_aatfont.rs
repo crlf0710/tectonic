@@ -4,6 +4,7 @@
 use super::xetex_layout_interface::GlyphBBox;
 use crate::text_layout_engine::{LayoutRequest, NodeLayout, TextLayoutEngine};
 use crate::xetex_font_info::GlyphID;
+use std::ffi::CString;
 
 use crate::cf_prelude::*;
 
@@ -257,6 +258,53 @@ impl TextLayoutEngine for AATLayoutEngine {
     fn font_filename(&self, index: &mut u32) -> String {
         unsafe { getFileNameFromCTFont(self.ct_font(), index) }
     }
+    /*unsafe fn print_font_name(&self, c: i32, arg1: i32, arg2: i32) {
+        if self.usingGraphite() {
+            aat_print_font_name(c, arg1, arg2);
+        }
+    }*/
+
+    unsafe fn get_font_metrics(&self) -> (Scaled, Scaled, Scaled, Scaled, Scaled) {
+        aat_get_font_metrics(self.attributes)
+    }
+
+    unsafe fn get_flags(&self, _font_number: usize) -> u16 {
+        if !CFDictionaryGetValue(
+            self.attributes,
+            kCTVerticalFormsAttributeName as *const libc::c_void,
+        )
+        .is_null()
+        {
+            0x100
+        } else {
+            0
+        }
+    }
+
+    /// ot_font_get, aat_font_get
+    unsafe fn poorly_named_getter(&self, what: XetexExtCmd) -> i32 {
+        aat_font_get(what, self.attributes)
+    }
+
+    /// ot_font_get_1, aat_font_get_1
+    unsafe fn poorly_named_getter_1(&self, what: XetexExtCmd, param1: i32) -> i32 {
+        aat_font_get_1(what, self.attributes, param1)
+    }
+
+    /// ot_font_get_2, aat_font_get_2
+    unsafe fn poorly_named_getter_2(&self, what: XetexExtCmd, param1: i32, param2: i32) -> i32 {
+        aat_font_get_2(what, self.attributes, param1, param2)
+    }
+
+    unsafe fn poorly_named_getter_3(
+        &self,
+        what: XetexExtCmd,
+        param1: i32,
+        param2: i32,
+        param3: i32,
+    ) -> i32 {
+        unimplemented!()
+    }
 
     /// getExtendFactor
     fn extend_factor(&self) -> f64 {
@@ -355,20 +403,21 @@ impl TextLayoutEngine for AATLayoutEngine {
     }
 
     /// mapCharToGlyph
-    unsafe fn map_char_to_glyph(&self, chr: char) -> u32 {
-        MapCharToGlyph_AAT(self.attributes, chr as _) as u32
+    fn map_char_to_glyph(&self, chr: char) -> u32 {
+        unsafe { MapCharToGlyph_AAT(self.attributes, chr as _) as u32 }
     }
 
     /// getFontCharRange
     /// Another candidate for using XeTeXFontInst directly
-    unsafe fn font_char_range(&self, reqFirst: libc::c_int) -> libc::c_int {
-        GetFontCharRange_AAT(self.attributes, reqFirst)
+    fn font_char_range(&self, reqFirst: i32) -> i32 {
+        unsafe { GetFontCharRange_AAT(self.attributes, reqFirst) }
     }
 
     /// mapGlyphToIndex
     /// Should use engine.font directly
-    unsafe fn map_glyph_to_index(&self, glyphName: *const libc::c_char) -> i32 {
-        MapGlyphToIndex_AAT(self.attributes, glyphName)
+    fn map_glyph_to_index(&self, glyph_name: &str) -> i32 {
+        let name = CString::new(glyph_name).unwrap();
+        unsafe { MapGlyphToIndex_AAT(self.attributes, name.as_ptr()) }
     }
 }
 

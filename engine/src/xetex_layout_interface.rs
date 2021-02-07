@@ -32,6 +32,7 @@ authorization from the copyright holders.
 \****************************************************************************/
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::cmd::XetexExtCmd;
 use crate::stub_icu as icu;
 use crate::text_layout_engine::{LayoutRequest, NodeLayout, TextLayoutEngine};
 use crate::xetex_font_manager::{FindFont, ShaperRequest};
@@ -327,7 +328,15 @@ impl TextLayoutEngine for XeTeXLayoutEngine {
             &self.font
         }
     */
-    // getGlyphWidth
+    unsafe fn get_flags(&self, font_number: usize) -> u16 {
+        if crate::xetex_ini::FONT_FLAGS[font_number] as i32 & 0x2 != 0 {
+            0x100
+        } else {
+            0
+        }
+    }
+
+    /// getGlyphWidth
     unsafe fn glyph_width(&self, gid: u32) -> f64 {
         self.font.get_glyph_width(gid as GlyphID) as f64
     }
@@ -341,6 +350,87 @@ impl TextLayoutEngine for XeTeXLayoutEngine {
     fn extend_factor(&self) -> f64 {
         self.extend as f64
     }
+    unsafe fn get_font_metrics(&self) -> (Scaled, Scaled, Scaled, Scaled, Scaled) {
+        crate::xetex_ext::ot_get_font_metrics(self)
+    }
+
+    /// ot_font_get, aat_font_get
+    unsafe fn poorly_named_getter(&self, what: XetexExtCmd) -> i32 {
+        match what {
+            XetexExtCmd::CountGlyphs => return countGlyphs(&self.font) as i32,
+            XetexExtCmd::CountFeatures => {
+                /* ie Graphite features */
+                return countGraphiteFeatures(self) as i32;
+            }
+            XetexExtCmd::OTCountScripts => return countScripts(&self.font) as i32,
+            _ => {}
+        }
+        0
+    }
+
+    /// ot_font_get_1, aat_font_get_1
+    unsafe fn poorly_named_getter_1(&self, what: XetexExtCmd, param: i32) -> i32 {
+        match what {
+            XetexExtCmd::OTCountLanguages => {
+                return countLanguages(&self.font, param as hb_tag_t) as i32
+            }
+            XetexExtCmd::OTScript => return getIndScript(&self.font, param as u32) as i32,
+            XetexExtCmd::FeatureCode => {
+                /* for graphite fonts...*/
+                return getGraphiteFeatureCode(self, param as u32) as i32;
+            }
+            XetexExtCmd::IsExclusiveFeature => return 1,
+            XetexExtCmd::CountSelectors => {
+                return countGraphiteFeatureSettings(self, param as u32) as i32
+            }
+            _ => {}
+        }
+        0
+    }
+
+    /// ot_font_get_2, aat_font_get_2
+    unsafe fn poorly_named_getter_2(&self, what: XetexExtCmd, param1: i32, param2: i32) -> i32 {
+        match what {
+            XetexExtCmd::OTLanguage => {
+                return getIndLanguage(&self.font, param1 as hb_tag_t, param2 as u32) as i32
+            }
+            XetexExtCmd::OTCountFeatures => {
+                return countFeatures(&self.font, param1 as hb_tag_t, param2 as hb_tag_t) as i32
+            }
+            XetexExtCmd::SelectorCode => {
+                /* for graphite fonts */
+                return getGraphiteFeatureSettingCode(self, param1 as u32, param2 as u32) as i32;
+            }
+            XetexExtCmd::IsDefaultSelector => {
+                return (getGraphiteFeatureDefaultSetting(self, param1 as u32) == param2 as u32)
+                    as i32
+            }
+            _ => {}
+        } /* to guarantee enough space in the buffer */
+        0
+    }
+
+    unsafe fn poorly_named_getter_3(
+        &self,
+        what: XetexExtCmd,
+        param1: i32,
+        param2: i32,
+        param3: i32,
+    ) -> i32 {
+        match what {
+            XetexExtCmd::OTFeature => {
+                return getIndFeature(
+                    &self.font,
+                    param1 as hb_tag_t,
+                    param2 as hb_tag_t,
+                    param3 as u32,
+                ) as i32
+            }
+            _ => {}
+        }
+        0
+    }
+
     /// getPointSize
     fn point_size(&self) -> f64 {
         self.font.get_point_size() as f64
@@ -349,6 +439,24 @@ impl TextLayoutEngine for XeTeXLayoutEngine {
     fn ascent_and_descent(&self) -> (f32, f32) {
         (self.font.get_ascent(), self.font.get_descent())
     }
+
+    /*/// gr_print_font_name
+    unsafe fn print_font_name(&self, what: i32, arg1: i32, arg2: i32) {
+        if self.usingGraphite() {
+            let mut name: *mut i8 = 0 as *mut i8;
+            match what {
+                8 => name = getGraphiteFeatureLabel(self, param1 as u32),
+                9 => name = getGraphiteFeatureSettingLabel(self, param1 as u32, param2 as u32),
+                _ => {}
+            }
+            if !name.is_null() {
+                print_c_string(name);
+                gr_label_destroy(name as *mut libc::c_void);
+            };
+        }
+        // Not sure why non-graphite font names aren't printed
+        // Originally in xetex0.c.
+    }*/
 
     /// getGlyphName
     unsafe fn glyph_name(&self, gid: GlyphID) -> String {
@@ -415,23 +523,24 @@ impl TextLayoutEngine for XeTeXLayoutEngine {
     }
 
     /// mapCharToGlyph
-    unsafe fn map_char_to_glyph(&self, chr: char) -> u32 {
-        self.font.map_char_to_glyph(chr as _) as u32
+    fn map_char_to_glyph(&self, chr: char) -> u32 {
+        unsafe { self.font.map_char_to_glyph(chr as _) as u32 }
     }
 
     /// getFontCharRange
     /// Another candidate for using XeTeXFontInst directly
-    unsafe fn font_char_range(&self, reqFirst: i32) -> i32 {
+    fn font_char_range(&self, reqFirst: i32) -> i32 {
         if reqFirst != 0 {
-            self.font.get_first_char_code()
+            unsafe { self.font.get_first_char_code() }
         } else {
-            self.font.get_last_char_code()
+            unsafe { self.font.get_last_char_code() }
         }
     }
 
     /// mapGlyphToIndex
-    unsafe fn map_glyph_to_index(&self, glyphName: *const i8) -> i32 {
-        self.font.map_glyph_to_index(glyphName) as i32
+    fn map_glyph_to_index(&self, glyph_name: &str) -> i32 {
+        let name = CString::new(glyph_name).unwrap();
+        unsafe { self.font.map_glyph_to_index(name.as_ptr()) as i32 }
     }
 
     fn using_graphite(&self) -> bool {

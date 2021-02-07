@@ -4,6 +4,7 @@
 use crate::node::NativeWord;
 use crate::xetex_font_info::{GlyphBBox, XeTeXFontInst};
 //use crate::xetex_font_manager::PlatformFontRef;
+use crate::cmd::XetexExtCmd;
 use crate::xetex_font_info::GlyphID;
 use crate::xetex_layout_interface::FixedPoint;
 use crate::xetex_layout_interface::XeTeXLayoutEngine;
@@ -200,6 +201,8 @@ pub(crate) trait TextLayoutEngine {
     /// getFontFilename
     fn font_filename(&self, index: &mut u32) -> String;
 
+    //unsafe fn print_font_name(&self, c: i32, arg1: i32, arg2: i32);
+
     /// getFontInst
     //fn font_instance(&self) -> &XeTeXFontInst;
 
@@ -209,6 +212,27 @@ pub(crate) trait TextLayoutEngine {
     unsafe fn glyph_width(&self, gid: u32) -> f64;
 
     // XXX: make a single struct for make_font_def to consume, of all the required values
+
+    unsafe fn get_font_metrics(&self) -> (Scaled, Scaled, Scaled, Scaled, Scaled);
+
+    /// ot_font_get, aat_font_get
+    unsafe fn poorly_named_getter(&self, what: XetexExtCmd) -> i32;
+
+    /// ot_font_get_1, aat_font_get_1
+    unsafe fn poorly_named_getter_1(&self, what: XetexExtCmd, param1: i32) -> i32;
+
+    /// ot_font_get_2, aat_font_get_2
+    unsafe fn poorly_named_getter_2(&self, what: XetexExtCmd, param1: i32, param2: i32) -> i32;
+
+    unsafe fn poorly_named_getter_3(
+        &self,
+        what: XetexExtCmd,
+        param1: i32,
+        param2: i32,
+        param3: i32,
+    ) -> i32;
+
+    unsafe fn get_flags(&self, font_number: usize) -> u16;
 
     /// getExtendFactor
     fn extend_factor(&self) -> f64;
@@ -247,15 +271,15 @@ pub(crate) trait TextLayoutEngine {
     /// This is used for 'fallback in case lacks an OS/2 table', and also for adding accents
     /// (get_native_char_sidebearings).
     /// Although the shaping engine should probably be doing the latter, not xetex0!
-    unsafe fn map_char_to_glyph(&self, chr: char) -> u32;
+    fn map_char_to_glyph(&self, chr: char) -> u32;
 
     /// getFontCharRange
     /// Another candidate for using XeTeXFontInst directly
-    unsafe fn font_char_range(&self, reqFirst: libc::c_int) -> libc::c_int;
+    fn font_char_range(&self, reqFirst: i32) -> i32;
 
     /// mapGlyphToIndex
     /// Should use engine.font directly
-    unsafe fn map_glyph_to_index(&self, glyphName: *const libc::c_char) -> i32;
+    fn map_glyph_to_index(&self, glyph_name: &str) -> i32;
 
     // Provided methods, override if using stuff
 

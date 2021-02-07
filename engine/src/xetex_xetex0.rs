@@ -19,11 +19,10 @@ use crate::xetex_aatfont as aat;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error, overflow, pdf_error, Confuse};
 use crate::xetex_ext::{
-    apply_mapping, apply_tfm_font_mapping, get_encoding_mode_and_info, get_font_char_range,
-    get_glyph_bounds, get_native_char_height_depth, get_native_char_sidebearings, getnativechardp,
-    getnativecharht, getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1,
-    gr_get_font_name, linebreak_next, linebreak_start, map_char_to_glyph, map_glyph_to_index,
-    ot_font_get, ot_font_get_1, ot_font_get_2, ot_font_get_3,
+    apply_mapping, apply_tfm_font_mapping, get_encoding_mode_and_info, get_glyph_bounds,
+    get_native_char_height_depth, get_native_char_sidebearings, getnativechardp, getnativecharht,
+    getnativecharic, getnativecharwd, gr_font_get_named, gr_font_get_named_1, gr_get_font_name,
+    linebreak_next, linebreak_start,
 };
 use crate::xetex_ini::{
     _xeq_level_array, active_width, adjust_tail, after_token, align_ptr, align_state, arith_error,
@@ -5378,10 +5377,10 @@ pub(crate) unsafe fn scan_glyph_number(input: &mut input_state_t, f: &NativeFont
     if scan_keyword(input, "/") {
         let (file, ..) = scan_file_name(input);
         let fullname = file.to_string();
-        map_glyph_to_index(f, &fullname)
+        f.map_glyph_to_index(&fullname)
     } else if scan_keyword(input, "u") {
         let val = scan_char_num(input);
-        map_char_to_glyph(f, std::char::from_u32(val as u32).unwrap())
+        f.map_char_to_glyph(std::char::from_u32(val as u32).unwrap()) as i32
     } else {
         scan_int(input)
     }
@@ -6266,9 +6265,7 @@ unsafe fn restart_scan_something_internal(
                         LastItemCode::XetexCountGlyphs => {
                             let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
-                                #[cfg(target_os = "macos")]
-                                Some(Aat(e)) => aat::aat_font_get(m.into(), e.attributes),
-                                Some(Otgr(e)) => ot_font_get((m as i32) - 14, e),
+                                Some(e) => e.poorly_named_getter(m.into()),
                                 _ => 0,
                             }
                         }
@@ -6276,9 +6273,9 @@ unsafe fn restart_scan_something_internal(
                             let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 #[cfg(target_os = "macos")]
-                                Some(Aat(e)) => aat::aat_font_get(m.into(), e.attributes),
+                                Some(Aat(e)) => e.poorly_named_getter(m.into()),
                                 Some(Otgr(e)) if e.using_graphite() => {
-                                    ot_font_get((m as i32) - 14, e)
+                                    e.poorly_named_getter(m.into())
                                 }
                                 _ => 0,
                             }
@@ -6299,11 +6296,11 @@ unsafe fn restart_scan_something_internal(
                                 #[cfg(target_os = "macos")]
                                 Some(Aat(e)) => {
                                     let k = scan_int(input);
-                                    aat::aat_font_get_1(m.into(), e.attributes, k)
+                                    e.poorly_named_getter_1(m.into(), k)
                                 }
                                 Some(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
-                                    ot_font_get_1((m as i32) - 14, e, k)
+                                    e.poorly_named_getter_1(m.into(), k)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6318,12 +6315,12 @@ unsafe fn restart_scan_something_internal(
                                 Some(Aat(e)) => {
                                     let k = scan_int(input);
                                     let val = scan_int(input);
-                                    aat::aat_font_get_2(m.into(), e.attributes, k, val)
+                                    e.poorly_named_getter_2(m.into(), k, val)
                                 }
                                 Some(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
                                     let val = scan_int(input);
-                                    ot_font_get_2((m as i32) - 14, e, k, val)
+                                    e.poorly_named_getter_2(m.into(), k, val)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6355,7 +6352,7 @@ unsafe fn restart_scan_something_internal(
                                 }
                                 Some(Otgr(e)) if e.using_graphite() => {
                                     let name = scan_file_name(input).0.to_string();
-                                    gr_font_get_named(&name, (m as i32) - 14, e)
+                                    gr_font_get_named(&name, m.into(), e)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6375,7 +6372,7 @@ unsafe fn restart_scan_something_internal(
                                 Some(Otgr(e)) if e.using_graphite() => {
                                     let k = scan_int(input);
                                     let name = scan_file_name(input).0.to_string();
-                                    gr_font_get_named_1(&name, (m as i32) - 14, e, k)
+                                    gr_font_get_named_1(&name, m.into(), e, k)
                                 }
                                 _ => {
                                     not_aat_gr_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6387,7 +6384,7 @@ unsafe fn restart_scan_something_internal(
                             let n = scan_font_ident(input);
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Some(Otgr(e)) if e.using_open_type() => {
-                                    ot_font_get((m as i32) - 14, e)
+                                    e.poorly_named_getter(m.into())
                                 }
                                 _ => 0,
                             }
@@ -6397,7 +6394,7 @@ unsafe fn restart_scan_something_internal(
                             match &FONT_LAYOUT_ENGINE[n as usize] {
                                 Some(Otgr(e)) if e.using_open_type() => {
                                     let val = scan_int(input);
-                                    ot_font_get_1((m as i32) - 14, e, val)
+                                    e.poorly_named_getter_1(m.into(), val)
                                 }
                                 _ => {
                                     not_ot_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6411,7 +6408,7 @@ unsafe fn restart_scan_something_internal(
                                 Some(Otgr(e)) if e.using_open_type() => {
                                     let k = scan_int(input);
                                     let val = scan_int(input);
-                                    ot_font_get_2((m as i32) - 14, e, k, val)
+                                    e.poorly_named_getter_2(m.into(), k, val)
                                 }
                                 _ => {
                                     not_ot_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6426,7 +6423,7 @@ unsafe fn restart_scan_something_internal(
                                     let k = scan_int(input);
                                     let kk = scan_int(input);
                                     let val = scan_int(input);
-                                    ot_font_get_3((m as i32) - 14, e, k, kk, val)
+                                    e.poorly_named_getter_3(m.into(), k, kk, val)
                                 }
                                 _ => {
                                     not_ot_font_error(Cmd::LastItem, m as i32, n as usize);
@@ -6437,7 +6434,7 @@ unsafe fn restart_scan_something_internal(
                         LastItemCode::XetexMapCharToGlyph => {
                             if let Some(nf) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
                                 let n = scan_int(input);
-                                map_char_to_glyph(nf, std::char::from_u32(n as u32).unwrap())
+                                nf.map_char_to_glyph(std::char::from_u32(n as u32).unwrap()) as i32
                             } else {
                                 not_native_font_error(
                                     Cmd::LastItem,
@@ -6450,7 +6447,7 @@ unsafe fn restart_scan_something_internal(
                         LastItemCode::XetexGlyphIndex => {
                             if let Some(nf) = &FONT_LAYOUT_ENGINE[EQTB[CUR_FONT_LOC].val as usize] {
                                 let name = scan_file_name(input).0.to_string();
-                                map_glyph_to_index(nf, &name)
+                                nf.map_glyph_to_index(&name)
                             } else {
                                 not_native_font_error(
                                     Cmd::LastItem,
@@ -6472,11 +6469,8 @@ unsafe fn restart_scan_something_internal(
                         }
                         LastItemCode::XetexFirstChar | LastItemCode::XetexLastChar => {
                             let n = scan_font_ident(input);
-                            if let Some(_) = &FONT_LAYOUT_ENGINE[n as usize] {
-                                get_font_char_range(
-                                    n as usize,
-                                    (m == LastItemCode::XetexFirstChar) as i32,
-                                )
+                            if let Some(engine) = &FONT_LAYOUT_ENGINE[n as usize] {
+                                engine.font_char_range((m == LastItemCode::XetexFirstChar) as i32)
                             } else if m == LastItemCode::XetexFirstChar {
                                 FONT_BC[n as usize] as i32
                             } else {
@@ -8026,9 +8020,7 @@ pub(crate) unsafe fn conv_toks(input: &mut input_state_t, chr: i32, cs: i32) {
             }
         }
         ConvertCode::XetexGlyphName => match &FONT_LAYOUT_ENGINE[fnt as usize] {
-            #[cfg(target_os = "macos")]
-            Some(Aat(engine)) => engine.glyph_name(arg1 as u16),
-            Some(Otgr(engine)) => engine.glyph_name(arg1 as u16),
+            Some(engine) => engine.glyph_name(arg1 as u16),
             _ => panic!("bad native font flag in `print_glyph_name`"),
         },
         ConvertCode::LeftMarginKern => {
@@ -8708,7 +8700,7 @@ pub(crate) unsafe fn conditional(input: &mut input_state_t, cmd: Cmd, chr: i32) 
             let n = scan_font_ident(input) as usize;
             let val = scan_usv_num(input);
             b = if let Some(nf) = &FONT_LAYOUT_ENGINE[n] {
-                map_char_to_glyph(nf, std::char::from_u32(val as u32).unwrap()) > 0
+                nf.map_char_to_glyph(std::char::from_u32(val as u32).unwrap()) as i32 > 0
             } else if FONT_BC[n] as i32 <= val && FONT_EC[n] as i32 >= val {
                 FONT_CHARACTER_INFO(n, effective_char(true, n, val as u16) as usize).s3 > 0
             } else {
@@ -9235,7 +9227,7 @@ pub(crate) unsafe fn new_native_character(f: internal_font_number, c: char) -> N
 
         for chr in std::char::decode_utf16(mapped_text.iter().cloned()) {
             let chr = chr.unwrap();
-            if map_char_to_glyph(nf, chr) == 0 {
+            if nf.map_char_to_glyph(chr) == 0 {
                 char_warning(f, chr);
             }
         }
@@ -9243,7 +9235,7 @@ pub(crate) unsafe fn new_native_character(f: internal_font_number, c: char) -> N
         p = new_native_word_node(f, mapped_text.len() as _);
         p.text_mut().copy_from_slice(&mapped_text[..]);
     } else {
-        if get_int_par(IntPar::tracing_lost_chars) > 0 && map_char_to_glyph(nf, c) == 0 {
+        if get_int_par(IntPar::tracing_lost_chars) > 0 && nf.map_char_to_glyph(c) == 0 {
             char_warning(f, c);
         }
         p = NativeWord::from(get_node(NATIVE_NODE_SIZE + 1));
@@ -14605,7 +14597,7 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
             if get_int_par(IntPar::tracing_lost_chars) > 0 {
                 for c in std::char::decode_utf16(native_text.iter().cloned()) {
                     let c = c.unwrap();
-                    if map_char_to_glyph(nf, c) == 0 {
+                    if nf.map_char_to_glyph(c) == 0 {
                         char_warning(main_f, c);
                     }
                 }
