@@ -34,6 +34,7 @@ authorization from the copyright holders.
 use harfbuzz_sys::*;
 use std::ptr;
 
+use crate::text_layout_engine::TextLayoutEngine;
 use crate::xetex_ext::{Font, NativeFont::*};
 use crate::xetex_scaledmath::Scaled;
 
@@ -315,7 +316,7 @@ unsafe fn getMathKernAt(f: usize, g: i32, side: hb_ot_math_kern_t, height: i32) 
 }
 unsafe fn glyph_height(f: usize, g: i32) -> f32 {
     if let Font::Native(Otgr(engine)) = &FONT_LAYOUT_ENGINE[f] {
-        let (rval, _) = engine.get_glyph_height_depth(g as u32);
+        let (rval, _) = engine.glyph_height_depth(g as u32).unwrap();
         rval
     } else {
         0.
@@ -323,7 +324,7 @@ unsafe fn glyph_height(f: usize, g: i32) -> f32 {
 }
 unsafe fn glyph_depth(f: usize, g: i32) -> f32 {
     if let Font::Native(Otgr(engine)) = &FONT_LAYOUT_ENGINE[f] {
-        let (_, rval) = engine.get_glyph_height_depth(g as u32);
+        let (_, rval) = engine.glyph_height_depth(g as u32).unwrap();
         rval
     } else {
         0.

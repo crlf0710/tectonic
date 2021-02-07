@@ -1,6 +1,7 @@
 use bridge::TTInputFormat;
 
 use crate::help;
+use crate::text_layout_engine::TextLayoutEngine;
 use std::ptr;
 
 use crate::{t_eprint, t_print, t_print_nl};

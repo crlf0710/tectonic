@@ -1,5 +1,6 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
+use crate::text_layout_engine::TextLayoutEngine;
 use crate::xetex_output::{Cs, Esc, Roman};
 use crate::{t_eprint, t_print, t_print_nl};
 use std::cmp::Ordering;

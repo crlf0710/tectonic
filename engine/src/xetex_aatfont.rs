@@ -26,12 +26,7 @@ pub(crate) type Boolean = u8;
 
 use crate::xetex_scaledmath::Scaled;
 type Fract = i32;
-#[derive(Copy, Clone)]
-#[repr(C, packed(2))]
-struct FixedPoint {
-    x: Scaled,
-    y: Scaled,
-}
+use crate::xetex_layout_interface::FixedPoint;
 
 pub(crate) type str_number = i32;
 /* tectonic/core-strutils.h: miscellaneous C string utilities

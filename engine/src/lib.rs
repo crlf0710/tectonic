@@ -142,6 +142,7 @@ mod core_memory {
 
 mod cmd;
 mod node;
+mod text_layout_engine;
 mod xetex_aatfont;
 mod xetex_consts;
 mod xetex_engine_interface;
