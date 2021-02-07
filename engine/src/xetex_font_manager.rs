@@ -248,8 +248,6 @@ pub(crate) type FontMgr = self::imp::XeTeXFontMgr_FC;
 pub(crate) type FontMgr = self::imp::XeTeXFontMgr_Mac;
 
 pub(crate) static mut XeTeXFontMgr_sFontManager: Option<Box<FontMgr>> = None;
-#[no_mangle]
-pub(crate) static mut XeTeXFontMgr_sReqEngine: u8 = 0;
 /* use our own fmax function because it seems to be missing on certain platforms
 (solaris2.9, at least) */
 #[inline]
@@ -280,14 +278,6 @@ pub(crate) unsafe fn XeTeXFontMgr_Destroy() {
     // Here we actually fully destroy the font manager.
     let _ = XeTeXFontMgr_sFontManager.take();
 }
-pub(crate) unsafe fn XeTeXFontMgr_getReqEngine(mut _self_0: &XeTeXFontMgr) -> u8 {
-    // return the requested rendering technology for the most recent findFont
-    // or 0 if no specific technology was requested
-    XeTeXFontMgr_sReqEngine
-}
-pub(crate) unsafe fn XeTeXFontMgr_setReqEngine(mut _self_0: &XeTeXFontMgr, reqEngine: u8) {
-    XeTeXFontMgr_sReqEngine = reqEngine;
-}
 // above are singleton operation.
 
 pub(crate) trait FindFont {
@@ -296,6 +286,7 @@ pub(crate) trait FindFont {
         name: &str,
         variant: &mut String,
         ptSize: f64,
+        reqEngine: &mut u8,
     ) -> PlatformFontRef;
 }
 impl<T> FindFont for T
@@ -307,6 +298,7 @@ where
         name: &str,
         variant: &mut String,
         mut ptSize: f64,
+        reqEngine: &mut u8,
     ) -> PlatformFontRef {
         // 1st arg is name as specified by user (C string, UTF-8)
         // 2nd is /B/I/AAT/OT/ICU/GR/S=## qualifiers
@@ -401,7 +393,7 @@ where
         let parent = parent_clone.as_ref().unwrap().borrow();
         // if there are variant requests, try to apply them
         // and delete B, I, and S=... codes from the string, just retain /engine option
-        XeTeXFontMgr_sReqEngine = 0;
+        *reqEngine = 0;
         let mut reqBold = false;
         let mut reqItal = false;
         let mut font = if !variant.is_empty() {
@@ -409,7 +401,7 @@ where
             let mut cp = variant.as_bytes();
             while !cp.is_empty() {
                 if cp.starts_with(b"AAT") {
-                    XeTeXFontMgr_sReqEngine = b'A';
+                    *reqEngine = b'A';
                     cp = &cp[3..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -418,7 +410,7 @@ where
                     varString += "AAT";
                 } else if cp.starts_with(b"ICU") {
                     // for backword compatability
-                    XeTeXFontMgr_sReqEngine = b'O';
+                    *reqEngine = b'O';
                     cp = &cp[3..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -426,7 +418,7 @@ where
                     }
                     varString += "OT";
                 } else if cp.starts_with(b"OT") {
-                    XeTeXFontMgr_sReqEngine = b'O';
+                    *reqEngine = b'O';
                     cp = &cp[2..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -434,7 +426,7 @@ where
                     }
                     varString += "OT";
                 } else if cp.starts_with(b"GR") {
-                    XeTeXFontMgr_sReqEngine = b'G';
+                    *reqEngine = b'G';
                     cp = &cp[2..];
                     match varString.chars().last() {
                         None | Some('/') => {}

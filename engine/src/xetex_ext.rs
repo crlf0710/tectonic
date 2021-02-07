@@ -553,6 +553,7 @@ unsafe fn loadOTfont(
     font: Box<XeTeXFont>,
     scaled_size: Scaled,
     mut cp1: &[u8],
+    reqEngine: u8,
 ) -> Option<NativeFont> {
     let mut font = Some(font);
     let mut script = 0;
@@ -563,7 +564,6 @@ unsafe fn loadOTfont(
     let mut slant: f32 = 0.;
     let mut embolden: f32 = 0.;
     let mut letterspace: f32 = 0.;
-    let reqEngine = getReqEngine();
     if reqEngine == b'O' || reqEngine == b'G' {
         shapers = xrealloc(
             shapers as *mut libc::c_void,
@@ -593,6 +593,7 @@ unsafe fn loadOTfont(
             extend,
             slant,
             embolden,
+            reqEngine,
         ))
     } else {
         None
@@ -754,6 +755,7 @@ unsafe fn loadOTfont(
     }
     if let Some(engine) = Some(XeTeXLayoutEngine::create(
         fontRef, font, script, language, features, shapers, rgbValue, extend, slant, embolden,
+        reqEngine,
     )) {
         Some(Otgr(engine))
     } else {
@@ -825,9 +827,15 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
     /* scaled_size here is in TeX points, or is a negative integer for 'Scaled' */
     let mut rval = None;
     let name = uname;
+
     loaded_font_mapping = ptr::null_mut();
     loaded_font_flags = 0_i8;
     loaded_font_letter_space = Scaled::ZERO;
+
+    // the requested rendering technology for the most recent findFont
+    // or 0 if no specific technology was requested
+    let mut reqEngine = 0;
+
     let (nameString, mut varString, featString, index) = splitFontName(name);
     // check for "[filename]" form, don't search maps in this case
     if nameString.as_bytes()[0] == b'[' {
@@ -844,14 +852,13 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
         if let Some(font) = createFontFromFile(&nameString[1..], index, scaled_size) {
             loaded_font_design_size = font.get_design_size().into();
             /* This is duplicated in XeTeXFontMgr::findFont! */
-            setReqEngine(0);
             if !varString.is_empty() {
                 if varString.starts_with("/AAT") {
-                    setReqEngine(b'A');
+                    reqEngine = b'A';
                 } else if varString.starts_with("/OT") || varString.starts_with("/ICU") {
-                    setReqEngine(b'O');
+                    reqEngine = b'O';
                 } else if varString.starts_with("/GR") {
-                    setReqEngine(b'G');
+                    reqEngine = b'G';
                 }
             }
             rval = loadOTfont(
@@ -859,6 +866,7 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
                 font,
                 scaled_size,
                 featString.as_bytes(),
+                reqEngine,
             );
             if rval.is_some() && get_tracing_fonts_state() > 0 {
                 diagnostic(false, || {
@@ -867,7 +875,12 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
             }
         }
     } else {
-        let fontRef = findFontByName(&nameString, &mut varString, scaled_size.into());
+        let fontRef = findFontByName(
+            &nameString,
+            &mut varString,
+            scaled_size.into(),
+            &mut reqEngine,
+        );
         if !fontRef.is_null() {
             /* update name_of_font to the full name of the font, for error messages during font loading */
             name_of_font = getFullName(fontRef);
@@ -884,22 +897,28 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
             if let Some(font) = createFont(fontRef, scaled_size) {
                 #[cfg(not(target_os = "macos"))]
                 {
-                    rval = loadOTfont(fontRef, font, scaled_size, featString.as_bytes());
+                    rval = loadOTfont(fontRef, font, scaled_size, featString.as_bytes(), reqEngine);
                 }
                 #[cfg(target_os = "macos")]
                 {
                     /* decide whether to use AAT or OpenType rendering with this font */
-                    if getReqEngine() == b'A' {
+                    if reqEngine == b'A' {
                         rval = aat::loadAATfont(fontRef, scaled_size, featString.as_bytes());
                     } else {
-                        if getReqEngine() == b'O'
-                            || getReqEngine() == b'G'
+                        if reqEngine == b'O'
+                            || reqEngine == b'G'
                             || !getFontTablePtr(&font, u32::from_be_bytes([b'G', b'S', b'U', b'B']))
                                 .is_null()
                             || !getFontTablePtr(&font, u32::from_be_bytes([b'G', b'P', b'O', b'S']))
                                 .is_null()
                         {
-                            rval = loadOTfont(fontRef, font, scaled_size, featString.as_bytes())
+                            rval = loadOTfont(
+                                fontRef,
+                                font,
+                                scaled_size,
+                                featString.as_bytes(),
+                                reqEngine,
+                            )
                         }
                         /* loadOTfont failed or the above check was false */
                         if rval.is_none() {

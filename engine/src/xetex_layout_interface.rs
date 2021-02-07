@@ -203,7 +203,6 @@ extern "C" {
 
 use crate::xetex_font_manager::{
     XeTeXFontMgr_Destroy, XeTeXFontMgr_GetFontManager, XeTeXFontMgr_Terminate,
-    XeTeXFontMgr_getReqEngine, XeTeXFontMgr_setReqEngine,
 };
 
 use crate::xetex_font_info::XeTeXFontInst;
@@ -703,14 +702,13 @@ pub(crate) unsafe fn createFontFromFile(
 pub(crate) unsafe fn setFontLayoutDir(font: &mut XeTeXFontInst, vertical: i32) {
     font.set_layout_dir_vertical(vertical != 0);
 }
-pub(crate) unsafe fn findFontByName(name: &str, var: &mut String, size: f64) -> PlatformFontRef {
-    XeTeXFontMgr_GetFontManager().find_font(name, var, size)
-}
-pub(crate) unsafe fn getReqEngine() -> u8 {
-    XeTeXFontMgr_getReqEngine(XeTeXFontMgr_GetFontManager())
-}
-pub(crate) unsafe fn setReqEngine(reqEngine: u8) {
-    XeTeXFontMgr_setReqEngine(XeTeXFontMgr_GetFontManager(), reqEngine);
+pub(crate) unsafe fn findFontByName(
+    name: &str,
+    var: &mut String,
+    size: f64,
+    reqEngine: &mut u8,
+) -> PlatformFontRef {
+    XeTeXFontMgr_GetFontManager().find_font(name, var, size, reqEngine)
 }
 pub(crate) unsafe fn getFullName(fontRef: PlatformFontRef) -> String {
     XeTeXFontMgr_GetFontManager().get_full_name(fontRef)
@@ -1185,8 +1183,9 @@ impl XeTeXLayoutEngine {
         extend: f32,
         slant: f32,
         embolden: f32,
+        reqEngine: u8,
     ) -> Box<Self> {
-        let language = if getReqEngine() == b'G' {
+        let language = if reqEngine == b'G' {
             hb_language_from_string(language.as_ptr() as *const i8, language.len() as _)
         } else {
             hb_ot_tag_to_language(hb_tag_from_string(
