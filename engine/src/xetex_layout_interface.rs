@@ -34,7 +34,7 @@ authorization from the copyright holders.
 
 use crate::stub_icu as icu;
 use crate::text_layout_engine::{LayoutRequest, NodeLayout, TextLayoutEngine};
-use crate::xetex_font_manager::FindFont;
+use crate::xetex_font_manager::{FindFont, ShaperRequest};
 use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
 
@@ -706,9 +706,9 @@ pub(crate) unsafe fn findFontByName(
     name: &str,
     var: &mut String,
     size: f64,
-    reqEngine: &mut u8,
+    shaperRequest: &mut Option<ShaperRequest>,
 ) -> PlatformFontRef {
-    XeTeXFontMgr_GetFontManager().find_font(name, var, size, reqEngine)
+    XeTeXFontMgr_GetFontManager().find_font(name, var, size, shaperRequest)
 }
 pub(crate) unsafe fn getFullName(fontRef: PlatformFontRef) -> String {
     XeTeXFontMgr_GetFontManager().get_full_name(fontRef)
@@ -1183,9 +1183,9 @@ impl XeTeXLayoutEngine {
         extend: f32,
         slant: f32,
         embolden: f32,
-        reqEngine: u8,
+        shaperRequest: Option<ShaperRequest>,
     ) -> Box<Self> {
-        let language = if reqEngine == b'G' {
+        let language = if shaperRequest == Some(ShaperRequest::Graphite) {
             hb_language_from_string(language.as_ptr() as *const i8, language.len() as _)
         } else {
             hb_ot_tag_to_language(hb_tag_from_string(

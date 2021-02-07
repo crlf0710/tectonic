@@ -130,6 +130,17 @@ pub(crate) struct XeTeXFontMgr {
     // maps PS name (as used in .xdv) to font record
 }
 
+/// Used to set harfbuzz's shaper list in loadOTFont, and by extension eventually layoutChars.
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum ShaperRequest {
+    /// Don't use harfbuzz at all, use AAT if possible.
+    AAT,
+    /// Use harfbuzz ot shaper
+    OpenType,
+    /// See layoutChars
+    Graphite,
+}
+
 /* ***************************************************************************\
  Part of the XeTeX typesetting system
  Copyright (c) 1994-2008 by SIL International
@@ -286,7 +297,7 @@ pub(crate) trait FindFont {
         name: &str,
         variant: &mut String,
         ptSize: f64,
-        reqEngine: &mut u8,
+        shaperRequest: &mut Option<ShaperRequest>,
     ) -> PlatformFontRef;
 }
 impl<T> FindFont for T
@@ -298,7 +309,7 @@ where
         name: &str,
         variant: &mut String,
         mut ptSize: f64,
-        reqEngine: &mut u8,
+        shaperRequest: &mut Option<ShaperRequest>,
     ) -> PlatformFontRef {
         // 1st arg is name as specified by user (C string, UTF-8)
         // 2nd is /B/I/AAT/OT/ICU/GR/S=## qualifiers
@@ -392,8 +403,8 @@ where
         let parent_clone = font.parent.clone();
         let parent = parent_clone.as_ref().unwrap().borrow();
         // if there are variant requests, try to apply them
-        // and delete B, I, and S=... codes from the string, just retain /engine option
-        *reqEngine = 0;
+        // and delete B, I, and S=... codes from the string, just retain /engine option';
+        *shaperRequest = None;
         let mut reqBold = false;
         let mut reqItal = false;
         let mut font = if !variant.is_empty() {
@@ -401,7 +412,7 @@ where
             let mut cp = variant.as_bytes();
             while !cp.is_empty() {
                 if cp.starts_with(b"AAT") {
-                    *reqEngine = b'A';
+                    *shaperRequest = Some(ShaperRequest::AAT);
                     cp = &cp[3..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -410,7 +421,7 @@ where
                     varString += "AAT";
                 } else if cp.starts_with(b"ICU") {
                     // for backword compatability
-                    *reqEngine = b'O';
+                    *shaperRequest = Some(ShaperRequest::OpenType);
                     cp = &cp[3..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -418,7 +429,7 @@ where
                     }
                     varString += "OT";
                 } else if cp.starts_with(b"OT") {
-                    *reqEngine = b'O';
+                    *shaperRequest = Some(ShaperRequest::OpenType);
                     cp = &cp[2..];
                     match varString.chars().last() {
                         None | Some('/') => {}
@@ -426,7 +437,7 @@ where
                     }
                     varString += "OT";
                 } else if cp.starts_with(b"GR") {
-                    *reqEngine = b'G';
+                    *shaperRequest = Some(ShaperRequest::Graphite);
                     cp = &cp[2..];
                     match varString.chars().last() {
                         None | Some('/') => {}
