@@ -1243,7 +1243,7 @@ impl XeTeXLayoutEngine {
         slant: f32,
         embolden: f32,
         shaperRequest: Option<ShaperRequest>,
-    ) -> Box<Self> {
+    ) -> Self {
         let language = if shaperRequest == Some(ShaperRequest::Graphite) {
             hb_language_from_string(language.as_ptr() as *const i8, language.len() as _)
         } else {
@@ -1266,7 +1266,7 @@ impl XeTeXLayoutEngine {
 
         //ptr::write(&mut (*result).shaper_list, shapers.freeze());
 
-        Box::new(Self {
+        Self {
             fontRef,
             font,
             script,
@@ -1282,7 +1282,7 @@ impl XeTeXLayoutEngine {
             // treat it as a OT language tag for backward compatibility with pre-0.9999
             // XeTeX.
             language,
-        })
+        }
     }
     pub(crate) fn release(self) -> Box<XeTeXFont> {
         let Self { font, .. } = self;

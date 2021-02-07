@@ -6,7 +6,7 @@ use crate::node::*;
 use crate::t_eprint;
 use crate::xetex_consts::*;
 use crate::xetex_errors::{confusion, error, fatal_error};
-use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def, Font};
+use crate::xetex_ext::{apply_tfm_font_mapping, make_font_def};
 use crate::xetex_ini::shell_escape_enabled;
 use crate::xetex_ini::Selector;
 use crate::xetex_ini::{
@@ -1783,7 +1783,7 @@ unsafe fn dvi_native_font_def(f: internal_font_number) {
 }
 
 unsafe fn dvi_font_def(f: internal_font_number) {
-    if let Font::Native(_) = &FONT_LAYOUT_ENGINE[f] {
+    if let Some(_) = &FONT_LAYOUT_ENGINE[f] {
         dvi_native_font_def(f);
     } else {
         if f <= 256 {

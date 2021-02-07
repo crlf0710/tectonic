@@ -722,9 +722,8 @@ pub(crate) static mut FONT_BCHAR: Vec<nine_bits> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_FALSE_BCHAR: Vec<nine_bits> = Vec::new();
 
-use crate::xetex_ext::Font;
-
-pub(crate) static mut FONT_LAYOUT_ENGINE: Vec<Font> = Vec::new();
+use crate::text_layout_engine::NativeFont;
+pub(crate) static mut FONT_LAYOUT_ENGINE: Vec<Option<NativeFont>> = Vec::new();
 #[no_mangle]
 pub(crate) static mut FONT_MAPPING: Vec<*mut libc::c_void> = Vec::new();
 #[no_mangle]
@@ -2038,7 +2037,7 @@ pub(crate) unsafe fn prefixed_command(
                     } else { SKEW_CHAR[f] = val }
                 }
                 _ => {
-                    let p = if let Font::Native(nf) = &FONT_LAYOUT_ENGINE[f] {
+                    let p = if let Some(nf) = &FONT_LAYOUT_ENGINE[f] {
                         scan_glyph_number(input, nf)
                     } else { scan_char_num(input) };
                     scan_optional_equals(input);
@@ -4216,7 +4215,7 @@ pub(crate) unsafe fn tt_run_engine(dump_name: &str, input_file_name: &str) -> TT
         FONT_MAPPING = vec![ptr::null_mut(); FONT_MAX + 1];
         FONT_LAYOUT_ENGINE.clear();
         for _ in 0..FONT_MAX + 1 {
-            FONT_LAYOUT_ENGINE.push(Font::None);
+            FONT_LAYOUT_ENGINE.push(None);
         }
         FONT_FLAGS = vec![0; FONT_MAX + 1];
         FONT_LETTER_SPACE = vec![Scaled::ZERO; FONT_MAX + 1];

@@ -91,6 +91,14 @@ pub struct AATLayoutEngine {
     pub(crate) attributes: CFDictionaryRef,
 }
 
+impl Drop for AATLayoutEngine {
+    fn drop(&mut self) {
+        unsafe {
+            CFRelease(self.attributes as CFDictionaryRef as CFTypeRef);
+        }
+    }
+}
+
 impl AATLayoutEngine {
     unsafe fn ct_font(&self) -> CTFontRef {
         font_from_attributes(self.attributes)
@@ -741,7 +749,7 @@ unsafe fn getLastResort() -> CFStringRef {
     return kLastResort;
 }
 
-use crate::xetex_ext::{NativeFont, NativeFont::*};
+use crate::text_layout_engine::{NativeFont, NativeFont::*};
 
 pub(crate) unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,

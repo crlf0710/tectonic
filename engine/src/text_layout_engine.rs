@@ -6,6 +6,7 @@ use crate::xetex_font_info::{GlyphBBox, XeTeXFontInst};
 //use crate::xetex_font_manager::PlatformFontRef;
 use crate::xetex_font_info::GlyphID;
 use crate::xetex_layout_interface::FixedPoint;
+use crate::xetex_layout_interface::XeTeXLayoutEngine;
 use crate::xetex_scaledmath::Scaled;
 use harfbuzz_sys::hb_tag_t;
 
@@ -174,6 +175,24 @@ impl GlyphEdge {
     }
 }
 
+#[enum_dispatch::enum_dispatch]
+pub(crate) enum NativeFont {
+    #[cfg(target_os = "macos")]
+    Aat(crate::xetex_aatfont::AATLayoutEngine),
+    Otgr(XeTeXLayoutEngine),
+}
+
+impl NativeFont {
+    pub(crate) fn flag(&self) -> u32 {
+        match self {
+            #[cfg(target_os = "macos")]
+            Self::Aat(_) => 0xFFFF,
+            Self::Otgr(_) => 0xFFFE,
+        }
+    }
+}
+
+#[enum_dispatch::enum_dispatch(NativeFont)]
 pub(crate) trait TextLayoutEngine {
     /// The most important trait method. Lay out some text and return its size.
     unsafe fn layout_text(&mut self, request: LayoutRequest) -> NodeLayout;
