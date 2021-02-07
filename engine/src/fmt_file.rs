@@ -389,9 +389,7 @@ pub(crate) unsafe fn store_fmt_file() {
             Esc(&PoolString::from(yhash[FONT_ID_BASE + k - hash_offset].s1).to_string())
         );
 
-        if matches!(&FONT_LAYOUT_ENGINE[k], crate::xetex_ext::Font::Native(_))
-            || !(FONT_MAPPING[k]).is_null()
-        {
+        if matches!(&FONT_LAYOUT_ENGINE[k], Some(_)) || !(FONT_MAPPING[k]).is_null() {
             t_print!(
                 "{:#}",
                 FileName {
@@ -854,7 +852,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     FONT_MAPPING = vec![ptr::null_mut(); FONT_MAX + 1];
     for _ in 0..FONT_MAX + 1 {
-        FONT_LAYOUT_ENGINE.push(crate::xetex_ext::Font::None);
+        FONT_LAYOUT_ENGINE.push(None);
     }
     FONT_FLAGS = vec![0; FONT_MAX + 1];
     FONT_LETTER_SPACE = vec![Scaled::ZERO; FONT_MAX + 1];

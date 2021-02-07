@@ -2,6 +2,9 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use super::xetex_layout_interface::GlyphBBox;
+use crate::text_layout_engine::{LayoutRequest, NodeLayout, TextLayoutEngine};
+use crate::xetex_font_info::GlyphID;
+use std::ffi::CString;
 
 use crate::cf_prelude::*;
 
@@ -15,23 +18,15 @@ use std::ptr;
 
 use crate::cmd::XetexExtCmd;
 use crate::core_memory::{xcalloc, xmalloc};
-use crate::node::NativeWord;
 use crate::xetex_ext::{readCommonFeatures, read_double};
-use crate::xetex_ini::{
-    loaded_font_flags, loaded_font_letter_space, FONT_LAYOUT_ENGINE, FONT_LETTER_SPACE,
-};
+use crate::xetex_ini::{loaded_font_flags, loaded_font_letter_space};
 use crate::xetex_xetex0::font_feature_warning;
 use libc::free;
 pub(crate) type Boolean = u8;
 
 use crate::xetex_scaledmath::Scaled;
 type Fract = i32;
-#[derive(Copy, Clone)]
-#[repr(C, packed(2))]
-struct FixedPoint {
-    x: Scaled,
-    y: Scaled,
-}
+use crate::xetex_layout_interface::FixedPoint;
 
 pub(crate) type str_number = i32;
 /* tectonic/core-strutils.h: miscellaneous C string utilities
@@ -78,6 +73,7 @@ authorization from the copyright holders.
 /* XeTeX_mac.c
  * additional plain C extensions for XeTeX - MacOS-specific routines
  */
+
 #[inline]
 fn TeXtoPSPoints(pts: f64) -> f64 {
     pts * 72. / 72.27
@@ -91,33 +87,59 @@ fn FixedPStoTeXPoints(pts: f64) -> Scaled {
     PStoTeXPoints(pts).into()
 }
 
-pub(crate) unsafe fn font_from_attributes(attributes: CFDictionaryRef) -> CTFontRef {
-    return CFDictionaryGetValue(attributes, kCTFontAttributeName as *const libc::c_void)
-        as CTFontRef;
+#[repr(transparent)]
+pub struct AATLayoutEngine {
+    pub(crate) attributes: CFDictionaryRef,
 }
 
-pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
-    let mut totalGlyphCount;
-    let mut glyphAdvances: *mut Scaled = ptr::null_mut();
-    let mut glyph_info: *mut libc::c_void = ptr::null_mut();
-    let mut locations: *mut FixedPoint = ptr::null_mut();
-    let mut width: CGFloat = 0.;
-    let typesetter;
-    let mut line;
-    let f = node.font() as u32;
-    if let Font::Native(Aat(attributes)) = &FONT_LAYOUT_ENGINE[f as usize] {
-        let txt = node.text();
-        let txtLen = txt.len() as CFIndex;
-        let txtPtr = txt.as_ptr() as *const UniChar;
+impl Drop for AATLayoutEngine {
+    fn drop(&mut self) {
+        unsafe {
+            CFRelease(self.attributes as CFDictionaryRef as CFTypeRef);
+        }
+    }
+}
+
+impl AATLayoutEngine {
+    unsafe fn ct_font(&self) -> CTFontRef {
+        font_from_attributes(self.attributes)
+    }
+    unsafe fn transform(&self) -> CGAffineTransform {
+        let font = self.ct_font();
+        CTFontGetMatrix(font)
+    }
+}
+impl TextLayoutEngine for AATLayoutEngine {
+    /// The most important trait method. Lay out some text and return its size.
+    unsafe fn layout_text(&mut self, request: LayoutRequest) -> NodeLayout {
+        let mut totalGlyphCount;
+        let mut glyphAdvances: *mut Scaled = ptr::null_mut();
+        let mut glyph_info: *mut libc::c_void = ptr::null_mut();
+        let mut locations: *mut FixedPoint = ptr::null_mut();
+        let mut width: CGFloat = 0.;
+        let typesetter;
+        let mut line;
+
+        let txtLen = request.text.len() as CFIndex;
+        let txtPtr: *const UniChar = request.text.as_ptr();
+        let justify = request.justify;
+
+        let mut layout = NodeLayout {
+            lsDelta: None,
+            width: Scaled::ZERO,
+            total_glyph_count: 0,
+            glyph_info: ptr::null_mut(),
+        };
+
         let string =
             CFStringCreateWithCharactersNoCopy(ptr::null(), txtPtr, txtLen, kCFAllocatorNull);
-        let attrString = CFAttributedStringCreate(ptr::null(), string, *attributes);
+        let attrString = CFAttributedStringCreate(ptr::null(), string, self.attributes);
         CFRelease(string as CFTypeRef);
         typesetter = CTTypesetterCreateWithAttributedString(attrString);
         CFRelease(attrString as CFTypeRef);
         line = CTTypesetterCreateLine(typesetter, CFRangeMake(0, txtLen));
         if justify {
-            let lineWidth = TeXtoPSPoints(node.width().into());
+            let lineWidth = TeXtoPSPoints(request.line_width.into());
             let justifiedLine = CTLineCreateJustifiedLine(
                 line,
                 TeXtoPSPoints(Scaled(0x40000000).into()),
@@ -175,7 +197,7 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
                     // the glyph at index 0 (usually .notdef) instead or we will be
                     // showing garbage or even invalid glyphs
                     *glyphIDs.add(totalGlyphCount) = if CFEqual(
-                        font_from_attributes(*attributes) as CFTypeRef,
+                        font_from_attributes(self.attributes) as CFTypeRef,
                         font_from_attributes(runAttributes) as CFTypeRef,
                     ) == 0
                     {
@@ -198,41 +220,213 @@ pub(crate) unsafe fn do_aat_layout(node: &mut NativeWord, justify: bool) {
                 width += FixedPStoTeXPoints(runWidth).0 as f64;
             }
         }
-    } else {
-        panic!("do_aat_layout called for non-AAT font");
-    }
-    node.set_glyph_count(totalGlyphCount as u16);
-    node.set_glyph_info_ptr(glyph_info);
-    if !justify {
-        node.set_width(Scaled(width as i32));
-        if totalGlyphCount > 0 {
-            /* this is essentially a copy from similar code in XeTeX_ext.c, easier
-             * to be done here */
-            if FONT_LETTER_SPACE[f as usize] != Scaled::ZERO {
-                let mut lsDelta = Scaled::ZERO;
-                let lsUnit = FONT_LETTER_SPACE[f as usize];
-                for i_0 in 0..totalGlyphCount {
-                    if *glyphAdvances.add(i_0) == Scaled::ZERO && lsDelta != Scaled::ZERO {
-                        lsDelta -= lsUnit
+
+        layout.total_glyph_count = totalGlyphCount as u16;
+        layout.glyph_info = glyph_info as *mut _;
+
+        if !justify {
+            layout.width = Scaled(width as i32);
+            if totalGlyphCount > 0 {
+                /* this is essentially a copy from similar code in XeTeX_ext.c, easier
+                 * to be done here */
+                if request.letter_space_unit != Scaled::ZERO {
+                    let mut lsDelta = Scaled::ZERO;
+                    let lsUnit = request.letter_space_unit;
+                    for i_0 in 0..totalGlyphCount {
+                        if *glyphAdvances.add(i_0) == Scaled::ZERO && lsDelta != Scaled::ZERO {
+                            lsDelta -= lsUnit
+                        }
+                        let ref mut fresh1 = (*locations.add(i_0)).x;
+                        *fresh1 += lsDelta;
+                        lsDelta += lsUnit;
                     }
-                    let ref mut fresh1 = (*locations.add(i_0)).x;
-                    *fresh1 += lsDelta;
-                    lsDelta += lsUnit;
-                }
-                if lsDelta != Scaled::ZERO {
-                    lsDelta -= lsUnit;
-                    let w = node.width();
-                    node.set_width(w + lsDelta);
+                    if lsDelta != Scaled::ZERO {
+                        lsDelta -= lsUnit;
+                        layout.lsDelta = Some(lsDelta);
+                    }
                 }
             }
         }
+        free(glyphAdvances as *mut libc::c_void);
+        CFRelease(line as CFTypeRef);
+        CFRelease(typesetter as CFTypeRef);
+        layout
     }
-    free(glyphAdvances as *mut libc::c_void);
-    CFRelease(line as CFTypeRef);
-    CFRelease(typesetter as CFTypeRef);
+
+    /// getFontFilename
+    /// Only for make_font_def. Should use CStr, probably.
+    fn font_filename(&self, index: &mut u32) -> String {
+        unsafe { getFileNameFromCTFont(self.ct_font(), index) }
+    }
+    /*unsafe fn print_font_name(&self, c: i32, arg1: i32, arg2: i32) {
+        if self.usingGraphite() {
+            aat_print_font_name(c, arg1, arg2);
+        }
+    }*/
+
+    unsafe fn get_font_metrics(&self) -> (Scaled, Scaled, Scaled, Scaled, Scaled) {
+        aat_get_font_metrics(self.attributes)
+    }
+
+    unsafe fn get_flags(&self, _font_number: usize) -> u16 {
+        if !CFDictionaryGetValue(
+            self.attributes,
+            kCTVerticalFormsAttributeName as *const libc::c_void,
+        )
+        .is_null()
+        {
+            0x100
+        } else {
+            0
+        }
+    }
+
+    /// ot_font_get, aat_font_get
+    unsafe fn poorly_named_getter(&self, what: XetexExtCmd) -> i32 {
+        aat_font_get(what, self.attributes)
+    }
+
+    /// ot_font_get_1, aat_font_get_1
+    unsafe fn poorly_named_getter_1(&self, what: XetexExtCmd, param1: i32) -> i32 {
+        aat_font_get_1(what, self.attributes, param1)
+    }
+
+    /// ot_font_get_2, aat_font_get_2
+    unsafe fn poorly_named_getter_2(&self, what: XetexExtCmd, param1: i32, param2: i32) -> i32 {
+        aat_font_get_2(what, self.attributes, param1, param2)
+    }
+
+    unsafe fn poorly_named_getter_3(
+        &self,
+        what: XetexExtCmd,
+        param1: i32,
+        param2: i32,
+        param3: i32,
+    ) -> i32 {
+        unimplemented!()
+    }
+
+    /// getExtendFactor
+    fn extend_factor(&self) -> f64 {
+        unsafe { self.transform().a }
+    }
+
+    unsafe fn slant_factor(&self) -> f64 {
+        self.transform().c
+    }
+
+    fn point_size(&self) -> f64 {
+        unsafe { CTFontGetSize(self.ct_font()) }
+    }
+
+    /// getAscentAndDescent
+    fn ascent_and_descent(&self) -> (f32, f32) {
+        unimplemented!()
+    }
+
+    /// getCapAndXHeight
+    fn cap_and_x_height(&self) -> (f32, f32) {
+        unimplemented!()
+    }
+
+    /// getEmboldenFactor
+    fn embolden_factor(&self) -> f32 {
+        let mut embolden: f32 = 0.;
+        unsafe {
+            let emboldenNumber = CFDictionaryGetValue(
+                self.attributes,
+                getkXeTeXEmboldenAttributeName() as *const libc::c_void,
+            ) as CFNumberRef;
+            if !emboldenNumber.is_null() {
+                CFNumberGetValue(
+                    emboldenNumber,
+                    kCFNumberFloatType as libc::c_int as CFNumberType,
+                    &mut embolden as *mut libc::c_float as *mut libc::c_void,
+                );
+            }
+        }
+        embolden
+    }
+
+    /// getRgbValue
+    fn rgb_value(&self) -> u32 {
+        let color = unsafe {
+            CFDictionaryGetValue(
+                self.attributes,
+                kCTForegroundColorAttributeName as *const libc::c_void,
+            )
+        } as CGColorRef;
+        if !color.is_null() {
+            unsafe { cgColorToRGBA32(color) }
+        } else {
+            0
+        }
+    }
+
+    /// getGlyphName
+    unsafe fn glyph_name(&self, gid: GlyphID) -> String {
+        GetGlyphNameFromCTFont(font_from_attributes(self.attributes), gid)
+    }
+
+    unsafe fn glyph_width(&self, gid: u32) -> f64 {
+        GetGlyphWidth_AAT(self.attributes, gid as u16)
+    }
+
+    /// getGlyphBounds (had out param)
+    unsafe fn glyph_bbox(&self, glyphID: u32) -> Option<GlyphBBox> {
+        GetGlyphBBox_AAT(self.attributes, glyphID as u16)
+    }
+
+    unsafe fn get_glyph_width_from_engine(&self, glyphID: u32) -> f64 {
+        GetGlyphWidth_AAT(self.attributes, glyphID as u16)
+    }
+
+    /// getGlyphHeightDepth (had out params height, depth)
+    unsafe fn glyph_height_depth(&self, glyphID: u32) -> Option<(f32, f32)> {
+        let mut h = 0.;
+        let mut d = 0.;
+        GetGlyphHeightDepth_AAT(self.attributes, glyphID as u16, &mut h, &mut d);
+        Some((h, d))
+    }
+
+    /// getGlyphSidebearings (had out params lsb, rsb)
+    unsafe fn glyph_sidebearings(&self, glyphID: u32) -> Option<(f32, f32)> {
+        let mut a = 0.;
+        let mut b = 0.;
+        GetGlyphSidebearings_AAT(self.attributes, glyphID as u16, &mut a, &mut b);
+        Some((a, b))
+    }
+
+    /// getGlyphItalCorr
+    unsafe fn glyph_ital_correction(&self, glyphID: u32) -> Option<f64> {
+        Some(GetGlyphItalCorr_AAT(self.attributes, glyphID as u16))
+    }
+
+    /// mapCharToGlyph
+    fn map_char_to_glyph(&self, chr: char) -> u32 {
+        unsafe { MapCharToGlyph_AAT(self.attributes, chr as _) as u32 }
+    }
+
+    /// getFontCharRange
+    /// Another candidate for using XeTeXFontInst directly
+    fn font_char_range(&self, reqFirst: i32) -> i32 {
+        unsafe { GetFontCharRange_AAT(self.attributes, reqFirst) }
+    }
+
+    /// mapGlyphToIndex
+    /// Should use engine.font directly
+    fn map_glyph_to_index(&self, glyph_name: &str) -> i32 {
+        let name = CString::new(glyph_name).unwrap();
+        unsafe { MapGlyphToIndex_AAT(self.attributes, name.as_ptr()) }
+    }
 }
 
-unsafe fn getGlyphBBoxFromCTFont(font: CTFontRef, mut gid: u16) -> GlyphBBox {
+pub(crate) unsafe fn font_from_attributes(attributes: CFDictionaryRef) -> CTFontRef {
+    return CFDictionaryGetValue(attributes, kCTFontAttributeName as *const libc::c_void)
+        as CTFontRef;
+}
+
+unsafe fn getGlyphBBoxFromCTFont(font: CTFontRef, mut gid: u16) -> Option<GlyphBBox> {
     let rect = CTFontGetBoundingRectsForGlyphs(
         font,
         kCTFontOrientationDefault,
@@ -241,19 +435,19 @@ unsafe fn getGlyphBBoxFromCTFont(font: CTFontRef, mut gid: u16) -> GlyphBBox {
         1,
     );
     if CGRectIsNull(rect) {
-        GlyphBBox::default()
+        None
     } else {
-        GlyphBBox {
+        Some(GlyphBBox {
             yMin: PStoTeXPoints(rect.origin.y) as _,
             yMax: PStoTeXPoints(rect.origin.y + rect.size.height) as _,
             xMin: PStoTeXPoints(rect.origin.x) as _,
             xMax: PStoTeXPoints(rect.origin.x + rect.size.width) as _,
-        }
+        })
     }
 }
 
 /// returns glyph bounding box in TeX points
-pub(crate) unsafe fn GetGlyphBBox_AAT(attributes: CFDictionaryRef, gid: u16) -> GlyphBBox {
+pub(crate) unsafe fn GetGlyphBBox_AAT(attributes: CFDictionaryRef, gid: u16) -> Option<GlyphBBox> {
     let font = font_from_attributes(attributes);
     getGlyphBBoxFromCTFont(font, gid)
 }
@@ -281,7 +475,7 @@ pub(crate) unsafe fn GetGlyphHeightDepth_AAT(
     ht: *mut libc::c_float,
     dp: *mut libc::c_float,
 ) {
-    let bbox = GetGlyphBBox_AAT(attributes, gid);
+    let bbox = GetGlyphBBox_AAT(attributes, gid).unwrap_or(GlyphBBox::zero());
     *ht = bbox.yMax;
     *dp = -bbox.yMin;
 }
@@ -302,7 +496,7 @@ pub(crate) unsafe fn GetGlyphSidebearings_AAT(
         advances.as_mut_ptr(),
         1,
     );
-    let bbox = getGlyphBBoxFromCTFont(font, gid);
+    let bbox = getGlyphBBoxFromCTFont(font, gid).unwrap_or(GlyphBBox::zero());
     *lsb = bbox.xMin;
     *rsb = (PStoTeXPoints(advance) - bbox.xMax as f64) as libc::c_float;
 }
@@ -321,7 +515,7 @@ pub(crate) unsafe fn GetGlyphItalCorr_AAT(attributes: CFDictionaryRef, mut gid: 
         advances.as_mut_ptr(),
         1,
     );
-    let bbox = getGlyphBBoxFromCTFont(font, gid);
+    let bbox = getGlyphBBoxFromCTFont(font, gid).unwrap_or(GlyphBBox::zero());
     if bbox.xMax as f64 > PStoTeXPoints(advance) {
         return bbox.xMax as f64 - PStoTeXPoints(advance);
     }
@@ -604,7 +798,7 @@ unsafe fn getLastResort() -> CFStringRef {
     return kLastResort;
 }
 
-use crate::xetex_ext::{Font, NativeFont, NativeFont::*};
+use crate::text_layout_engine::{NativeFont, NativeFont::*};
 
 pub(crate) unsafe fn loadAATfont(
     mut descriptor: CTFontDescriptorRef,
@@ -897,7 +1091,9 @@ pub(crate) unsafe fn loadAATfont(
     if stringAttributes.is_null() {
         None
     } else {
-        Some(Aat(stringAttributes))
+        Some(Aat(AATLayoutEngine {
+            attributes: stringAttributes,
+        }))
     }
 }
 

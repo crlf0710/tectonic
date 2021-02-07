@@ -1,6 +1,7 @@
 use bridge::TTInputFormat;
 
 use crate::help;
+use crate::text_layout_engine::{NativeFont::*, TextLayoutEngine};
 use std::ptr;
 
 use crate::{t_eprint, t_print, t_print_nl};
@@ -49,9 +50,9 @@ use crate::xetex_ini::{
 };
 use crate::xetex_stringpool::{pool_ptr, str_pool};
 
-use crate::xetex_ext::ot_get_font_metrics;
-use crate::xetex_ext::{check_for_tfm_font_mapping, load_tfm_font_mapping};
-use crate::xetex_ext::{find_native_font, NativeFont::*};
+use crate::xetex_ext::{
+    check_for_tfm_font_mapping, find_native_font, load_tfm_font_mapping, ot_get_font_metrics,
+};
 
 use super::xetex_io::tt_xetex_open_input;
 use crate::xetex_consts::get_int_par;
@@ -648,7 +649,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
 
     let (ascent, descent, x_ht, cap_ht, font_slant) = match &font_engine {
         #[cfg(target_os = "macos")]
-        Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(*fe),
+        Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(fe.attributes),
         Otgr(fe) => ot_get_font_metrics(fe),
     };
     HEIGHT_BASE[FONT_PTR] = ascent.0;
@@ -660,7 +661,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
     HYPHEN_CHAR[FONT_PTR] = get_int_par(IntPar::default_hyphen_char);
     SKEW_CHAR[FONT_PTR] = get_int_par(IntPar::default_skew_char);
     PARAM_BASE[FONT_PTR] = fmem_ptr - 1;
-    FONT_LAYOUT_ENGINE[FONT_PTR] = crate::xetex_ext::Font::Native(font_engine);
+    FONT_LAYOUT_ENGINE[FONT_PTR] = Some(font_engine);
     FONT_MAPPING[FONT_PTR] = ptr::null_mut();
     FONT_LETTER_SPACE[FONT_PTR] = loaded_font_letter_space;
     /* "measure the width of the space character and set up font parameters" */

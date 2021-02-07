@@ -144,6 +144,17 @@ pub(crate) struct GlyphBBox {
     pub(crate) yMax: f32,
 }
 
+impl GlyphBBox {
+    pub const fn zero() -> Self {
+        GlyphBBox {
+            xMin: 0.,
+            yMin: 0.,
+            xMax: 0.,
+            yMax: 0.,
+        }
+    }
+}
+
 // create specific subclasses for each supported platform
 // false = horizontal, true = vertical
 // font filename
@@ -665,12 +676,12 @@ impl XeTeXFontInst {
         FT_Get_Sfnt_Table(self.m_ftFace, tag)
     }
 
-    pub(crate) unsafe fn get_glyph_bounds(&self, gid: GlyphID) -> GlyphBBox {
+    pub(crate) unsafe fn get_glyph_bounds(&self, gid: GlyphID) -> Option<GlyphBBox> {
         use freetype::freetype_sys::FT_GLYPH_BBOX_UNSCALED;
         let mut bbox = GlyphBBox::default();
         let mut error: FT_Error = FT_Load_Glyph(self.m_ftFace, gid as FT_UInt, 1 << 0);
         if error != 0 {
-            return bbox;
+            return None;
         }
         let mut glyph: FT_Glyph = 0 as FT_Glyph;
         error = FT_Get_Glyph((*self.m_ftFace).glyph, &mut glyph);
@@ -692,7 +703,7 @@ impl XeTeXFontInst {
             bbox.yMax = self.units_to_points(ft_bbox.yMax as f32);
             FT_Done_Glyph(glyph);
         };
-        bbox
+        Some(bbox)
     }
 
     pub(crate) unsafe fn map_char_to_glyph(&self, ch: char) -> GlyphID {
@@ -708,19 +719,19 @@ impl XeTeXFontInst {
     }
 
     pub(crate) unsafe fn get_glyph_height_depth(&self, gid: GlyphID) -> (f32, f32) {
-        let bbox = self.get_glyph_bounds(gid);
+        let bbox = self.get_glyph_bounds(gid).unwrap_or(GlyphBBox::zero());
         (bbox.yMax, -bbox.yMin)
     }
 
     pub(crate) unsafe fn get_glyph_sidebearings(&self, gid: GlyphID) -> (f32, f32) {
         let width: f32 = self.get_glyph_width(gid);
-        let bbox = self.get_glyph_bounds(gid);
+        let bbox = self.get_glyph_bounds(gid).unwrap_or(GlyphBBox::zero());
         (bbox.xMin, width - bbox.xMax)
     }
 
     pub(crate) unsafe fn get_glyph_ital_corr(&self, gid: GlyphID) -> f32 {
         let width: f32 = self.get_glyph_width(gid);
-        let bbox = self.get_glyph_bounds(gid);
+        let bbox = self.get_glyph_bounds(gid).unwrap_or(GlyphBBox::zero());
         if bbox.xMax > width {
             bbox.xMax - width
         } else {
@@ -747,12 +758,12 @@ impl XeTeXFontInst {
         }
     }
 
-    pub(crate) unsafe fn get_first_char_code(&mut self) -> UChar32 {
+    pub(crate) unsafe fn get_first_char_code(&self) -> UChar32 {
         let mut gindex: FT_UInt = 0;
         FT_Get_First_Char(self.m_ftFace, &mut gindex) as UChar32
     }
 
-    pub(crate) unsafe fn get_last_char_code(&mut self) -> UChar32 {
+    pub(crate) unsafe fn get_last_char_code(&self) -> UChar32 {
         let mut gindex: FT_UInt = 0;
         let mut ch: UChar32 = FT_Get_First_Char(self.m_ftFace, &mut gindex) as UChar32;
         let mut prev: UChar32 = ch;
