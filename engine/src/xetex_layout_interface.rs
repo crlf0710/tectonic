@@ -351,7 +351,38 @@ impl TextLayoutEngine for XeTeXLayoutEngine {
         self.extend as f64
     }
     unsafe fn get_font_metrics(&self) -> (Scaled, Scaled, Scaled, Scaled, Scaled) {
-        crate::xetex_ext::ot_get_font_metrics(self)
+        let (a, d) = self.ascent_and_descent();
+        let ascent = (a as f64).into();
+        let descent = (d as f64).into();
+        let slant = (f64::from(getSlant(self.get_font())) * self.extend_factor()
+            + self.slant_factor())
+        .into();
+        /* get cap and x height from OS/2 table */
+        let (a, d) = self.cap_and_x_height();
+        let mut capheight = (a as f64).into();
+        let mut xheight = (d as f64).into();
+        /* fallback in case the font does not have OS/2 table */
+        if xheight == Scaled::ZERO {
+            let glyphID = self.map_char_to_glyph('x') as i32;
+            xheight = if glyphID != 0 {
+                let (a, _) = self.glyph_height_depth(glyphID as u32).unwrap();
+                (a as f64).into()
+            } else {
+                ascent / 2
+                /* arbitrary figure if there's no 'x' in the font */
+            };
+        }
+        if capheight == Scaled::ZERO {
+            let glyphID_0 = self.map_char_to_glyph('X') as i32;
+            capheight = if glyphID_0 != 0 {
+                let (a, _) = self.glyph_height_depth(glyphID_0 as u32).unwrap();
+                (a as f64).into()
+            } else {
+                ascent
+                /* arbitrary figure if there's no 'X' in the font */
+            };
+        };
+        (ascent, descent, xheight, capheight, slant)
     }
 
     /// ot_font_get, aat_font_get

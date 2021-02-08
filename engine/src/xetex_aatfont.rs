@@ -357,7 +357,15 @@ impl TextLayoutEngine for AATLayoutEngine {
             )
         } as CGColorRef;
         if !color.is_null() {
-            unsafe { cgColorToRGBA32(color) }
+            unsafe {
+                let components = CGColorGetComponents(color);
+                u32::from_be_bytes([
+                    (*components.offset(0) * 255. + 0.5) as u8,
+                    (*components.offset(1) * 255. + 0.5) as u8,
+                    (*components.offset(2) * 255. + 0.5) as u8,
+                    (*components.offset(3) * 255. + 0.5) as u8,
+                ])
+            }
         } else {
             0
         }

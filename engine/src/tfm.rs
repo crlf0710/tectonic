@@ -50,9 +50,7 @@ use crate::xetex_ini::{
 };
 use crate::xetex_stringpool::{pool_ptr, str_pool};
 
-use crate::xetex_ext::{
-    check_for_tfm_font_mapping, find_native_font, load_tfm_font_mapping, ot_get_font_metrics,
-};
+use crate::xetex_ext::{check_for_tfm_font_mapping, find_native_font, load_tfm_font_mapping};
 
 use super::xetex_io::tt_xetex_open_input;
 use crate::xetex_consts::get_int_par;
@@ -647,11 +645,7 @@ pub(crate) unsafe fn load_native_font(name: &str, s: Scaled) -> Result<usize, Na
     FONT_DSIZE[FONT_PTR] = loaded_font_design_size;
     FONT_SIZE[FONT_PTR] = actual_size;
 
-    let (ascent, descent, x_ht, cap_ht, font_slant) = match &font_engine {
-        #[cfg(target_os = "macos")]
-        Aat(fe) => crate::xetex_aatfont::aat_get_font_metrics(fe.attributes),
-        Otgr(fe) => ot_get_font_metrics(fe),
-    };
+    let (ascent, descent, x_ht, cap_ht, font_slant) = font_engine.get_font_metrics();
     HEIGHT_BASE[FONT_PTR] = ascent.0;
     DEPTH_BASE[FONT_PTR] = -descent.0;
     FONT_PARAMS[FONT_PTR] = num_font_dimens;

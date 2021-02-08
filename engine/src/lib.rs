@@ -515,16 +515,6 @@ pub(crate) mod cf_prelude {
         range.length = len;
         range
     }
-
-    pub(crate) unsafe fn cgColorToRGBA32(color: CGColorRef) -> u32 {
-        let components = CGColorGetComponents(color);
-        u32::from_be_bytes([
-            (*components.offset(0) * 255. + 0.5) as u8,
-            (*components.offset(1) * 255. + 0.5) as u8,
-            (*components.offset(2) * 255. + 0.5) as u8,
-            (*components.offset(3) * 255. + 0.5) as u8,
-        ])
-    }
 }
 
 #[macro_export]

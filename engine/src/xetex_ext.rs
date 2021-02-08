@@ -22,7 +22,7 @@ use super::xetex_aatfont as aat;
 use crate::cf_prelude::{
     kCFNumberFloatType, kCTFontAttributeName, kCTForegroundColorAttributeName,
     kCTVerticalFormsAttributeName, CFDictionaryGetValue, CFDictionaryRef, CFNumberGetValue,
-    CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGColorGetComponents, CGColorRef,
+    CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGColorRef,
     CTFontGetMatrix, CTFontGetSize, CTFontRef,
 };
 use crate::xetex_ini::{
@@ -892,42 +892,6 @@ pub(crate) unsafe fn find_native_font(uname: &str, mut scaled_size: Scaled) -> O
     }
     rval
 }
-pub(crate) unsafe fn ot_get_font_metrics(
-    engine: &XeTeXLayoutEngine,
-) -> (Scaled, Scaled, Scaled, Scaled, Scaled) {
-    let (a, d) = engine.ascent_and_descent();
-    let ascent = (a as f64).into();
-    let descent = (d as f64).into();
-    let slant = (f64::from(getSlant(engine.get_font())) * engine.extend_factor()
-        + engine.slant_factor())
-    .into();
-    /* get cap and x height from OS/2 table */
-    let (a, d) = engine.cap_and_x_height();
-    let mut capheight = (a as f64).into();
-    let mut xheight = (d as f64).into();
-    /* fallback in case the font does not have OS/2 table */
-    if xheight == Scaled::ZERO {
-        let glyphID = engine.map_char_to_glyph('x') as i32;
-        xheight = if glyphID != 0 {
-            let (a, _) = engine.glyph_height_depth(glyphID as u32).unwrap();
-            (a as f64).into()
-        } else {
-            ascent / 2
-            /* arbitrary figure if there's no 'x' in the font */
-        };
-    }
-    if capheight == Scaled::ZERO {
-        let glyphID_0 = engine.map_char_to_glyph('X') as i32;
-        capheight = if glyphID_0 != 0 {
-            let (a, _) = engine.glyph_height_depth(glyphID_0 as u32).unwrap();
-            (a as f64).into()
-        } else {
-            ascent
-            /* arbitrary figure if there's no 'X' in the font */
-        };
-    };
-    (ascent, descent, xheight, capheight, slant)
-}
 
 pub(crate) unsafe fn gr_get_font_name(
     what: i32,
@@ -971,16 +935,6 @@ pub(crate) unsafe fn gr_font_get_named_1(
         }
         _ => -1,
     }
-}
-#[cfg(target_os = "macos")]
-unsafe fn cgColorToRGBA32(color: CGColorRef) -> u32 {
-    let components = CGColorGetComponents(color);
-    u32::from_be_bytes([
-        (*components.offset(0) * 255. + 0.5) as u8,
-        (*components.offset(1) * 255. + 0.5) as u8,
-        (*components.offset(2) * 255. + 0.5) as u8,
-        (*components.offset(3) * 255. + 0.5) as u8,
-    ])
 }
 pub(crate) unsafe fn makeXDVGlyphArrayData(p: &NativeWord) -> Vec<u8> {
     let glyphCount: u16 = p.glyph_count();
