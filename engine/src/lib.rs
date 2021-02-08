@@ -3,6 +3,7 @@
 #![allow(clippy::float_cmp)]
 #![allow(clippy::match_single_binding)]
 #![allow(clippy::missing_safety_doc)]
+
 #[macro_use]
 extern crate bridge;
 
@@ -169,50 +170,25 @@ mod xetex_font_manager;
 mod xetex_layout_interface;
 
 pub(crate) mod freetype_sys_patch {
-    use freetype::freetype_sys::{
-        FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Int32, FT_Long, FT_Sfnt_Tag, FT_Short, FT_UInt,
-        FT_ULong, FT_UShort,
+    pub(crate) use freetype::freetype::{
+        FT_Byte, FT_Error, FT_Face, FT_Face_GetCharVariantIndex, FT_Fixed, FT_Int32,
+        FT_Load_Sfnt_Table, FT_Long, FT_Sfnt_Tag, FT_Short, FT_UInt, FT_ULong, FT_UShort,
     };
 
     extern "C" {
-        pub(crate) fn FT_Face_GetCharVariantIndex(
+        pub(crate) fn FT_Get_Sfnt_Name(
             face: FT_Face,
-            charcode: FT_ULong,
-            variantSelector: FT_ULong,
-        ) -> FT_UInt;
-
+            idx: FT_UInt,
+            aname: *mut FT_SfntName,
+        ) -> FT_Error;
+        pub(crate) fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
         pub(crate) fn FT_Get_Advance(
             face: FT_Face,
             gindex: FT_UInt,
             load_flags: FT_Int32,
             padvance: *mut FT_Fixed,
         ) -> FT_Error;
-
-        pub(crate) fn FT_Load_Sfnt_Table(
-            face: FT_Face,
-            tag: FT_ULong,
-            offset: FT_Long,
-            buffer: *mut FT_Byte,
-            length: *mut FT_ULong,
-        ) -> FT_Error;
-
-        pub(crate) fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
-
-        pub(crate) fn FT_Get_Sfnt_Name(
-            face: FT_Face,
-            idx: FT_UInt,
-            aname: *mut FT_SfntName,
-        ) -> FT_Error;
     }
-
-    //pub(crate) const FT_SFNT_MAX: FT_Sfnt_Tag = 7;
-    //pub(crate) const FT_SFNT_PCLT: FT_Sfnt_Tag = 6;
-    pub(crate) const FT_SFNT_POST: FT_Sfnt_Tag = 5;
-    //pub(crate) const FT_SFNT_VHEA: FT_Sfnt_Tag = 4;
-    //pub(crate) const FT_SFNT_HHEA: FT_Sfnt_Tag = 3;
-    pub(crate) const FT_SFNT_OS2: FT_Sfnt_Tag = 2;
-    //pub(crate) const FT_SFNT_MAXP: FT_Sfnt_Tag = 1;
-    pub(crate) const FT_SFNT_HEAD: FT_Sfnt_Tag = 0;
 
     #[derive(Copy, Clone)]
     #[repr(C)]

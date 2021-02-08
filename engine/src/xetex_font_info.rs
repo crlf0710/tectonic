@@ -55,15 +55,16 @@ use harfbuzz_sys::{
 use std::io::Read;
 
 use crate::freetype_sys_patch::{FT_Face_GetCharVariantIndex, FT_Get_Advance, FT_Load_Sfnt_Table};
-use freetype::freetype_sys::{
-    FT_Attach_Stream, FT_Done_Face, FT_Done_Glyph, FT_Get_Char_Index, FT_Get_First_Char,
-    FT_Get_Glyph, FT_Get_Glyph_Name, FT_Get_Kerning, FT_Get_Name_Index, FT_Get_Next_Char,
-    FT_Get_Sfnt_Table, FT_Glyph_Get_CBox, FT_Init_FreeType, FT_Load_Glyph, FT_New_Memory_Face,
+use freetype::freetype::{
+    FT_Attach_Stream, FT_Done_Face, FT_Get_Char_Index, FT_Get_First_Char, FT_Get_Glyph_Name,
+    FT_Get_Kerning, FT_Get_Name_Index, FT_Get_Next_Char, FT_Get_Sfnt_Table, FT_Init_FreeType,
+    FT_Load_Glyph, FT_New_Memory_Face,
 };
-use freetype::freetype_sys::{
-    FT_BBox, FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Glyph, FT_Library, FT_Long, FT_Pointer,
-    FT_Sfnt_Tag, FT_UInt, FT_ULong, FT_Vector,
+use freetype::freetype::{
+    FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Library, FT_Long, FT_Pointer, FT_Sfnt_Tag, FT_UInt,
+    FT_ULong, FT_Vector,
 };
+use freetype_sys::{FT_BBox, FT_Done_Glyph, FT_Get_Glyph, FT_Glyph, FT_Glyph_Get_CBox};
 
 use bridge::{ttstub_input_get_size, InFile};
 
@@ -326,7 +327,7 @@ unsafe extern "C" fn _get_glyph_h_kerning(
     gid2: hb_codepoint_t,
     mut _p: *mut libc::c_void,
 ) -> hb_position_t {
-    use freetype::freetype_sys::FT_KERNING_UNSCALED;
+    use freetype_sys::FT_KERNING_UNSCALED;
     let face = font_data as FT_Face;
     let mut kerning: FT_Vector = FT_Vector { x: 0, y: 0 };
     let error = FT_Get_Kerning(
@@ -378,7 +379,7 @@ unsafe extern "C" fn _get_glyph_contour_point(
     y: *mut hb_position_t,
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
-    use freetype::freetype_sys::FT_GLYPH_FORMAT_OUTLINE;
+    use freetype_sys::FT_GLYPH_FORMAT_OUTLINE;
     let face = font_data as FT_Face;
     let mut ret = false;
     let error = FT_Load_Glyph(face, gid, 1 << 0);
@@ -513,9 +514,8 @@ unsafe extern "C" fn _get_table(
 }
 impl XeTeXFontInst {
     pub(crate) unsafe fn initialize(&mut self, pathname: &str, index: i32, status: &mut bool) {
-        use crate::freetype_sys_patch::{FT_SFNT_OS2, FT_SFNT_POST};
-        use freetype::freetype_sys::FT_Open_Args;
-        use freetype::freetype_sys::{TT_Postscript, TT_OS2};
+        use freetype::freetype::FT_Open_Args;
+        use freetype_sys::{TT_Postscript, TT_OS2};
         if gFreeTypeLibrary.is_null() {
             let error = FT_Init_FreeType(&mut gFreeTypeLibrary);
             if error != 0 {
@@ -594,11 +594,11 @@ impl XeTeXFontInst {
         self.m_unitsPerEM = (*self.m_ftFace).units_per_EM;
         self.m_ascent = self.units_to_points((*self.m_ftFace).ascender as f32);
         self.m_descent = self.units_to_points((*self.m_ftFace).descender as f32);
-        let postTable = self.get_font_table_ft(FT_SFNT_POST) as *mut TT_Postscript;
+        let postTable = self.get_font_table_ft(FT_Sfnt_Tag::FT_SFNT_POST) as *mut TT_Postscript;
         if !postTable.is_null() {
             self.m_italicAngle = Scaled((*postTable).italicAngle as i32).into();
         }
-        let os2Table = self.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
+        let os2Table = self.get_font_table_ft(FT_Sfnt_Tag::FT_SFNT_OS2) as *mut TT_OS2;
         if !os2Table.is_null() {
             self.m_capHeight = self.units_to_points((*os2Table).sCapHeight as f32);
             self.m_xHeight = self.units_to_points((*os2Table).sxHeight as f32)
@@ -677,16 +677,19 @@ impl XeTeXFontInst {
     }
 
     pub(crate) unsafe fn get_glyph_bounds(&self, gid: GlyphID) -> Option<GlyphBBox> {
-        use freetype::freetype_sys::FT_GLYPH_BBOX_UNSCALED;
+        use freetype_sys::FT_GLYPH_BBOX_UNSCALED;
         let mut bbox = GlyphBBox::default();
         let mut error: FT_Error = FT_Load_Glyph(self.m_ftFace, gid as FT_UInt, 1 << 0);
         if error != 0 {
             return None;
         }
         let mut glyph: FT_Glyph = 0 as FT_Glyph;
-        error = FT_Get_Glyph((*self.m_ftFace).glyph, &mut glyph);
+        error = FT_Get_Glyph(
+            (*self.m_ftFace).glyph as freetype_sys::FT_GlyphSlot,
+            &mut glyph,
+        );
         if error == 0 {
-            let mut ft_bbox: FT_BBox = FT_BBox {
+            let mut ft_bbox = FT_BBox {
                 xMin: 0,
                 yMin: 0,
                 xMax: 0,

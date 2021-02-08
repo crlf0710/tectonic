@@ -46,8 +46,8 @@ use crate::stub_icu as icu;
 use crate::xetex_font_info::gFreeTypeLibrary;
 
 use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
-use freetype::freetype_sys::FT_Long;
-use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
+use freetype::freetype::FT_Long;
+use freetype::freetype::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
 
 pub(crate) use fontconfig_sys::fontconfig::{
     enum__FcResult as FcResult, struct__FcPattern as FcPattern,
