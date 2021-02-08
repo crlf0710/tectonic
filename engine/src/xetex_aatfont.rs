@@ -11,7 +11,7 @@ use crate::cf_prelude::*;
 use core_foundation::base::TCFType;
 use core_foundation::string::CFString;
 use core_foundation::url::CFURL;
-use freetype::Library as FreeTypeLibrary;
+use font_kit::handle::Handle;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::ptr;
@@ -608,11 +608,9 @@ unsafe fn ct_font_get_postscript_name(ctFontRef: CTFontRef, nameKey: CFStringRef
     CFString::wrap_under_create_rule(name)
 }
 
-thread_local!(static FREETYPE_LIBRARY: RefCell<FreeTypeLibrary> = RefCell::new(FreeTypeLibrary::init().unwrap()));
-
-// This needs to be linked from C++, hence extern "C"
+// This will become unnecessary as font_kit spreads.
 pub(crate) unsafe fn getFileNameFromCTFont(ctFontRef: CTFontRef, index: *mut u32) -> String {
-    let mut ix: i32 = -1;
+    let mut ix = None;
     let mut ret = String::new();
     let urlRef = CTFontCopyAttribute(ctFontRef, kCTFontURLAttribute) as CFURLRef;
     if !urlRef.is_null() {
@@ -621,18 +619,35 @@ pub(crate) unsafe fn getFileNameFromCTFont(ctFontRef: CTFontRef, index: *mut u32
             let ps_name1 = ct_font_get_postscript_name(ctFontRef, kCTFontPostScriptNameKey);
             let ps_name = Cow::from(&ps_name1);
 
-            let mut i: isize = 0;
-            while let Ok(face) = FREETYPE_LIBRARY.with(|l| l.borrow().new_face(&pathbuf, i)) {
-                if let Some(ps_name2) = face.postscript_name() {
+            let mut handle = Handle::Path {
+                path: pathbuf.clone(),
+                font_index: 0,
+            };
+            // Saves cloning the path
+            fn set_index(handle: &mut Handle, i: u32) {
+                match handle {
+                    Handle::Memory {
+                        ref mut font_index, ..
+                    }
+                    | Handle::Path {
+                        ref mut font_index, ..
+                    } => *font_index = i,
+                }
+            }
+            let mut i = 0;
+            while let Ok(font) = handle.load() {
+                if let Some(ps_name2) = font.postscript_name() {
                     if ps_name2 == ps_name {
-                        ix = i as i32;
+                        ix = Some(i);
                         break;
                     }
                 }
                 i += 1;
+                set_index(&mut handle, i);
             }
-            if ix > -1 {
-                *index = ix as u32;
+
+            if let Some(ix) = ix {
+                *index = ix;
                 /*let osstr = pathbuf.as_os_str();
                 #[cfg(unix)]
                 {

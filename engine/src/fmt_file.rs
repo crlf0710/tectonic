@@ -525,7 +525,7 @@ pub(crate) unsafe fn load_fmt_file() -> bool {
 
     fn bad_fmt() -> ! {
         panic!("fatal format file error");
-    };
+    }
 
     /* start reading the header */
 

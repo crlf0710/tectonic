@@ -46,8 +46,7 @@ use crate::stub_icu as icu;
 use crate::xetex_font_info::gFreeTypeLibrary;
 
 use crate::freetype_sys_patch::{FT_Get_Sfnt_Name, FT_Get_Sfnt_Name_Count};
-use freetype::freetype_sys::FT_Long;
-use freetype::freetype_sys::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
+use freetype::freetype::{FT_Done_Face, FT_Get_Postscript_Name, FT_Init_FreeType, FT_New_Face};
 
 pub(crate) use fontconfig_sys::fontconfig::{
     enum__FcResult as FcResult, struct__FcPattern as FcPattern,
@@ -343,7 +342,7 @@ impl FontMgrExt for XeTeXFontMgr_FC {
             return names;
         }
         let mut face = ptr::null_mut();
-        if FT_New_Face(gFreeTypeLibrary, pathname, index as FT_Long, &mut face) != 0 {
+        if FT_New_Face(gFreeTypeLibrary, pathname, index as _, &mut face) != 0 {
             return names;
         }
         let mut name: *const i8 = FT_Get_Postscript_Name(face);

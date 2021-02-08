@@ -3,6 +3,7 @@
 #![allow(clippy::float_cmp)]
 #![allow(clippy::match_single_binding)]
 #![allow(clippy::missing_safety_doc)]
+
 #[macro_use]
 extern crate bridge;
 
@@ -169,83 +170,57 @@ mod xetex_font_manager;
 mod xetex_layout_interface;
 
 pub(crate) mod freetype_sys_patch {
-    use freetype::freetype_sys::{
-        FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Int32, FT_Long, FT_Sfnt_Tag, FT_Short, FT_UInt,
-        FT_ULong, FT_UShort,
+    pub(crate) use freetype::freetype::{
+        FT_Error, FT_Face, FT_Face_GetCharVariantIndex, FT_Fixed, FT_Load_Sfnt_Table, FT_Sfnt_Tag,
     };
 
     extern "C" {
-        pub(crate) fn FT_Face_GetCharVariantIndex(
-            face: FT_Face,
-            charcode: FT_ULong,
-            variantSelector: FT_ULong,
-        ) -> FT_UInt;
-
-        pub(crate) fn FT_Get_Advance(
-            face: FT_Face,
-            gindex: FT_UInt,
-            load_flags: FT_Int32,
-            padvance: *mut FT_Fixed,
-        ) -> FT_Error;
-
-        pub(crate) fn FT_Load_Sfnt_Table(
-            face: FT_Face,
-            tag: FT_ULong,
-            offset: FT_Long,
-            buffer: *mut FT_Byte,
-            length: *mut FT_ULong,
-        ) -> FT_Error;
-
-        pub(crate) fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> FT_UInt;
-
         pub(crate) fn FT_Get_Sfnt_Name(
             face: FT_Face,
-            idx: FT_UInt,
+            idx: u32,
             aname: *mut FT_SfntName,
         ) -> FT_Error;
+        pub(crate) fn FT_Get_Sfnt_Name_Count(face: FT_Face) -> u32;
+        pub(crate) fn FT_Get_Advance(
+            face: FT_Face,
+            gindex: u32,
+            load_flags: i32,
+            padvance: *mut FT_Fixed,
+        ) -> FT_Error;
     }
-
-    //pub(crate) const FT_SFNT_MAX: FT_Sfnt_Tag = 7;
-    //pub(crate) const FT_SFNT_PCLT: FT_Sfnt_Tag = 6;
-    pub(crate) const FT_SFNT_POST: FT_Sfnt_Tag = 5;
-    //pub(crate) const FT_SFNT_VHEA: FT_Sfnt_Tag = 4;
-    //pub(crate) const FT_SFNT_HHEA: FT_Sfnt_Tag = 3;
-    pub(crate) const FT_SFNT_OS2: FT_Sfnt_Tag = 2;
-    //pub(crate) const FT_SFNT_MAXP: FT_Sfnt_Tag = 1;
-    pub(crate) const FT_SFNT_HEAD: FT_Sfnt_Tag = 0;
 
     #[derive(Copy, Clone)]
     #[repr(C)]
     pub(crate) struct TT_Header_ {
         pub(crate) Table_Version: FT_Fixed,
         pub(crate) Font_Revision: FT_Fixed,
-        pub(crate) CheckSum_Adjust: FT_Long,
-        pub(crate) Magic_Number: FT_Long,
-        pub(crate) Flags: FT_UShort,
-        pub(crate) Units_Per_EM: FT_UShort,
-        pub(crate) Created: [FT_ULong; 2],
-        pub(crate) Modified: [FT_ULong; 2],
-        pub(crate) xMin: FT_Short,
-        pub(crate) yMin: FT_Short,
-        pub(crate) xMax: FT_Short,
-        pub(crate) yMax: FT_Short,
-        pub(crate) Mac_Style: FT_UShort,
-        pub(crate) Lowest_Rec_PPEM: FT_UShort,
-        pub(crate) Font_Direction: FT_Short,
-        pub(crate) Index_To_Loc_Format: FT_Short,
-        pub(crate) Glyph_Data_Format: FT_Short,
+        pub(crate) CheckSum_Adjust: i64,
+        pub(crate) Magic_Number: i64,
+        pub(crate) Flags: u16,
+        pub(crate) Units_Per_EM: u16,
+        pub(crate) Created: [u64; 2],
+        pub(crate) Modified: [u64; 2],
+        pub(crate) xMin: i16,
+        pub(crate) yMin: i16,
+        pub(crate) xMax: i16,
+        pub(crate) yMax: i16,
+        pub(crate) Mac_Style: u16,
+        pub(crate) Lowest_Rec_PPEM: u16,
+        pub(crate) Font_Direction: i16,
+        pub(crate) Index_To_Loc_Format: i16,
+        pub(crate) Glyph_Data_Format: i16,
     }
     pub(crate) type TT_Header = TT_Header_;
 
     #[derive(Copy, Clone)]
     #[repr(C)]
     pub(crate) struct FT_SfntName_ {
-        pub(crate) platform_id: FT_UShort,
-        pub(crate) encoding_id: FT_UShort,
-        pub(crate) language_id: FT_UShort,
-        pub(crate) name_id: FT_UShort,
-        pub(crate) string: *mut FT_Byte,
-        pub(crate) string_len: FT_UInt,
+        pub(crate) platform_id: u16,
+        pub(crate) encoding_id: u16,
+        pub(crate) language_id: u16,
+        pub(crate) name_id: u16,
+        pub(crate) string: *mut u8,
+        pub(crate) string_len: u32,
     }
     pub(crate) type FT_SfntName = FT_SfntName_;
 }

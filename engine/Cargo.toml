@@ -37,14 +37,21 @@ libc = "0.2"
 chrono = "0.4.9"
 #log = { version = "0.4", features = ["std"] }
 harfbuzz-sys = {version = "^0.3", default-features = false}
-freetype-rs = "0.23.0"
 euclid = "0.20"
 enumn = "0.1.2"
 derive_more = "0.99.7"
 md5 = "0.7"
-fontconfig_sys = { package = "yeslogic-fontconfig-sys", version = "2.11.1" }
+fontconfig_sys = { package = "servo-fontconfig", version = "0.5.1" }
 once_cell = "1.5.2"
 enum_dispatch = "0.3.5"
+freetype = "0.7.0"
+freetype-sys = "0.13.1"
+
+[dependencies.font-kit]
+version = "0.10.0"
+# to minimize code change, we're using harfbuzz with freetype only
+# but as font-kit takes over, this can go, and macOS gets to use Core Text, and Windows gets to use DirectWrite
+features = ["loader-freetype", "loader-freetype-default"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.9.1"

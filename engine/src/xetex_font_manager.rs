@@ -746,8 +746,8 @@ impl XeTeXFontInst {
 }
 impl XeTeXFontMgrFont {
     pub(crate) unsafe fn base_get_op_size_rec_and_style_flags(&mut self) {
-        use crate::freetype_sys_patch::{TT_Header, FT_SFNT_HEAD, FT_SFNT_OS2, FT_SFNT_POST};
-        use freetype::freetype_sys::{TT_Postscript, TT_OS2};
+        use crate::freetype_sys_patch::{FT_Sfnt_Tag, TT_Header};
+        use freetype_sys::{TT_Postscript, TT_OS2};
         if let Some(font) = createFont(self.fontRef, Scaled(655360)) {
             if let Some(size_rec) = font.get_op_size() {
                 self.opSizeInfo.designSize = size_rec.designSize;
@@ -764,7 +764,7 @@ impl XeTeXFontMgrFont {
                     self.opSizeInfo.maxSize = size_rec.maxSize;
                 }
             }
-            let os2Table = font.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
+            let os2Table = font.get_font_table_ft(FT_Sfnt_Tag::FT_SFNT_OS2) as *mut TT_OS2;
             if !os2Table.is_null() {
                 self.weight = (*os2Table).usWeightClass;
                 self.width = (*os2Table).usWidthClass;
@@ -773,7 +773,7 @@ impl XeTeXFontMgrFont {
                 self.isBold = sel as i32 & 1 << 5 != 0;
                 self.isItalic = sel as i32 & 1 << 0 != 0
             }
-            let headTable = font.get_font_table_ft(FT_SFNT_HEAD) as *mut TT_Header;
+            let headTable = font.get_font_table_ft(FT_Sfnt_Tag::FT_SFNT_HEAD) as *mut TT_Header;
             if !headTable.is_null() {
                 let ms = (*headTable).Mac_Style;
                 if ms as i32 & 1 << 0 != 0 {
@@ -783,7 +783,8 @@ impl XeTeXFontMgrFont {
                     self.isItalic = true
                 }
             }
-            let postTable = font.get_font_table_ft(FT_SFNT_POST) as *const TT_Postscript;
+            let postTable =
+                font.get_font_table_ft(FT_Sfnt_Tag::FT_SFNT_POST) as *const TT_Postscript;
             if !postTable.is_null() {
                 self.slant = (1000_f64
                     * (f64::from(Scaled(-(*postTable).italicAngle as i32)) * std::f64::consts::PI

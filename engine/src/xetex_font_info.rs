@@ -52,20 +52,17 @@ use harfbuzz_sys::{
     hb_font_set_scale, hb_font_t, hb_glyph_extents_t, hb_position_t, hb_tag_t,
     HB_MEMORY_MODE_WRITABLE,
 };
-use std::io::Read;
 
 use crate::freetype_sys_patch::{FT_Face_GetCharVariantIndex, FT_Get_Advance, FT_Load_Sfnt_Table};
-use freetype::freetype_sys::{
-    FT_Attach_Stream, FT_Done_Face, FT_Done_Glyph, FT_Get_Char_Index, FT_Get_First_Char,
-    FT_Get_Glyph, FT_Get_Glyph_Name, FT_Get_Kerning, FT_Get_Name_Index, FT_Get_Next_Char,
-    FT_Get_Sfnt_Table, FT_Glyph_Get_CBox, FT_Init_FreeType, FT_Load_Glyph, FT_New_Memory_Face,
+use freetype::freetype::{
+    FT_Attach_Stream, FT_Done_Face, FT_Get_Char_Index, FT_Get_First_Char, FT_Get_Glyph_Name,
+    FT_Get_Kerning, FT_Get_Name_Index, FT_Get_Next_Char, FT_Get_Sfnt_Table, FT_Load_Glyph,
 };
-use freetype::freetype_sys::{
-    FT_BBox, FT_Byte, FT_Error, FT_Face, FT_Fixed, FT_Glyph, FT_Library, FT_Long, FT_Pointer,
-    FT_Sfnt_Tag, FT_UInt, FT_ULong, FT_Vector,
+use freetype::freetype::{
+    FT_Face, FT_Fixed, FT_Library, FT_Long, FT_Pointer, FT_Sfnt_Tag, FT_Vector,
 };
 
-use bridge::{ttstub_input_get_size, InFile};
+use bridge::InFile;
 
 use std::ptr;
 
@@ -159,6 +156,9 @@ impl GlyphBBox {
 // false = horizontal, true = vertical
 // font filename
 // face index
+
+use font_kit::loaders::default::Font;
+
 #[derive(Clone)]
 pub(crate) struct XeTeXFontInst {
     pub(crate) m_unitsPerEM: u16,
@@ -172,9 +172,9 @@ pub(crate) struct XeTeXFontInst {
     pub(crate) m_filename: String,
     pub(crate) m_index: u32,
     pub(crate) m_ftFace: FT_Face,
-    pub(crate) m_backingData: Vec<u8>,
-    pub(crate) m_backingData2: Vec<u8>,
+    pub(crate) m_afm_backing_data: Vec<u8>,
     pub(crate) m_hbFont: *mut hb_font_t,
+    pub fk_font: Option<Font>,
 }
 
 /* Return NAME with any leading path stripped off.  This returns a
@@ -214,12 +214,14 @@ impl XeTeXFontInst {
             m_filename: String::new(),
             m_index: 0,
             m_ftFace: 0 as FT_Face,
-            m_backingData: Vec::new(),
-            m_backingData2: Vec::new(),
+            m_afm_backing_data: Vec::new(),
             m_hbFont: ptr::null_mut(),
+            fk_font: None,
         };
         if !pathname.is_empty() {
-            res.initialize(pathname, index, status);
+            if let Err(_) = res.initialize(pathname, index) {
+                *status = true;
+            }
         };
         res
     }
@@ -257,14 +259,14 @@ unsafe extern "C" fn _get_glyph(
     let face = font_data as FT_Face;
     *gid = 0 as hb_codepoint_t;
     if vs != 0 {
-        *gid = FT_Face_GetCharVariantIndex(face, ch as FT_ULong, vs as FT_ULong)
+        *gid = FT_Face_GetCharVariantIndex(face, ch as _, vs as _)
     }
     if *gid == 0 {
-        *gid = FT_Get_Char_Index(face, ch as FT_ULong)
+        *gid = FT_Get_Char_Index(face, ch as _)
     }
     (*gid != 0) as hb_bool_t
 }
-unsafe extern "C" fn _get_glyph_advance(face: FT_Face, gid: FT_UInt, vertical: bool) -> FT_Fixed {
+unsafe extern "C" fn _get_glyph_advance(face: FT_Face, gid: u32, vertical: bool) -> FT_Fixed {
     let mut advance = 0;
     let mut flags = 1 << 0;
     if vertical {
@@ -326,14 +328,14 @@ unsafe extern "C" fn _get_glyph_h_kerning(
     gid2: hb_codepoint_t,
     mut _p: *mut libc::c_void,
 ) -> hb_position_t {
-    use freetype::freetype_sys::FT_KERNING_UNSCALED;
+    use freetype::freetype::FT_Kerning_Mode;
     let face = font_data as FT_Face;
     let mut kerning: FT_Vector = FT_Vector { x: 0, y: 0 };
     let error = FT_Get_Kerning(
         face,
         gid1,
         gid2,
-        FT_KERNING_UNSCALED as i32 as FT_UInt,
+        FT_Kerning_Mode::FT_KERNING_UNSCALED as u32,
         &mut kerning,
     );
     if error != 0 {
@@ -378,12 +380,12 @@ unsafe extern "C" fn _get_glyph_contour_point(
     y: *mut hb_position_t,
     mut _p: *mut libc::c_void,
 ) -> hb_bool_t {
-    use freetype::freetype_sys::FT_GLYPH_FORMAT_OUTLINE;
+    use freetype::freetype::FT_Glyph_Format;
     let face = font_data as FT_Face;
     let mut ret = false;
     let error = FT_Load_Glyph(face, gid, 1 << 0);
     if error == 0
-        && (*(*face).glyph).format as u32 == FT_GLYPH_FORMAT_OUTLINE as u32
+        && (*(*face).glyph).format as u32 == FT_Glyph_Format::FT_GLYPH_FORMAT_OUTLINE as u32
         && point_index < (*(*face).glyph).outline.n_points as u32
     {
         *x = (*(*(*face).glyph).outline.points.offset(point_index as isize)).x as hb_position_t;
@@ -490,12 +492,12 @@ unsafe extern "C" fn _get_table(
     let face = user_data as FT_Face;
     let mut length = 0;
     let mut blob = ptr::null_mut();
-    let error = FT_Load_Sfnt_Table(face, tag as FT_ULong, 0, ptr::null_mut(), &mut length);
+    let error = FT_Load_Sfnt_Table(face, tag as _, 0, ptr::null_mut(), &mut length);
     if error == 0 {
         let table = xmalloc(length.wrapping_mul(::std::mem::size_of::<i8>() as libc::c_ulong) as _)
-            as *mut FT_Byte;
+            as *mut u8;
         if !table.is_null() {
-            let error = FT_Load_Sfnt_Table(face, tag as FT_ULong, 0, table, &mut length);
+            let error = FT_Load_Sfnt_Table(face, tag as _, 0, table, &mut length);
             if error == 0 {
                 blob = hb_blob_create(
                     table as *const i8,
@@ -511,47 +513,58 @@ unsafe extern "C" fn _get_table(
     }
     blob
 }
+
+//use font_kit::family_name::FamilyName;
+use font_kit::handle::Handle;
+//use font_kit::hinting::HintingOptions;
+//use font_kit::loader::FontTransform;
+//use font_kit::properties::Properties;
+//use font_kit::source::Source;
+//use font_kit::source::SystemSource;
+
 impl XeTeXFontInst {
-    pub(crate) unsafe fn initialize(&mut self, pathname: &str, index: i32, status: &mut bool) {
-        use crate::freetype_sys_patch::{FT_SFNT_OS2, FT_SFNT_POST};
-        use freetype::freetype_sys::FT_Open_Args;
-        use freetype::freetype_sys::{TT_Postscript, TT_OS2};
-        if gFreeTypeLibrary.is_null() {
-            let error = FT_Init_FreeType(&mut gFreeTypeLibrary);
-            if error != 0 {
-                abort!("FreeType initialization failed, error {}", error);
-            }
-        }
+    pub(crate) unsafe fn initialize(&mut self, pathname: &str, index: i32) -> Result<(), i32> {
+        use freetype::freetype::FT_Open_Args;
+        use freetype_sys::{TT_Postscript, TT_OS2};
         // Here we emulate some logic that was originally in find_native_font();
-        let handle = InFile::open(pathname, TTInputFormat::OPENTYPE, 0)
+        let mut handle = InFile::open(pathname, TTInputFormat::OPENTYPE, 0)
             .or_else(|| InFile::open(pathname, TTInputFormat::TRUETYPE, 0))
-            .or_else(|| InFile::open(pathname, TTInputFormat::TYPE1, 0));
-        if handle.is_none() {
-            *status = true;
-            return;
+            .or_else(|| InFile::open(pathname, TTInputFormat::TYPE1, 0))
+            .ok_or(1)?;
+
+        use std::io::prelude::*;
+        use std::sync::Arc;
+        let mut bytes = Vec::new();
+        handle.seek(std::io::SeekFrom::Start(0)).unwrap();
+        handle.read_to_end(&mut bytes).unwrap();
+
+        let fk_handle = Handle::Memory {
+            bytes: Arc::new(bytes),
+            font_index: index as u32,
+        };
+        let fk_font = fk_handle.load().unwrap_or_else(|e| {
+            panic!(
+                "font-kit: Couldn't load Handle for {}, got error {:?}",
+                pathname, e
+            )
+        });
+
+        let ft_face = fk_font.native_font();
+
+        // https://www.freetype.org/freetype2/docs/reference/ft2-base_interface.html#ft_face_flag_xxx
+        use freetype::freetype::FT_FACE_FLAG_SCALABLE;
+        use freetype::freetype::FT_FACE_FLAG_SFNT;
+
+        if (*ft_face).face_flags & FT_FACE_FLAG_SCALABLE as i64 == 0 {
+            // Not an outline font
+            return Err(1);
         }
-        let mut handle = handle.unwrap();
-        let sz = ttstub_input_get_size(&mut handle) as usize;
-        self.m_backingData = vec![0; sz];
-        if handle
-            .read_exact(self.m_backingData.as_mut_slice())
-            .is_err()
-        {
-            abort!("failed to read font file");
-        }
-        let _error = FT_New_Memory_Face(
-            gFreeTypeLibrary,
-            self.m_backingData.as_ptr(),
-            sz as FT_Long,
-            index as FT_Long,
-            &mut self.m_ftFace,
-        );
-        if (*self.m_ftFace).face_flags & 1 << 0 == 0 {
-            *status = true;
-            return;
-        }
+
+        self.fk_font = Some(fk_font);
+        self.m_ftFace = ft_face;
+
         /* for non-sfnt-packaged fonts (presumably Type 1), see if there is an AFM file we can attach */
-        if index == 0 && (*self.m_ftFace).face_flags & 1 << 3 == 0 {
+        if index == 0 && (*self.m_ftFace).face_flags & FT_FACE_FLAG_SFNT as i64 == 0 {
             // Tectonic: this code used to use kpse_find_file and FT_Attach_File
             // to try to find metrics for this font. Thanks to the existence of
             // FT_Attach_Stream we can emulate this behavior while going through
@@ -565,14 +578,10 @@ impl XeTeXFontInst {
             }
             let afm_handle = InFile::open(&afm, TTInputFormat::AFM, 0);
             if let Some(mut afm_handle) = afm_handle {
-                let sz = ttstub_input_get_size(&mut afm_handle) as usize;
-                self.m_backingData2 = vec![0; sz];
-                if afm_handle
-                    .read_exact(self.m_backingData2.as_mut_slice())
-                    .is_err()
-                {
-                    abort!("failed to read AFM file");
-                }
+                self.m_afm_backing_data.clear();
+                afm_handle
+                    .read_to_end(&mut self.m_afm_backing_data)
+                    .unwrap_or_else(|_| abort!("failed to read AFM file"));
                 let mut open_args: FT_Open_Args = FT_Open_Args {
                     flags: 0,
                     memory_base: ptr::null(),
@@ -584,8 +593,8 @@ impl XeTeXFontInst {
                     params: ptr::null_mut(),
                 };
                 open_args.flags = 0x1;
-                open_args.memory_base = self.m_backingData2.as_ptr();
-                open_args.memory_size = sz as FT_Long;
+                open_args.memory_base = self.m_afm_backing_data.as_ptr();
+                open_args.memory_size = self.m_afm_backing_data.len() as FT_Long;
                 FT_Attach_Stream(self.m_ftFace, &mut open_args);
             }
         }
@@ -594,11 +603,11 @@ impl XeTeXFontInst {
         self.m_unitsPerEM = (*self.m_ftFace).units_per_EM;
         self.m_ascent = self.units_to_points((*self.m_ftFace).ascender as f32);
         self.m_descent = self.units_to_points((*self.m_ftFace).descender as f32);
-        let postTable = self.get_font_table_ft(FT_SFNT_POST) as *mut TT_Postscript;
+        let postTable = self.get_font_table_ft(FT_Sfnt_Tag::FT_SFNT_POST) as *mut TT_Postscript;
         if !postTable.is_null() {
             self.m_italicAngle = Scaled((*postTable).italicAngle as i32).into();
         }
-        let os2Table = self.get_font_table_ft(FT_SFNT_OS2) as *mut TT_OS2;
+        let os2Table = self.get_font_table_ft(FT_Sfnt_Tag::FT_SFNT_OS2) as *mut TT_OS2;
         if !os2Table.is_null() {
             self.m_capHeight = self.units_to_points((*os2Table).sCapHeight as f32);
             self.m_xHeight = self.units_to_points((*os2Table).sxHeight as f32)
@@ -636,6 +645,7 @@ impl XeTeXFontInst {
         );
         // We don’t want device tables adjustments
         hb_font_set_ppem(self.m_hbFont, 0, 0);
+        Ok(())
     }
 
     pub(crate) unsafe fn set_layout_dir_vertical(&mut self, vertical: bool) {
@@ -645,26 +655,16 @@ impl XeTeXFontInst {
     #[cfg(target_os = "macos")]
     pub(crate) unsafe fn get_font_table(&self, tag: u32) -> *mut libc::c_void {
         let mut tmpLength = 0;
-        let mut error: FT_Error = FT_Load_Sfnt_Table(
-            self.m_ftFace,
-            tag as FT_ULong,
-            0,
-            0 as *mut FT_Byte,
-            &mut tmpLength,
-        );
+        let mut error =
+            FT_Load_Sfnt_Table(self.m_ftFace, tag as _, 0, 0 as *mut u8, &mut tmpLength);
         if error != 0 {
             return 0 as *mut libc::c_void;
         }
         let table =
             xmalloc(tmpLength.wrapping_mul(::std::mem::size_of::<i8>() as libc::c_ulong) as _);
         if !table.is_null() {
-            error = FT_Load_Sfnt_Table(
-                self.m_ftFace,
-                tag as FT_ULong,
-                0,
-                table as *mut FT_Byte,
-                &mut tmpLength,
-            );
+            error =
+                FT_Load_Sfnt_Table(self.m_ftFace, tag as _, 0, table as *mut u8, &mut tmpLength);
             if error != 0 {
                 free(table);
                 return 0 as *mut libc::c_void;
@@ -677,37 +677,21 @@ impl XeTeXFontInst {
     }
 
     pub(crate) unsafe fn get_glyph_bounds(&self, gid: GlyphID) -> Option<GlyphBBox> {
-        use freetype::freetype_sys::FT_GLYPH_BBOX_UNSCALED;
-        let mut bbox = GlyphBBox::default();
-        let mut error: FT_Error = FT_Load_Glyph(self.m_ftFace, gid as FT_UInt, 1 << 0);
-        if error != 0 {
-            return None;
-        }
-        let mut glyph: FT_Glyph = 0 as FT_Glyph;
-        error = FT_Get_Glyph((*self.m_ftFace).glyph, &mut glyph);
-        if error == 0 {
-            let mut ft_bbox: FT_BBox = FT_BBox {
-                xMin: 0,
-                yMin: 0,
-                xMax: 0,
-                yMax: 0,
+        self.fk_font.as_ref().and_then(|font| {
+            return match font.typographic_bounds(gid as u32) {
+                Ok(rect) => Some(GlyphBBox {
+                    xMin: self.units_to_points(rect.origin().x()),
+                    xMax: self.units_to_points(rect.origin().x() + rect.size().x()),
+                    yMin: self.units_to_points(rect.origin().y()),
+                    yMax: self.units_to_points(rect.origin().y() + rect.size().y()),
+                }),
+                Err(_) => None,
             };
-            FT_Glyph_Get_CBox(
-                glyph,
-                FT_GLYPH_BBOX_UNSCALED as i32 as FT_UInt,
-                &mut ft_bbox,
-            );
-            bbox.xMin = self.units_to_points(ft_bbox.xMin as f32);
-            bbox.yMin = self.units_to_points(ft_bbox.yMin as f32);
-            bbox.xMax = self.units_to_points(ft_bbox.xMax as f32);
-            bbox.yMax = self.units_to_points(ft_bbox.yMax as f32);
-            FT_Done_Glyph(glyph);
-        };
-        Some(bbox)
+        })
     }
 
     pub(crate) unsafe fn map_char_to_glyph(&self, ch: char) -> GlyphID {
-        FT_Get_Char_Index(self.m_ftFace, ch as FT_ULong) as GlyphID
+        FT_Get_Char_Index(self.m_ftFace, ch as _) as GlyphID
     }
 
     pub(crate) unsafe fn get_num_glyphs(&self) -> u16 {
@@ -715,7 +699,7 @@ impl XeTeXFontInst {
     }
 
     pub(crate) unsafe fn get_glyph_width(&self, gid: GlyphID) -> f32 {
-        self.units_to_points(_get_glyph_advance(self.m_ftFace, gid as FT_UInt, false) as f32)
+        self.units_to_points(_get_glyph_advance(self.m_ftFace, gid as _, false) as f32)
     }
 
     pub(crate) unsafe fn get_glyph_height_depth(&self, gid: GlyphID) -> (f32, f32) {
@@ -748,7 +732,7 @@ impl XeTeXFontInst {
             static mut buffer: [i8; 256] = [0; 256];
             FT_Get_Glyph_Name(
                 self.m_ftFace,
-                gid as FT_UInt,
+                gid as _,
                 buffer.as_mut_ptr() as FT_Pointer,
                 256,
             );
@@ -759,17 +743,17 @@ impl XeTeXFontInst {
     }
 
     pub(crate) unsafe fn get_first_char_code(&self) -> UChar32 {
-        let mut gindex: FT_UInt = 0;
+        let mut gindex = 0;
         FT_Get_First_Char(self.m_ftFace, &mut gindex) as UChar32
     }
 
     pub(crate) unsafe fn get_last_char_code(&self) -> UChar32 {
-        let mut gindex: FT_UInt = 0;
+        let mut gindex = 0;
         let mut ch: UChar32 = FT_Get_First_Char(self.m_ftFace, &mut gindex) as UChar32;
         let mut prev: UChar32 = ch;
         while gindex != 0 {
             prev = ch;
-            ch = FT_Get_Next_Char(self.m_ftFace, ch as FT_ULong, &mut gindex) as UChar32
+            ch = FT_Get_Next_Char(self.m_ftFace, ch as _, &mut gindex) as UChar32
         }
         prev
     }
