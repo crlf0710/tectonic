@@ -351,25 +351,25 @@ impl TextLayoutEngine for XeTeXLayoutEngine {
         self.extend as f64
     }
     unsafe fn get_font_metrics(&self) -> (Scaled, Scaled, Scaled, Scaled, Scaled) {
-        const DIV: f32 = 83.33333333333; // TODO: check
-
         let slant = (f64::from(getSlant(self.get_font())) * self.extend_factor()
             + self.slant_factor())
         .into();
         use font_kit::metrics::Metrics;
         if let Some(font) = self.font.fk_font.as_ref() {
             let Metrics {
+                units_per_em,
                 ascent,
                 descent,
                 x_height,
                 cap_height,
                 ..
             } = font.metrics();
+            let div = (units_per_em as f32) / 12.; // TODO: check
             (
-                (ascent / DIV).into(),
-                (descent / DIV).into(),
-                (x_height / DIV).into(),
-                (cap_height / DIV).into(),
+                (ascent / div).into(),
+                (descent / div).into(),
+                (x_height / div).into(),
+                (cap_height / div).into(),
                 slant,
             )
         } else {
