@@ -22,8 +22,8 @@ use super::xetex_aatfont as aat;
 use crate::cf_prelude::{
     kCFNumberFloatType, kCTFontAttributeName, kCTForegroundColorAttributeName,
     kCTVerticalFormsAttributeName, CFDictionaryGetValue, CFDictionaryRef, CFNumberGetValue,
-    CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGColorRef,
-    CTFontGetMatrix, CTFontGetSize, CTFontRef,
+    CFNumberRef, CFNumberType, CFRelease, CFTypeRef, CGColorRef, CTFontGetMatrix, CTFontGetSize,
+    CTFontRef,
 };
 use crate::xetex_ini::{
     loaded_font_design_size, loaded_font_flags, loaded_font_letter_space, loaded_font_mapping,

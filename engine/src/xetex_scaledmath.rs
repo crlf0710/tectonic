@@ -140,6 +140,11 @@ impl From<f64> for Scaled {
         Self((d * 65536. + 0.5) as i32)
     }
 }
+impl From<f32> for Scaled {
+    fn from(f: f32) -> Self {
+        (f as f64).into()
+    }
+}
 impl From<Scaled> for f64 {
     fn from(s: Scaled) -> Self {
         s.0 as f64 / 65536.
