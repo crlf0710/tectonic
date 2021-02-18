@@ -2055,24 +2055,27 @@ pub(crate) unsafe fn pdf_add_stream_flate(dst: &mut pdf_stream, data: &[u8]) -> 
 }
 
 #[cfg(feature = "libz-sys")]
-unsafe fn get_decode_parms(parms: &mut decode_parms, dict: &mut pdf_dict) -> libc::c_int {
+unsafe fn get_decode_parms(dict: &mut pdf_dict) -> Option<decode_parms> {
     /* Fill with default values */
-    parms.predictor = 1;
-    parms.colors = 1;
-    parms.bits_per_component = 8;
-    parms.columns = 1;
-    if let Some(tmp) = pdf_deref_obj(dict.get_mut("Predictor")).as_ref() {
-        parms.predictor = tmp.as_f64() as i32;
-    }
-    if let Some(tmp) = pdf_deref_obj(dict.get_mut("Colors")).as_ref() {
-        parms.colors = tmp.as_f64() as i32;
-    }
-    if let Some(tmp) = pdf_deref_obj(dict.get_mut("BitsPerComponent")).as_ref() {
-        parms.bits_per_component = tmp.as_f64() as i32;
-    }
-    if let Some(tmp) = pdf_deref_obj(dict.get_mut("Columns")).as_ref() {
-        parms.columns = tmp.as_f64() as i32;
-    }
+    let parms = decode_parms {
+        predictor: match DerefObj::new(dict.get_mut("Predictor")) {
+            Some(tmp) => tmp.as_f64() as i32,
+            None => 1,
+        },
+        colors: match DerefObj::new(dict.get_mut("Colors")) {
+            Some(tmp) => tmp.as_f64() as i32,
+            None => 1,
+        },
+        bits_per_component: match DerefObj::new(dict.get_mut("BitsPerComponent")) {
+            Some(tmp) => tmp.as_f64() as i32,
+            None => 8,
+        },
+        columns: match DerefObj::new(dict.get_mut("Columns")) {
+            Some(tmp) => tmp.as_f64() as i32,
+            None => 1,
+        },
+    };
+
     if parms.bits_per_component != 1
         && parms.bits_per_component != 2
         && parms.bits_per_component != 4
@@ -2083,13 +2086,13 @@ unsafe fn get_decode_parms(parms: &mut decode_parms, dict: &mut pdf_dict) -> lib
             "Invalid BPC value in DecodeParms: {}",
             parms.bits_per_component,
         );
-        return -1;
+        return None;
     } else {
         if parms.predictor <= 0 || parms.colors <= 0 || parms.columns <= 0 {
-            return -1;
+            return None;
         }
     }
-    return 0;
+    Some(parms)
 }
 /* From Xpdf version 3.04
  * I'm not sure if I properly ported... Untested.
@@ -2357,13 +2360,7 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
     if stream_dict.get("Filter").is_some() {
         #[cfg(feature = "libz-sys")]
         {
-            let mut parms = decode_parms {
-                predictor: 0,
-                colors: 0,
-                bits_per_component: 0,
-                columns: 0,
-            };
-            let mut have_parms: libc::c_int = 0;
+            let mut parms = None;
             if stream_dict.has("DecodeParms") {
                 /* Dictionary or array */
                 let mut tmp =
@@ -2387,11 +2384,8 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
                     };
                 if let Some(tmp) = tmp.as_mut() {
                     if let Object::Dict(d) = &mut tmp.data {
-                        error = get_decode_parms(&mut parms, d);
-                        if error != 0 {
-                            panic!("Invalid value(s) in DecodeParms dictionary.");
-                        }
-                        have_parms = 1;
+                        parms = get_decode_parms(d)
+                            .or_else(|| panic!("Invalid value(s) in DecodeParms dictionary."));
                     } else {
                         warn!("PDF dict expected for DecodeParms...");
                         return -1;
@@ -2411,16 +2405,16 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
             }
             if let Object::Name(filter_name) = &(*filter).data {
                 let filter_name = filter_name.to_bytes();
-                if filter_name == b"FlateDecode" {
-                    if have_parms != 0 {
-                        error = pdf_add_stream_flate_filtered(dst, stream_data, &mut parms)
+                error = if filter_name == b"FlateDecode" {
+                    if let Some(parms) = parms.as_mut() {
+                        pdf_add_stream_flate_filtered(dst, stream_data, parms)
                     } else {
-                        error = pdf_add_stream_flate(dst, stream_data)
+                        pdf_add_stream_flate(dst, stream_data)
                     }
                 } else {
                     warn!("DecodeFilter \"{}\" not supported.", filter_name.display());
-                    error = -1
-                }
+                    -1
+                };
             } else {
                 panic!("Broken PDF file?");
             }
