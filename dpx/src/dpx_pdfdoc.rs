@@ -35,8 +35,8 @@ use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_dpxutil::{
-    ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_next,
-    ht_lookup_table, ht_set_iter, ht_table_size,
+    ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_next, ht_lookup_table,
+    ht_set_iter, ht_table_size,
 };
 use super::dpx_dvipdfmx::is_xdv;
 use super::dpx_jpegimage::check_for_jpeg;
@@ -1472,9 +1472,7 @@ pub(crate) unsafe fn pdf_doc_add_names(category: &[u8], key: &[u8], value: *mut 
     if (*p.names.offset(i as isize)).data.is_null() {
         (*p.names.offset(i as isize)).data = pdf_new_name_tree()
     }
-    let keyptr = key.as_ptr() as *const libc::c_void;
-    let keylen = key.len() as i32;
-    pdf_names_add_object((*p.names.offset(i as isize)).data, keyptr, keylen, value)
+    pdf_names_add_object((*p.names.offset(i as isize)).data, key, value)
 }
 unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
     if pdoc.check_gotos == 0 {
@@ -1555,11 +1553,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
         return error(A, D);
     };
 
-    let mut D_new = ht_lookup_table(
-        &mut pdoc.gotos,
-        dest.as_ptr() as *const libc::c_void,
-        dest.len() as i32,
-    ) as *mut pdf_obj;
+    let mut D_new = ht_lookup_table(&mut pdoc.gotos, dest) as *mut pdf_obj;
     if D_new.is_null() {
         /* We use hexadecimal notation for our numeric destinations.
          * Other bases (e.g., 10+26 or 10+2*26) would be more efficient.
@@ -1567,12 +1561,7 @@ unsafe fn pdf_doc_add_goto(annot_dict: &mut pdf_dict) {
         let buf = format!("{:x}", ht_table_size(&mut pdoc.gotos));
         /* Maybe reference */
         D_new = pdf_string::new(buf).into_obj();
-        ht_append_table(
-            &mut pdoc.gotos,
-            dest.as_ptr() as *const libc::c_void,
-            dest.len() as i32,
-            D_new as *mut libc::c_void,
-        );
+        ht_append_table(&mut pdoc.gotos, dest, D_new as *mut libc::c_void);
     }
 
     dict.set(key, pdf_link_obj(D_new));
@@ -1603,11 +1592,9 @@ unsafe fn warn_undef_dests(dests: *mut ht_table, gotos: *mut ht_table) {
         return;
     }
     loop {
-        let mut keylen: i32 = 0;
-        let key: *mut i8 = ht_iter_getkey(&mut iter, &mut keylen);
-        if ht_lookup_table(dests, key as *const libc::c_void, keylen).is_null() {
-            let dest = std::slice::from_raw_parts(key as *const u8, keylen as usize);
-            warn!("PDF destination \"{}\" not defined.", dest.display());
+        let key = iter.get_key();
+        if ht_lookup_table(dests, key).is_null() {
+            warn!("PDF destination \"{}\" not defined.", key.display());
         }
         if !(ht_iter_next(&mut iter) >= 0) {
             break;

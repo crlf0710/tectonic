@@ -34,13 +34,13 @@ use std::ptr;
 use std::slice;
 
 use super::dpx_dpxutil::{
-    ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getkey, ht_iter_getval,
-    ht_iter_next, ht_lookup_table, ht_set_iter,
+    ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getval, ht_iter_next,
+    ht_lookup_table, ht_set_iter,
 };
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_undefined, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_string, pdf_string_value, pdf_transfer_label, IntoObj, Object, PushObj,
+    pdf_string, pdf_transfer_label, IntoObj, Object, PushObj,
 };
 use libc::free;
 
@@ -60,7 +60,7 @@ pub(crate) struct obj_data {
 }
 #[derive(Copy, Clone)]
 pub(crate) struct named_object {
-    pub(crate) key: *mut i8,
+    pub(crate) key: *const u8,
     pub(crate) keylen: i32,
     pub(crate) value: *mut pdf_obj,
 }
@@ -74,10 +74,9 @@ impl Default for named_object {
     }
 }
 
-unsafe fn printable_key(key: *const i8, keylen: i32) -> String {
-    let bytes = slice::from_raw_parts(key as *const u8, keylen as usize);
-    let mut printable = String::with_capacity(bytes.len() * 2);
-    for &b in bytes.iter() {
+unsafe fn printable_key(key: &[u8]) -> String {
+    let mut printable = String::with_capacity(key.len() * 2);
+    for &b in key.iter() {
         if b.is_ascii_graphic() {
             write!(&mut printable, "{}", b as char).expect("Failed to write String");
         } else {
@@ -113,15 +112,14 @@ unsafe fn check_objects_defined(ht_tab: *mut ht_table) {
     };
     if ht_set_iter(ht_tab, &mut iter) >= 0 {
         loop {
-            let mut keylen: i32 = 0;
-            let key = ht_iter_getkey(&mut iter, &mut keylen);
-            let value = ht_iter_getval(&mut iter) as *mut obj_data;
+            let key = iter.get_key();
+            let value = ht_iter_getval(&iter) as *const obj_data;
             assert!(!(*value).object.is_null());
             if !(*value).object.is_null() && (*(*value).object).is_undefined() {
-                pdf_names_add_object(ht_tab, key as *const libc::c_void, keylen, pdf_new_null());
+                pdf_names_add_object(ht_tab, key, pdf_new_null());
                 warn!(
                     "Object @{} used, but not defined. Replaced by null.",
-                    printable_key(key, keylen),
+                    printable_key(key),
                 );
             }
             if !(ht_iter_next(&mut iter) >= 0) {
@@ -141,22 +139,21 @@ pub(crate) unsafe fn pdf_delete_name_tree(names: *mut *mut ht_table) {
 
 pub(crate) unsafe fn pdf_names_add_object(
     names: *mut ht_table,
-    key: *const libc::c_void,
-    keylen: i32,
+    key: &[u8],
     object: *mut pdf_obj,
 ) -> i32 {
     assert!(!names.is_null() && !object.is_null());
-    if key.is_null() || keylen < 1 {
+    if key.is_empty() {
         warn!("Null string used for name tree key.");
         return -1;
     }
-    let mut value = ht_lookup_table(names, key, keylen) as *mut obj_data;
+    let mut value = ht_lookup_table(names, key) as *mut obj_data;
     if value.is_null() {
         value = new((1_u64).wrapping_mul(::std::mem::size_of::<obj_data>() as u64) as u32)
             as *mut obj_data;
         (*value).object = object;
         (*value).closed = 0;
-        ht_append_table(names, key, keylen, value as *mut libc::c_void);
+        ht_append_table(names, key, value as *mut libc::c_void);
     } else {
         assert!(!(*value).object.is_null());
         if !(*value).object.is_null() && (*(*value).object).is_undefined() {
@@ -164,10 +161,7 @@ pub(crate) unsafe fn pdf_names_add_object(
             pdf_release_obj((*value).object);
             (*value).object = object
         } else {
-            warn!(
-                "Object @{} already defined.",
-                printable_key(key as *const i8, keylen),
-            );
+            warn!("Object @{} already defined.", printable_key(key),);
             pdf_release_obj(object);
             return -1;
         }
@@ -178,14 +172,10 @@ pub(crate) unsafe fn pdf_names_add_object(
  * The following routine returns copies, not the original object.
  */
 
-pub(crate) unsafe fn pdf_names_lookup_reference(
-    names: *mut ht_table,
-    key: *const libc::c_void,
-    keylen: i32,
-) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_names_lookup_reference(names: *mut ht_table, key: &[u8]) -> *mut pdf_obj {
     let object;
     assert!(!names.is_null());
-    let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
+    let value = ht_lookup_table(names, key) as *mut obj_data;
     if !value.is_null() {
         object = (*value).object;
         assert!(!object.is_null());
@@ -195,18 +185,14 @@ pub(crate) unsafe fn pdf_names_lookup_reference(
          * at all. This matters for optimization of PDF destinations.
          */
         object = pdf_new_undefined();
-        pdf_names_add_object(names, key, keylen, object);
+        pdf_names_add_object(names, key, object);
     }
     pdf_ref_obj(object)
 }
 
-pub(crate) unsafe fn pdf_names_lookup_object(
-    names: *mut ht_table,
-    key: *const libc::c_void,
-    keylen: i32,
-) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_names_lookup_object(names: *mut ht_table, key: &[u8]) -> *mut pdf_obj {
     assert!(!names.is_null());
-    let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
+    let value = ht_lookup_table(names, key) as *mut obj_data;
     if value.is_null() || !(*value).object.is_null() && (*(*value).object).is_undefined() {
         return ptr::null_mut();
     }
@@ -214,26 +200,16 @@ pub(crate) unsafe fn pdf_names_lookup_object(
     (*value).object
 }
 
-pub(crate) unsafe fn pdf_names_close_object(
-    names: *mut ht_table,
-    key: *const libc::c_void,
-    keylen: i32,
-) -> i32 {
+pub(crate) unsafe fn pdf_names_close_object(names: *mut ht_table, key: &[u8]) -> i32 {
     assert!(!names.is_null());
-    let value = ht_lookup_table(names, key, keylen) as *mut obj_data;
+    let value = ht_lookup_table(names, key) as *mut obj_data;
     if value.is_null() || !(*value).object.is_null() && (*(*value).object).is_undefined() {
-        warn!(
-            "Cannot close undefined object @{}.",
-            printable_key(key as *const i8, keylen),
-        );
+        warn!("Cannot close undefined object @{}.", printable_key(key),);
         return -1;
     }
     assert!(!(*value).object.is_null());
     if (*value).closed != 0 {
-        warn!(
-            "Object @{} already closed.",
-            printable_key(key as *const i8, keylen),
-        );
+        warn!("Object @{} already closed.", printable_key(key),);
         return -1;
     }
     (*value).closed = 1;
@@ -290,7 +266,13 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
                     names.push(pdf_ref_obj(cur.value));
                 }
                 Object::Invalid => {
-                    panic!("Invalid object...: {}", printable_key(cur.key, cur.keylen));
+                    panic!(
+                        "Invalid object...: {}",
+                        printable_key(std::slice::from_raw_parts(
+                            cur.key as *const u8,
+                            cur.keylen as _
+                        ))
+                    );
                 }
                 _ => {
                     names.push(pdf_link_obj(cur.value));
@@ -324,39 +306,36 @@ unsafe fn flat_table(ht_tab: *mut ht_table, filter: *mut ht_table) -> Vec<named_
     let mut objects = Vec::with_capacity((*ht_tab).count as usize);
     if ht_set_iter(ht_tab, &mut iter) >= 0 {
         loop {
-            let mut keylen: i32 = 0;
-            let mut key = ht_iter_getkey(&mut iter, &mut keylen);
+            let mut key = iter.get_key();
 
             if !filter.is_null() {
-                let new_obj: *mut pdf_obj =
-                    ht_lookup_table(filter, key as *const libc::c_void, keylen) as *mut pdf_obj;
+                let new_obj: *mut pdf_obj = ht_lookup_table(filter, key) as *mut pdf_obj;
                 if new_obj.is_null() {
                     if !(ht_iter_next(&mut iter) >= 0) {
                         break;
                     }
                     continue;
                 }
-                key = pdf_string_value(&*new_obj) as *mut i8;
-                keylen = (*new_obj).as_string().len() as i32;
+                key = (*new_obj).as_string().to_bytes_without_nul();
             }
 
-            let value = ht_iter_getval(&mut iter) as *mut obj_data;
+            let value = ht_iter_getval(&iter) as *const obj_data;
             assert!(!(*value).object.is_null());
             objects.push(if let Object::Undefined = (*(*value).object).data {
                 warn!(
                     "Object @{}\" not defined. Replaced by null.",
-                    printable_key(key, keylen),
+                    printable_key(key),
                 );
                 named_object {
-                    key,
-                    keylen,
+                    key: key.as_ptr(),
+                    keylen: key.len() as _,
                     value: pdf_new_null(),
                 }
             } else {
                 named_object {
-                    key,
-                    keylen,
-                    value: pdf_link_obj((*value).object),
+                    key: key.as_ptr(),
+                    keylen: key.len() as _,
+                    value: pdf_link_obj((*value).object as *mut _),
                 }
             });
 

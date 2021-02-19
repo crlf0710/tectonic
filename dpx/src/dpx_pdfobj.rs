@@ -952,15 +952,6 @@ impl pdf_string {
     }
 }
 
-pub(crate) unsafe fn pdf_string_value(object: &pdf_obj) -> *mut libc::c_void {
-    let data = object.as_string();
-    if data.len() == 0 {
-        ptr::null_mut()
-    } else {
-        data.string.as_ptr() as *mut u8 as *mut libc::c_void
-    }
-}
-
 /*
  * This routine escapes non printable characters and control
  * characters in an output string.

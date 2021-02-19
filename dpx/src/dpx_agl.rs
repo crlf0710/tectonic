@@ -428,24 +428,16 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
                 );
                 free(name as *mut libc::c_void);
             } else {
-                let agln = agl_normalized_name(CStr::from_ptr(name).to_bytes());
+                let bname = CStr::from_ptr(name).to_bytes();
+                let agln = agl_normalized_name(bname);
                 (*agln).is_predef = is_predef;
                 (*agln).n_components = n_unicodes;
                 for i in 0..n_unicodes as usize {
                     (*agln).unicodes[i] = unicodes[i];
                 }
-                let mut duplicate = ht_lookup_table(
-                    &mut aglmap,
-                    name as *const libc::c_void,
-                    strlen(name) as i32,
-                ) as *mut agl_name;
+                let mut duplicate = ht_lookup_table(&mut aglmap, bname) as *mut agl_name;
                 if duplicate.is_null() {
-                    ht_append_table(
-                        &mut aglmap,
-                        name as *const libc::c_void,
-                        strlen(name) as i32,
-                        agln as *mut libc::c_void,
-                    );
+                    ht_append_table(&mut aglmap, bname, agln as *mut libc::c_void);
                 } else {
                     while !(*duplicate).alternate.is_null() {
                         duplicate = (*duplicate).alternate
@@ -456,14 +448,14 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
                     if !(*agln).suffix.is_null() {
                         info!(
                             "agl: {} [{}.{}] -->",
-                            CStr::from_ptr(name).display(),
+                            bname.display(),
                             CStr::from_ptr((*agln).name).display(),
                             CStr::from_ptr((*agln).suffix).display(),
                         );
                     } else {
                         info!(
                             "agl: {} [{}] -->",
-                            CStr::from_ptr(name).display(),
+                            bname.display(),
                             CStr::from_ptr((*agln).name).display(),
                         );
                     }
@@ -491,22 +483,14 @@ pub(crate) unsafe fn agl_lookup_list(glyphname: *const i8) -> *mut agl_name {
     if glyphname.is_null() {
         return ptr::null_mut();
     }
-    ht_lookup_table(
-        &mut aglmap,
-        glyphname as *const libc::c_void,
-        strlen(glyphname) as i32,
-    ) as *mut agl_name
+    ht_lookup_table(&mut aglmap, CStr::from_ptr(glyphname).to_bytes()) as *mut agl_name
 }
 
 pub(crate) unsafe fn agl_lookup_list_str(glyphname: &str) -> *mut agl_name {
     if glyphname.is_empty() {
         return ptr::null_mut();
     }
-    ht_lookup_table(
-        &mut aglmap,
-        glyphname.as_ptr() as *const libc::c_void,
-        glyphname.len() as i32,
-    ) as *mut agl_name
+    ht_lookup_table(&mut aglmap, glyphname.as_bytes()) as *mut agl_name
 }
 pub(crate) fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     if glyphname.is_empty() {

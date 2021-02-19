@@ -175,11 +175,7 @@ pub(crate) unsafe fn spc_lookup_reference(key: &str) -> Option<*mut pdf_obj> {
             if ispageref(key) {
                 pdf_doc_ref_page((key[4..]).parse::<i32>().unwrap() as usize)
             } else {
-                pdf_names_lookup_reference(
-                    NAMED_OBJECTS,
-                    key.as_ptr() as *const libc::c_void,
-                    key.len() as i32,
-                )
+                pdf_names_lookup_reference(NAMED_OBJECTS, key.as_bytes())
             }
         }
     };
@@ -215,13 +211,7 @@ pub(crate) unsafe fn spc_lookup_object(key: &str) -> *mut pdf_obj {
         "resources" => value = pdf_doc_current_page_resources(),
         "catalog" => value = pdf_doc_get_dictionary("Catalog"),
         "docinfo" => value = pdf_doc_get_dictionary("Info"),
-        _ => {
-            value = pdf_names_lookup_object(
-                NAMED_OBJECTS,
-                key.as_ptr() as *const libc::c_void,
-                key.len() as i32,
-            )
-        }
+        _ => value = pdf_names_lookup_object(NAMED_OBJECTS, key.as_bytes()),
     }
     /* spc_handler_pdfm_bead() in spc_pdfm.c controls NULL too.
       if (!value) {
@@ -235,19 +225,10 @@ pub(crate) unsafe fn spc_push_object(key: &str, value: *mut pdf_obj) {
     if key.is_empty() || value.is_null() {
         return;
     }
-    pdf_names_add_object(
-        NAMED_OBJECTS,
-        key.as_ptr() as *const libc::c_void,
-        key.len() as i32,
-        value,
-    );
+    pdf_names_add_object(NAMED_OBJECTS, key.as_bytes(), value);
 }
 pub(crate) unsafe fn spc_flush_object(key: &str) {
-    pdf_names_close_object(
-        NAMED_OBJECTS,
-        key.as_ptr() as *const libc::c_void,
-        key.len() as i32,
-    );
+    pdf_names_close_object(NAMED_OBJECTS, key.as_bytes());
 }
 pub(crate) unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
