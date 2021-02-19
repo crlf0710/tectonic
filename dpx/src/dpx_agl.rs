@@ -479,18 +479,11 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
     Ok(count)
 }
 
-pub(crate) unsafe fn agl_lookup_list(glyphname: *const i8) -> *mut agl_name {
-    if glyphname.is_null() {
-        return ptr::null_mut();
-    }
-    ht_lookup_table(&mut aglmap, CStr::from_ptr(glyphname).to_bytes()) as *mut agl_name
-}
-
-pub(crate) unsafe fn agl_lookup_list_str(glyphname: &str) -> *mut agl_name {
+pub(crate) unsafe fn agl_lookup_list(glyphname: &[u8]) -> *mut agl_name {
     if glyphname.is_empty() {
         return ptr::null_mut();
     }
-    ht_lookup_table(&mut aglmap, glyphname.as_bytes()) as *mut agl_name
+    ht_lookup_table(&mut aglmap, glyphname) as *mut agl_name
 }
 pub(crate) fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     if glyphname.is_empty() {
@@ -641,7 +634,7 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
                 count += 1
             }
         } else {
-            let mut agln1 = agl_lookup_list(name.as_ptr());
+            let mut agln1 = agl_lookup_list(name.to_bytes());
             if agln1.is_null()
                 || (*agln1).n_components == 1
                     && ((*agln1).unicodes[0] as i64 >= 0xe000
@@ -661,7 +654,7 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
                             CStr::from_ptr((*agln0).suffix).display(),
                         );
                     }
-                    agln1 = agl_lookup_list((*agln0).name);
+                    agln1 = agl_lookup_list(CStr::from_ptr((*agln0).name).to_bytes());
                     agl_release_name(agln0);
                 }
             }
@@ -753,7 +746,7 @@ pub(crate) unsafe fn agl_get_unicodes(
                 }
             }
         } else {
-            let mut agln1 = agl_lookup_list(name.as_ptr());
+            let mut agln1 = agl_lookup_list(name.to_bytes());
             if agln1.is_null()
                 || (*agln1).n_components == 1
                     && ((*agln1).unicodes[0] as i64 >= 0xe000
@@ -773,7 +766,7 @@ pub(crate) unsafe fn agl_get_unicodes(
                             CStr::from_ptr((*agln0).suffix).display(),
                         );
                     }
-                    agln1 = agl_lookup_list((*agln0).name);
+                    agln1 = agl_lookup_list(CStr::from_ptr((*agln0).name).to_bytes());
                     agl_release_name(agln0);
                 }
             }

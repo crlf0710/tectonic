@@ -45,8 +45,6 @@ use crate::dpx_pdfobj::{
 use libc::free;
 
 use crate::bridge::size_t;
-pub(crate) type __compar_fn_t =
-    Option<unsafe fn(_: *const libc::c_void, _: *const libc::c_void) -> i32>;
 
 use super::dpx_dpxutil::ht_iter;
 use super::dpx_dpxutil::ht_table;
@@ -161,7 +159,7 @@ pub(crate) unsafe fn pdf_names_add_object(
             pdf_release_obj((*value).object);
             (*value).object = object
         } else {
-            warn!("Object @{} already defined.", printable_key(key),);
+            warn!("Object @{} already defined.", printable_key(key));
             pdf_release_obj(object);
             return -1;
         }
@@ -204,12 +202,12 @@ pub(crate) unsafe fn pdf_names_close_object(names: *mut ht_table, key: &[u8]) ->
     assert!(!names.is_null());
     let value = ht_lookup_table(names, key) as *mut obj_data;
     if value.is_null() || !(*value).object.is_null() && (*(*value).object).is_undefined() {
-        warn!("Cannot close undefined object @{}.", printable_key(key),);
+        warn!("Cannot close undefined object @{}.", printable_key(key));
         return -1;
     }
     assert!(!(*value).object.is_null());
     if (*value).closed != 0 {
-        warn!("Object @{} already closed.", printable_key(key),);
+        warn!("Object @{} already closed.", printable_key(key));
         return -1;
     }
     (*value).closed = 1;

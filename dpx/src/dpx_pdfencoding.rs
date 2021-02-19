@@ -32,7 +32,7 @@ use crate::info;
 use std::io::Read;
 use std::ptr;
 
-use super::dpx_agl::{agl_lookup_list_str, agl_sput_UTF16BE};
+use super::dpx_agl::{agl_lookup_list, agl_sput_UTF16BE};
 use super::dpx_cid::CSI_UNICODE;
 use super::dpx_cmap::{
     CMap_add_bfchar, CMap_add_codespacerange, CMap_new, CMap_release, CMap_set_CIDSysInfo,
@@ -514,7 +514,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
         if !(!is_used.is_null() && *is_used.offset(code as isize) == 0) {
             if !(enc_vec[code as usize]).is_empty() {
                 let mut fail_count: i32 = 0;
-                let agln: *mut agl_name = agl_lookup_list_str(&enc_vec[code as usize]);
+                let agln: *mut agl_name = agl_lookup_list(enc_vec[code as usize].as_bytes());
                 /* Adobe glyph naming conventions are not used by viewers,
                  * hence even ligatures (e.g, "f_i") must be explicitly defined
                  */

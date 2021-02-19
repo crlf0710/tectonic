@@ -617,13 +617,13 @@ unsafe fn findcomposite(glyphname: &mut String, gid: *mut u16, gm: &mut glyph_ma
     error
 }
 /* glyphname should not have suffix here */
-unsafe fn findparanoiac(glyphname: *const i8, gid: *mut u16, gm: &mut glyph_mapper) -> i32 {
+unsafe fn findparanoiac(glyphname: &[u8], gid: *mut u16, gm: &mut glyph_mapper) -> i32 {
     let mut idx: u16 = 0_u16;
     let mut error;
     let mut agln = agl_lookup_list(glyphname);
     while !agln.is_null() && idx as i32 == 0 {
         if !(*agln).suffix.is_null() {
-            error = findparanoiac((*agln).name, &mut idx, gm);
+            error = findparanoiac(CStr::from_ptr((*agln).name).to_bytes(), &mut idx, gm);
             if error != 0 {
                 return error;
             }
@@ -740,7 +740,7 @@ unsafe fn resolve_glyph(glyphname: &str, gid: *mut u16, gm: &mut glyph_mapper) -
                 0
             }
         } else {
-            findparanoiac(name.as_ptr(), gid, gm)
+            findparanoiac(name.to_bytes(), gid, gm)
         };
         if error == 0 {
             if let Some(suffix) = suffix {

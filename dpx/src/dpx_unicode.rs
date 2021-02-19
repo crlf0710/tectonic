@@ -32,50 +32,27 @@ pub(crate) unsafe fn UC_is_valid(ucv: i32) -> bool {
     !(ucv < 0 || ucv as i64 > 0x10ffff || ucv as i64 >= 0xd800 && ucv as i64 <= 0xdfff)
 }
 
-pub(crate) unsafe fn UC_UTF16BE_is_valid_string(mut p: *const u8, endptr: *const u8) -> bool {
-    if p.offset(1) >= endptr {
+pub(crate) unsafe fn UC_UTF16BE_is_valid_string(slice: &[u8]) -> bool {
+    if slice.len() < 2 || slice.len() % 2 != 0 {
         return false;
     }
-    while p < endptr {
-        let ucv: i32 = UC_UTF16BE_decode_char(&mut p, endptr);
-        if !UC_is_valid(ucv) {
+    for c in std::char::decode_utf16(
+        slice
+            .chunks_exact(2)
+            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]])),
+    ) {
+        if c.is_err() {
             return false;
         }
     }
     true
 }
 
-pub(crate) unsafe fn UC_UTF8_is_valid_string(p: *const u8, endptr: *const u8) -> bool {
-    if p.offset(1) >= endptr {
+pub(crate) unsafe fn UC_UTF8_is_valid_string(slice: &[u8]) -> bool {
+    if slice.is_empty() {
         return false;
     }
-    std::str::from_utf8(std::slice::from_raw_parts(p, endptr.offset_from(p) as _)).is_ok()
-}
-
-pub(crate) unsafe fn UC_UTF16BE_decode_char(pp: *mut *const u8, endptr: *const u8) -> i32 {
-    let mut p: *const u8 = *pp;
-    let mut ucv;
-    if p.offset(1) >= endptr {
-        return -1;
-    }
-    let first = ((*p.offset(0) as i32) << 8 | *p.offset(1) as i32) as u16;
-    p = p.offset(2);
-    if first as u32 >= 0xd800u32 && (first as u32) < 0xdc00u32 {
-        if p.offset(1) >= endptr {
-            return -1;
-        }
-        let second = ((*p.offset(0) as i32) << 8 | *p.offset(1) as i32) as u16;
-        p = p.offset(2);
-        ucv = (second as u32 & 0x3ffu32) as i32;
-        ucv = (ucv as u32 | (first as u32 & 0x3ffu32) << 10) as i32;
-        ucv += 0x10000
-    } else if first as u32 >= 0xdc00u32 && (first as u32) < 0xe000u32 {
-        return -1;
-    } else {
-        ucv = first as i32
-    }
-    *pp = p;
-    ucv
+    std::str::from_utf8(slice).is_ok()
 }
 
 pub(crate) unsafe fn UC_UTF16BE_encode_char(ucv: i32, pp: &mut *mut u8, endptr: *mut u8) -> size_t {

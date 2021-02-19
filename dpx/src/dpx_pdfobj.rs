@@ -946,10 +946,6 @@ impl pdf_string {
             .unwrap_or(self.len());
         &self.string[..pos]
     }
-    pub(crate) fn as_mut_slice(&mut self) -> &mut [u8] {
-        let len = self.len();
-        &mut self.string[..len]
-    }
 }
 
 /*

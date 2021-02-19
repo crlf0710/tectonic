@@ -1272,7 +1272,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
                 let mut srcCode = ucv.to_be_bytes();
                 CMap_add_cidchar(&mut cmap, srcCode.as_mut_ptr(), 4, gid);
             } else {
-                let mut agln = agl_lookup_list(name.as_ptr());
+                let mut agln = agl_lookup_list(name.to_bytes());
                 if agln.is_null() {
                     warn!("Glyph \"{}\" inaccessible (no Unicode mapping)", glyph);
                 }
