@@ -34,7 +34,6 @@ use super::dpx_dpxcrypt::{AES_cbc_encrypt_tectonic, AES_ecb_encrypt, ARC4_set_ke
 use super::dpx_mem::new;
 use super::dpx_pdfdoc::pdf_doc_get_dictionary;
 use super::dpx_pdffont::get_unique_time_if_given;
-use super::dpx_unicode::{UC_UTF8_decode_char, UC_is_valid};
 use crate::dpx_pdfobj::{pdf_dict, pdf_get_version, pdf_obj, pdf_string, PushObj};
 use crate::warn;
 use chrono::prelude::*;
@@ -538,22 +537,12 @@ unsafe fn stringprep_profile(
     output: *mut *mut i8,
     mut _profile: *const i8,
     mut _flags: Stringprep_profile_flags,
-) -> i32 {
-    let mut p = input;
-    let endptr = p.offset(strlen(p) as isize);
-    while p < endptr {
-        let ucv: i32 = UC_UTF8_decode_char(
-            &mut p as *mut *const i8 as *mut *const u8,
-            endptr as *const u8,
-        );
-        if !UC_is_valid(ucv) {
-            return -1;
-        }
-    }
-    *output = new((strlen(input).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-        as *mut i8;
+) -> Result<(), std::str::Utf8Error> {
+    let len = strlen(input);
+    let _ = std::str::from_utf8(std::slice::from_raw_parts(input as *const u8, len as _))?;
+    *output = new((len.wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
     strcpy(*output, input);
-    0
+    Ok(())
 }
 unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
     let mut saslpwd: *mut i8 = ptr::null_mut();
@@ -586,7 +575,8 @@ unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
                 &mut saslpwd,
                 b"SASLprep\x00" as *const u8 as *const i8,
                 0,
-            ) != 0
+            )
+            .is_err()
             {
                 return -1;
             } else {

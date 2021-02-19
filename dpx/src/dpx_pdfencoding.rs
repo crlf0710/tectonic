@@ -519,7 +519,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                  * hence even ligatures (e.g, "f_i") must be explicitly defined
                  */
                 if pdf_get_version() < 5_u32 || agln.is_null() || (*agln).is_predef == 0 {
-                    wbuf[0] = (code & 0xff) as u8;
+                    let c8 = [(code & 0xff) as u8];
                     let mut p = wbuf.as_mut_ptr().offset(1);
                     let endptr = wbuf.as_mut_ptr().offset(1024);
                     let len =
@@ -527,8 +527,8 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                     if len >= 1 && fail_count == 0 {
                         CMap_add_bfchar(
                             &mut cmap,
-                            wbuf.as_mut_ptr(),
-                            1 as size_t,
+                            c8.as_ptr(),
+                            1,
                             wbuf.as_mut_ptr().offset(1),
                             len as size_t,
                         );

@@ -1340,7 +1340,6 @@ unsafe fn create_ToUnicode_stream(
         /* Skip .notdef */
         if used_glyphs.as_bytes()[cid as usize / 8] as i32 & 1 << 7 - cid as i32 % 8 != 0 {
             let mut fail_count: i32 = 0;
-            wbuf[0..2].copy_from_slice(&cid.to_be_bytes());
             let mut p = wbuf.as_mut_ptr().offset(2);
             let gid = cff_charsets_lookup_inverse(cffont, cid);
             if !(gid as i32 == 0) {
@@ -1352,7 +1351,7 @@ unsafe fn create_ToUnicode_stream(
                     } else {
                         CMap_add_bfchar(
                             &mut cmap,
-                            wbuf.as_mut_ptr(),
+                            cid.to_be_bytes().as_ptr(),
                             2,
                             wbuf.as_mut_ptr().offset(2),
                             len as size_t,

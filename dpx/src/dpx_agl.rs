@@ -648,17 +648,7 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
             delim = endptr;
         }
         let sub_len = delim.offset_from(p) as i64 as i32;
-        let name_p = new(
-            ((sub_len + 1) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
-        ) as *mut i8;
-        memcpy(
-            name_p as *mut libc::c_void,
-            p as *const libc::c_void,
-            sub_len as _,
-        );
-        *name_p.offset(sub_len as isize) = '\u{0}' as i32 as i8;
-        let name = CStr::from_ptr(name_p).to_owned();
-        free(name_p as *mut libc::c_void);
+        let name = CString::new(std::slice::from_raw_parts(p as *const u8, sub_len as _)).unwrap();
         if agl_name_is_unicode(name.to_bytes()) {
             let sub_len = put_unicode_glyph(name.to_bytes(), dstpp, limptr);
             if sub_len > 0 {

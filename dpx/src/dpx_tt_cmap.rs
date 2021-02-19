@@ -858,11 +858,10 @@ unsafe fn handle_subst_glyphs(
                                 )
                                     as _) as size_t as size_t;
                             }
-                            wbuf[0..2].copy_from_slice(&gid.to_be_bytes());
                             CMap_add_bfchar(
                                 cmap,
-                                wbuf.as_mut_ptr(),
-                                2 as size_t,
+                                gid.to_be_bytes().as_ptr(),
+                                2,
                                 wbuf.as_mut_ptr().offset(2),
                                 len,
                             );
@@ -940,12 +939,11 @@ unsafe fn add_to_cmap_if_used(
     {
         let mut p: *mut u8 = wbuf.as_mut_ptr().offset(2);
         count = count.wrapping_add(1);
-        wbuf[0..2].copy_from_slice(&cid.to_be_bytes());
         let len = UC_UTF16BE_encode_char(ch as i32, &mut p, wbuf.as_mut_ptr().offset(1024)) as i32;
         CMap_add_bfchar(
             cmap,
-            wbuf.as_mut_ptr(),
-            2 as size_t,
+            cid.to_be_bytes().as_ptr(),
+            2,
             wbuf.as_mut_ptr().offset(2),
             len as size_t,
         );
@@ -1074,16 +1072,14 @@ unsafe fn create_ToUnicode_cmap(
                         let ch = CMap_reverse_decode(&*code_to_cid_cmap, cid);
                         if ch >= 0 {
                             let mut p: *mut u8 = wbuf.as_mut_ptr().offset(2);
-                            wbuf[0] = (cid as i32 >> 8 & 0xff) as u8;
-                            wbuf[1] = (cid as i32 & 0xff) as u8;
                             let len =
                                 UC_UTF16BE_encode_char(ch, &mut p, wbuf.as_mut_ptr().offset(1024))
                                     as i32;
                             CMap_add_bfchar(
                                 &mut cmap,
-                                wbuf.as_mut_ptr(),
-                                2 as size_t,
-                                wbuf.as_mut_ptr().offset(2),
+                                cid.to_be_bytes()[..].as_ptr(),
+                                2,
+                                wbuf.as_ptr().offset(2),
                                 len as size_t,
                             );
                             count = count.wrapping_add(1)

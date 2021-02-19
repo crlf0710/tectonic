@@ -45,17 +45,11 @@ pub(crate) unsafe fn UC_UTF16BE_is_valid_string(mut p: *const u8, endptr: *const
     true
 }
 
-pub(crate) unsafe fn UC_UTF8_is_valid_string(mut p: *const u8, endptr: *const u8) -> bool {
+pub(crate) unsafe fn UC_UTF8_is_valid_string(p: *const u8, endptr: *const u8) -> bool {
     if p.offset(1) >= endptr {
         return false;
     }
-    while p < endptr {
-        let ucv: i32 = UC_UTF8_decode_char(&mut p, endptr);
-        if !UC_is_valid(ucv) {
-            return false;
-        }
-    }
-    true
+    std::str::from_utf8(std::slice::from_raw_parts(p, endptr.offset_from(p) as _)).is_ok()
 }
 
 pub(crate) unsafe fn UC_UTF16BE_decode_char(pp: *mut *const u8, endptr: *const u8) -> i32 {
@@ -84,78 +78,31 @@ pub(crate) unsafe fn UC_UTF16BE_decode_char(pp: *mut *const u8, endptr: *const u
     ucv
 }
 
-pub(crate) unsafe fn UC_UTF16BE_encode_char(
-    mut ucv: i32,
-    pp: &mut *mut u8,
-    endptr: *mut u8,
-) -> size_t {
-    let p: *mut u8 = *pp;
-    let count = if ucv >= 0 && ucv <= 0xffff {
-        if p.offset(2) >= endptr {
-            return 0 as size_t;
+pub(crate) unsafe fn UC_UTF16BE_encode_char(ucv: i32, pp: &mut *mut u8, endptr: *mut u8) -> size_t {
+    if let Some(ucv) = std::char::from_u32(ucv as u32) {
+        let mut b = [0; 2];
+        let c16 = ucv.encode_utf16(&mut b);
+        let p: *mut u8 = *pp;
+        if p.add(c16.len() * 2) > endptr {
+            return 0;
         }
-        *p.offset(0) = (ucv >> 8 & 0xff) as u8;
-        *p.offset(1) = (ucv & 0xff) as u8;
-        2
-    } else if ucv >= 0x10000 && ucv <= 0x10ffff {
-        if p.offset(4) >= endptr {
-            return 0 as size_t;
+        if c16.len() == 1 {
+            let b16 = c16[0].to_be_bytes();
+            *p.offset(0) = b16[0];
+            *p.offset(1) = b16[1];
+            *pp = (*pp).offset(2);
+            2
+        } else {
+            let high = c16[0].to_be_bytes();
+            let low = c16[1].to_be_bytes();
+            *p.offset(0) = high[0];
+            *p.offset(1) = high[1];
+            *p.offset(2) = low[0];
+            *p.offset(3) = low[1];
+            *pp = (*pp).offset(2);
+            4
         }
-        ucv -= 0x10000;
-        let high = ((ucv >> 10) as u32).wrapping_add(0xd800u32) as u16;
-        let low = (ucv as u32 & 0x3ffu32).wrapping_add(0xdc00u32) as u16;
-        *p.offset(0) = (high as i32 >> 8 & 0xff) as u8;
-        *p.offset(1) = (high as i32 & 0xff) as u8;
-        *p.offset(2) = (low as i32 >> 8 & 0xff) as u8;
-        *p.offset(3) = (low as i32 & 0xff) as u8;
-        4
     } else {
-        if p.offset(2) >= endptr {
-            return 0 as size_t;
-        }
-        *p.offset(0) = (0xfffd >> 8 & 0xff) as u8;
-        *p.offset(1) = (0xfffd & 0xff) as u8;
-        2
-    };
-    *pp = (*pp).offset(count as isize);
-    count as size_t
-}
-
-pub(crate) unsafe fn UC_UTF8_decode_char(pp: *mut *const u8, endptr: *const u8) -> i32 {
-    let mut p: *const u8 = *pp;
-    let mut c: u8 = *p;
-    p = p.offset(1);
-    let (mut ucv, nbytes) = if c <= 0x7f {
-        (c as i32, 0)
-    } else if c & 0xe0 == 0xc0 {
-        /* 110x xxxx */
-        (c as i32 & 31, 1)
-    } else if c & 0xf0 == 0xe0 {
-        /* 1110 xxxx */
-        (c as i32 & 0xf, 2)
-    } else if c & 0xf8 == 0xf0 {
-        /* 1111 0xxx */
-        (c as i32 & 0x7, 3)
-    } else if c & 0xfc == 0xf8 {
-        /* 1111 10xx */
-        (c as i32 & 0x3, 4)
-    } else if c & 0xfe == 0xfc {
-        /* 1111 110x */
-        (c as i32 & 0x1, 5)
-    } else {
-        return -1;
-    };
-    if p.offset(nbytes as isize) > endptr {
-        return -1;
+        0
     }
-    for _ in 0..nbytes {
-        c = *p;
-        if c as i32 & 0xc0 != 0x80 {
-            return -1;
-        }
-        p = p.offset(1);
-        ucv = ucv << 6 | c as i32 & 0x3f
-    }
-    *pp = p;
-    ucv
 }

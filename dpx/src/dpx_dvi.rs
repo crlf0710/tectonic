@@ -371,7 +371,7 @@ unsafe fn find_post() -> i32 {
         || !(ch == DVI_ID || ch == DVIV_ID || ch == XDV_ID || ch == XDV_ID_OLD)
     {
         info!("DVI ID = {}\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     post_id_byte = ch as i32;
     is_xdv = (ch == XDV_ID || ch == XDV_ID_OLD) as i32;
@@ -382,14 +382,14 @@ unsafe fn find_post() -> i32 {
     let ch = handle.read_byte().unwrap();
     if ch != POST_POST {
         info!("Found {} where post_post opcode should be\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     current = i32::get(handle);
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
     let ch = handle.read_byte().unwrap();
     if ch != POST {
         info!("Found {} where post_post opcode should be\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     /* Finally check the ID byte in the preamble */
     /* An Ascii pTeX DVI file has id_byte DVI_ID in the preamble but DVIV_ID in the postamble. */
@@ -397,12 +397,12 @@ unsafe fn find_post() -> i32 {
     let ch = u8::get(handle);
     if ch != PRE {
         info!("Found {} where PRE was expected\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     let ch = u8::get(handle);
     if !(ch == DVI_ID || ch == XDV_ID || ch == XDV_ID_OLD) {
         info!("DVI ID = {}\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     pre_id_byte = ch as i32;
     check_id_bytes();
@@ -429,7 +429,7 @@ unsafe fn get_page_info(post_location: i32) {
     if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
         > dvi_file_size
     {
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     for i in (0..num_pages - 1).rev() {
         handle
@@ -441,7 +441,7 @@ unsafe fn get_page_info(post_location: i32) {
         if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
             > dvi_file_size
         {
-            panic!(invalid_signature);
+            panic!("{}", invalid_signature);
         }
     }
 }
@@ -584,7 +584,7 @@ unsafe fn get_dvi_fonts(post_location: i32) {
             }
             _ => {
                 info!("Unexpected op code: {:3}\n", code);
-                panic!(invalid_signature);
+                panic!("{}", invalid_signature);
             }
         }
     }
@@ -1697,7 +1697,7 @@ unsafe fn check_postamble() {
         || post_id_byte_0 == XDV_ID_OLD)
     {
         info!("DVI ID = {}\n", post_id_byte_0);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     check_id_bytes();
     if has_ptex != 0 && post_id_byte_0 != DVIV_ID {
@@ -2196,8 +2196,8 @@ unsafe fn scan_special(
             }
         } else if ns_pdf != 0 && q == "encrypt" && !do_enc.is_null() {
             *do_enc = 1;
-            *user_pw = 0_i8;
-            *owner_pw = *user_pw;
+            *user_pw = 0;
+            *owner_pw = 0;
             while error == 0 && !buf.is_empty() {
                 if let Some(kp) = buf.parse_c_ident() {
                     buf.skip_white();

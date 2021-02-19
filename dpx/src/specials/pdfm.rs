@@ -67,10 +67,7 @@ use crate::dpx_pdfobj::{
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
-use crate::dpx_unicode::{
-    UC_UTF16BE_encode_char, UC_UTF16BE_is_valid_string, UC_UTF8_decode_char,
-    UC_UTF8_is_valid_string, UC_is_valid,
-};
+use crate::dpx_unicode::{UC_UTF16BE_is_valid_string, UC_UTF8_is_valid_string};
 
 use super::{SpcArg, SpcEnv};
 
@@ -354,12 +351,12 @@ unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_string) -> i32 {
     (*instring).set(&wbuf[..(4096_usize - obufleft as usize)]);
     0
 }
-unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> i32 {
+unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> Result<(), i32> {
     let mut non_ascii: i32 = 0;
     let mut cp: *const u8;
     let mut wbuf: [u8; 4096] = [0; 4096];
     if instring.is_null() {
-        return 0;
+        return Ok(());
     }
     let slice = (*instring).as_mut_slice();
     let inlen = slice.len() as i32;
@@ -373,7 +370,7 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> i32 {
         cp = cp.offset(1)
     }
     if non_ascii == 0 {
-        return 0;
+        return Ok(());
     }
     /* Check if the input string is valid UTF8 string
      * This routine may be called against non-text strings.
@@ -381,33 +378,32 @@ unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> i32 {
      * endcoded in UTF8.
      */
     if !UC_UTF8_is_valid_string(inbuf, inbuf.offset(inlen as isize)) {
-        return 0;
+        return Ok(());
     } else {
         if *inbuf.offset(0) as i32 == 0xfe
             && *inbuf.offset(1) as i32 == 0xff
             && UC_UTF16BE_is_valid_string(inbuf.offset(2), inbuf.offset(inlen as isize)) as i32 != 0
         {
-            return 0;
+            return Ok(());
         }
     } /* no need to reencode UTF16BE with BOM */
-    cp = inbuf; /* out of valid Unicode range, give up (redundant) */
+    /* out of valid Unicode range, give up (redundant) */
     let mut op = wbuf.as_mut_ptr();
     *op = 0xfe_u8;
     op = op.offset(1);
     *op = 0xff_u8;
     op = op.offset(1);
-    while cp < inbuf.offset(inlen as isize) as *const u8 {
-        let usv = UC_UTF8_decode_char(&mut cp, inbuf.offset(inlen as isize));
-        if !UC_is_valid(usv) {
-            return -1;
-        }
-        let len = UC_UTF16BE_encode_char(usv, &mut op, wbuf.as_mut_ptr().offset(4096)) as i32;
-        if len == 0 {
-            return -1;
-        }
+    for c16 in std::str::from_utf8(std::slice::from_raw_parts(inbuf, inlen as _))
+        .map_err(|_| -1)?
+        .encode_utf16()
+    {
+        let c8 = c16.to_be_bytes();
+        *op.offset(0) = c8[0];
+        *op.offset(1) = c8[1];
+        op = op.offset(2);
     }
     (*instring).set(&wbuf[..(op.offset_from(wbuf.as_ptr()) as usize)]);
-    0
+    Ok(())
 }
 /* The purpose of this routine is to check if given string object is
  * surely an object for *text* strings. It does not do a complete check
@@ -451,7 +447,11 @@ unsafe fn modstrings(kp: &pdf_name, vp: &mut pdf_obj, cd: &mut tounicode) -> i32
                  * object is actually a text string.
                  */
                 if needreencode(kp, &*vp, cd) != 0 {
-                    r = maybe_reencode_utf8(vp)
+                    r = if maybe_reencode_utf8(vp).is_ok() {
+                        0
+                    } else {
+                        -1
+                    };
                 }
             }
             if r < 0 {
