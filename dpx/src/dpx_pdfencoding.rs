@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -59,10 +59,7 @@ pub struct pdf_encoding {
     pub resource: *mut pdf_obj,
 }
 use super::dpx_agl::agl_name;
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
+
 static mut verbose: u8 = 0_u8;
 
 pub(crate) unsafe fn pdf_encoding_set_verbose(level: i32) {

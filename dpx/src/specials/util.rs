@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -33,11 +33,6 @@ use crate::SkipBlank;
 use arrayvec::ArrayVec;
 use std::convert::TryInto;
 use std::f64::consts::PI;
-
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
 
 /// Read numbers from [`SpcArg`]. The maximum amount read depends on the
 /// capacity of the provided [`Array`] type.
