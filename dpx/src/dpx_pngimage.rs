@@ -34,7 +34,6 @@ use crate::warn;
 
 use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
-use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
     pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
@@ -367,7 +366,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             info.num_components,
         );
     }
-    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
+    ximage.set_image(&info, stream.into_obj());
     0
 }
 /* Transparency */

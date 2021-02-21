@@ -54,10 +54,7 @@ use self::tpic::{
 };
 use self::xtx::{spc_xtx_check_special, spc_xtx_setup_handler};
 use super::dpx_dvi::{dvi_dev_xpos, dvi_dev_ypos, dvi_link_annot, dvi_tag_depth, dvi_untag_depth};
-use super::dpx_pdfdoc::{
-    pdf_doc_begin_annot, pdf_doc_current_page_number, pdf_doc_current_page_resources,
-    pdf_doc_end_annot, pdf_doc_get_dictionary, pdf_doc_get_reference, pdf_doc_ref_page,
-};
+use super::dpx_pdfdoc::{pdf_doc, pdf_doc_begin_annot, pdf_doc_end_annot, pdf_doc_mut};
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pdfnames::{
     pdf_delete_name_tree, pdf_names_add_object, pdf_names_close_object, pdf_names_lookup_object,
@@ -163,17 +160,17 @@ pub(crate) unsafe fn spc_lookup_reference(key: &str) -> Option<*mut pdf_obj> {
             pdf_dev_transform(&mut cp, None);
             ((cp.y / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
-        "thispage" => pdf_doc_get_reference("@THISPAGE"),
-        "prevpage" => pdf_doc_get_reference("@PREVPAGE"),
-        "nextpage" => pdf_doc_get_reference("@NEXTPAGE"),
-        "pages" => pdf_ref_obj(pdf_doc_get_dictionary("Pages")),
-        "names" => pdf_ref_obj(pdf_doc_get_dictionary("Names")),
-        "resources" => pdf_ref_obj(pdf_doc_current_page_resources()),
-        "catalog" => pdf_ref_obj(pdf_doc_get_dictionary("Catalog")),
-        "docinfo" => pdf_ref_obj(pdf_doc_get_dictionary("Info")),
+        "thispage" => pdf_doc_mut().get_reference("@THISPAGE"),
+        "prevpage" => pdf_doc_mut().get_reference("@PREVPAGE"),
+        "nextpage" => pdf_doc_mut().get_reference("@NEXTPAGE"),
+        "pages" => pdf_ref_obj(pdf_doc_mut().get_dictionary("Pages")),
+        "names" => pdf_ref_obj(pdf_doc_mut().get_dictionary("Names")),
+        "resources" => pdf_ref_obj(pdf_doc_mut().current_page_resources()),
+        "catalog" => pdf_ref_obj(pdf_doc_mut().get_dictionary("Catalog")),
+        "docinfo" => pdf_ref_obj(pdf_doc_mut().get_dictionary("Info")),
         _ => {
             if ispageref(key) {
-                pdf_doc_ref_page((key[4..]).parse::<i32>().unwrap() as usize)
+                pdf_doc_mut().ref_page((key[4..]).parse::<i32>().unwrap() as usize)
             } else {
                 pdf_names_lookup_reference(NAMED_OBJECTS, key.as_bytes())
             }
@@ -205,12 +202,12 @@ pub(crate) unsafe fn spc_lookup_object(key: &str) -> *mut pdf_obj {
             pdf_dev_transform(&mut cp, None);
             value = ((cp.y / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
-        "thispage" => value = pdf_doc_get_dictionary("@THISPAGE"),
-        "pages" => value = pdf_doc_get_dictionary("Pages"),
-        "names" => value = pdf_doc_get_dictionary("Names"),
-        "resources" => value = pdf_doc_current_page_resources(),
-        "catalog" => value = pdf_doc_get_dictionary("Catalog"),
-        "docinfo" => value = pdf_doc_get_dictionary("Info"),
+        "thispage" => value = pdf_doc_mut().get_dictionary("@THISPAGE"),
+        "pages" => value = pdf_doc_mut().get_dictionary("Pages"),
+        "names" => value = pdf_doc_mut().get_dictionary("Names"),
+        "resources" => value = pdf_doc_mut().current_page_resources(),
+        "catalog" => value = pdf_doc_mut().get_dictionary("Catalog"),
+        "docinfo" => value = pdf_doc_mut().get_dictionary("Info"),
         _ => value = pdf_names_lookup_object(NAMED_OBJECTS, key.as_bytes()),
     }
     /* spc_handler_pdfm_bead() in spc_pdfm.c controls NULL too.
@@ -256,7 +253,7 @@ unsafe fn init_special<'a, 'b>(
     spe.x_user = x_user;
     spe.y_user = y_user;
     spe.mag = mag;
-    spe.pg = pdf_doc_current_page_number() as i32;
+    spe.pg = pdf_doc().current_page_number() as i32;
     args.cur = buf;
     args.base = buf;
     args.command = None;

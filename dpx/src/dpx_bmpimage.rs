@@ -28,7 +28,6 @@
 
 use super::dpx_mem::new;
 use super::dpx_numbers::GetFromFile;
-use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::dpx_pdfobj::{
     pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
@@ -242,7 +241,7 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
             info.num_components,
         );
     }
-    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
+    ximage.set_image(&info, stream.into_obj());
     Ok(())
 }
 

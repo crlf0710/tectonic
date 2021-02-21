@@ -39,7 +39,7 @@ use super::dpx_dvi::dvi_is_tracking_boxes;
 use super::dpx_fontmap::fontmap;
 use super::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_get_current};
 use super::dpx_pdfdoc::pdf_doc_expand_box;
-use super::dpx_pdfdoc::{pdf_doc_add_page_content, pdf_doc_add_page_resource};
+use super::dpx_pdfdoc::pdf_doc_mut;
 use super::dpx_pdfdraw::{
     pdf_dev_clear_gstates, pdf_dev_current_depth, pdf_dev_grestore, pdf_dev_grestore_to,
     pdf_dev_gsave, pdf_dev_init_gstates, pdf_dev_rectclip,
@@ -473,7 +473,7 @@ unsafe fn dev_set_text_matrix(
     buf.push(b' ');
     buf.push(b'T');
     buf.push(b'm');
-    pdf_doc_add_page_content(&buf);
+    pdf_doc_mut().add_page_content(&buf);
     text_state.ref_x = xpos;
     text_state.ref_y = ypos;
     text_state.matrix.slant = slant;
@@ -488,7 +488,7 @@ unsafe fn reset_text_state() {
     /*
      * We need to reset the line matrix to handle slanted fonts.
      */
-    pdf_doc_add_page_content(b" BT"); /* op: BT */
+    pdf_doc_mut().add_page_content(b" BT"); /* op: BT */
     /*
      * text_state.matrix is identity at top of page.
      * This sometimes write unnecessary "Tm"s when transition from
@@ -515,7 +515,7 @@ unsafe fn reset_text_state() {
 unsafe fn text_mode() {
     match motion_state {
         MotionState::STRING_MODE => {
-            pdf_doc_add_page_content(if text_state.is_mb != 0 {
+            pdf_doc_mut().add_page_content(if text_state.is_mb != 0 {
                 b">]TJ"
             } else {
                 b")]TJ"
@@ -531,18 +531,19 @@ unsafe fn text_mode() {
 }
 
 pub(crate) unsafe fn graphics_mode() {
+    let p = pdf_doc_mut();
     match motion_state {
         MotionState::GRAPHICS_MODE => {}
         MotionState::STRING_MODE | MotionState::TEXT_MODE => {
             if let MotionState::STRING_MODE = motion_state {
-                pdf_doc_add_page_content(if text_state.is_mb != 0 {
+                p.add_page_content(if text_state.is_mb != 0 {
                     b">]TJ"
                 } else {
                     b")]TJ"
                 });
             }
 
-            pdf_doc_add_page_content(b" ET"); /* op: ET */
+            p.add_page_content(b" ET"); /* op: ET */
             text_state.force_reset = 0;
             text_state.font_id = -1
         }
@@ -692,12 +693,13 @@ unsafe fn start_string(xpos: spt_t, ypos: spt_t, slant: f64, extend: f64, rotate
             error_dely = -error_dely;
         }
     }
-    pdf_doc_add_page_content(&buf);
+    let p = pdf_doc_mut();
+    p.add_page_content(&buf);
     /*
      * dvipdfm wrongly using "TD" in place of "Td".
      * The TD operator set leading, but we are not using T* etc.
      */
-    pdf_doc_add_page_content(if text_state.is_mb != 0 {
+    p.add_page_content(if text_state.is_mb != 0 {
         b" Td[<"
     } else {
         b" Td[("
@@ -716,7 +718,7 @@ unsafe fn string_mode(xpos: spt_t, ypos: spt_t, slant: f64, extend: f64, rotate:
 
             if text_state.force_reset != 0 {
                 dev_set_text_matrix(xpos, ypos, slant, extend, rotate); /* op: */
-                pdf_doc_add_page_content(if text_state.is_mb != 0 { b"[<" } else { b"[(" });
+                pdf_doc_mut().add_page_content(if text_state.is_mb != 0 { b"[<" } else { b"[(" });
                 text_state.force_reset = 0
             } else {
                 start_string(xpos, ypos, slant, extend, rotate);
@@ -770,7 +772,7 @@ unsafe fn dev_set_font(font_id: i32) -> i32 {
         real_font.used_chars = pdf_get_font_usedchars(real_font.font_id)
     }
     if real_font.used_on_this_page == 0 {
-        pdf_doc_add_page_resource(
+        pdf_doc_mut().add_page_resource(
             "Font",
             &real_font.short_name,
             pdf_link_obj(real_font.resource),
@@ -793,14 +795,15 @@ unsafe fn dev_set_font(font_id: i32) -> i32 {
     buf.push(b' ');
     buf.push(b'T');
     buf.push(b'f');
-    pdf_doc_add_page_content(buf.as_slice());
+    let p = pdf_doc_mut();
+    p.add_page_content(buf.as_slice());
     if bold > 0. || bold != text_state.bold_param {
         let content = if bold <= 0. {
             " 0 Tr".to_string()
         } else {
             format!(" 2 Tr {:.6} w", bold)
         };
-        pdf_doc_add_page_content(content.as_bytes());
+        p.add_page_content(content.as_bytes());
         /* op: Tr w */
     }
     text_state.bold_param = bold;
@@ -1075,6 +1078,7 @@ pub(crate) unsafe fn pdf_dev_set_string(
      * If you really care about accuracy, you should compensate this here too.
      */
     let mut buf = Vec::new();
+    let p = pdf_doc_mut();
     if motion_state != MotionState::STRING_MODE {
         string_mode(
             xpos,
@@ -1097,7 +1101,7 @@ pub(crate) unsafe fn pdf_dev_set_string(
             itoa::write(&mut buf, kern).unwrap();
         }
         buf.push(if text_state.is_mb != 0 { b'<' } else { b'(' });
-        pdf_doc_add_page_content(buf.as_slice());
+        p.add_page_content(buf.as_slice());
         buf.clear();
     }
     if text_state.is_mb != 0 {
@@ -1119,7 +1123,7 @@ pub(crate) unsafe fn pdf_dev_set_string(
         pdfobj_escape_str(&mut buf, str_ptr, length);
     }
     /* I think if you really care about speed, you should avoid memcopy here. */
-    pdf_doc_add_page_content(buf.as_slice()); /* op: */
+    p.add_page_content(buf.as_slice()); /* op: */
     text_state.offset += width;
 }
 
@@ -1448,7 +1452,7 @@ pub(crate) unsafe fn pdf_dev_set_rule(
     }
     buf.push(b' ');
     buf.push(b'Q');
-    pdf_doc_add_page_content(&buf);
+    pdf_doc_mut().add_page_content(&buf);
     /* op: q re f Q */
 }
 /* Rectangle in device space coordinate. */
@@ -1601,9 +1605,10 @@ pub(crate) unsafe fn pdf_dev_put_image(
     }
     let res_name = CStr::from_ptr(pdf_ximage_get_resname(id));
     let content = format!(" /{} Do", res_name.display());
-    pdf_doc_add_page_content(content.as_bytes());
+    let doc = pdf_doc_mut();
+    doc.add_page_content(content.as_bytes());
     pdf_dev_grestore();
-    pdf_doc_add_page_resource("XObject", res_name.to_bytes(), pdf_ximage_get_reference(id));
+    doc.add_page_resource("XObject", res_name.to_bytes(), pdf_ximage_get_reference(id));
     if dvi_is_tracking_boxes() {
         let mut rect = Rect::zero();
         let mut corner: [Point; 4] = [Point::zero(); 4];
@@ -1677,7 +1682,8 @@ pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count:
     if pdf_doc_enc == 0 {
         content.extend(b"\xfe\xff");
     }
-    pdf_doc_add_page_content(&content);
+    let p = pdf_doc_mut();
+    p.add_page_content(&content);
     loop {
         if !(count > 0) {
             break;
@@ -1695,10 +1701,10 @@ pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count:
                 content += &format!("{}", char::from(c));
             }
         }
-        pdf_doc_add_page_content(content.as_bytes());
+        p.add_page_content(content.as_bytes());
         unicodes = unicodes.offset(1)
     }
-    pdf_doc_add_page_content(b")>>BDC");
+    p.add_page_content(b")>>BDC");
 }
 /* Not in spt_t. */
 /* unit_conv: multiplier for input unit (spt_t) to bp conversion.
@@ -1740,7 +1746,7 @@ pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count:
  * auto_rotate is unset.
  */
 /*
- * For pdf_doc, pdf_draw and others.
+ * For PdfDoc, pdf_draw and others.
  */
 /* Force reselecting font and color:
  * XFrom (content grabbing) and Metapost support want them.
@@ -1755,7 +1761,7 @@ pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count:
 
 pub(crate) unsafe fn pdf_dev_end_actualtext() {
     graphics_mode();
-    pdf_doc_add_page_content(b" EMC");
+    pdf_doc_mut().add_page_content(b" EMC");
 }
 /* The name transform_info is misleading.
  * I'll put this here for a moment...

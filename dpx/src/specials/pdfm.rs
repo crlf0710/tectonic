@@ -53,13 +53,7 @@ use crate::dpx_pdfdev::{
     pdf_dev_get_coord, pdf_dev_pop_coord, pdf_dev_push_coord, pdf_dev_reset_color,
 };
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear, Rect, TMatrix};
-use crate::dpx_pdfdoc::{
-    pdf_doc_add_annot, pdf_doc_add_bead, pdf_doc_add_names, pdf_doc_add_page_content,
-    pdf_doc_begin_article, pdf_doc_begin_grabbing, pdf_doc_bookmarks_add, pdf_doc_bookmarks_depth,
-    pdf_doc_bookmarks_down, pdf_doc_bookmarks_up, pdf_doc_current_page_number,
-    pdf_doc_end_grabbing, pdf_doc_get_dictionary, pdf_doc_set_bgcolor, pdf_doc_set_bop_content,
-    pdf_doc_set_eop_content, PdfPageBoundary,
-};
+use crate::dpx_pdfdoc::{pdf_doc_mut, pdf_doc_set_bgcolor, PdfPageBoundary};
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_remove_dict, pdf_stream,
@@ -181,14 +175,14 @@ pub(crate) unsafe fn spc_pdfm_at_end_document() -> i32 {
 /* Dvipdfm specials */
 unsafe fn spc_handler_pdfm_bop(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if !args.cur.is_empty() {
-        pdf_doc_set_bop_content(&args.cur);
+        pdf_doc_mut().set_bop_content(&args.cur);
     }
     args.cur = &[];
     0
 }
 unsafe fn spc_handler_pdfm_eop(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if !args.cur.is_empty() {
-        pdf_doc_set_eop_content(&args.cur);
+        pdf_doc_mut().set_eop_content(&args.cur);
     }
     args.cur = &[];
     0
@@ -508,12 +502,8 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         spc_push_object(i, pdf_link_obj(annot_dict));
     }
     /* Add this reference. */
-    pdf_doc_add_annot(
-        pdf_doc_current_page_number() as usize,
-        &mut rect,
-        annot_dict,
-        1,
-    );
+    let p = pdf_doc_mut();
+    p.add_annot(p.current_page_number(), &mut rect, annot_dict, 1);
     if let Some(i) = ident {
         spc_flush_object(&i);
     }
@@ -676,19 +666,20 @@ unsafe fn spc_handler_pdfm_outline(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         return -1;
     }
     let item_dict = item_dict.unwrap();
-    let mut current_depth = pdf_doc_bookmarks_depth();
+    let p = pdf_doc_mut();
+    let mut current_depth = p.bookmarks_depth();
     if current_depth > level {
         while current_depth > level {
             current_depth -= 1;
-            pdf_doc_bookmarks_up();
+            p.bookmarks_up();
         }
     } else if current_depth < level {
         while current_depth < level {
             current_depth += 1;
-            pdf_doc_bookmarks_down();
+            p.bookmarks_down();
         }
     }
-    pdf_doc_bookmarks_add(&mut *item_dict.into_obj(), is_open);
+    p.bookmarks_add(&mut *item_dict.into_obj(), is_open);
     0
 }
 unsafe fn spc_handler_pdfm_article(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
@@ -697,7 +688,7 @@ unsafe fn spc_handler_pdfm_article(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     if let Some(ident) = args.cur.parse_opt_ident() {
         if let Some(info_dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
             let info_dict = info_dict.into_obj();
-            pdf_doc_begin_article(&ident, pdf_link_obj(info_dict));
+            pdf_doc_mut().begin_article(&ident, pdf_link_obj(info_dict));
             spc_push_object(&ident, info_dict);
             0
         } else {
@@ -756,15 +747,16 @@ unsafe fn spc_handler_pdfm_bead(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     /* Does this article exist yet */
     let article = spc_lookup_object(&article_name);
+    let p = pdf_doc_mut();
     if !article.is_null() {
         (*article).as_dict_mut().merge(&article_info);
     } else {
         let article_info = article_info.into_obj();
-        pdf_doc_begin_article(&article_name, pdf_link_obj(article_info));
+        p.begin_article(&article_name, pdf_link_obj(article_info));
         spc_push_object(&article_name, article_info);
     }
-    let page_no = pdf_doc_current_page_number();
-    pdf_doc_add_bead(&article_name, "", page_no, &mut rect);
+    let page_no = p.current_page_number();
+    p.add_bead(&article_name, "", page_no, &mut rect);
     0
 }
 unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
@@ -848,7 +840,7 @@ unsafe fn spc_handler_pdfm_dest(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         if let Object::String(name_str) = &(*name).data {
             if let Some(array) = args.cur.parse_pdf_object(ptr::null_mut()) {
                 if let Object::Array(_) = (*array).data {
-                    pdf_doc_add_names(b"Dests", name_str.to_bytes(), array);
+                    pdf_doc_mut().add_names(b"Dests", name_str.to_bytes(), array);
                 } else {
                     spc_warn!(spe, "Destination not specified as an array object!");
                     pdf_release_obj(name);
@@ -895,7 +887,7 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
                             let key = array[2 * i];
                             let value = array[2 * i + 1];
                             if let Object::String(key) = &(*key).data {
-                                if pdf_doc_add_names(
+                                if pdf_doc_mut().add_names(
                                     cat_name.to_bytes(),
                                     key.to_bytes(),
                                     pdf_link_obj(value),
@@ -917,7 +909,11 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
                     }
                     Object::String(string) => {
                         if let Some(value) = args.cur.parse_pdf_object(ptr::null_mut()) {
-                            if pdf_doc_add_names(cat_name.to_bytes(), string.to_bytes(), value) < 0
+                            if pdf_doc_mut().add_names(
+                                cat_name.to_bytes(),
+                                string.to_bytes(),
+                                value,
+                            ) < 0
                             {
                                 spc_warn!(spe, "Failed to add Name tree entry...");
                                 pdf_release_obj(category);
@@ -959,7 +955,7 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 unsafe fn spc_handler_pdfm_docinfo(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     if let Some(dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
-        let docinfo = pdf_doc_get_dictionary("Info");
+        let docinfo = pdf_doc_mut().get_dictionary("Info");
         (*docinfo).as_dict_mut().merge(&dict);
         0
     } else {
@@ -970,7 +966,7 @@ unsafe fn spc_handler_pdfm_docinfo(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
 unsafe fn spc_handler_pdfm_docview(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     let sd = &mut _PDF_STAT;
     if let Some(mut dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
-        let catalog = pdf_doc_get_dictionary("Catalog");
+        let catalog = pdf_doc_mut().get_dictionary("Catalog");
         /* Avoid overriding whole ViewerPreferences */
         let pref_old = (*catalog).as_dict_mut().get_mut("ViewerPreferences"); /* Close all? */
         let pref_add = dict.get("ViewerPreferences");
@@ -1027,9 +1023,10 @@ unsafe fn spc_handler_pdfm_content(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         buf.push(b'm');
         buf.push(b' ');
         /* op: Q */
-        pdf_doc_add_page_content(&buf); /* op: q cm */
-        pdf_doc_add_page_content(args.cur); /* op: ANY */
-        pdf_doc_add_page_content(b" Q");
+        let p = pdf_doc_mut();
+        p.add_page_content(&buf); /* op: q cm */
+        p.add_page_content(args.cur); /* op: ANY */
+        p.add_page_content(b" Q");
         /* op: ANY */
     } /* op: */
     args.cur = &[]; /* op: ANY */
@@ -1056,8 +1053,9 @@ unsafe fn spc_handler_pdfm_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
             let mut M = TMatrix::create_translation(spe.x_user, spe.y_user);
             pdf_dev_concat(&mut M);
         }
-        pdf_doc_add_page_content(b" ");
-        pdf_doc_add_page_content(args.cur);
+        let p = pdf_doc_mut();
+        p.add_page_content(b" ");
+        p.add_page_content(args.cur);
         if direct == 0 {
             let mut M = TMatrix::create_translation(-spe.x_user, -spe.y_user);
             pdf_dev_concat(&mut M);
@@ -1083,8 +1081,9 @@ unsafe fn spc_handler_pdfm_econtent(_spe: &mut SpcEnv, _args: &mut SpcArg) -> i3
 unsafe fn spc_handler_pdfm_code(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if !args.cur.is_empty() {
-        pdf_doc_add_page_content(b" ");
-        pdf_doc_add_page_content(args.cur);
+        let p = pdf_doc_mut();
+        p.add_page_content(b" ");
+        p.add_page_content(args.cur);
         args.cur = &[];
     }
     0
@@ -1247,7 +1246,7 @@ unsafe fn spc_handler_pdfm_bform(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
             }
             Rect::new(point2(0., -ti.depth), point2(ti.width, ti.height))
         };
-        let xobj_id = pdf_doc_begin_grabbing(&ident, spe.x_user, spe.y_user, &mut cropbox);
+        let xobj_id = pdf_doc_mut().begin_grabbing(&ident, spe.x_user, spe.y_user, &mut cropbox);
         if xobj_id < 0 {
             spc_warn!(spe, "Couldn\'t start form object.");
             return -1;
@@ -1273,7 +1272,7 @@ unsafe fn spc_handler_pdfm_eform(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     } else {
         ptr::null_mut()
     };
-    pdf_doc_end_grabbing(attrib);
+    pdf_doc_mut().end_grabbing(attrib);
     0
 }
 /* Saved XObjects can be used as follows:

@@ -28,7 +28,7 @@ use crate::dpx_fontmap::{
     pdf_load_fontmap_file, pdf_read_fontmap_line, pdf_remove_fontmap_record,
 };
 use crate::dpx_pdfdev::{pdf_dev_reset_color, pdf_dev_reset_fonts};
-use crate::dpx_pdfdoc::{pdf_doc_add_page_content, pdf_doc_set_bgcolor};
+use crate::dpx_pdfdoc::{pdf_doc_mut, pdf_doc_set_bgcolor};
 use crate::dpx_pdfdraw::{
     pdf_dev_concat, pdf_dev_get_fixed_point, pdf_dev_grestore, pdf_dev_gsave,
     pdf_dev_set_fixed_point,
@@ -233,7 +233,7 @@ unsafe fn spc_handler_xtx_clipoverlay(_spe: &mut SpcEnv, args: &mut SpcArg) -> i
     pdf_dev_gsave();
     let pos = OVERLAY_NAME.iter().position(|&x| x == 0).unwrap();
     if args.cur != &OVERLAY_NAME[..pos] && args.cur != b"all" {
-        pdf_doc_add_page_content(b" 0 0 m W n");
+        pdf_doc_mut().add_page_content(b" 0 0 m W n");
     }
     args.cur = &[];
     0
@@ -249,11 +249,12 @@ unsafe fn spc_handler_xtx_renderingmode(spe: &mut SpcEnv, args: &mut SpcArg) -> 
         return -1;
     }
     let content = format!(" {} Tr", value as i32);
-    pdf_doc_add_page_content(content.as_bytes());
+    let p = pdf_doc_mut();
+    p.add_page_content(content.as_bytes());
     args.cur.skip_white();
     if !args.cur.is_empty() {
-        pdf_doc_add_page_content(b" ");
-        pdf_doc_add_page_content(args.cur);
+        p.add_page_content(b" ");
+        p.add_page_content(args.cur);
     }
     args.cur = &[];
     0

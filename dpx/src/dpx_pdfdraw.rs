@@ -35,7 +35,7 @@ use super::dpx_pdfdev::{
     graphics_mode, pdf_dev_get_param, pdf_dev_reset_fonts, pdf_sprint_coord, pdf_sprint_length,
     pdf_sprint_matrix, pdf_sprint_rect,
 };
-use super::dpx_pdfdoc::pdf_doc_add_page_content;
+use super::dpx_pdfdoc::pdf_doc_mut;
 
 // TODO move to context structure
 static mut gs_stack: Vec<pdf_gstate> = Vec::new();
@@ -478,7 +478,7 @@ unsafe fn pdf_dev__rectshape(r: &Rect, M: Option<&TMatrix>, opchr: u8) -> i32 {
         buf.push(b' ');
         buf.push(if isclip != 0 { b'n' } else { b'Q' });
     }
-    pdf_doc_add_page_content(&buf);
+    pdf_doc_mut().add_page_content(&buf);
     0
 }
 static mut path_added: i32 = 0;
@@ -497,6 +497,7 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
     path_added = 0;
     graphics_mode();
     let isrect = pdf_path__isarect(pa, ignore_rule);
+    let p = pdf_doc_mut();
     if isrect != 0 {
         let pe = &pa.path[0];
         let pe1 = &pa.path[2];
@@ -507,7 +508,7 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
         b.push(b' ');
         b.push(b'r');
         b.push(b'e');
-        pdf_doc_add_page_content(&b);
+        p.add_page_content(&b);
         b.clear();
     } else {
         for pe in pa.path.iter_mut() {
@@ -533,12 +534,12 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
                 },
             );
             if b.len() + 128 > B_LEN {
-                pdf_doc_add_page_content(&b);
+                p.add_page_content(&b);
                 b.clear();
             }
         }
         if !b.is_empty() {
-            pdf_doc_add_page_content(&b);
+            p.add_page_content(&b);
             b.clear();
         }
     }
@@ -551,7 +552,7 @@ unsafe fn pdf_dev__flushpath(pa: &mut pdf_path, opchr: u8, rule: i32, ignore_rul
         b.push(b' ');
         b.push(b'n');
     }
-    pdf_doc_add_page_content(&b);
+    p.add_page_content(&b);
     0
 }
 
@@ -626,7 +627,7 @@ pub(crate) unsafe fn pdf_dev_gsave() -> i32 {
     copy_a_gstate(&mut gs1, gs0);
     stack.push(gs1);
 
-    pdf_doc_add_page_content(b" q");
+    pdf_doc_mut().add_page_content(b" q");
     0
 }
 
@@ -638,7 +639,7 @@ pub(crate) unsafe fn pdf_dev_grestore() -> i32 {
         return -1;
     }
     let _gs = stack.pop();
-    pdf_doc_add_page_content(b" Q");
+    pdf_doc_mut().add_page_content(b" Q");
     pdf_dev_reset_fonts(0);
     0
 }
@@ -675,7 +676,7 @@ pub(crate) unsafe fn pdf_dev_grestore_to(depth: usize) {
         warn!("Closing pending transformations at end of page/XObject.");
     }
     while gss.len() > depth + 1 {
-        pdf_doc_add_page_content(b" Q");
+        pdf_doc_mut().add_page_content(b" Q");
         let _gs = gss.pop();
     }
     pdf_dev_reset_fonts(0);
@@ -740,7 +741,7 @@ pub(crate) unsafe fn pdf_dev_set_color(color: &PdfColor, mask: u8, force: i32) {
         }
         _ => " ",
     };
-    pdf_doc_add_page_content(res.as_bytes());
+    pdf_doc_mut().add_page_content(res.as_bytes());
     *current = color.clone();
 }
 
@@ -774,7 +775,7 @@ pub(crate) unsafe fn pdf_dev_concat(M: &TMatrix) -> i32 {
         buf.push(b' ');
         buf.push(b'c');
         buf.push(b'm');
-        pdf_doc_add_page_content(&buf);
+        pdf_doc_mut().add_page_content(&buf);
         *CTM = M.post_transform(CTM);
     }
     let W = M.inverse().unwrap();
@@ -804,7 +805,7 @@ pub(crate) unsafe fn pdf_dev_setmiterlimit(mlimit: f64) -> i32 {
         /* op: d */
         buf.push(b' ');
         buf.push(b'M');
-        pdf_doc_add_page_content(&buf);
+        pdf_doc_mut().add_page_content(&buf);
         gs.miterlimit = mlimit
     }
     0
@@ -815,7 +816,7 @@ pub(crate) unsafe fn pdf_dev_setlinecap(capstyle: i32) -> i32 {
     let gs = gss.last_mut().unwrap();
     if gs.linecap != capstyle {
         let buf = format!(" {} J", capstyle);
-        pdf_doc_add_page_content(buf.as_bytes());
+        pdf_doc_mut().add_page_content(buf.as_bytes());
         gs.linecap = capstyle
     }
     0
@@ -826,7 +827,7 @@ pub(crate) unsafe fn pdf_dev_setlinejoin(joinstyle: i32) -> i32 {
     let gs = gss.last_mut().unwrap();
     if gs.linejoin != joinstyle {
         let buf = format!(" {} j", joinstyle);
-        pdf_doc_add_page_content(buf.as_bytes());
+        pdf_doc_mut().add_page_content(buf.as_bytes());
         gs.linejoin = joinstyle
     }
     0
@@ -841,7 +842,7 @@ pub(crate) unsafe fn pdf_dev_setlinewidth(width: f64) -> i32 {
         pdf_sprint_length(&mut buf, width);
         buf.push(b' ');
         buf.push(b'w');
-        pdf_doc_add_page_content(&buf);
+        pdf_doc_mut().add_page_content(&buf);
         gs.linewidth = width
     }
     0
@@ -854,18 +855,19 @@ pub(crate) unsafe fn pdf_dev_setdash(pattern: &[f64], offset: f64) -> i32 {
     let count = pattern.len();
     gs.linedash.num_dash = count as i32;
     gs.linedash.offset = offset;
-    pdf_doc_add_page_content(b" [");
+    let p = pdf_doc_mut();
+    p.add_page_content(b" [");
     for i in 0..count {
         buf.push(b' ');
         pdf_sprint_length(&mut buf, pattern[i]);
-        pdf_doc_add_page_content(&buf);
+        p.add_page_content(&buf);
         gs.linedash.pattern[i] = pattern[i];
         buf.clear();
     }
-    pdf_doc_add_page_content(b"] ");
+    p.add_page_content(b"] ");
     pdf_sprint_length(&mut buf, offset);
-    pdf_doc_add_page_content(&buf);
-    pdf_doc_add_page_content(b" d");
+    p.add_page_content(&buf);
+    p.add_page_content(b" d");
     0
 }
 /* ZSYUEDVEDEOF */
@@ -906,7 +908,7 @@ pub(crate) unsafe fn pdf_dev_newpath() -> i32 {
         p.path.clear();
     }
     /* The following is required for "newpath" operator in mpost.c. */
-    pdf_doc_add_page_content(b" n"); /* op: n */
+    pdf_doc_mut().add_page_content(b" n"); /* op: n */
     0
 }
 

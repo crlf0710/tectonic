@@ -35,10 +35,8 @@ use super::dpx_dvi::{
 use super::dpx_pdfdev::{
     pdf_close_device, pdf_dev_reset_global_state, pdf_dev_set_verbose, pdf_init_device, Point, Rect,
 };
-use super::dpx_pdfdoc::pdf_doc_set_mediabox;
-use super::dpx_pdfdoc::{
-    pdf_close_document, pdf_doc_set_creator, pdf_doc_set_verbose, pdf_open_document,
-};
+use super::dpx_pdfdoc::pdf_doc_mut;
+use super::dpx_pdfdoc::{pdf_doc_set_creator, pdf_doc_set_verbose};
 use super::dpx_pdffont::{
     pdf_font_reset_unique_tag_state, pdf_font_set_deterministic_unique_tags, pdf_font_set_dpi,
 };
@@ -207,7 +205,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
     let init_paper_height = page_height;
     let mut page_count = 0;
     let mut mediabox = Rect::new(Point::zero(), point2(paper_width, paper_height));
-    pdf_doc_set_mediabox(0, &mediabox);
+    pdf_doc_mut().set_mediabox(0, &mediabox);
     let mut i = 0;
     while i < page_ranges.len() && dvi_npages() != 0 {
         if page_ranges[i].last < 0 {
@@ -261,7 +259,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
                 }
                 if page_width != init_paper_width || page_height != init_paper_height {
                     mediabox = Rect::new(point2(0., 0.), point2(page_width, page_height));
-                    pdf_doc_set_mediabox(page_count + 1, &mediabox);
+                    pdf_doc_mut().set_mediabox(page_count + 1, &mediabox);
                 }
                 dvi_do_page(page_height, x_offset, y_offset);
                 page_count = page_count + 1;
@@ -414,7 +412,7 @@ pub unsafe fn dvipdfmx_main(
      * annot_grow:    Margin of annotation.
      * bookmark_open: Miximal depth of open bookmarks.
      */
-    pdf_open_document(
+    pdf_doc_mut().open_document(
         pdf_filename,
         do_encryption != 0,
         enable_object_stream,
@@ -443,7 +441,7 @@ pub unsafe fn dvipdfmx_main(
     /* Order of close... */
     pdf_close_device();
     /* pdf_close_document flushes XObject (image) and other resources. */
-    pdf_close_document(); /* pdf_font may depend on fontmap. */
+    pdf_doc_mut().close_document(); /* pdf_font may depend on fontmap. */
     pdf_close_fontmaps();
     dvi_close();
     info!("\n");

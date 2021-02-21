@@ -54,9 +54,7 @@ use super::dpx_pdfdev::{
     graphics_mode, pdf_dev_begin_actualtext, pdf_dev_end_actualtext, pdf_dev_locate_font,
     pdf_dev_set_dirmode, pdf_dev_set_rect, pdf_dev_set_rule, pdf_dev_set_string,
 };
-use super::dpx_pdfdoc::{
-    pdf_doc_begin_page, pdf_doc_break_annot, pdf_doc_end_page, pdf_doc_expand_box,
-};
+use super::dpx_pdfdoc::{pdf_doc_break_annot, pdf_doc_expand_box, pdf_doc_mut};
 use super::dpx_pdfparse::{dump, ParsePdfObj, SkipWhite};
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record, subfont_set_verbose};
 use super::dpx_t1_char::t1char_get_metrics;
@@ -476,8 +474,9 @@ unsafe fn get_dvi_info(post_location: i32) {
     };
 }
 
-pub(crate) unsafe fn dvi_comment() -> *const i8 {
-    DVI_INFO.comment.as_mut_ptr() as *const i8
+pub(crate) unsafe fn dvi_comment() -> &'static [u8] {
+    let pos = DVI_INFO.comment.iter().position(|&x| x == 0).unwrap();
+    &DVI_INFO.comment[..pos]
 }
 unsafe fn read_font_record(tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
@@ -1438,7 +1437,7 @@ unsafe fn do_bop() {
     DVI_PAGE_BUF_INDEX += 4;
     clear_state();
     processing_page = 1;
-    pdf_doc_begin_page(dvi_tell_mag(), dev_origin_x, dev_origin_y);
+    pdf_doc_mut().begin_page(dvi_tell_mag(), dev_origin_x, dev_origin_y);
     spc_exec_at_begin_page();
 }
 unsafe fn do_eop() {
@@ -1447,7 +1446,7 @@ unsafe fn do_eop() {
         panic!("DVI stack depth is not zero at end of page");
     }
     spc_exec_at_end_page();
-    pdf_doc_end_page();
+    pdf_doc_mut().end_page();
 }
 unsafe fn do_dir() {
     dvi_state.d = get_buffered_unsigned_byte() as u32;

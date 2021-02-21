@@ -32,9 +32,7 @@ use crate::spc_warn;
 use crate::dpx_dpxutil::{ParseCIdent, ParseCString, ParseFloatDecimal};
 use crate::dpx_pdfcolor::pdf_color_get_current;
 use crate::dpx_pdfdev::pdf_dev_scale;
-use crate::dpx_pdfdoc::{
-    pdf_doc_add_page_content, pdf_doc_add_page_resource, pdf_doc_current_page_resources,
-};
+use crate::dpx_pdfdoc::pdf_doc_mut;
 use crate::dpx_pdfdraw::{
     pdf_dev_arcx, pdf_dev_bspline, pdf_dev_concat, pdf_dev_flushpath, pdf_dev_grestore,
     pdf_dev_gsave, pdf_dev_lineto, pdf_dev_moveto, pdf_dev_newpath, pdf_dev_set_color,
@@ -93,7 +91,7 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> pdf_dict
     dict
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
-    let dict1 = pdf_doc_current_page_resources();
+    let dict1 = pdf_doc_mut().current_page_resources();
     if dict1.is_null() {
         return 0;
     }
@@ -134,11 +132,11 @@ unsafe fn set_fillstyle(g: f64, a: f64, f_ais: i32) -> i32 {
                 f_ais,
             )
             .into_obj();
-            pdf_doc_add_page_resource("ExtGState", resname.as_bytes(), pdf_ref_obj(dict));
+            pdf_doc_mut().add_page_resource("ExtGState", resname.as_bytes(), pdf_ref_obj(dict));
             pdf_release_obj(dict);
         }
         let buf = format!(" /{} gs", resname);
-        pdf_doc_add_page_content(buf.as_bytes());
+        pdf_doc_mut().add_page_content(buf.as_bytes());
         /* op: gs */
     } /* get stroking and fill colors */
     let (_sc, fc) = pdf_color_get_current();

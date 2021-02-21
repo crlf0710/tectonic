@@ -401,10 +401,14 @@ pub(crate) unsafe fn pdf_ximage_findresource(ident: &str, options: load_options)
  *                Default value: the identity matrix [1 0 0 1 0 0].
  */
 
-pub(crate) fn pdf_ximage_init_form_info(info: &mut xform_info) {
-    info.flags = 0;
-    info.bbox = Rect::zero();
-    info.matrix = TMatrix::identity();
+impl xform_info {
+    pub(crate) fn new() -> Self {
+        Self {
+            flags: 0,
+            bbox: Rect::zero(),
+            matrix: TMatrix::identity(),
+        }
+    }
 }
 /* Reference: PDF Reference 1.5 v6, pp.303--306
  *
@@ -452,68 +456,62 @@ impl ximage_info {
     }
 }
 
-pub(crate) unsafe fn pdf_ximage_set_image(
-    I: &mut pdf_ximage,
-    image_info: &ximage_info,
-    resource: *mut pdf_obj,
-) {
-    let info = image_info;
-    if let Some(resource) = resource.as_mut() {
-        if let Object::Stream(_) = (*resource).data {
-            I.subtype = PdfXObjectType::Image;
-            I.attr.width = info.width;
-            I.attr.height = info.height;
-            I.attr.xdensity = info.xdensity;
-            I.attr.ydensity = info.ydensity;
-            I.reference = pdf_ref_obj(resource);
-            let dict = (*resource).as_stream_mut().get_dict_mut();
-            dict.set("Type", "XObject");
-            dict.set("Subtype", "Image");
-            dict.set("Width", (*info).width as f64);
-            dict.set("Height", (*info).height as f64);
-            if (*info).bits_per_component > 0 {
-                /* Ignored for JPXDecode filter. FIXME */
-                dict.set("BitsPerComponent", (*info).bits_per_component as f64);
-                /* Caller don't know we are using reference. */
+impl pdf_ximage {
+    pub(crate) unsafe fn set_image(&mut self, image_info: &ximage_info, resource: *mut pdf_obj) {
+        let info = image_info;
+        if let Some(resource) = resource.as_mut() {
+            if let Object::Stream(_) = (*resource).data {
+                self.subtype = PdfXObjectType::Image;
+                self.attr.width = info.width;
+                self.attr.height = info.height;
+                self.attr.xdensity = info.xdensity;
+                self.attr.ydensity = info.ydensity;
+                self.reference = pdf_ref_obj(resource);
+                let dict = (*resource).as_stream_mut().get_dict_mut();
+                dict.set("Type", "XObject");
+                dict.set("Subtype", "Image");
+                dict.set("Width", (*info).width as f64);
+                dict.set("Height", (*info).height as f64);
+                if (*info).bits_per_component > 0 {
+                    /* Ignored for JPXDecode filter. FIXME */
+                    dict.set("BitsPerComponent", (*info).bits_per_component as f64);
+                    /* Caller don't know we are using reference. */
+                }
+                if !self.attr.dict.is_null() {
+                    dict.merge((*self.attr.dict).as_dict());
+                }
+                pdf_release_obj(resource);
+                self.resource = ptr::null_mut();
+            } else {
+                panic!("Image XObject must be of stream type.");
             }
-            if !I.attr.dict.is_null() {
-                dict.merge((*I.attr.dict).as_dict());
-            }
-            pdf_release_obj(resource);
-            I.resource = ptr::null_mut();
         } else {
             panic!("Image XObject must be of stream type.");
         }
-    } else {
-        panic!("Image XObject must be of stream type.");
     }
-}
 
-pub(crate) unsafe fn pdf_ximage_set_form(
-    I: &mut pdf_ximage,
-    form_info: &mut xform_info,
-    resource: *mut pdf_obj,
-) {
-    let info = form_info;
-    I.subtype = PdfXObjectType::Form;
-    /* Image's attribute "bbox" here is affected by /Rotate entry of included
-     * PDF page.
-     */
-    let mut p1 = info.bbox.min;
-    pdf_dev_transform(&mut p1, Some(&info.matrix));
-    let mut p2 = point2(info.bbox.max.x, info.bbox.min.y);
-    pdf_dev_transform(&mut p2, Some(&info.matrix));
-    let mut p3 = info.bbox.max;
-    pdf_dev_transform(&mut p3, Some(&info.matrix));
-    let mut p4 = point2(info.bbox.min.x, info.bbox.max.y);
-    pdf_dev_transform(&mut p4, Some(&info.matrix));
-    I.attr.bbox.min.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
-    I.attr.bbox.min.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
-    I.attr.bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
-    I.attr.bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
-    I.reference = pdf_ref_obj(resource);
-    pdf_release_obj(resource);
-    I.resource = ptr::null_mut();
+    pub(crate) unsafe fn set_form(&mut self, form_info: &xform_info, resource: *mut pdf_obj) {
+        let info = form_info;
+        self.subtype = PdfXObjectType::Form;
+        /* Image's attribute "bbox" here is affected by /Rotate entry of included
+         * PDF page.
+         */
+        let mut p1 = info.bbox.min;
+        pdf_dev_transform(&mut p1, Some(&info.matrix));
+        let mut p2 = point2(info.bbox.max.x, info.bbox.min.y);
+        pdf_dev_transform(&mut p2, Some(&info.matrix));
+        let mut p3 = info.bbox.max;
+        pdf_dev_transform(&mut p3, Some(&info.matrix));
+        let mut p4 = point2(info.bbox.min.x, info.bbox.max.y);
+        pdf_dev_transform(&mut p4, Some(&info.matrix));
+        self.attr.bbox.min.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
+        self.attr.bbox.min.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
+        self.attr.bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
+        self.attr.bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
+        self.reference = pdf_ref_obj(resource);
+        pdf_release_obj(resource);
+        self.resource = ptr::null_mut();
+    }
 }
 
 /*pub(crate) unsafe fn pdf_ximage_get_page(I: &pdf_ximage) -> i32 {
@@ -551,16 +549,16 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
         I.ident = ident.to_string();
     }
     match info {
-        XInfo::Image(mut info) => {
-            pdf_ximage_set_image(&mut I, &mut info, resource);
+        XInfo::Image(info) => {
+            I.set_image(&info, resource);
             sprintf(
                 I.res_name.as_mut_ptr(),
                 b"Im%d\x00" as *const u8 as *const i8,
                 id,
             );
         }
-        XInfo::Form(mut info) => {
-            pdf_ximage_set_form(&mut I, &mut info, resource);
+        XInfo::Form(info) => {
+            I.set_form(&info, resource);
             sprintf(
                 I.res_name.as_mut_ptr(),
                 b"Fm%d\x00" as *const u8 as *const i8,

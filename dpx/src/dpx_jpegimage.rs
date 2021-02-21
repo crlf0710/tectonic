@@ -33,7 +33,6 @@ use super::dpx_pdfcolor::{
     iccp_check_colorspace, iccp_get_rendering_intent, iccp_load_profile,
     pdf_get_colorspace_reference,
 };
-use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::bridge::ttstub_input_get_size;
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
@@ -256,7 +255,7 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     let (xdensity, ydensity) = jpeg_get_density(&mut j_info);
     info.xdensity = xdensity;
     info.ydensity = ydensity;
-    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
+    ximage.set_image(&info, stream.into_obj());
     JPEG_info_clear(&mut j_info);
     0
 }

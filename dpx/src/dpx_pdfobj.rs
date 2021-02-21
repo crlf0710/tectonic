@@ -855,7 +855,7 @@ pub(crate) unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
         pdf_write_obj(object, ttstub_output_open_stdout().as_mut().unwrap());
         panic!("Cannot continue...");
     }
-    if !object.is_null() && (*object).is_indirect() {
+    if (*object).is_indirect() {
         return pdf_link_obj(object);
     } else {
         return pdf_new_ref(object);

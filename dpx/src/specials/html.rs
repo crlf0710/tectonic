@@ -36,10 +36,7 @@ use super::{spc_begin_annot, spc_end_annot};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_mem::new;
 use crate::dpx_pdfdev::{graphics_mode, transform_info, transform_info_clear, TMatrix};
-use crate::dpx_pdfdoc::{
-    pdf_doc_add_names, pdf_doc_add_page_content, pdf_doc_add_page_resource,
-    pdf_doc_current_page_resources, pdf_doc_get_reference,
-};
+use crate::dpx_pdfdoc::pdf_doc_mut;
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_new_null, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
@@ -310,7 +307,8 @@ unsafe fn html_open_link(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
 unsafe fn html_open_dest(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) -> i32 {
     let mut cp = Point::new(spe.x_user, spe.y_user);
     pdf_dev_transform(&mut cp, None);
-    let page_ref = pdf_doc_get_reference("@THISPAGE");
+    let p = pdf_doc_mut();
+    let page_ref = p.get_reference("@THISPAGE");
     assert!(!page_ref.is_null());
     let mut array = vec![];
     array.push(page_ref);
@@ -318,7 +316,7 @@ unsafe fn html_open_dest(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
     array.push(pdf_new_null());
     array.push_obj(cp.y + 24.);
     array.push(pdf_new_null());
-    let error = pdf_doc_add_names(b"Dests", name, array.into_obj());
+    let error = p.add_names(b"Dests", name, array.into_obj());
     if error != 0 {
         spc_warn!(spe, "Failed to add named destination: {}", name.display());
     }
@@ -447,7 +445,7 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> pdf_dict
     dict
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
-    let dict1 = pdf_doc_current_page_resources();
+    let dict1 = pdf_doc_mut().current_page_resources();
     if dict1.is_null() {
         return 0;
     }
@@ -552,18 +550,19 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
     } else {
         graphics_mode();
         pdf_dev_gsave();
+        let p = pdf_doc_mut();
         let a: i32 = (100.0f64 * alpha).round() as i32;
         if a != 0 {
             let res_name = format!("_Tps_a{:03}_", a);
             if check_resourcestatus("ExtGState", &res_name) == 0 {
                 let dict =
                     create_xgstate((0.01f64 * a as f64 / 0.01f64).round() * 0.01f64, 0).into_obj();
-                pdf_doc_add_page_resource("ExtGState", res_name.as_bytes(), pdf_ref_obj(dict));
+                p.add_page_resource("ExtGState", res_name.as_bytes(), pdf_ref_obj(dict));
                 pdf_release_obj(dict);
             }
-            pdf_doc_add_page_content(b" /");
-            pdf_doc_add_page_content(res_name.as_bytes());
-            pdf_doc_add_page_content(b" gs");
+            p.add_page_content(b" /");
+            p.add_page_content(res_name.as_bytes());
+            p.add_page_content(b" gs");
         }
         /* ENABLE_HTML_SVG_OPACITY */
         let (r, M1) = pdf_ximage_scale_image(id, &mut ti); /* op: */
@@ -571,11 +570,11 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
         pdf_dev_concat(&mut M);
         pdf_dev_rectclip(&r);
         let res_name = CStr::from_ptr(pdf_ximage_get_resname(id));
-        pdf_doc_add_page_content(b" /");
-        pdf_doc_add_page_content(res_name.to_bytes());
-        pdf_doc_add_page_content(b" Do");
+        p.add_page_content(b" /");
+        p.add_page_content(res_name.to_bytes());
+        p.add_page_content(b" Do");
         pdf_dev_grestore();
-        pdf_doc_add_page_resource("XObject", res_name.to_bytes(), pdf_ximage_get_reference(id));
+        p.add_page_resource("XObject", res_name.to_bytes(), pdf_ximage_get_reference(id));
         /* ENABLE_HTML_SVG_XXX */
     }
     error

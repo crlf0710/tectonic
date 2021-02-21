@@ -32,7 +32,7 @@ use std::slice::from_raw_parts;
 use super::dpx_dpxcrypt::ARC4_CONTEXT;
 use super::dpx_dpxcrypt::{AES_cbc_encrypt_tectonic, AES_ecb_encrypt, ARC4_set_key, ARC4};
 use super::dpx_mem::new;
-use super::dpx_pdfdoc::pdf_doc_get_dictionary;
+use super::dpx_pdfdoc::pdf_doc_mut;
 use super::dpx_pdffont::get_unique_time_if_given;
 use crate::dpx_pdfobj::{pdf_dict, pdf_get_version, pdf_obj, pdf_string, PushObj};
 use crate::warn;
@@ -812,7 +812,7 @@ pub(crate) unsafe fn pdf_encrypt_obj() -> pdf_dict {
         free(cipher as *mut libc::c_void);
     }
     if p.R > 5 {
-        let catalog: *mut pdf_obj = pdf_doc_get_dictionary("Catalog");
+        let catalog = pdf_doc_mut().get_dictionary("Catalog");
         let mut ext = pdf_dict::new();
         let mut adbe = pdf_dict::new();
         adbe.set("BaseVersion", "1.7");

@@ -45,7 +45,7 @@ use super::dpx_pdfdev::{
     pdf_dev_set_param, pdf_dev_set_string, transform_info, transform_info_clear, Point, Rect,
     TMatrix,
 };
-use super::dpx_pdfdoc::{pdf_doc_begin_grabbing, pdf_doc_end_grabbing};
+use super::dpx_pdfdoc::pdf_doc_mut;
 use super::dpx_pdfdraw::{
     pdf_dev_arc, pdf_dev_arcn, pdf_dev_clip, pdf_dev_closepath, pdf_dev_concat,
     pdf_dev_currentmatrix, pdf_dev_currentpoint, pdf_dev_curveto, pdf_dev_dtransform,
@@ -681,7 +681,7 @@ unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
                 fig_p.bbox.max.y = -values[5] * dvi2pts;
                 fig_p.flags |= 1 << 0;
                 let resname = format!("__tf{}__", count);
-                xobj_id = pdf_doc_begin_grabbing(
+                xobj_id = pdf_doc_mut().begin_grabbing(
                     &resname,
                     fig_p.bbox.min.x,
                     fig_p.bbox.max.y,
@@ -695,7 +695,7 @@ unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
             if in_tfig == 0 {
                 panic!("endTexFig without valid startTexFig!.");
             }
-            pdf_doc_end_grabbing(ptr::null_mut());
+            pdf_doc_mut().end_grabbing(ptr::null_mut());
             pdf_dev_put_image(xobj_id, &mut fig_p, x_user, y_user);
             in_tfig = 0
         }

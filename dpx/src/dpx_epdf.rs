@@ -32,7 +32,6 @@ use std::ptr;
 use crate::warn;
 
 use super::dpx_pdfdoc::pdf_doc_get_page;
-use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_concat_stream, pdf_file_get_catalog, pdf_file_get_version, pdf_get_version,
     pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, DerefObj, IntoObj, Object,
@@ -86,8 +85,7 @@ pub(crate) unsafe fn pdf_include_page(
     if let Some((mut page, bbox, matrix)) =
         pdf_doc_get_page(pf, options.page_no, options.bbox_type, &mut resources)
     {
-        let mut info = xform_info::default();
-        pdf_ximage_init_form_info(&mut info);
+        let mut info = xform_info::new();
         info.bbox = bbox;
         info.matrix = matrix;
         let catalog = pdf_file_get_catalog(pf);
@@ -180,7 +178,7 @@ pub(crate) unsafe fn pdf_include_page(
         contents_dict.set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);
 
-        pdf_ximage_set_form(ximage, &mut info, contents);
+        ximage.set_form(&info, contents);
 
         0
     } else {
