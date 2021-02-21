@@ -32,6 +32,68 @@ use std::ptr;
 use super::dpx_mem::new;
 use libc::{free, memcpy};
 
+use std::collections::HashMap;
+
+// HtTable implements defers to a normal std::collections::HashMap
+// but tracks the iteration order of dvipdfmx's ht_table for backwards compat
+// Note: Elements are wrapped in a Box to allow the (highly unsafe!)
+// access pattern of storing .get_mut(x).as_mut_ptr() pointers.
+pub(crate) struct HtTable<T> {
+    backing: HashMap<Vec<u8>, Box<T>>,
+    compat_iteration_order: HashMap<u32, Vec<Vec<u8>>>,
+}
+
+impl<T> HtTable<T> {
+    pub(crate) fn new() -> Self {
+        unsafe {
+            let backing = HashMap::new();
+            let compat_iteration_order = HashMap::new();
+
+            HtTable {
+                backing,
+                compat_iteration_order,
+            }
+        }
+    }
+
+    pub(crate) fn hash_key(key: &[u8]) -> u32 {
+        key.iter()
+            .fold(0u32, |a, &b| {
+                (a << 5).wrapping_add(a).wrapping_add(b as u32)
+            })
+            .wrapping_rem(503)
+    }
+
+    pub(crate) fn insert(&mut self, key: Vec<u8>, val: Box<T>) {
+        self.compat_iteration_order
+            .entry(Self::hash_key(&key))
+            .or_default()
+            .push(key.clone());
+        self.backing.insert(key, val);
+    }
+
+    pub(crate) fn get_mut(&mut self, key: &[u8]) -> Option<&mut Box<T>> {
+        self.backing.get_mut(key)
+    }
+
+    pub(crate) fn clear(&mut self) {
+        *self = Self::new();
+    }
+}
+
+impl<T> Drop for HtTable<T> {
+    fn drop(&mut self) {
+        // drop entries in iteration order
+        for i in 0u32..503 {
+            if let Some(keys) = self.compat_iteration_order.get(&i) {
+                for key in keys {
+                    self.backing.remove(key);
+                }
+            }
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct ht_entry {
