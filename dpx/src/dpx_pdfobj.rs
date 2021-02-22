@@ -105,10 +105,32 @@ pub enum Object {
     Number(f64),
     String(pdf_string),
     Name(pdf_name),
-    Array(Vec<*mut pdf_obj>),
+    Array(Array),
     Dict(pdf_dict),
     Stream(pdf_stream),
     Indirect(pdf_indirect),
+}
+
+#[derive(Debug)]
+pub struct Array(Vec<*mut pdf_obj>);
+impl core::ops::Deref for Array {
+    type Target = Vec<*mut pdf_obj>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl core::ops::DerefMut for Array {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl Drop for Array {
+    fn drop(&mut self) {
+        // TODO: check order
+        while let Some(o) = self.pop() {
+            unsafe { pdf_release_obj(o) }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -425,7 +447,7 @@ impl IntoObj for &str {
 impl IntoObj for Vec<*mut pdf_obj> {
     #[inline(always)]
     fn into_obj_variant(self) -> Object {
-        Object::Array(self)
+        Object::Array(Array(self))
     }
 }
 
