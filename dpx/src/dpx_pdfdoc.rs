@@ -1437,7 +1437,7 @@ impl PdfDoc {
         &mut self,
         category: &[u8],
         key: &[u8],
-        value: *mut pdf_obj,
+        value: &mut pdf_obj,
     ) -> i32 {
         let mut i = 0;
         for name in &self.names {
@@ -1456,7 +1456,7 @@ impl PdfDoc {
         if self.names[i].data.is_null() {
             self.names[i].data = pdf_new_name_tree()
         }
-        pdf_names_add_object(self.names[i].data, key, value)
+        pdf_names_add_object(&mut *self.names[i].data, key, value)
     }
 
     unsafe fn add_goto(&mut self, annot_dict: &mut pdf_dict) {

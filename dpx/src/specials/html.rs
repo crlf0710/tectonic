@@ -39,8 +39,8 @@ use crate::dpx_pdfdev::{graphics_mode, transform_info, transform_info_clear, TMa
 use crate::dpx_pdfdoc::pdf_doc_mut;
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_ref, pdf_obj, pdf_release_obj, pdf_string,
-    IntoObj, Object, PushObj,
+    pdf_dict, pdf_link_obj, pdf_new_ref, pdf_obj, pdf_release_obj, pdf_string, IntoObj, Object,
+    PushObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcpy};
@@ -313,10 +313,10 @@ unsafe fn html_open_dest(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
     let mut array = vec![];
     array.push(page_ref);
     array.push_obj("XYZ");
-    array.push(pdf_new_null());
+    array.push_obj(Object::Null);
     array.push_obj(cp.y + 24.);
-    array.push(pdf_new_null());
-    let error = p.add_names(b"Dests", name, array.into_obj());
+    array.push_obj(Object::Null);
+    let error = p.add_names(b"Dests", name, &mut *array.into_obj());
     if error != 0 {
         spc_warn!(spe, "Failed to add named destination: {}", name.display());
     }

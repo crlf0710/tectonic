@@ -34,8 +34,8 @@ use std::ptr;
 use super::dpx_dpxutil::xtoi;
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_new_null, pdf_obj, pdf_stream, pdf_string,
-    DerefObj, IntoObj, Object, STREAM_COMPRESS,
+    pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_obj, pdf_stream, pdf_string, DerefObj, IntoObj,
+    Object, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
 use libc::memcpy;
@@ -397,7 +397,7 @@ impl ParsePdfObj for &[u8] {
             b'(' => self.parse_pdf_string().map(IntoObj::into_obj),
             b'[' => self.parse_pdf_array(pf).map(IntoObj::into_obj),
             b'/' => self.parse_pdf_name().map(IntoObj::into_obj),
-            b'n' => self.parse_pdf_null().map(|_| pdf_new_null()),
+            b'n' => self.parse_pdf_null().map(|_| Object::Null.into_obj()),
             b't' | b'f' => self.parse_pdf_boolean().map(IntoObj::into_obj),
             b'+' | b'-' | b'.' => self.parse_pdf_number().map(IntoObj::into_obj),
             b'0'..=b'9' => {
@@ -424,24 +424,23 @@ impl ParsePdfObj for &[u8] {
         }
     }
     fn parse_pdf_reference(&mut self) -> Option<*mut pdf_obj> {
-        let result;
         let save2 = *self; // TODO: check
         self.skip_white();
         if let Some(name) = self.parse_opt_ident() {
-            result = unsafe { spc_lookup_reference(&name) };
+            let result = unsafe { spc_lookup_reference(&name) };
             if result.is_none() {
                 // DEAD code
                 warn!("Could not find the named reference (@{}).", name);
                 dump(save2);
                 *self = save2
             }
+            result
         } else {
             warn!("Could not find a reference name.");
             dump(save2);
             *self = save2;
-            result = None;
+            None
         }
-        result
     }
     fn parse_pdf_stream(&mut self, dict: &mut pdf_dict) -> Option<pdf_stream> {
         let stream_length;

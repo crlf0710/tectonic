@@ -39,8 +39,8 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_ref, pdf_new_undefined, pdf_obj, pdf_ref_obj,
-    pdf_release_obj, pdf_string, pdf_transfer_label, IntoObj, Object, PushObj,
+    pdf_dict, pdf_link_obj, pdf_new_ref, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
+    pdf_transfer_label, IntoObj, Object, PushObj,
 };
 use libc::free;
 
@@ -114,7 +114,7 @@ unsafe fn check_objects_defined(ht_tab: *mut ht_table) {
             let value = ht_iter_getval(&iter) as *const obj_data;
             assert!(!(*value).object.is_null());
             if !(*value).object.is_null() && (*(*value).object).is_undefined() {
-                pdf_names_add_object(ht_tab, key, pdf_new_null());
+                pdf_names_add_object(&mut *ht_tab, key, &mut *Object::Null.into_obj());
                 warn!(
                     "Object @{} used, but not defined. Replaced by null.",
                     printable_key(key),
@@ -136,11 +136,10 @@ pub(crate) unsafe fn pdf_delete_name_tree(names: *mut *mut ht_table) {
 }
 
 pub(crate) unsafe fn pdf_names_add_object(
-    names: *mut ht_table,
+    names: &mut ht_table,
     key: &[u8],
-    object: *mut pdf_obj,
+    object: &mut pdf_obj,
 ) -> i32 {
-    assert!(!names.is_null() && !object.is_null());
     if key.is_empty() {
         warn!("Null string used for name tree key.");
         return -1;
@@ -155,7 +154,7 @@ pub(crate) unsafe fn pdf_names_add_object(
     } else {
         assert!(!(*value).object.is_null());
         if !(*value).object.is_null() && (*(*value).object).is_undefined() {
-            pdf_transfer_label(object, (*value).object);
+            pdf_transfer_label(object, &mut *(*value).object);
             pdf_release_obj((*value).object);
             (*value).object = object
         } else {
@@ -170,9 +169,8 @@ pub(crate) unsafe fn pdf_names_add_object(
  * The following routine returns copies, not the original object.
  */
 
-pub(crate) unsafe fn pdf_names_lookup_reference(names: *mut ht_table, key: &[u8]) -> *mut pdf_obj {
+pub(crate) unsafe fn pdf_names_lookup_reference(names: &mut ht_table, key: &[u8]) -> *mut pdf_obj {
     let object;
-    assert!(!names.is_null());
     let value = ht_lookup_table(names, key) as *mut obj_data;
     if !value.is_null() {
         object = (*value).object;
@@ -182,8 +180,8 @@ pub(crate) unsafe fn pdf_names_lookup_reference(names: *mut ht_table, key: &[u8]
          * of a dictionary entry, a null object is be equivalent to no entry
          * at all. This matters for optimization of PDF destinations.
          */
-        object = pdf_new_undefined();
-        pdf_names_add_object(names, key, object);
+        object = Object::Undefined.into_obj();
+        pdf_names_add_object(names, key, &mut *object);
     }
     pdf_ref_obj(object)
 }
@@ -327,7 +325,7 @@ unsafe fn flat_table(ht_tab: *mut ht_table, filter: *mut ht_table) -> Vec<named_
                 named_object {
                     key: key.as_ptr(),
                     keylen: key.len() as _,
-                    value: pdf_new_null(),
+                    value: Object::Null.into_obj(),
                 }
             } else {
                 named_object {

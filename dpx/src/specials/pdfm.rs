@@ -840,7 +840,7 @@ unsafe fn spc_handler_pdfm_dest(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         if let Object::String(name_str) = &(*name).data {
             if let Some(array) = args.cur.parse_pdf_object(ptr::null_mut()) {
                 if let Object::Array(_) = (*array).data {
-                    pdf_doc_mut().add_names(b"Dests", name_str.to_bytes(), array);
+                    pdf_doc_mut().add_names(b"Dests", name_str.to_bytes(), &mut *array);
                 } else {
                     spc_warn!(spe, "Destination not specified as an array object!");
                     pdf_release_obj(name);
@@ -890,7 +890,7 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
                                 if pdf_doc_mut().add_names(
                                     cat_name.to_bytes(),
                                     key.to_bytes(),
-                                    pdf_link_obj(value),
+                                    &mut *pdf_link_obj(value),
                                 ) < 0
                                 {
                                     spc_warn!(spe, "Failed to add Name tree entry...");
@@ -912,7 +912,7 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
                             if pdf_doc_mut().add_names(
                                 cat_name.to_bytes(),
                                 string.to_bytes(),
-                                value,
+                                &mut *value,
                             ) < 0
                             {
                                 spc_warn!(spe, "Failed to add Name tree entry...");

@@ -172,7 +172,7 @@ pub(crate) unsafe fn spc_lookup_reference(key: &str) -> Option<*mut pdf_obj> {
             if ispageref(key) {
                 pdf_doc_mut().ref_page((key[4..]).parse::<i32>().unwrap() as usize)
             } else {
-                pdf_names_lookup_reference(NAMED_OBJECTS, key.as_bytes())
+                pdf_names_lookup_reference(&mut *NAMED_OBJECTS, key.as_bytes())
             }
         }
     };
@@ -222,7 +222,7 @@ pub(crate) unsafe fn spc_push_object(key: &str, value: *mut pdf_obj) {
     if key.is_empty() || value.is_null() {
         return;
     }
-    pdf_names_add_object(NAMED_OBJECTS, key.as_bytes(), value);
+    pdf_names_add_object(&mut *NAMED_OBJECTS, key.as_bytes(), &mut *value);
 }
 pub(crate) unsafe fn spc_flush_object(key: &str) {
     pdf_names_close_object(NAMED_OBJECTS, key.as_bytes());

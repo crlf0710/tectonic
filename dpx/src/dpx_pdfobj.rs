@@ -791,15 +791,6 @@ unsafe fn pdf_out_white(handle: &mut OutputHandleWrapper) {
     };
 }
 
-fn pdf_new_obj(data: Object) -> *mut pdf_obj {
-    Box::into_raw(Box::new(pdf_obj {
-        data: data,
-        id: (0, 0),
-        refcount: 1,
-        flags: 0,
-    }))
-}
-
 unsafe fn pdf_label_obj(object: &mut pdf_obj) {
     if object.is_invalid() {
         panic!("pdf_label_obj(): passed invalid object.");
@@ -817,10 +808,10 @@ unsafe fn pdf_label_obj(object: &mut pdf_obj) {
  * The object dst must not yet have been labeled.
  */
 
-pub(crate) unsafe fn pdf_transfer_label(mut dst: *mut pdf_obj, mut src: *mut pdf_obj) {
-    assert!(!dst.is_null() && (*dst).label() == 0 && !src.is_null());
-    (*dst).id = (*src).id;
-    (*src).id = (0, 0);
+pub(crate) unsafe fn pdf_transfer_label(dst: &mut pdf_obj, src: &mut pdf_obj) {
+    assert!(dst.label() == 0);
+    dst.id = src.id;
+    src.id = (0, 0);
 }
 /*
  * This doesn't really copy the object, but allows it to be used without
@@ -858,14 +849,6 @@ unsafe fn write_indirect(indirect: &mut pdf_indirect, handle: &mut OutputHandleW
 /* The undefined object is used as a placeholder in pdfnames.c
  * for objects which are referenced before they are defined.
  */
-
-pub(crate) fn pdf_new_undefined() -> *mut pdf_obj {
-    pdf_new_obj(Object::Undefined)
-}
-
-pub(crate) fn pdf_new_null() -> *mut pdf_obj {
-    pdf_new_obj(Object::Null)
-}
 
 unsafe fn write_null(handle: &mut OutputHandleWrapper) {
     pdf_out(handle, b"null");
@@ -2838,7 +2821,7 @@ unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
             "Trying to read nonexistent or deleted object: {} {}",
             obj_num, obj_gen,
         );
-        return pdf_new_null();
+        return Object::Null.into_obj();
     }
     let result = (*pf.xref_table.offset(obj_num as isize)).direct;
     if !result.is_null() {
@@ -2891,7 +2874,7 @@ unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
         result
     } else {
         warn!("Could not read object from object stream.");
-        pdf_new_null()
+        Object::Null.into_obj()
     }
 }
 pub(crate) unsafe fn pdf_new_ref(object: &mut pdf_obj) -> pdf_indirect {
@@ -3585,7 +3568,7 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
             || (*pf.xref_table.offset(obj_num as isize)).typ as i32 == 2 && obj_gen == 0))
     {
         warn!("Can\'t resolve object: {} {}", obj_num, obj_gen as i32);
-        return pdf_new_null();
+        return Object::Null.into_obj();
     }
     let ref_0 = (*pf.xref_table.offset(obj_num as isize)).indirect;
     if !ref_0.is_null() {
