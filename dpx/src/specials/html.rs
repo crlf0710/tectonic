@@ -39,7 +39,7 @@ use crate::dpx_pdfdev::{graphics_mode, transform_info, transform_info_clear, TMa
 use crate::dpx_pdfdoc::pdf_doc_mut;
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_new_null, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
+    pdf_dict, pdf_link_obj, pdf_new_null, pdf_new_ref, pdf_obj, pdf_release_obj, pdf_string,
     IntoObj, Object, PushObj,
 };
 use crate::spc_warn;
@@ -556,8 +556,13 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> i32 {
             let res_name = format!("_Tps_a{:03}_", a);
             if check_resourcestatus("ExtGState", &res_name) == 0 {
                 let dict =
-                    create_xgstate((0.01f64 * a as f64 / 0.01f64).round() * 0.01f64, 0).into_obj();
-                p.add_page_resource("ExtGState", res_name.as_bytes(), pdf_ref_obj(dict));
+                    &mut *create_xgstate((0.01f64 * a as f64 / 0.01f64).round() * 0.01f64, 0)
+                        .into_obj();
+                p.add_page_resource(
+                    "ExtGState",
+                    res_name.as_bytes(),
+                    pdf_new_ref(dict).into_obj(),
+                );
                 pdf_release_obj(dict);
             }
             p.add_page_content(b" /");

@@ -35,7 +35,7 @@ use crate::warn;
 use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
+    pdf_dict, pdf_get_version, pdf_new_ref, pdf_obj, pdf_release_obj, pdf_stream,
     pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use libc::free;
@@ -273,20 +273,20 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     );
     free(stream_data_ptr as *mut libc::c_void);
     let stream_dict = stream.get_dict_mut();
-    if !mask.is_null() {
+    if let Some(mask) = mask.as_mut() {
         if trans_type == 1 {
-            stream_dict.set("Mask", mask);
+            stream_dict.set("Mask", mask as *mut _);
         } else if trans_type == 2 {
             if info.bits_per_component >= 8 && info.width > 64 {
                 pdf_stream_set_predictor(
-                    (*mask).as_stream_mut(),
+                    mask.as_stream_mut(),
                     2,
                     info.width,
                     info.bits_per_component,
                     1,
                 );
             }
-            stream_dict.set("SMask", pdf_ref_obj(mask));
+            stream_dict.set("SMask", pdf_new_ref(mask));
             pdf_release_obj(mask);
         } else {
             warn!("{}: Unknown transparency type...???", "PNG");
@@ -340,8 +340,8 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                         (*text_ptr.offset(i as isize)).text as *const libc::c_void,
                         (*text_ptr.offset(i as isize)).itxt_length as i32,
                     );
-                    let XMP_stream = XMP_stream.into_obj();
-                    stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
+                    let XMP_stream = &mut *XMP_stream.into_obj();
+                    stream_dict.set("Metadata", pdf_new_ref(XMP_stream));
                     pdf_release_obj(XMP_stream);
                     have_XMP = 1
                 }

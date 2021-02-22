@@ -49,8 +49,8 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj,
-    STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_new_ref, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -315,9 +315,9 @@ unsafe fn add_TTCIDHMetrics(
         empty = 0
     }
     fontdict.set("DW", dw);
-    let w_array = w_array.into_obj();
+    let w_array = &mut *w_array.into_obj();
     if empty == 0 {
-        fontdict.set("W", pdf_ref_obj(w_array));
+        fontdict.set("W", pdf_new_ref(w_array));
     }
     pdf_release_obj(w_array);
 }
@@ -385,9 +385,9 @@ unsafe fn add_TTCIDVMetrics(
         an_array.push_obj(-defaultAdvanceHeight);
         fontdict.set("DW2", an_array);
     }
-    let w2_array = w2_array.into_obj();
+    let w2_array = &mut *w2_array.into_obj();
     if empty == 0 {
-        fontdict.set("W2", pdf_ref_obj(w2_array));
+        fontdict.set("W2", pdf_new_ref(w2_array));
     }
     pdf_release_obj(w2_array);
 }
@@ -855,20 +855,20 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     if verbose > 1 {
         info!("[{} bytes]", fontfile.len());
     }
-    let fontfile = fontfile.into_obj();
+    let fontfile = &mut *fontfile.into_obj();
     (*font.descriptor)
         .as_dict_mut()
-        .set("FontFile2", pdf_ref_obj(fontfile));
+        .set("FontFile2", pdf_new_ref(fontfile));
     pdf_release_obj(fontfile);
     /*
      * CIDSet
      */
     let mut cidset = pdf_stream::new(STREAM_COMPRESS);
     cidset.add(used_chars as *const libc::c_void, last_cid as i32 / 8 + 1);
-    let cidset = cidset.into_obj();
+    let cidset = &mut *cidset.into_obj();
     (*font.descriptor)
         .as_dict_mut()
-        .set("CIDSet", pdf_ref_obj(cidset));
+        .set("CIDSet", pdf_new_ref(cidset));
     pdf_release_obj(cidset);
     /*
      * CIDToGIDMap
@@ -886,10 +886,10 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             cidtogidmap as *const libc::c_void,
             (last_cid as i32 + 1) * 2,
         );
-        let c2gmstream = c2gmstream.into_obj();
+        let c2gmstream = &mut *c2gmstream.into_obj();
         (*font.fontdict)
             .as_dict_mut()
-            .set("CIDToGIDMap", pdf_ref_obj(c2gmstream));
+            .set("CIDToGIDMap", pdf_new_ref(c2gmstream));
         pdf_release_obj(c2gmstream);
         free(cidtogidmap as *mut libc::c_void);
     };

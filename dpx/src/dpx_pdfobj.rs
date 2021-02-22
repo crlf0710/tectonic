@@ -671,7 +671,7 @@ pub(crate) unsafe fn pdf_out_flush() {
          * Labelling it in pdf_out_init (with 1)  does not work (why?).
          */
         if !xref_stream.is_null() {
-            pdf_label_obj(xref_stream);
+            pdf_label_obj(&mut *xref_stream);
         }
         /* Record where this xref is for trailer */
         startxref = pdf_output_file_position as u32;
@@ -705,10 +705,10 @@ pub(crate) unsafe fn pdf_out_flush() {
     };
 }
 
-pub(crate) unsafe fn pdf_set_root(mut object: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_set_root(object: &mut pdf_obj) {
     if (*trailer_dict)
         .as_dict_mut()
-        .set("Root", pdf_ref_obj(object))
+        .set("Root", pdf_new_ref(object))
         != 0
     {
         panic!("Root object already set!");
@@ -719,13 +719,13 @@ pub(crate) unsafe fn pdf_set_root(mut object: *mut pdf_obj) {
      * a document catalog may contain strings, which should be encrypted.
      */
     if doc_enc_mode {
-        (*object).flags |= OBJ_NO_OBJSTM;
+        object.flags |= OBJ_NO_OBJSTM;
     };
 }
-pub(crate) unsafe fn pdf_set_info(object: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_set_info(object: &mut pdf_obj) {
     if (*trailer_dict)
         .as_dict_mut()
-        .set("Info", pdf_ref_obj(object))
+        .set("Info", pdf_new_ref(object))
         != 0
     {
         panic!("Info object already set!");
@@ -736,15 +736,15 @@ pub(crate) unsafe fn pdf_set_id(id: Vec<*mut pdf_obj>) {
         panic!("ID already set!");
     };
 }
-pub(crate) unsafe fn pdf_set_encrypt(mut encrypt: *mut pdf_obj) {
+pub(crate) unsafe fn pdf_set_encrypt(encrypt: &mut pdf_obj) {
     if (*trailer_dict)
         .as_dict_mut()
-        .set("Encrypt", pdf_ref_obj(encrypt))
+        .set("Encrypt", pdf_new_ref(encrypt))
         != 0
     {
         panic!("Encrypt object already set!");
     }
-    (*encrypt).flags |= OBJ_NO_ENCRYPT;
+    encrypt.flags |= OBJ_NO_ENCRYPT;
 }
 unsafe fn pdf_out_char(handle: &mut OutputHandleWrapper, c: u8) {
     if !output_stream.is_null() && handle == pdf_output_handle.as_mut().unwrap() {
@@ -810,15 +810,15 @@ fn pdf_new_obj(data: Object) -> *mut pdf_obj {
     }))
 }
 
-unsafe fn pdf_label_obj(mut object: *mut pdf_obj) {
-    if object.is_null() || (*object).is_invalid() {
+unsafe fn pdf_label_obj(object: &mut pdf_obj) {
+    if object.is_invalid() {
         panic!("pdf_label_obj(): passed invalid object.");
     }
     /*
      * Don't change label on an already labeled object. Ignore such calls.
      */
-    if (*object).label() == 0 {
-        (*object).id = (next_label as u32, 0);
+    if object.label() == 0 {
+        object.id = (next_label as u32, 0);
         next_label += 1;
     };
 }
@@ -849,16 +849,17 @@ pub(crate) unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
     if object.is_null() || (*object).is_invalid() {
         panic!("pdf_ref_obj(): passed invalid object.");
     }
-    if (*object).refcount == 0_u32 {
+    let object = &mut *object;
+    if object.refcount == 0 {
         info!("\nTrying to refer already released object!!!\n");
         pdf_write_obj(object, ttstub_output_open_stdout().as_mut().unwrap());
         panic!("Cannot continue...");
     }
-    if (*object).is_indirect() {
-        return pdf_link_obj(object);
+    if object.is_indirect() {
+        pdf_link_obj(object)
     } else {
-        return pdf_new_ref(object);
-    };
+        pdf_new_ref(object).into_obj()
+    }
 }
 unsafe fn write_indirect(indirect: &mut pdf_indirect, handle: &mut OutputHandleWrapper) {
     let (label, generation) = indirect.id;
@@ -1073,13 +1074,13 @@ unsafe fn write_array(array: &Vec<*mut pdf_obj>, handle: &mut OutputHandleWrappe
     if !array.is_empty() {
         let mut type1 = PdfObjType::UNDEFINED;
         for i in 0..array.len() {
-            if !array[i as usize].is_null() {
-                let type2 = (*array[i as usize]).data.typ();
+            if let Some(item) = array[i as usize].as_mut() {
+                let type2 = item.data.typ();
                 if type1 != PdfObjType::UNDEFINED && pdf_need_white(type1, type2) {
                     pdf_out_white(handle);
                 }
                 type1 = type2;
-                pdf_write_obj(array[i as usize], handle);
+                pdf_write_obj(item, handle);
             } else {
                 warn!("PDF array element {} undefined.", i);
             }
@@ -1134,7 +1135,11 @@ unsafe fn write_dict(dict: &pdf_dict, handle: &mut OutputHandleWrapper) {
         if pdf_need_white(PdfObjType::NAME, (*v).data.typ()) {
             pdf_out_white(handle);
         }
-        pdf_write_obj(v, handle);
+        if let Some(v) = v.as_mut() {
+            pdf_write_obj(v, handle);
+        } else {
+            write_null(handle);
+        }
     }
     pdf_out(handle, b">>");
 }
@@ -2411,18 +2416,14 @@ unsafe fn pdf_stream_uncompress(src: &mut pdf_stream) -> Option<pdf_stream> {
     pdf_concat_stream(&mut dst, src);
     Some(dst)
 }
-unsafe fn pdf_write_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) {
-    if object.is_null() {
-        write_null(handle);
-        return;
-    }
-    if object.is_null() || matches!((*object).data, Object::Invalid | Object::Undefined) {
+unsafe fn pdf_write_obj(object: &mut pdf_obj, handle: &mut OutputHandleWrapper) {
+    if matches!(object.data, Object::Invalid | Object::Undefined) {
         panic!(
             "pdf_write_obj: Invalid object, type = {:?}\n",
-            (*object).data.typ()
+            object.data.typ()
         );
     }
-    match &mut (*object).data {
+    match &mut object.data {
         Object::Boolean(v) => {
             write_boolean(*v, handle);
         }
@@ -2454,18 +2455,18 @@ unsafe fn pdf_write_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) 
     };
 }
 /* Write the object to the file */
-unsafe fn pdf_flush_obj(object: *mut pdf_obj, handle: &mut OutputHandleWrapper) {
+unsafe fn pdf_flush_obj(object: &mut pdf_obj, handle: &mut OutputHandleWrapper) {
     /*
      * Record file position
      */
-    let (label, generation) = (*object).id;
+    let (label, generation) = object.id;
     add_xref_entry(
         label as usize,
-        1_u8,
+        1,
         (pdf_output_file_position as u32, generation),
     );
     let out = format!("{} {} obj\n", label, generation);
-    enc_mode = doc_enc_mode as i32 != 0 && (*object).flags & OBJ_NO_ENCRYPT == 0;
+    enc_mode = doc_enc_mode as i32 != 0 && object.flags & OBJ_NO_ENCRYPT == 0;
     pdf_enc_set_label(label);
     pdf_enc_set_generation(generation as u32);
     pdf_out(handle, out.as_bytes());
@@ -2518,51 +2519,50 @@ unsafe fn release_objstm(objstm: *mut pdf_obj) {
     pdf_release_obj(objstm);
 }
 
-pub unsafe fn pdf_release_obj(mut object: *mut pdf_obj) {
-    if object.is_null() {
-        return;
-    }
-    if object.is_null() || (*object).is_invalid() || (*object).refcount <= 0 {
-        info!(
-            "\npdf_release_obj: object={:p}, type={:?}, refcount={}\n",
-            object,
-            (*object).data.typ(),
-            (*object).refcount,
-        );
-        pdf_write_obj(object, ttstub_output_open_stdout().as_mut().unwrap());
-        panic!("pdf_release_obj:  Called with invalid object.");
-    }
-    (*object).refcount -= 1;
-    if (*object).refcount == 0_u32 {
-        /*
-         * Nothing is using this object so it's okay to remove it.
-         * Nonzero "label" means object needs to be written before it's destroyed.
-         */
-        if (*object).label() != 0 && pdf_output_handle.is_some() {
-            if do_objstm == 0
-                || (*object).flags & OBJ_NO_OBJSTM != 0
-                || doc_enc_mode as i32 != 0 && (*object).flags & OBJ_NO_ENCRYPT != 0
-                || (*object).generation() as i32 != 0
-            {
-                let handle = pdf_output_handle.as_mut().unwrap();
-                pdf_flush_obj(object, handle);
-            } else {
-                if current_objstm.is_null() {
-                    let data = vec![0; 2 * 200 + 2];
-                    current_objstm = pdf_stream::new(STREAM_COMPRESS).into_obj();
-                    set_objstm_data((*current_objstm).as_stream_mut(), data);
-                    pdf_label_obj(current_objstm);
-                }
-                if pdf_add_objstm(&mut *current_objstm, &mut *object) == 200 {
-                    release_objstm(current_objstm);
-                    current_objstm = ptr::null_mut()
+pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
+    if let Some(object) = object.as_mut() {
+        if object.is_invalid() || object.refcount <= 0 {
+            info!(
+                "\npdf_release_obj: object={:p}, type={:?}, refcount={}\n",
+                object,
+                object.data.typ(),
+                object.refcount,
+            );
+            pdf_write_obj(object, ttstub_output_open_stdout().as_mut().unwrap());
+            panic!("pdf_release_obj:  Called with invalid object.");
+        }
+        object.refcount -= 1;
+        if object.refcount == 0 {
+            /*
+             * Nothing is using this object so it's okay to remove it.
+             * Nonzero "label" means object needs to be written before it's destroyed.
+             */
+            if object.label() != 0 && pdf_output_handle.is_some() {
+                if do_objstm == 0
+                    || object.flags & OBJ_NO_OBJSTM != 0
+                    || doc_enc_mode as i32 != 0 && object.flags & OBJ_NO_ENCRYPT != 0
+                    || object.generation() as i32 != 0
+                {
+                    let handle = pdf_output_handle.as_mut().unwrap();
+                    pdf_flush_obj(object, handle);
+                } else {
+                    if current_objstm.is_null() {
+                        let data = vec![0; 2 * 200 + 2];
+                        current_objstm = pdf_stream::new(STREAM_COMPRESS).into_obj();
+                        set_objstm_data((*current_objstm).as_stream_mut(), data);
+                        pdf_label_obj(&mut *current_objstm);
+                    }
+                    if pdf_add_objstm(&mut *current_objstm, object) == 200 {
+                        release_objstm(current_objstm);
+                        current_objstm = ptr::null_mut()
+                    }
                 }
             }
+            /* This might help detect freeing already freed objects */
+            object.data = Object::Invalid;
+            let _ = Box::from_raw(object);
         }
-        /* This might help detect freeing already freed objects */
-        (*object).data = Object::Invalid;
-        free(object as *mut libc::c_void);
-    };
+    }
 }
 /* PDF reading starts around here */
 /* As each lines may contain null-characters, so outptr here is NOT
@@ -2904,17 +2904,16 @@ unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
         pdf_new_null()
     }
 }
-unsafe fn pdf_new_ref(object: *mut pdf_obj) -> *mut pdf_obj {
-    if (*object).label() == 0 {
+pub(crate) unsafe fn pdf_new_ref(object: &mut pdf_obj) -> pdf_indirect {
+    if object.label() == 0 {
         pdf_label_obj(object);
     }
 
-    (pdf_indirect {
+    pdf_indirect {
         pf: ptr::null_mut(),
-        id: (*object).id,
+        id: object.id,
         obj: object,
-    })
-    .into_obj()
+    }
 }
 /* pdf_deref_obj always returns a link instead of the original   */
 /* It never return the null object, but the NULL pointer instead */
@@ -3416,8 +3415,8 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
     }
 }
 
-use once_cell::sync::Lazy;
 use crate::dpx_dpxutil::HtTable;
+use once_cell::sync::Lazy;
 static mut pdf_files: Lazy<HtTable<pdf_file>> = Lazy::new(|| HtTable::new());
 
 impl pdf_file {
@@ -3598,7 +3597,7 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
         warn!("Can\'t resolve object: {} {}", obj_num, obj_gen as i32);
         return pdf_new_null();
     }
-    let mut ref_0 = (*pf.xref_table.offset(obj_num as isize)).indirect;
+    let ref_0 = (*pf.xref_table.offset(obj_num as isize)).indirect;
     if !ref_0.is_null() {
         if ref_0 == &mut loop_marker as *mut pdf_obj {
             panic!("Loop in object hierarchy detected. Broken PDF file?");
@@ -3613,7 +3612,7 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
         /* We mark the reference to be able to detect loops */
         (*pf.xref_table.offset(obj_num as isize)).indirect = &mut loop_marker;
         let tmp = pdf_import_object(obj);
-        ref_0 = pdf_ref_obj(tmp);
+        let ref_0 = pdf_ref_obj(tmp);
         (*pf.xref_table.offset(obj_num as isize)).indirect = ref_0;
         pdf_release_obj(tmp);
         pdf_release_obj(obj);

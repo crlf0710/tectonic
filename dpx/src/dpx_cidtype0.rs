@@ -73,8 +73,8 @@ use super::dpx_tt_table::{
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj,
-    STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_new_ref, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
+    PushObj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
 use libc::{free, memset};
@@ -215,9 +215,9 @@ unsafe fn add_CIDHMetrics(
      * MacOS X's (up to 10.2.8) preview app. implements this wrong description.
      */
     fontdict.set("DW", defaultAdvanceWidth);
-    let w_array = w_array.into_obj();
+    let w_array = &mut *w_array.into_obj();
     if empty == 0 {
-        fontdict.set("W", pdf_ref_obj(w_array));
+        fontdict.set("W", pdf_new_ref(w_array));
     }
     pdf_release_obj(w_array);
 }
@@ -344,9 +344,9 @@ unsafe fn add_CIDVMetrics(
         an_array.push_obj(-defaultAdvanceHeight);
         fontdict.set("DW2", an_array);
     }
-    let w2_array = w2_array.into_obj();
+    let w2_array = &mut *w2_array.into_obj();
     if empty == 0 {
-        fontdict.set("W2", pdf_ref_obj(w2_array));
+        fontdict.set("W2", pdf_new_ref(w2_array));
     }
     pdf_release_obj(w2_array);
 }
@@ -492,15 +492,13 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     /*
      * FontFile
      */
-    let fontfile = pdf_stream::new(STREAM_COMPRESS).into_obj();
-    let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
+    let mut fontfile = pdf_stream::new(STREAM_COMPRESS);
+    fontfile.get_dict_mut().set("Subtype", "CIDFontType0C");
+    fontfile.add_slice(&dest[..offset as usize]);
+    let fontfile = &mut *fontfile.into_obj();
     (*(*font).descriptor)
         .as_dict_mut()
-        .set("FontFile3", pdf_ref_obj(fontfile));
-    stream_dict.set("Subtype", "CIDFontType0C");
-    (*fontfile)
-        .as_stream_mut()
-        .add_slice(&dest[..offset as usize]);
+        .set("FontFile3", pdf_new_ref(fontfile));
     pdf_release_obj(fontfile);
     destlen as i32
 }
@@ -587,10 +585,10 @@ unsafe fn CIDFont_type0_add_CIDSet(font: *mut CIDFont, used_chars: *mut i8, last
      */
     let mut cidset = pdf_stream::new(STREAM_COMPRESS);
     cidset.add(used_chars as *const libc::c_void, last_cid as i32 / 8 + 1);
-    let cidset = cidset.into_obj();
+    let cidset = &mut *cidset.into_obj();
     (*(*font).descriptor)
         .as_dict_mut()
-        .set("CIDSet", pdf_ref_obj(cidset));
+        .set("CIDSet", pdf_new_ref(cidset));
     pdf_release_obj(cidset);
 }
 
@@ -1585,9 +1583,9 @@ unsafe fn add_metrics(
     }
     (*font.fontdict).as_dict_mut().set("DW", default_width);
     let empty = tmp.is_empty();
-    let tmp = tmp.into_obj();
+    let tmp = &mut *tmp.into_obj();
     if !empty {
-        (*font.fontdict).as_dict_mut().set("W", pdf_ref_obj(tmp));
+        (*font.fontdict).as_dict_mut().set("W", pdf_new_ref(tmp));
     }
     pdf_release_obj(tmp);
 }
@@ -1641,10 +1639,10 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
     .map(IntoObj::into_obj)
     .unwrap_or(ptr::null_mut());
     if !hparent.is_null() {
-        Type0Font_set_ToUnicode(&mut *hparent, pdf_ref_obj(tounicode));
+        Type0Font_set_ToUnicode(&mut *hparent, pdf_new_ref(&mut *tounicode).into_obj());
     }
     if !vparent.is_null() {
-        Type0Font_set_ToUnicode(&mut *vparent, pdf_ref_obj(tounicode));
+        Type0Font_set_ToUnicode(&mut *vparent, pdf_new_ref(&mut *tounicode).into_obj());
     }
     pdf_release_obj(tounicode);
     cff_set_name(&mut cffont, &font.fontname);

@@ -40,7 +40,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
+    pdf_dict, pdf_get_version, pdf_name, pdf_new_ref, pdf_obj, pdf_release_obj, pdf_string,
     IntoObj, Object,
 };
 use crate::dpx_pdfparse::ParseIdent;
@@ -127,12 +127,16 @@ unsafe fn set_fillstyle(g: f64, a: f64, f_ais: i32) -> i32 {
         let alp = (100. * a).round() as i32;
         let resname = format!("_Tps_a{:03}_", alp);
         if check_resourcestatus("ExtGState", &resname) == 0 {
-            let dict = create_xgstate(
+            let dict = &mut *create_xgstate(
                 (0.01f64 * alp as f64 / 0.01f64 + 0.5f64).floor() * 0.01f64,
                 f_ais,
             )
             .into_obj();
-            pdf_doc_mut().add_page_resource("ExtGState", resname.as_bytes(), pdf_ref_obj(dict));
+            pdf_doc_mut().add_page_resource(
+                "ExtGState",
+                resname.as_bytes(),
+                pdf_new_ref(dict).into_obj(),
+            );
             pdf_release_obj(dict);
         }
         let buf = format!(" /{} gs", resname);

@@ -42,7 +42,7 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_new_ref, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use libc::{free, memset};
 
@@ -597,7 +597,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
                         bytesread, pkh.pkt_len,
                     );
                 }
-                let charproc = create_pk_CharProc_stream(
+                let charproc = &mut *create_pk_CharProc_stream(
                     &mut pkh,
                     charwidth,
                     pkt_ptr.as_mut_ptr(),
@@ -618,7 +618,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
                     /* ENABLE_GLYPHENC */
                     format!("x{:02X}", pkh.chrcode)
                 };
-                charprocs.set(charname.as_bytes(), pdf_ref_obj(charproc));
+                charprocs.set(charname.as_bytes(), pdf_new_ref(charproc));
                 pdf_release_obj(charproc);
             }
             charavail[(pkh.chrcode & 0xff) as usize] = 1_i8
@@ -653,10 +653,10 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     }
     /* Now actually fill fontdict. */
     let fontdict = pdf_font_get_resource(&mut *font);
-    let charprocs = charprocs.into_obj();
+    let charprocs = &mut *charprocs.into_obj();
     fontdict
         .as_dict_mut()
-        .set("CharProcs", pdf_ref_obj(charprocs));
+        .set("CharProcs", pdf_new_ref(charprocs));
     pdf_release_obj(charprocs);
     /*
      * Resources:
@@ -713,10 +713,10 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
         let mut encoding = pdf_dict::new();
         encoding.set("Type", "Encoding");
         encoding.set("Differences", tmp_array);
-        let encoding = encoding.into_obj();
+        let encoding = &mut *encoding.into_obj();
         fontdict
             .as_dict_mut()
-            .set("Encoding", pdf_ref_obj(encoding));
+            .set("Encoding", pdf_new_ref(encoding));
         pdf_release_obj(encoding);
     }
     /* FontBBox: Accurate value is important.
@@ -738,8 +738,8 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
             tmp_array.push_obj(0_f64);
         }
     }
-    let tmp_array = tmp_array.into_obj();
-    fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmp_array));
+    let tmp_array = &mut *tmp_array.into_obj();
+    fontdict.as_dict_mut().set("Widths", pdf_new_ref(tmp_array));
     pdf_release_obj(tmp_array);
     /* FontMatrix */
     let mut tmp_array = vec![];

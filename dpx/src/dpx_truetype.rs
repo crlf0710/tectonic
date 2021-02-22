@@ -57,7 +57,7 @@ use super::dpx_tt_gsub::{
 };
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
-use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, PushObj};
+use crate::dpx_pdfobj::{pdf_new_ref, pdf_obj, pdf_release_obj, IntoObj, PushObj};
 use crate::shims::sprintf;
 use libc::{atoi, free, memcpy, memset, strcpy, strlen};
 
@@ -269,9 +269,9 @@ unsafe fn do_widths(font: &mut pdf_font, widths: *mut f64) {
     }
     let fontdict = pdf_font_get_resource(font);
     let empty = tmparray.is_empty();
-    let tmparray = tmparray.into_obj();
+    let tmparray = &mut *tmparray.into_obj();
     if !empty {
-        fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmparray));
+        fontdict.as_dict_mut().set("Widths", pdf_new_ref(tmparray));
     }
     pdf_release_obj(tmparray);
     fontdict.as_dict_mut().set("FirstChar", firstchar as f64);
@@ -970,10 +970,10 @@ pub(crate) unsafe fn pdf_font_load_truetype(font: &mut pdf_font) -> i32 {
     if verbose > 1 {
         info!("[{} bytes]", fontfile.len());
     }
-    let fontfile = fontfile.into_obj();
+    let fontfile = &mut *fontfile.into_obj();
     (*descriptor)
         .as_dict_mut()
-        .set("FontFile2", pdf_ref_obj(fontfile));
+        .set("FontFile2", pdf_new_ref(fontfile));
     pdf_release_obj(fontfile);
     0
 }

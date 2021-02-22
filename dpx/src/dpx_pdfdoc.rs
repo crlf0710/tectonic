@@ -63,10 +63,10 @@ use super::dpx_pdfximage::{
 use super::dpx_pngimage::check_for_png;
 use crate::bridge::{InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
-    pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_obj, pdf_out_flush,
-    pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt, pdf_set_id,
-    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, Object, PushObj,
-    STREAM_COMPRESS,
+    pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_new_ref, pdf_obj,
+    pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt,
+    pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, Object,
+    PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -310,7 +310,7 @@ impl PdfDoc {
         self.root.names = ptr::null_mut();
         self.root.threads = ptr::null_mut();
         self.root.dict = pdf_dict::new().into_obj();
-        pdf_set_root(self.root.dict);
+        pdf_set_root(&mut *self.root.dict);
     }
 
     unsafe fn close_catalog(&mut self) {
@@ -339,10 +339,10 @@ impl PdfDoc {
             if tmp.is_none() {
                 let mut tmp = pdf_dict::new();
                 tmp.set("Nums", pdf_link_obj(self.root.pagelabels));
-                let tmp = tmp.into_obj();
+                let tmp = &mut *tmp.into_obj();
                 (*self.root.dict)
                     .as_dict_mut()
-                    .set("PageLabels", pdf_ref_obj(tmp));
+                    .set("PageLabels", pdf_new_ref(tmp));
                 pdf_release_obj(tmp);
             } else {
                 /* What should I do? */
@@ -412,7 +412,7 @@ impl PdfDoc {
 
     unsafe fn init_docinfo(&mut self) {
         self.info = pdf_dict::new().into_obj();
-        pdf_set_info(self.info);
+        pdf_set_info(&mut *self.info);
     }
     unsafe fn close_docinfo(&mut self) {
         let docinfo = &mut *self.info;
@@ -621,9 +621,9 @@ unsafe fn build_page_tree(
      * page_tree dictionary, while keeping the indirect object
      * references right.
      */
-    let self_0 = self_0.into_obj();
+    let self_0 = &mut *self_0.into_obj();
     let self_ref = if !parent_ref.is_null() {
-        pdf_ref_obj(self_0)
+        pdf_new_ref(self_0).into_obj()
     } else {
         pdf_ref_obj((*p).root.pages)
     };
@@ -644,13 +644,13 @@ unsafe fn build_page_tree(
                 let start = i * num_pages / 4;
                 let end = (i + 1) * num_pages / 4;
                 if end - start > 1 {
-                    let subtree = build_page_tree(
+                    let subtree = &mut *build_page_tree(
                         p,
                         firstpage.offset(start as isize),
                         end - start,
                         pdf_link_obj(self_ref),
                     );
-                    kids.push(pdf_ref_obj(subtree));
+                    kids.push_obj(pdf_new_ref(subtree));
                     pdf_release_obj(subtree);
                 } else {
                     let page_0 = &mut *firstpage.offset(start as isize);
@@ -664,7 +664,7 @@ unsafe fn build_page_tree(
         }
         _ => {}
     }
-    (*self_0).as_dict_mut().set("Kids", kids);
+    self_0.as_dict_mut().set("Kids", kids);
     pdf_release_obj(self_ref);
     self_0
 }
@@ -1381,10 +1381,10 @@ impl PdfDoc {
         let catalog: *mut pdf_obj = self.root.dict;
         let item = &mut *self.outlines.first;
         if !(*item).dict.is_null() {
-            let bm_root = pdf_dict::new().into_obj();
-            let bm_root_ref = pdf_ref_obj(bm_root);
-            let count = flush_bookmarks(item, bm_root_ref, &mut *bm_root);
-            (*bm_root).as_dict_mut().set("Count", count as f64);
+            let bm_root = &mut *pdf_dict::new().into_obj();
+            let bm_root_ref = pdf_new_ref(bm_root).into_obj();
+            let count = flush_bookmarks(item, bm_root_ref, bm_root);
+            bm_root.as_dict_mut().set("Count", count as f64);
             (*catalog).as_dict_mut().set("Outlines", bm_root_ref);
             pdf_release_obj(bm_root);
         }
@@ -1611,13 +1611,13 @@ impl PdfDoc {
                     }
                 }
                 if let Some(name_tree) = name_tree {
-                    let name_tree = name_tree.into_obj();
+                    let name_tree = &mut *name_tree.into_obj();
                     if self.root.names.is_null() {
                         self.root.names = pdf_dict::new().into_obj();
                     }
                     (*self.root.names)
                         .as_dict_mut()
-                        .set(name.category, pdf_ref_obj(name_tree));
+                        .set(name.category, pdf_new_ref(name_tree));
                     pdf_release_obj(name_tree);
                 }
                 pdf_delete_name_tree(&mut name.data);
@@ -1864,13 +1864,13 @@ impl PdfDoc {
     unsafe fn close_articles(&mut self) {
         for an in 0..self.articles.len() {
             if !self.articles[an].beads.is_empty() {
-                let art_dict = self.make_article(an, &[], ptr::null_mut());
+                let art_dict = &mut *self.make_article(an, &[], ptr::null_mut());
                 if self.root.threads.is_null() {
                     self.root.threads = Vec::new().into_obj();
                 }
                 (*self.root.threads)
                     .as_array_mut()
-                    .push(pdf_ref_obj(art_dict));
+                    .push_obj(pdf_new_ref(art_dict));
                 pdf_release_obj(art_dict);
             }
         }
@@ -1973,7 +1973,7 @@ impl PdfDoc {
         let page = self.get_page_entry(page_no);
         if page.page_obj.is_null() {
             page.page_obj = pdf_dict::new().into_obj();
-            page.page_ref = pdf_ref_obj(page.page_obj)
+            page.page_ref = pdf_new_ref(&mut *page.page_obj).into_obj();
         }
         pdf_link_obj(page.page_ref)
     }
@@ -2008,7 +2008,7 @@ impl PdfDoc {
         /* Was this page already instantiated by a forward reference to it? */
         if currentpage.page_ref.is_null() {
             currentpage.page_obj = pdf_dict::new().into_obj();
-            currentpage.page_ref = pdf_ref_obj(currentpage.page_obj)
+            currentpage.page_ref = pdf_new_ref(&mut *currentpage.page_obj).into_obj();
         }
         currentpage.background = ptr::null_mut();
         currentpage.contents = pdf_stream::new(STREAM_COMPRESS).into_obj();
@@ -2196,7 +2196,7 @@ impl PdfDoc {
         self.init_page_tree(media_width, media_height);
         pdf_doc_set_bgcolor(None);
         if enable_encrypt {
-            let encrypt = pdf_encrypt_obj().into_obj();
+            let encrypt = &mut *pdf_encrypt_obj().into_obj();
             pdf_set_encrypt(encrypt);
             pdf_release_obj(encrypt);
         }
@@ -2313,8 +2313,11 @@ impl PdfDoc {
         info.matrix = TMatrix::create_translation(-ref_x, -ref_y);
         info.bbox = *cropbox;
         /* Use reference since content itself isn't available yet. */
-        let xobj_id =
-            pdf_ximage_defineresource(ident, XInfo::Form(info), pdf_ref_obj((*form).contents));
+        let xobj_id = pdf_ximage_defineresource(
+            ident,
+            XInfo::Form(info),
+            pdf_new_ref(&mut *(*form).contents).into_obj(),
+        );
         self.pending_forms = fnode;
         /*
          * Make sure the object is self-contained by adding the
