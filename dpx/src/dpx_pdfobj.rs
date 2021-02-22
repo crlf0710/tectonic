@@ -350,11 +350,17 @@ pub(crate) trait IntoObj {
     where
         Self: Sized,
     {
+        let data = self.into_obj_variant();
+        let flags = if let Object::Stream(_) = &data {
+            OBJ_NO_OBJSTM
+        } else {
+            0
+        };
         pdf_obj {
-            data: self.into_obj_variant(),
+            data,
             id: (0, 0),
             refcount: 1,
-            flags: 0,
+            flags,
         }
     }
     #[inline(always)]
@@ -441,22 +447,6 @@ impl IntoObj for pdf_stream {
     #[inline(always)]
     fn into_obj_variant(self) -> Object {
         Object::Stream(self)
-    }
-    #[inline(always)]
-    fn into_object(self) -> pdf_obj {
-        let mut result = pdf_obj {
-            data: self.into_obj_variant(),
-            id: (0, 0),
-            refcount: 1,
-            flags: 0,
-        };
-        /*
-         * Although we are using an arbitrary pdf_object here, it must have
-         * type=PDF_DICT and cannot be an indirect reference.  This will be
-         * checked by the output routine.
-         */
-        result.flags |= OBJ_NO_OBJSTM;
-        result
     }
 }
 
