@@ -36,7 +36,7 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_new_ref, pdf_obj, pdf_release_obj, pdf_stream,
-    pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_stream_set_predictor, pdf_string, IntoObj, IntoObject, PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -193,12 +193,12 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             mask = match trans_type {
                 1 => {
                     /* Color-key masking */
-                    create_ckey_mask(png, png_info).map(IntoObj::into_obj_variant)
+                    create_ckey_mask(png, png_info).map(IntoObject::into_object)
                 }
                 2 => {
                     /* Soft mask */
                     create_soft_mask(png, png_info, stream_data_ptr, width, height)
-                        .map(IntoObj::into_obj_variant)
+                        .map(IntoObject::into_object)
                 }
                 _ => None,
             };
@@ -220,11 +220,11 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 colorspace = "DeviceRGB".into_obj()
             }
             mask = match trans_type {
-                1 => create_ckey_mask(png, png_info).map(IntoObj::into_obj_variant),
+                1 => create_ckey_mask(png, png_info).map(IntoObject::into_object),
                 2 => {
                     /* rowbytes changes 4 to 3 at here */
                     strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
-                        .map(IntoObj::into_obj_variant)
+                        .map(IntoObject::into_object)
                 }
                 _ => None,
             };
@@ -246,9 +246,9 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 colorspace = "DeviceGray".into_obj()
             }
             mask = match trans_type {
-                1 => create_ckey_mask(png, png_info).map(IntoObj::into_obj_variant),
+                1 => create_ckey_mask(png, png_info).map(IntoObject::into_object),
                 2 => strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
-                    .map(IntoObj::into_obj_variant),
+                    .map(IntoObject::into_object),
                 _ => None,
             };
             info.num_components = 1

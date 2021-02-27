@@ -14795,11 +14795,14 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                 | TxtNode::Ins(_)
                                 | TxtNode::Mark(_)
                                 | TxtNode::Adjust(_) => true,
-                                TxtNode::WhatsIt(n) => matches!(n, WhatsIt::Open(_)
-                                    | WhatsIt::Write(_)
-                                    | WhatsIt::Close(_)
-                                    | WhatsIt::Special(_)
-                                    | WhatsIt::Language(_)),
+                                TxtNode::WhatsIt(n) => matches!(
+                                    n,
+                                    WhatsIt::Open(_)
+                                        | WhatsIt::Write(_)
+                                        | WhatsIt::Close(_)
+                                        | WhatsIt::Special(_)
+                                        | WhatsIt::Language(_)
+                                ),
                                 _ => false,
                             },
                             _ => false,
@@ -14814,12 +14817,14 @@ pub(crate) unsafe fn main_control(input: &mut input_state_t) {
                                     | TxtNode::Ins(_)
                                     | TxtNode::Mark(_)
                                     | TxtNode::Adjust(_) => true,
-                                    TxtNode::WhatsIt(n) => matches!(n,
+                                    TxtNode::WhatsIt(n) => matches!(
+                                        n,
                                         WhatsIt::Open(_)
-                                        | WhatsIt::Write(_)
-                                        | WhatsIt::Close(_)
-                                        | WhatsIt::Special(_)
-                                        | WhatsIt::Language(_)),
+                                            | WhatsIt::Write(_)
+                                            | WhatsIt::Close(_)
+                                            | WhatsIt::Special(_)
+                                            | WhatsIt::Language(_)
+                                    ),
                                     _ => false,
                                 },
                                 _ => false,

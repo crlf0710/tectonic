@@ -665,9 +665,9 @@ unsafe fn cff_dict_put_number(value: f64, dest: &mut [u8], type_0: i32) -> usize
     }
 }
 unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
-    let mut len = 0_usize;
-    if (*de).count > 0 {
-        let id = (*de).id;
+    let mut len = 0;
+    if de.count > 0 {
+        let id = de.id;
         let type_0 = if dict_operator[id as usize].argtype == CFF_TYPE_OFFSET
             || dict_operator[id as usize].argtype == CFF_TYPE_SZOFF
         {
@@ -675,8 +675,8 @@ unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
         } else {
             CFF_TYPE_NUMBER
         };
-        for i in 0..(*de).count {
-            len += cff_dict_put_number(*(*de).values.offset(i as isize), &mut dest[len..], type_0);
+        for i in 0..de.count {
+            len += cff_dict_put_number(*de.values.offset(i as isize), &mut dest[len..], type_0);
         }
         if id >= 0 && id < CFF_LAST_DICT_OP1 as i32 {
             dest[len] = id as u8;

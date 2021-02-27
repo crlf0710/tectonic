@@ -326,12 +326,14 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         | TxtNode::Ins(_)
                                         | TxtNode::Mark(_)
                                         | TxtNode::Adjust(_) => true,
-                                        TxtNode::WhatsIt(n) => matches!(n,
+                                        TxtNode::WhatsIt(n) => matches!(
+                                            n,
                                             WhatsIt::Open(_)
-                                            | WhatsIt::Write(_)
-                                            | WhatsIt::Close(_)
-                                            | WhatsIt::Special(_)
-                                            | WhatsIt::Language(_)),
+                                                | WhatsIt::Write(_)
+                                                | WhatsIt::Close(_)
+                                                | WhatsIt::Special(_)
+                                                | WhatsIt::Language(_)
+                                        ),
                                         _ => false,
                                     },
                                     _ => false,
@@ -355,12 +357,14 @@ unsafe fn hlist_out(this_box: &mut List) {
                                                     | TxtNode::Ins(_)
                                                     | TxtNode::Mark(_)
                                                     | TxtNode::Adjust(_) => true,
-                                                    TxtNode::WhatsIt(n) => matches!(n,
+                                                    TxtNode::WhatsIt(n) => matches!(
+                                                        n,
                                                         WhatsIt::Open(_)
-                                                        | WhatsIt::Write(_)
-                                                        | WhatsIt::Close(_)
-                                                        | WhatsIt::Special(_)
-                                                        | WhatsIt::Language(_)),
+                                                            | WhatsIt::Write(_)
+                                                            | WhatsIt::Close(_)
+                                                            | WhatsIt::Special(_)
+                                                            | WhatsIt::Language(_)
+                                                    ),
                                                     _ => false,
                                                 },
                                                 _ => false,
@@ -397,12 +401,14 @@ unsafe fn hlist_out(this_box: &mut List) {
                                                         | TxtNode::Ins(_)
                                                         | TxtNode::Mark(_)
                                                         | TxtNode::Adjust(_) => true,
-                                                        TxtNode::WhatsIt(n) => matches!(n, 
+                                                        TxtNode::WhatsIt(n) => matches!(
+                                                            n,
                                                             WhatsIt::Open(_)
-                                                            | WhatsIt::Write(_)
-                                                            | WhatsIt::Close(_)
-                                                            | WhatsIt::Special(_)
-                                                            | WhatsIt::Language(_)),
+                                                                | WhatsIt::Write(_)
+                                                                | WhatsIt::Close(_)
+                                                                | WhatsIt::Special(_)
+                                                                | WhatsIt::Language(_)
+                                                        ),
                                                         _ => false,
                                                     },
                                                     _ => false,
@@ -513,12 +519,14 @@ unsafe fn hlist_out(this_box: &mut List) {
                                         | TxtNode::Ins(_)
                                         | TxtNode::Mark(_)
                                         | TxtNode::Adjust(_) => true,
-                                        TxtNode::WhatsIt(n) => matches!(n, 
+                                        TxtNode::WhatsIt(n) => matches!(
+                                            n,
                                             WhatsIt::Open(_)
-                                            | WhatsIt::Write(_)
-                                            | WhatsIt::Close(_)
-                                            | WhatsIt::Special(_)
-                                            | WhatsIt::Language(_)),
+                                                | WhatsIt::Write(_)
+                                                | WhatsIt::Close(_)
+                                                | WhatsIt::Special(_)
+                                                | WhatsIt::Language(_)
+                                        ),
                                         _ => false,
                                     },
                                     _ => false,
