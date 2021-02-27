@@ -70,23 +70,6 @@ pub struct pdf_obj {
     pub(crate) data: Object,
 }
 
-impl Object {
-    pub(crate) fn typ(&self) -> PdfObjType {
-        match self {
-            Object::Boolean(_) => PdfObjType::BOOLEAN,
-            Object::Number(_) => PdfObjType::NUMBER,
-            Object::String(_) => PdfObjType::STRING,
-            Object::Name(_) => PdfObjType::NAME,
-            Object::Array(_) => PdfObjType::ARRAY,
-            Object::Dict(_) => PdfObjType::DICT,
-            Object::Stream(_) => PdfObjType::STREAM,
-            Object::Indirect(_) => PdfObjType::INDIRECT,
-            Object::Null => PdfObjType::NULL,
-            Object::Undefined => PdfObjType::UNDEFINED,
-            Object::Invalid => PdfObjType::OBJ_INVALID,
-        }
-    }
-}
 impl pdf_obj {
     pub(crate) fn label(&self) -> u32 {
         self.id.0
@@ -133,21 +116,6 @@ impl Drop for Array {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum PdfObjType {
-    BOOLEAN,
-    NUMBER,
-    STRING,
-    NAME,
-    ARRAY,
-    DICT,
-    STREAM,
-    NULL,
-    INDIRECT,
-    UNDEFINED,
-    OBJ_INVALID,
-}
-
 impl Object {
     pub(crate) fn is_indirect(&self) -> bool {
         matches!(self, Self::Indirect(_))
@@ -176,7 +144,7 @@ impl Object {
         if let Self::Dict(v) = self {
             return v;
         }
-        panic!("pdfobj::as_dict_mut on {:?}", self.typ());
+        panic!("not a dict");
     }
     pub(crate) unsafe fn as_array(&self) -> &Vec<*mut pdf_obj> {
         if let Self::Array(v) = self {
@@ -800,18 +768,8 @@ unsafe fn pdf_out(handle: &mut OutputHandleWrapper, buffer: &[u8]) {
         }
     };
 }
-/*  returns 1 if a white-space character is necessary to separate
-an object of type1 followed by an object of type2              */
-unsafe fn pdf_need_white(type1: PdfObjType, type2: PdfObjType) -> bool {
-    use PdfObjType::*;
-    return !(type1 == STRING
-        || type1 == ARRAY
-        || type1 == DICT
-        || type2 == STRING
-        || type2 == NAME
-        || type2 == ARRAY
-        || type2 == DICT);
-}
+
+///  prints white-space character is necessary to separate objects
 unsafe fn pdf_out_white(handle: &mut OutputHandleWrapper) {
     if handle == pdf_output_handle.as_mut().unwrap() && pdf_output_line_position >= 80 {
         pdf_out_char(handle, b'\n');
@@ -904,7 +862,7 @@ pub(crate) unsafe fn pdf_set_number(object: &mut pdf_obj, value: f64) {
     if let Object::Number(v) = &mut object.data {
         *v = value;
     } else {
-        panic!("pdf_set_number on type {:?}", object.data.typ());
+        panic!("not a number");
     }
 }
 
@@ -1081,14 +1039,20 @@ unsafe fn write_name(name: &pdf_name, handle: &mut OutputHandleWrapper) {
 unsafe fn write_array(array: &Vec<*mut pdf_obj>, handle: &mut OutputHandleWrapper) {
     pdf_out_char(handle, b'[');
     if !array.is_empty() {
-        let mut type1 = PdfObjType::UNDEFINED;
+        let mut white_left = false;
         for i in 0..array.len() {
             if let Some(item) = array[i as usize].as_mut() {
-                let type2 = item.data.typ();
-                if type1 != PdfObjType::UNDEFINED && pdf_need_white(type1, type2) {
+                let white_right = !matches!(
+                    item.data,
+                    Object::String(_) | Object::Name(_) | Object::Array(_) | Object::Dict(_)
+                );
+                if white_left && white_right {
                     pdf_out_white(handle);
                 }
-                type1 = type2;
+                white_left = !matches!(
+                    item.data,
+                    Object::String(_) | Object::Array(_) | Object::Dict(_)
+                );
                 pdf_write_obj(item, handle);
             } else {
                 warn!("PDF array element {} undefined.", i);
@@ -1132,7 +1096,10 @@ unsafe fn write_dict(dict: &pdf_dict, handle: &mut OutputHandleWrapper) {
     pdf_out(handle, b"<<");
     for (k, &v) in dict.inner.iter() {
         write_name(k, handle);
-        if pdf_need_white(PdfObjType::NAME, (*v).data.typ()) {
+        if !matches!(
+            (*v).data,
+            Object::String(_) | Object::Name(_) | Object::Array(_) | Object::Dict(_)
+        ) {
             pdf_out_white(handle);
         }
         if let Some(v) = v.as_mut() {
@@ -2515,12 +2482,13 @@ pub unsafe fn output_pdf_obj(object: &mut pdf_obj) {
 }
 pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
     if let Some(object) = object.as_mut() {
-        if object.is_invalid() || object.refcount <= 0 {
+        if object.is_invalid() {
+            panic!("Invalid object");
+        }
+        if object.refcount <= 0 {
             info!(
-                "\npdf_release_obj: object={:p}, type={:?}, refcount={}\n",
-                object,
-                object.data.typ(),
-                object.refcount,
+                "\npdf_release_obj: object={:p}, refcount={}\n",
+                object, object.refcount,
             );
             pdf_write_obj(object, ttstub_output_open_stdout().as_mut().unwrap());
             panic!("pdf_release_obj:  Called with invalid object.");
