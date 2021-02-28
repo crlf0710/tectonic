@@ -26,6 +26,13 @@
     non_upper_case_globals
 )]
 
+pub(crate) type Result<T> = std::result::Result<T, std::num::NonZeroI32>;
+pub(crate) const ERR1: Result<()> = Err(unsafe { std::num::NonZeroI32::new_unchecked(1) });
+pub(crate) const ERR: Result<()> = Err(unsafe { std::num::NonZeroI32::new_unchecked(-1) });
+pub(crate) fn ERROR<T>() -> Result<T> {
+    Err(unsafe { std::num::NonZeroI32::new_unchecked(-1) })
+}
+
 use crate::bridge::ttstub_output_open_stdout;
 
 use bridge::OutputHandleWrapper;

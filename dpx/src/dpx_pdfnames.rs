@@ -26,6 +26,8 @@
     non_upper_case_globals
 )]
 
+use crate::dpx_error::{Result, ERR};
+
 use crate::mfree;
 use crate::warn;
 use std::cmp::Ordering;
@@ -114,7 +116,7 @@ unsafe fn check_objects_defined(ht_tab: *mut ht_table) {
             let value = ht_iter_getval(&iter) as *const obj_data;
             assert!(!(*value).object.is_null());
             if !(*value).object.is_null() && (*(*value).object).is_undefined() {
-                pdf_names_add_object(&mut *ht_tab, key, &mut *Object::Null.into_obj());
+                pdf_names_add_object(&mut *ht_tab, key, &mut *Object::Null.into_obj()).ok();
                 warn!(
                     "Object @{} used, but not defined. Replaced by null.",
                     printable_key(key),
@@ -139,10 +141,10 @@ pub(crate) unsafe fn pdf_names_add_object(
     names: &mut ht_table,
     key: &[u8],
     object: &mut pdf_obj,
-) -> i32 {
+) -> Result<()> {
     if key.is_empty() {
         warn!("Null string used for name tree key.");
-        return -1;
+        return ERR;
     }
     let mut value = ht_lookup_table(names, key) as *mut obj_data;
     if value.is_null() {
@@ -160,10 +162,10 @@ pub(crate) unsafe fn pdf_names_add_object(
         } else {
             warn!("Object @{} already defined.", printable_key(key));
             pdf_release_obj(object);
-            return -1;
+            return ERR;
         }
     }
-    0
+    Ok(())
 }
 /*
  * The following routine returns copies, not the original object.
@@ -181,7 +183,7 @@ pub(crate) unsafe fn pdf_names_lookup_reference(names: &mut ht_table, key: &[u8]
          * at all. This matters for optimization of PDF destinations.
          */
         object = Object::Undefined.into_obj();
-        pdf_names_add_object(names, key, &mut *object);
+        pdf_names_add_object(names, key, &mut *object).ok();
     }
     pdf_ref_obj(object)
 }

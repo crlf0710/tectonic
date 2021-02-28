@@ -198,7 +198,7 @@ unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
 }
 
 unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
-    spc_exec_at_begin_document();
+    spc_exec_at_begin_document().ok();
     let mut page_width = paper_width;
     let init_paper_width = page_width;
     let mut page_height = paper_height;
@@ -278,7 +278,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
     if page_count < 1 {
         panic!("No pages fall in range!");
     }
-    spc_exec_at_end_document();
+    spc_exec_at_end_document().ok();
 }
 
 pub unsafe fn dvipdfmx_main(
@@ -330,9 +330,9 @@ pub unsafe fn dvipdfmx_main(
     font_dpi = 600;
     pdfdecimaldigits = 5;
     image_cache_life = -2;
-    pdf_load_fontmap_file("pdftex.map", '+' as i32);
-    pdf_load_fontmap_file("kanjix.map", '+' as i32);
-    pdf_load_fontmap_file("ckx.map", '+' as i32);
+    pdf_load_fontmap_file("pdftex.map", '+' as i32).ok();
+    pdf_load_fontmap_file("kanjix.map", '+' as i32).ok();
+    pdf_load_fontmap_file("ckx.map", '+' as i32).ok();
     if !pagespec.is_null() {
         select_pages(pagespec, &mut page_ranges);
     }

@@ -21,6 +21,8 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
+use super::{Result, ERR};
+
 use std::ptr;
 
 use crate::warn;
@@ -51,21 +53,21 @@ static mut PENDING_Y: f64 = 0.0f64;
 static mut POSITION_SET: i32 = 0;
 static mut PS_HEADERS: Vec<String> = Vec::new();
 
-unsafe fn spc_handler_ps_header(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_ps_header(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     args.cur.skip_white();
     if args.cur.len() <= 1 || args.cur[0] != b'=' {
         spc_warn!(spe, "No filename specified for PSfile special.");
-        return -1;
+        return ERR;
     }
     args.cur = &args.cur[1..];
     let pro = String::from_utf8_lossy(args.cur).to_string();
     if InFile::open(&pro, TTInputFormat::TEX_PS_HEADER, 0).is_none() {
         spc_warn!(spe, "PS header {} not found.", pro);
-        return -1;
+        return ERR;
     }
     PS_HEADERS.push(pro);
     args.cur = &[];
-    0
+    Ok(())
 }
 unsafe fn parse_filename<'a>(pp: &mut &'a [u8]) -> Option<&'a str> {
     let mut p = *pp;
@@ -101,7 +103,7 @@ unsafe fn parse_filename<'a>(pp: &mut &'a [u8]) -> Option<&'a str> {
     r
 }
 /* =filename ... */
-unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     let options: load_options = load_options {
         page_no: 1,
         bbox_type: PdfPageBoundary::Auto,
@@ -110,30 +112,30 @@ unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     args.cur.skip_white();
     if args.cur.len() <= 1 || args.cur[0] != b'=' {
         spc_warn!(spe, "No filename specified for PSfile special.");
-        return -1;
+        return ERR;
     }
     args.cur = &args.cur[1..];
     if let Some(filename) = parse_filename(&mut args.cur) {
         let mut ti = if let Ok(ti) = spc_util_read_dimtrns(spe, args, 1) {
             ti
         } else {
-            return -1;
+            return ERR;
         };
         let form_id = pdf_ximage_findresource(filename, options);
         if form_id < 0 {
             spc_warn!(spe, "Failed to read image file: {}", filename);
-            return -1;
+            return ERR;
         }
         pdf_dev_put_image(form_id, &mut ti, spe.x_user, spe.y_user);
-        0
+        Ok(())
     } else {
         spc_warn!(spe, "No filename specified for PSfile special.");
-        -1
+        ERR
     }
 }
 /* This isn't correct implementation but dvipdfm supports... */
-unsafe fn spc_handler_ps_plotfile(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut error: i32 = 0; /* xscale = 1.0, yscale = -1.0 */
+unsafe fn spc_handler_ps_plotfile(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
+    let mut error = Ok(()); /* xscale = 1.0, yscale = -1.0 */
     let mut p = transform_info::new();
     let options: load_options = load_options {
         page_no: 1,
@@ -146,7 +148,7 @@ unsafe fn spc_handler_ps_plotfile(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         let form_id = pdf_ximage_findresource(filename, options);
         if form_id < 0 {
             spc_warn!(spe, "Could not open PS file: {}", filename);
-            error = -1;
+            error = ERR;
         } else {
             transform_info_clear(&mut p);
             p.matrix.m22 = -1.;
@@ -155,11 +157,11 @@ unsafe fn spc_handler_ps_plotfile(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         error
     } else {
         spc_warn!(spe, "Expecting filename but not found...");
-        return -1;
+        return ERR;
     }
 }
-unsafe fn spc_handler_ps_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
-    let mut error: i32 = 0;
+unsafe fn spc_handler_ps_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
+    let mut error = Ok(());
     let x_user;
     let y_user;
     assert!(!args.cur.is_empty());
@@ -174,7 +176,7 @@ unsafe fn spc_handler_ps_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     } else if args.cur.starts_with(b":[end]") {
         if BLOCK_PENDING <= 0 {
             spc_warn!(spe, "No corresponding ::[begin] found.");
-            return -1;
+            return ERR;
         }
         BLOCK_PENDING -= 1;
         POSITION_SET = 0;
@@ -205,7 +207,7 @@ unsafe fn spc_handler_ps_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
         let st_depth = mps_stack_depth();
         let gs_depth = pdf_dev_current_depth();
         error = mps_exec_inline(&mut args.cur, x_user, y_user);
-        if error != 0 {
+        if error.is_err() {
             spc_warn!(
                 spe,
                 "Interpreting PS code failed!!! Output might be broken!!!"
@@ -225,17 +227,17 @@ unsafe fn spc_handler_ps_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     }
     error
 }
-unsafe fn spc_handler_ps_trickscmd(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_ps_trickscmd(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     warn!("PSTricks commands are disallowed in Tectonic");
     args.cur = &[];
-    -1
+    ERR
 }
-unsafe fn spc_handler_ps_tricksobj(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_ps_tricksobj(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     warn!("PSTricks commands are disallowed in Tectonic");
     args.cur = &[];
-    -1
+    ERR
 }
-unsafe fn spc_handler_ps_default(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_ps_default(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     pdf_dev_gsave();
     let st_depth = mps_stack_depth();
     let gs_depth = pdf_dev_current_depth();
@@ -245,7 +247,7 @@ unsafe fn spc_handler_ps_default(spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
     M.m31 = -spe.x_user;
     M.m32 = -spe.y_user;
     pdf_dev_concat(&mut M);
-    if error != 0 {
+    if error.is_err() {
         spc_warn!(
             spe,
             "Interpreting PS code failed!!! Output might be broken!!!"
@@ -308,24 +310,24 @@ const DVIPS_HANDLERS: [SpcHandler; 10] = [
     },
 ];
 
-pub(crate) unsafe fn spc_dvips_at_begin_document() -> i32 {
+pub(crate) unsafe fn spc_dvips_at_begin_document() -> Result<()> {
     /* This function used to start the global_defs temp file. */
-    0
+    Ok(())
 }
 
-pub(crate) unsafe fn spc_dvips_at_end_document() -> i32 {
+pub(crate) unsafe fn spc_dvips_at_end_document() -> Result<()> {
     PS_HEADERS.clear();
-    0
+    Ok(())
 }
 
-pub(crate) unsafe fn spc_dvips_at_begin_page() -> i32 {
+pub(crate) unsafe fn spc_dvips_at_begin_page() -> Result<()> {
     /* This function used do some things related to now-removed PSTricks functionality. */
-    0
+    Ok(())
 }
 
-pub(crate) unsafe fn spc_dvips_at_end_page() -> i32 {
+pub(crate) unsafe fn spc_dvips_at_end_page() -> Result<()> {
     mps_eop_cleanup();
-    0
+    Ok(())
 }
 pub(crate) fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
@@ -344,7 +346,7 @@ pub(crate) unsafe fn spc_dvips_setup_handler(
     handle: &mut SpcHandler,
     spe: &mut SpcEnv,
     args: &mut SpcArg,
-) -> i32 {
+) -> Result<()> {
     args.cur.skip_white();
     let key = args.cur;
     while !args.cur.is_empty() && (args.cur[0] as u8).is_ascii_alphabetic() {
@@ -362,7 +364,7 @@ pub(crate) unsafe fn spc_dvips_setup_handler(
     let keylen = key.len() - args.cur.len();
     if keylen < 1 {
         spc_warn!(spe, "Not ps: special???");
-        return -1;
+        return ERR;
     }
     for handler in DVIPS_HANDLERS.iter() {
         if &key[..keylen] == handler.key.as_bytes() {
@@ -372,8 +374,8 @@ pub(crate) unsafe fn spc_dvips_setup_handler(
                 key: "ps:",
                 exec: handler.exec,
             };
-            return 0;
+            return Ok(());
         }
     }
-    -1
+    ERR
 }

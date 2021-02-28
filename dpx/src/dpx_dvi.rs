@@ -471,7 +471,7 @@ unsafe fn get_dvi_info(post_location: i32) {
         info!("Media Height: {}\n", DVI_INFO.media_height);
         info!("Media Width: {}\n", DVI_INFO.media_width);
         info!("Stack Depth: {}\n", DVI_INFO.stackdepth);
-    };
+    }
 }
 
 pub(crate) unsafe fn dvi_comment() -> &'static [u8] {
@@ -595,7 +595,7 @@ unsafe fn get_dvi_fonts(post_location: i32) {
             );
             info!("\n");
         }
-    };
+    }
 }
 unsafe fn get_comment() {
     let handle = dvi_handle.as_mut().unwrap();
@@ -607,7 +607,7 @@ unsafe fn get_comment() {
     DVI_INFO.comment[length as usize] = '\u{0}' as u8;
     if verbose != 0 {
         info!("DVI Comment: {}\n", DVI_INFO.comment[..length].display());
-    };
+    }
 }
 static mut dvi_state: dvi_registers = dvi_registers {
     h: 0,
@@ -709,11 +709,11 @@ pub(crate) unsafe fn dvi_do_special(buffer: &[u8]) {
     let x_user = dvi_state.h as f64 * dvi2pts;
     let y_user = -dvi_state.v as f64 * dvi2pts;
     let mag = dvi_tell_mag();
-    if spc_exec_special(buffer, x_user, y_user, mag) < 0 {
+    if spc_exec_special(buffer, x_user, y_user, mag) == crate::dpx_error::ERR {
         if verbose != 0 {
             dump(buffer);
         }
-    };
+    }
 }
 
 pub(crate) unsafe fn dvi_unit_size() -> f64 {
@@ -1438,14 +1438,14 @@ unsafe fn do_bop() {
     clear_state();
     processing_page = 1;
     pdf_doc_mut().begin_page(dvi_tell_mag(), dev_origin_x, dev_origin_y);
-    spc_exec_at_begin_page();
+    spc_exec_at_begin_page().ok();
 }
 unsafe fn do_eop() {
     processing_page = 0;
     if dvi_stack_depth != 0 {
         panic!("DVI stack depth is not zero at end of page");
     }
-    spc_exec_at_end_page();
+    spc_exec_at_end_page().ok();
     pdf_doc_mut().end_page();
 }
 unsafe fn do_dir() {
@@ -1927,7 +1927,7 @@ pub(crate) unsafe fn dvi_close() {
     tfm_close_all();
     if !DVI_PAGE_BUFFER.is_empty() {
         DVI_PAGE_BUFFER = Vec::new();
-    };
+    }
 }
 /* The following are need to implement virtual fonts
 According to documentation, the vf "subroutine"
@@ -1959,10 +1959,10 @@ pub(crate) unsafe fn dvi_vf_finish() {
     dpx_dvi_pop();
     if num_saved_fonts > 0_u32 {
         num_saved_fonts -= 1;
-        current_font = saved_dvi_font[num_saved_fonts as usize]
+        current_font = saved_dvi_font[num_saved_fonts as usize];
     } else {
         panic!("Tried to pop an empty font stack");
-    };
+    }
 }
 /* Scan various specials */
 /* This need to allow 'true' prefix for unit and

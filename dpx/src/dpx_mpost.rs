@@ -27,6 +27,8 @@
     unused_assignments
 )]
 
+use crate::dpx_error::{Result, ERR1};
+
 use euclid::point2;
 
 use crate::bridge::DisplayExt;
@@ -374,7 +376,7 @@ static mut mps_operators: [operators; 28] = {
     ]
 };
 
-unsafe fn get_opcode(token: &[u8]) -> Result<Opcode, ()> {
+unsafe fn get_opcode(token: &[u8]) -> std::result::Result<Opcode, ()> {
     for op in ps_operators.iter() {
         if token == op.token {
             return Ok(op.opcode);
@@ -389,12 +391,12 @@ unsafe fn get_opcode(token: &[u8]) -> Result<Opcode, ()> {
 }
 static mut STACK: Vec<Object> = Vec::new();
 trait PushChecked {
-    fn push_checked<T>(&mut self, val: T) -> Result<(), ()>
+    fn push_checked<T>(&mut self, val: T) -> std::result::Result<(), ()>
     where
         T: Into<Object>;
 }
 impl PushChecked for Vec<Object> {
-    fn push_checked<T>(&mut self, val: T) -> Result<(), ()>
+    fn push_checked<T>(&mut self, val: T) -> std::result::Result<(), ()>
     where
         T: Into<Object>,
     {
@@ -654,7 +656,11 @@ unsafe fn do_show() -> i32 {
 }
 unsafe fn do_mpost_bind_def(ps_code: *const i8, x_user: f64, y_user: f64) -> i32 {
     let mut start = CStr::from_ptr(ps_code).to_bytes();
-    mp_parse_body(&mut start, x_user, y_user)
+    if let Err(res) = mp_parse_body(&mut start, x_user, y_user) {
+        res.get()
+    } else {
+        0
+    }
 }
 unsafe fn do_texfig_operator(opcode: Opcode, x_user: f64, y_user: f64) -> i32 {
     static mut fig_p: transform_info = transform_info::new();
@@ -1188,10 +1194,10 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
  * The only sections that need to know x_user and y _user are those
  * dealing with texfig.
  */
-unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
-    let mut error = 0;
+unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> Result<()> {
+    let mut error = Ok(());
     start.skip_white();
-    while !start.is_empty() && error == 0 {
+    while !start.is_empty() && error == Ok(()) {
         if start[0].is_ascii_digit()
             || start.len() > 1 && (start[0] == b'+' || start[0] == b'-' || start[0] == b'.')
         {
@@ -1204,11 +1210,11 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
             {
                 warn!("Unkown PostScript operator.");
                 dump(&start[..pos]);
-                error = 1
+                error = ERR1;
             } else if STACK.push_checked(value).is_ok() {
                 *start = &start[pos..];
             } else {
-                error = 1;
+                error = ERR1;
                 break;
             }
         /*
@@ -1221,7 +1227,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
                 if let Some(array) = start.parse_pdf_array(ptr::null_mut()) {
                     parsed = true;
                     if STACK.push_checked(array).is_err() {
-                        error = 1;
+                        error = ERR1;
                         break;
                     }
                 }
@@ -1230,7 +1236,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
                 if let Some(dict) = start.parse_pdf_dict(ptr::null_mut()) {
                     parsed = true;
                     if STACK.push_checked(dict).is_err() {
-                        error = 1;
+                        error = ERR1;
                         break;
                     }
                 }
@@ -1238,7 +1244,7 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
                 if let Some(string) = start.parse_pdf_string() {
                     parsed = true;
                     if STACK.push_checked(string).is_err() {
-                        error = 1;
+                        error = ERR1;
                         break;
                     }
                 }
@@ -1246,16 +1252,21 @@ unsafe fn mp_parse_body(start: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
                 if let Some(name) = start.parse_pdf_name() {
                     parsed = true;
                     if STACK.push_checked(name).is_err() {
-                        error = 1;
+                        error = ERR1;
                         break;
                     }
                 }
             }
             if !parsed {
                 error = if let Some(token) = start.parse_ident() {
-                    do_operator(token.as_bytes(), x_user, y_user)
+                    let res = do_operator(token.as_bytes(), x_user, y_user);
+                    if res == 0 {
+                        Ok(())
+                    } else {
+                        Err(std::num::NonZeroI32::new(res).unwrap())
+                    }
                 } else {
-                    1
+                    ERR1
                 };
             }
         }
@@ -1273,7 +1284,7 @@ pub(crate) unsafe fn mps_stack_depth() -> i32 {
     STACK.len() as i32
 }
 
-pub(crate) unsafe fn mps_exec_inline(pp: &mut &[u8], x_user: f64, y_user: f64) -> i32 {
+pub(crate) unsafe fn mps_exec_inline(pp: &mut &[u8], x_user: f64, y_user: f64) -> Result<()> {
     /* Compatibility for dvipsk. */
     let dirmode = pdf_dev_get_dirmode();
     if dirmode != 0 {

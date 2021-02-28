@@ -21,14 +21,15 @@
 */
 #![allow()]
 
+use super::{Result, ERR};
 use super::{SpcArg, SpcEnv, SpcHandler};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 
-unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     args.cur = &[];
-    0
+    Ok(())
 }
 const DVIPDFMX_HANDLERS: [SpcHandler; 1] = [SpcHandler {
     key: "config",
@@ -44,12 +45,12 @@ pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
     sph: &mut SpcHandler,
     spe: &mut SpcEnv,
     ap: &mut SpcArg,
-) -> i32 {
-    let mut error: i32 = -1;
+) -> Result<()> {
+    let mut error = ERR;
     ap.cur.skip_white();
     if !ap.cur.starts_with(b"dvipdfmx:") {
         spc_warn!(spe, "Not dvipdfmx: special???");
-        return -1;
+        return ERR;
     }
     ap.cur = &ap.cur[b"dvipdfmx:".len()..];
     ap.cur.skip_white();
@@ -62,7 +63,7 @@ pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
                     exec: handler.exec,
                 };
                 ap.cur.skip_white();
-                error = 0;
+                error = Ok(());
                 break;
             }
         }

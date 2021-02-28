@@ -20,6 +20,8 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
+use crate::dpx_error::{Result, ERR, ERR1, ERROR};
+
 pub(crate) mod color;
 pub(crate) mod dvipdfmx;
 pub(crate) mod dvips;
@@ -84,7 +86,7 @@ pub(crate) struct SpcArg<'a> {
 #[derive(Copy, Clone, Default)]
 pub(crate) struct SpcHandler {
     pub(crate) key: &'static str,
-    pub(crate) exec: Option<unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> i32>,
+    pub(crate) exec: Option<unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> Result<()>>,
 }
 
 use super::dpx_dpxutil::ht_table;
@@ -93,12 +95,13 @@ use super::dpx_dpxutil::ht_table;
 #[repr(C)]
 pub(crate) struct Special {
     pub(crate) key: *const i8,
-    pub(crate) bodhk_func: Option<unsafe fn() -> i32>,
-    pub(crate) eodhk_func: Option<unsafe fn() -> i32>,
-    pub(crate) bophk_func: Option<unsafe fn() -> i32>,
-    pub(crate) eophk_func: Option<unsafe fn() -> i32>,
+    pub(crate) bodhk_func: Option<unsafe fn() -> Result<()>>,
+    pub(crate) eodhk_func: Option<unsafe fn() -> Result<()>>,
+    pub(crate) bophk_func: Option<unsafe fn() -> Result<()>>,
+    pub(crate) eophk_func: Option<unsafe fn() -> Result<()>>,
     pub(crate) check_func: fn(_: &[u8]) -> bool,
-    pub(crate) setup_func: unsafe fn(_: &mut SpcHandler, _: &mut SpcEnv, _: &mut SpcArg) -> i32,
+    pub(crate) setup_func:
+        unsafe fn(_: &mut SpcHandler, _: &mut SpcEnv, _: &mut SpcArg) -> Result<()>,
 }
 static mut VERBOSE: i32 = 0;
 pub(crate) unsafe fn spc_set_verbose(level: i32) {
@@ -107,24 +110,24 @@ pub(crate) unsafe fn spc_set_verbose(level: i32) {
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: *mut pdf_obj) -> i32 {
+pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: *mut pdf_obj) -> Result<()> {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
-    0
+    Ok(())
 }
-pub(crate) unsafe fn spc_end_annot(mut _spe: &mut SpcEnv) -> i32 {
+pub(crate) unsafe fn spc_end_annot(mut _spe: &mut SpcEnv) -> Result<()> {
     dvi_untag_depth();
     pdf_doc_end_annot();
-    0
+    Ok(())
 }
-pub(crate) unsafe fn spc_resume_annot(mut _spe: &mut SpcEnv) -> i32 {
+pub(crate) unsafe fn spc_resume_annot(mut _spe: &mut SpcEnv) -> Result<()> {
     dvi_link_annot(1);
-    0
+    Ok(())
 }
 
-pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut SpcEnv) -> i32 {
+pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut SpcEnv) -> Result<()> {
     dvi_link_annot(0);
-    0
+    Ok(())
 }
 static mut NAMED_OBJECTS: *mut ht_table = ptr::null_mut();
 
@@ -222,7 +225,7 @@ pub(crate) unsafe fn spc_push_object(key: &str, value: *mut pdf_obj) {
     if key.is_empty() || value.is_null() {
         return;
     }
-    pdf_names_add_object(&mut *NAMED_OBJECTS, key.as_bytes(), &mut *value);
+    pdf_names_add_object(&mut *NAMED_OBJECTS, key.as_bytes(), &mut *value).ok();
 }
 pub(crate) unsafe fn spc_flush_object(key: &str) {
     pdf_names_close_object(NAMED_OBJECTS, key.as_bytes());
@@ -231,9 +234,9 @@ pub(crate) unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
     NAMED_OBJECTS = pdf_new_name_tree();
 }
-unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     args.cur = &[];
-    -1
+    ERR
 }
 unsafe fn init_special<'a, 'b>(
     special: &mut SpcHandler,
@@ -342,8 +345,8 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_misc_setup_handler,
     },
 ];
-pub(crate) unsafe fn spc_exec_at_begin_page() -> i32 {
-    let mut error: i32 = 0;
+pub(crate) unsafe fn spc_exec_at_begin_page() -> Result<()> {
+    let mut error = Ok(());
     for spc in &KNOWN_SPECIALS {
         if let Some(bophk) = spc.bophk_func {
             error = bophk();
@@ -351,8 +354,8 @@ pub(crate) unsafe fn spc_exec_at_begin_page() -> i32 {
     }
     error
 }
-pub(crate) unsafe fn spc_exec_at_end_page() -> i32 {
-    let mut error: i32 = 0;
+pub(crate) unsafe fn spc_exec_at_end_page() -> Result<()> {
+    let mut error = Ok(());
     for spc in &KNOWN_SPECIALS {
         if let Some(eophk) = spc.eophk_func {
             error = eophk();
@@ -360,8 +363,8 @@ pub(crate) unsafe fn spc_exec_at_end_page() -> i32 {
     }
     error
 }
-pub(crate) unsafe fn spc_exec_at_begin_document() -> i32 {
-    let mut error: i32 = 0;
+pub(crate) unsafe fn spc_exec_at_begin_document() -> Result<()> {
+    let mut error = Ok(());
     assert!(NAMED_OBJECTS.is_null());
     NAMED_OBJECTS = pdf_new_name_tree();
     for spc in &KNOWN_SPECIALS {
@@ -371,8 +374,8 @@ pub(crate) unsafe fn spc_exec_at_begin_document() -> i32 {
     }
     error
 }
-pub(crate) unsafe fn spc_exec_at_end_document() -> i32 {
-    let mut error: i32 = 0;
+pub(crate) unsafe fn spc_exec_at_end_document() -> Result<()> {
+    let mut error = Ok(());
 
     for spc in &KNOWN_SPECIALS {
         if let Some(eodhk) = spc.eodhk_func {
@@ -466,8 +469,13 @@ unsafe fn print_error(name: *const i8, spe: &mut SpcEnv, ap: &mut SpcArg) {
 /* This should not use pdf_. */
 /* PDF parser shouldn't depend on this...
  */
-pub(crate) unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, mag: f64) -> i32 {
-    let mut error: i32 = -1;
+pub(crate) unsafe fn spc_exec_special(
+    buffer: &[u8],
+    x_user: f64,
+    y_user: f64,
+    mag: f64,
+) -> Result<()> {
+    let mut error = ERR;
     let mut spe = SpcEnv::default();
     let mut args = SpcArg::default();
     let mut special = SpcHandler::default();
@@ -488,10 +496,10 @@ pub(crate) unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, m
         let found = (spc.check_func)(buffer);
         if found {
             error = (spc.setup_func)(&mut special, &mut spe, &mut args);
-            if error == 0 {
+            if error.is_ok() {
                 error = special.exec.expect("non-null function pointer")(&mut spe, &mut args)
             }
-            if error != 0 {
+            if error.is_err() {
                 print_error(spc.key, &mut spe, &mut args);
             }
             break;

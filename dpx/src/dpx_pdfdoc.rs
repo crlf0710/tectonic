@@ -26,6 +26,8 @@
     non_upper_case_globals
 )]
 
+use crate::dpx_error::{Result, ERR};
+
 use euclid::point2;
 
 use crate::bridge::DisplayExt;
@@ -1436,7 +1438,7 @@ impl PdfDoc {
         category: &[u8],
         key: &[u8],
         value: &mut pdf_obj,
-    ) -> i32 {
+    ) -> Result<()> {
         let mut i = 0;
         for name in &self.names {
             if name.category.as_bytes() == category {
@@ -1449,7 +1451,7 @@ impl PdfDoc {
                 "Unknown name dictionary category \"{}\".",
                 category.display()
             );
-            return -1;
+            return ERR;
         }
         if self.names[i].data.is_null() {
             self.names[i].data = pdf_new_name_tree()

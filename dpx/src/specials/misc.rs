@@ -31,13 +31,14 @@ use bridge::{InFile, TTInputFormat};
 use libc::strlen;
 use std::ptr;
 
+use super::{Result, ERR};
 use super::{SpcArg, SpcEnv};
 
 use super::SpcHandler;
 
 use crate::dpx_pdfximage::load_options;
 
-fn parse_postscriptbox_special(buf: &str) -> Result<(f64, f64, String), ()> {
+fn parse_postscriptbox_special(buf: &str) -> std::result::Result<(f64, f64, String), ()> {
     // TODO: port this to nom?
     let mut parts = Vec::new();
     for elem in buf.split("}") {
@@ -62,7 +63,7 @@ fn parse_postscriptbox_special(buf: &str) -> Result<(f64, f64, String), ()> {
 }
 
 /* quasi-hack to get the primary input */
-unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let mut ti = transform_info::new();
     let options: load_options = load_options {
         page_no: 1,
@@ -75,7 +76,7 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
             spe,
             "No width/height/filename given for postscriptbox special."
         );
-        return -1;
+        return ERR;
     }
     /* input is not NULL terminated */
     let len = ap.cur.len();
@@ -94,7 +95,7 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
         filename
     } else {
         spc_warn!(spe, "Syntax error in postscriptbox special?");
-        return -1;
+        return ERR;
     };
 
     ap.cur = &[];
@@ -116,18 +117,18 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
         let form_id = pdf_ximage_findresource(&filename, options);
         if form_id < 0 {
             spc_warn!(spe, "Failed to load image file: {}", filename);
-            return -1;
+            return ERR;
         }
         pdf_dev_put_image(form_id, &mut ti, spe.x_user, spe.y_user);
-        0
+        Ok(())
     } else {
         spc_warn!(spe, "Could not open image file: {}", filename);
-        return -1;
+        return ERR;
     }
 }
-unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     args.cur = &[];
-    0
+    Ok(())
 }
 const MISC_HANDLERS: [SpcHandler; 6] = [
     SpcHandler {
@@ -170,7 +171,7 @@ pub(crate) unsafe fn spc_misc_setup_handler(
     handle: &mut SpcHandler,
     _spe: &mut SpcEnv,
     args: &mut SpcArg,
-) -> i32 {
+) -> Result<()> {
     args.cur.skip_white();
     let key = args.cur;
     let mut keylen = 0;
@@ -186,7 +187,7 @@ pub(crate) unsafe fn spc_misc_setup_handler(
         keylen += 1;
     }
     if keylen < 1 {
-        return -1;
+        return ERR;
     }
     for handler in MISC_HANDLERS.iter() {
         if &key[..keylen] == handler.key.as_bytes() {
@@ -196,8 +197,8 @@ pub(crate) unsafe fn spc_misc_setup_handler(
                 key: "???:",
                 exec: handler.exec,
             };
-            return 0;
+            return Ok(());
         }
     }
-    -1
+    ERR
 }
