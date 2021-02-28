@@ -52,7 +52,7 @@ use super::dpx_type0::{
 use super::dpx_type1::{pdf_font_load_type1, pdf_font_open_type1};
 use super::dpx_type1c::{pdf_font_load_type1c, pdf_font_open_type1c};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_name, pdf_new_ref, pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, IntoRef,
     Object,
 };
 use crate::{info, warn};
@@ -356,11 +356,10 @@ unsafe fn try_load_ToUnicode_CMap(font: &mut pdf_font) -> i32 {
         }
         _ => {
             if let Some(tounicode) = tounicode {
-                let tounicode = &mut *tounicode.into_obj();
-                if tounicode.as_stream().len() > 0 {
+                if tounicode.len() > 0 {
                     fontdict
                         .as_dict_mut()
-                        .set("ToUnicode", pdf_new_ref(tounicode));
+                        .set("ToUnicode", tounicode.into_ref());
                     if __verbose != 0 {
                         info!(
                             "pdf_font>> ToUnicode CMap \"{}\" attached to font id=\"{}\".\n",
@@ -368,7 +367,6 @@ unsafe fn try_load_ToUnicode_CMap(font: &mut pdf_font) -> i32 {
                         );
                     }
                 }
-                pdf_release_obj(tounicode);
             }
         }
     }

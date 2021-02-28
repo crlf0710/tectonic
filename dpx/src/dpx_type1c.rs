@@ -50,9 +50,7 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
-use crate::dpx_pdfobj::{
-    pdf_new_ref, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
-};
+use crate::dpx_pdfobj::{pdf_stream, pdf_string, IntoRef, PushObj, STREAM_COMPRESS};
 use libc::free;
 
 use std::io::{Read, Seek, SeekFrom};
@@ -243,14 +241,11 @@ unsafe fn add_SimpleMetrics(
             }
         }
     }
-    let empty = tmp_array.is_empty();
-    let tmp_array = &mut *tmp_array.into_obj();
 
     let fontdict = pdf_font_get_resource(font).as_dict_mut();
-    if !empty {
-        fontdict.set("Widths", pdf_new_ref(tmp_array));
+    if !tmp_array.is_empty() {
+        fontdict.set("Widths", tmp_array.into_ref());
     }
-    pdf_release_obj(tmp_array);
     fontdict.set("FirstChar", firstchar as f64);
     fontdict.set("LastChar", lastchar as f64);
 }
@@ -336,9 +331,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
             if let Some(tounicode) =
                 pdf_create_ToUnicode_CMap(&fullname, enc_vec.as_mut_slice(), usedchars)
             {
-                let tounicode = &mut *tounicode.into_obj();
-                fontdict.set("ToUnicode", pdf_new_ref(tounicode));
-                pdf_release_obj(tounicode);
+                fontdict.set("ToUnicode", tounicode.into_ref());
             }
         }
         enc_vec.as_mut_slice()
@@ -754,8 +747,6 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     let mut fontfile = pdf_stream::new(STREAM_COMPRESS);
     fontfile.get_dict_mut().set("Subtype", "Type1C");
     fontfile.add_slice(&stream_data[..offset]);
-    let fontfile = &mut *fontfile.into_obj();
-    descriptor.set("FontFile3", pdf_new_ref(fontfile));
-    pdf_release_obj(fontfile);
+    descriptor.set("FontFile3", fontfile.into_ref());
     0
 }

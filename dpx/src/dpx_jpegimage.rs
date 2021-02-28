@@ -34,9 +34,7 @@ use super::dpx_pdfcolor::{
     pdf_get_colorspace_reference,
 };
 use crate::bridge::ttstub_input_get_size;
-use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_new_ref, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
-};
+use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj, IntoRef, PushObj, STREAM_COMPRESS};
 use libc::memset;
 
 use crate::bridge::size_t;
@@ -200,9 +198,8 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     /* XMP Metadata */
     if pdf_get_version() >= 4 {
         if j_info.flags & 1 << 4 != 0 {
-            let XMP_stream = &mut *JPEG_get_XMP(&mut j_info).into_obj();
-            stream_dict.set("Metadata", pdf_new_ref(XMP_stream));
-            pdf_release_obj(XMP_stream);
+            let XMP_stream = JPEG_get_XMP(&mut j_info);
+            stream_dict.set("Metadata", XMP_stream.into_ref());
         }
     }
     /* Check embedded ICC Profile */

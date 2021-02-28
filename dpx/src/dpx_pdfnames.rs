@@ -39,8 +39,8 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_new_ref, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
-    pdf_transfer_label, IntoObj, Object, PushObj,
+    pdf_dict, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string, pdf_transfer_label,
+    IntoObj, IntoRef, Object, PushObj,
 };
 use libc::free;
 
@@ -284,9 +284,8 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
         for i in 0..4 {
             let start = i * first.len() / 4;
             let end = (i + 1) * first.len() / 4;
-            let subtree = &mut *build_name_tree(&mut first[start..end], 0).into_obj();
-            kids.push_obj(pdf_new_ref(subtree));
-            pdf_release_obj(subtree);
+            let subtree = build_name_tree(&mut first[start..end], 0);
+            kids.push_obj(subtree.into_ref());
         }
         result.set("Kids", kids);
     }

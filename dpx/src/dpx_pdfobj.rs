@@ -60,6 +60,8 @@ const OBJ_NO_OBJSTM: i32 = 1 << 0;
 /// This implies OBJ_NO_OBJSTM if encryption is turned on.
 const OBJ_NO_ENCRYPT: i32 = 1 << 1;
 
+const OBJSTM_MAX_OBJS: usize = 200; // the limit is only 100 for linearized PDF
+
 /// (label, generation)
 pub(crate) type ObjectId = (u32, u16);
 
@@ -73,9 +75,6 @@ pub struct pdf_obj {
 impl pdf_obj {
     pub(crate) fn label(&self) -> u32 {
         self.id.0
-    }
-    pub(crate) fn generation(&self) -> u16 {
-        self.id.1
     }
 }
 
@@ -389,6 +388,12 @@ impl IntoObj for *mut pdf_obj {
     }
 }
 
+impl IntoObj for pdf_obj {
+    fn into_pdf_obj(self) -> pdf_obj {
+        self
+    }
+}
+
 impl IntoObject for Object {
     #[inline(always)]
     fn into_object(self) -> Object {
@@ -454,6 +459,45 @@ impl IntoObject for pdf_dict {
 impl IntoObject for pdf_indirect {
     fn into_object(self) -> Object {
         Object::Indirect(self)
+    }
+}
+pub(crate) trait IntoRef {
+    unsafe fn into_ref(self) -> pdf_indirect;
+}
+impl<T> IntoRef for T
+where
+    T: IntoObject,
+{
+    // Writes object data to file and convert it into `pdf_indirect`
+    unsafe fn into_ref(self) -> pdf_indirect {
+        let mut object = self.into_object();
+        let flags = if let Object::Stream(_) = &object {
+            OBJ_NO_OBJSTM
+        } else {
+            0
+        };
+        let id = pdf_next_label();
+        output_pdf_obj(&mut object, id, flags);
+
+        pdf_indirect {
+            pf: ptr::null_mut(),
+            id: id,
+            obj: ptr::null_mut(),
+        }
+    }
+}
+impl IntoRef for pdf_obj {
+    unsafe fn into_ref(mut self) -> pdf_indirect {
+        pdf_label_obj(&mut self);
+        let id = self.id;
+        let flags = self.flags;
+        output_pdf_obj(&mut self.data, id, flags);
+
+        pdf_indirect {
+            pf: ptr::null_mut(),
+            id: id,
+            obj: ptr::null_mut(),
+        }
     }
 }
 
@@ -704,7 +748,7 @@ pub(crate) unsafe fn pdf_set_root(object: &mut pdf_obj) {
      */
     if doc_enc_mode {
         object.flags |= OBJ_NO_OBJSTM;
-    };
+    }
 }
 pub(crate) unsafe fn pdf_set_info(object: &mut pdf_obj) {
     if (*trailer_dict)
@@ -713,22 +757,22 @@ pub(crate) unsafe fn pdf_set_info(object: &mut pdf_obj) {
         != 0
     {
         panic!("Info object already set!");
-    };
+    }
 }
 pub(crate) unsafe fn pdf_set_id(id: Vec<*mut pdf_obj>) {
     if (*trailer_dict).as_dict_mut().set("ID", id) != 0 {
         panic!("ID already set!");
-    };
+    }
 }
-pub(crate) unsafe fn pdf_set_encrypt(encrypt: &mut pdf_obj) {
+pub(crate) unsafe fn pdf_set_encrypt(mut encrypt: pdf_obj) {
+    encrypt.flags |= OBJ_NO_ENCRYPT;
     if (*trailer_dict)
         .as_dict_mut()
-        .set("Encrypt", pdf_new_ref(encrypt))
+        .set("Encrypt", encrypt.into_ref())
         != 0
     {
         panic!("Encrypt object already set!");
     }
-    encrypt.flags |= OBJ_NO_ENCRYPT;
 }
 unsafe fn pdf_out_char(handle: &mut OutputHandleWrapper, c: u8) {
     match output_stream.as_mut() {
@@ -827,7 +871,10 @@ pub(crate) unsafe fn pdf_ref_obj(object: *mut pdf_obj) -> *mut pdf_obj {
     let object = &mut *object;
     if object.refcount == 0 {
         info!("\nTrying to refer already released object!!!\n");
-        pdf_write_obj(object, ttstub_output_open_stdout().as_mut().unwrap());
+        pdf_write_obj(
+            &mut object.data,
+            ttstub_output_open_stdout().as_mut().unwrap(),
+        );
         panic!("Cannot continue...");
     }
     if object.is_indirect() {
@@ -1053,7 +1100,7 @@ unsafe fn write_array(array: &Vec<*mut pdf_obj>, handle: &mut OutputHandleWrappe
                     item.data,
                     Object::String(_) | Object::Array(_) | Object::Dict(_)
                 );
-                pdf_write_obj(item, handle);
+                pdf_write_obj(&mut item.data, handle);
             } else {
                 warn!("PDF array element {} undefined.", i);
             }
@@ -1103,7 +1150,7 @@ unsafe fn write_dict(dict: &pdf_dict, handle: &mut OutputHandleWrapper) {
             pdf_out_white(handle);
         }
         if let Some(v) = v.as_mut() {
-            pdf_write_obj(v, handle);
+            pdf_write_obj(&mut v.data, handle);
         } else {
             write_null(handle);
         }
@@ -2399,32 +2446,41 @@ unsafe fn pdf_write_obj(object: &mut Object, handle: &mut OutputHandleWrapper) {
     }
 }
 /* Write the object to the file */
-unsafe fn pdf_flush_obj(object: &mut pdf_obj, handle: &mut OutputHandleWrapper) {
+unsafe fn pdf_flush_obj(
+    object: &mut Object,
+    id: ObjectId,
+    encrypt: bool,
+    handle: &mut OutputHandleWrapper,
+) {
     /*
      * Record file position
      */
-    let (label, generation) = object.id;
+    let (label, generation) = id;
     add_xref_entry(
         label as usize,
         1,
         (pdf_output_file_position as u32, generation),
     );
     let out = format!("{} {} obj\n", label, generation);
-    enc_mode = doc_enc_mode as i32 != 0 && object.flags & OBJ_NO_ENCRYPT == 0;
+    enc_mode = encrypt;
     pdf_enc_set_label(label);
     pdf_enc_set_generation(generation as u32);
     pdf_out(handle, out.as_bytes());
     pdf_write_obj(object, handle);
     pdf_out(handle, b"\nendobj\n");
 }
-unsafe fn pdf_add_objstm((objstm, id): &mut (pdf_stream, ObjectId), object: &mut pdf_obj) -> i32 {
+unsafe fn pdf_add_objstm(
+    (objstm, id): &mut (pdf_stream, ObjectId),
+    object: &mut Object,
+    label: u32,
+) -> usize {
     let len = objstm.len();
     let data = get_objstm_data_mut(objstm);
     data[0] += 1;
-    let pos = data[0];
-    data[(2 * pos) as usize] = object.label() as i32;
-    data[(2 * pos + 1) as usize] = len as i32;
-    add_xref_entry(object.label() as usize, 2_u8, (id.0, (pos - 1) as u16));
+    let pos = data[0] as usize;
+    data[2 * pos] = label as i32;
+    data[2 * pos + 1] = len as i32;
+    add_xref_entry(label as usize, 2_u8, (id.0, (pos - 1) as u16));
     /* redirect output into objstm */
     output_stream = objstm as *mut _;
     enc_mode = false;
@@ -2451,30 +2507,35 @@ unsafe fn release_objstm((mut objstm, id): (pdf_stream, ObjectId)) {
     dict.set("N", pos as f64);
     dict.set("First", len as f64);
     objstm.add_slice(old_buf.as_ref());
-    let mut objstm = objstm.into_pdf_obj();
+    let mut objstm = objstm.into_object();
     if id.0 != 0 {
-        objstm.id = id;
-        output_pdf_obj(&mut objstm);
+        if let Some(handle) = pdf_output_handle.as_mut() {
+            pdf_flush_obj(&mut objstm, id, doc_enc_mode as i32 != 0, handle);
+        }
     }
 }
 
-pub unsafe fn output_pdf_obj(object: &mut pdf_obj) {
-    if pdf_output_handle.is_some() {
+pub unsafe fn output_pdf_obj(object: &mut Object, id: ObjectId, flags: i32) {
+    if let Some(handle) = pdf_output_handle.as_mut() {
         if !do_objstm
-            || object.flags & OBJ_NO_OBJSTM != 0
-            || doc_enc_mode as i32 != 0 && object.flags & OBJ_NO_ENCRYPT != 0
-            || object.generation() as i32 != 0
+            || flags & OBJ_NO_OBJSTM != 0
+            || doc_enc_mode as i32 != 0 && flags & OBJ_NO_ENCRYPT != 0
+            || id.1 as i32 != 0
         {
-            let handle = pdf_output_handle.as_mut().unwrap();
-            pdf_flush_obj(object, handle);
+            pdf_flush_obj(
+                object,
+                id,
+                doc_enc_mode as i32 != 0 && flags & OBJ_NO_ENCRYPT == 0,
+                handle,
+            );
         } else {
             if current_objstm.is_none() {
-                let data = vec![0; 2 * 200 + 2];
+                let data = vec![0; 2 * OBJSTM_MAX_OBJS + 2];
                 let mut objstm = pdf_stream::new(STREAM_COMPRESS);
                 set_objstm_data(&mut objstm, data);
                 current_objstm = Some((objstm, pdf_next_label()));
             }
-            if pdf_add_objstm(current_objstm.as_mut().unwrap(), object) == 200 {
+            if pdf_add_objstm(current_objstm.as_mut().unwrap(), object, id.0) == OBJSTM_MAX_OBJS {
                 release_objstm(current_objstm.take().unwrap());
             }
         }
@@ -2490,7 +2551,10 @@ pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
                 "\npdf_release_obj: object={:p}, refcount={}\n",
                 object, object.refcount,
             );
-            pdf_write_obj(object, ttstub_output_open_stdout().as_mut().unwrap());
+            pdf_write_obj(
+                &mut object.data,
+                ttstub_output_open_stdout().as_mut().unwrap(),
+            );
             panic!("pdf_release_obj:  Called with invalid object.");
         }
         object.refcount -= 1;
@@ -2500,7 +2564,9 @@ pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
              * Nonzero "label" means object needs to be written before it's destroyed.
              */
             if object.label() != 0 {
-                output_pdf_obj(object);
+                let id = object.id;
+                let flags = object.flags;
+                output_pdf_obj(&mut object.data, id, flags);
             }
             /* This might help detect freeing already freed objects */
             object.data = Object::Invalid;

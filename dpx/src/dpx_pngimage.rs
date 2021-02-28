@@ -35,8 +35,8 @@ use crate::warn;
 use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_new_ref, pdf_obj, pdf_release_obj, pdf_stream,
-    pdf_stream_set_predictor, pdf_string, IntoObj, IntoObject, PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_get_version, pdf_obj, pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj,
+    IntoObject, IntoRef, PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -265,12 +265,11 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     );
     free(stream_data_ptr as *mut libc::c_void);
     let stream_dict = stream.get_dict_mut();
-    if let Some(mask) = mask {
+    if let Some(mut mask) = mask {
         if trans_type == 1 {
             let mask = mask.into_obj();
             stream_dict.set("Mask", mask);
         } else if trans_type == 2 {
-            let mask = &mut *mask.into_obj();
             if info.bits_per_component >= 8 && info.width > 64 {
                 pdf_stream_set_predictor(
                     mask.as_stream_mut(),
@@ -280,8 +279,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                     1,
                 );
             }
-            stream_dict.set("SMask", pdf_new_ref(mask));
-            pdf_release_obj(mask);
+            stream_dict.set("SMask", mask.into_ref());
         } else {
             warn!("{}: Unknown transparency type...???", "PNG");
         }
@@ -333,9 +331,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                         (*text_ptr.offset(i as isize)).text as *const libc::c_void,
                         (*text_ptr.offset(i as isize)).itxt_length as i32,
                     );
-                    let XMP_stream = &mut *XMP_stream.into_obj();
-                    stream_dict.set("Metadata", pdf_new_ref(XMP_stream));
-                    pdf_release_obj(XMP_stream);
+                    stream_dict.set("Metadata", XMP_stream.into_ref());
                     have_XMP = 1
                 }
             }

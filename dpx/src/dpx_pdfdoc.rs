@@ -65,8 +65,8 @@ use crate::bridge::{InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_new_ref, pdf_obj,
     pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt,
-    pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, Object,
-    PushObj, STREAM_COMPRESS,
+    pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, IntoRef,
+    Object, PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -339,11 +339,9 @@ impl PdfDoc {
             if tmp.is_none() {
                 let mut tmp = pdf_dict::new();
                 tmp.set("Nums", pdf_link_obj(self.root.pagelabels));
-                let tmp = &mut *tmp.into_obj();
                 (*self.root.dict)
                     .as_dict_mut()
-                    .set("PageLabels", pdf_new_ref(tmp));
-                pdf_release_obj(tmp);
+                    .set("PageLabels", tmp.into_ref());
             } else {
                 /* What should I do? */
                 warn!("Could not modify PageLabels.");
@@ -1611,14 +1609,12 @@ impl PdfDoc {
                     }
                 }
                 if let Some(name_tree) = name_tree {
-                    let name_tree = &mut *name_tree.into_obj();
                     if self.root.names.is_null() {
                         self.root.names = pdf_dict::new().into_obj();
                     }
                     (*self.root.names)
                         .as_dict_mut()
-                        .set(name.category, pdf_new_ref(name_tree));
-                    pdf_release_obj(name_tree);
+                        .set(name.category, name_tree.into_ref());
                 }
                 pdf_delete_name_tree(&mut name.data);
             }
@@ -2196,9 +2192,8 @@ impl PdfDoc {
         self.init_page_tree(media_width, media_height);
         pdf_doc_set_bgcolor(None);
         if enable_encrypt {
-            let encrypt = &mut *pdf_encrypt_obj().into_obj();
+            let encrypt = pdf_encrypt_obj().into_pdf_obj();
             pdf_set_encrypt(encrypt);
-            pdf_release_obj(encrypt);
         }
         pdf_set_id(pdf_enc_id_array());
         /* Create a default name for thumbnail image files */
