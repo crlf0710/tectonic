@@ -225,7 +225,7 @@ fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
         }
     }
 }
-unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict {
+unsafe fn build_name_tree(nobjects: &mut [named_object], is_root: bool) -> pdf_dict {
     let mut result = pdf_dict::new();
     /*
      * According to PDF Refrence, Third Edition (p.101-102), a name tree
@@ -236,23 +236,24 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
      * containing a Limits entry and a Kids entry, or a leaf node,
      * containing a Limits entry and a Names entry.
      */
-    if is_root == 0 {
+    if !is_root {
         let mut limits = vec![];
-        let last = &first[first.len() - 1];
+        let first = &nobjects[0];
         limits.push_obj(pdf_string::new_from_ptr(
-            first[0].key as *const libc::c_void,
-            first[0].keylen as size_t,
+            first.key as *const libc::c_void,
+            first.keylen as size_t,
         ));
+        let last = &nobjects[nobjects.len() - 1];
         limits.push_obj(pdf_string::new_from_ptr(
             last.key as *const libc::c_void,
             last.keylen as size_t,
         ));
         result.set("Limits", limits);
     }
-    if first.len() > 0 && first.len() <= 2 * 4 {
+    if nobjects.len() > 0 && nobjects.len() <= 2 * 4 {
         /* Create leaf nodes. */
         let mut names = vec![];
-        for cur in first.iter_mut() {
+        for cur in nobjects.iter_mut() {
             names.push_obj(pdf_string::new_from_ptr(
                 cur.key as *const libc::c_void,
                 cur.keylen as size_t,
@@ -278,33 +279,35 @@ unsafe fn build_name_tree(first: &mut [named_object], is_root: i32) -> pdf_dict 
             cur.value = ptr::null_mut();
         }
         result.set("Names", names.into_obj());
-    } else if first.len() > 0 {
+    } else if nobjects.len() > 0 {
         /* Intermediate node */
         let mut kids = vec![];
         for i in 0..4 {
-            let start = i * first.len() / 4;
-            let end = (i + 1) * first.len() / 4;
-            let subtree = build_name_tree(&mut first[start..end], 0);
+            let start = i * nobjects.len() / 4;
+            let end = (i + 1) * nobjects.len() / 4;
+            let subtree = build_name_tree(&mut nobjects[start..end], false);
             kids.push_obj(subtree.into_ref());
         }
         result.set("Kids", kids);
     }
     result
 }
-unsafe fn flat_table(ht_tab: *mut ht_table, filter: *mut ht_table) -> Vec<named_object> {
+unsafe fn flat_table(
+    ht_tab: &mut ht_table,
+    mut filter: Option<&mut ht_table>,
+) -> Vec<named_object> {
     let mut iter: ht_iter = ht_iter {
         index: 0,
         curr: ptr::null_mut(),
         hash: ptr::null_mut(),
     };
-    assert!(!ht_tab.is_null());
     let mut objects = Vec::with_capacity((*ht_tab).count as usize);
     if ht_set_iter(ht_tab, &mut iter) >= 0 {
         loop {
             let mut key = iter.get_key();
 
-            if !filter.is_null() {
-                let new_obj: *mut pdf_obj = ht_lookup_table(filter, key) as *mut pdf_obj;
+            if let Some(ref mut filter) = filter {
+                let new_obj: *mut pdf_obj = ht_lookup_table(*filter, key) as *mut pdf_obj;
                 if new_obj.is_null() {
                     if !(ht_iter_next(&mut iter) >= 0) {
                         break;
@@ -347,15 +350,15 @@ unsafe fn flat_table(ht_tab: *mut ht_table, filter: *mut ht_table) -> Vec<named_
 /* Really create name tree... */
 
 pub(crate) unsafe fn pdf_names_create_tree(
-    names: *mut ht_table,
-    filter: *mut ht_table,
+    names: &mut ht_table,
+    filter: Option<&mut ht_table>,
 ) -> (Option<pdf_dict>, i32) {
     let mut flat = flat_table(names, filter);
     if flat.is_empty() {
         (None, flat.len() as i32)
     } else {
         flat.sort_unstable_by(cmp_key);
-        let name_tree = build_name_tree(flat.as_mut_slice(), 1);
+        let name_tree = build_name_tree(flat.as_mut_slice(), true);
         (Some(name_tree), flat.len() as i32)
     }
 }

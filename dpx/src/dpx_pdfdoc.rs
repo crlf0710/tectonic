@@ -1589,14 +1589,16 @@ unsafe fn warn_undef_dests(dests: *mut ht_table, gotos: *mut ht_table) {
 impl PdfDoc {
     unsafe fn close_names(&mut self) {
         for name in self.names.iter_mut() {
+            let category = name.category;
             if !name.data.is_null() {
                 let data: *mut ht_table = name.data;
                 let name_tree;
-                if self.check_gotos == 0 || name.category != "Dests" {
-                    let (_name_tree, _) = pdf_names_create_tree(data, ptr::null_mut());
+                if self.check_gotos == 0 || category != "Dests" {
+                    let (_name_tree, _) = pdf_names_create_tree(&mut *data, None);
                     name_tree = _name_tree;
                 } else {
-                    let (_name_tree, count) = pdf_names_create_tree(data, &mut self.gotos);
+                    let (_name_tree, count) =
+                        pdf_names_create_tree(&mut *data, Some(&mut self.gotos));
                     name_tree = _name_tree;
                     if verbose != 0 && count < (*data).count {
                         info!(
@@ -1614,7 +1616,7 @@ impl PdfDoc {
                     }
                     (*self.root.names)
                         .as_dict_mut()
-                        .set(name.category, name_tree.into_ref());
+                        .set(category, name_tree.into_ref());
                 }
                 pdf_delete_name_tree(&mut name.data);
             }

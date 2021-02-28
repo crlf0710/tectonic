@@ -445,7 +445,6 @@ pub(crate) unsafe fn pdf_close_fonts() {
         let font_0: &mut pdf_font = &mut font_cache[font_id as usize];
         if (*font_0).encoding_id >= 0 && (*font_0).subtype != 4 {
             let enc_obj: *mut pdf_obj = pdf_get_encoding_obj((*font_0).encoding_id);
-            let mut tounicode: *mut pdf_obj = ptr::null_mut();
             /* Predefined encodings (and those simplified to them) are embedded
             as direct objects, but this is purely a matter of taste. */
             if !enc_obj.is_null() {
@@ -458,13 +457,13 @@ pub(crate) unsafe fn pdf_close_fonts() {
                     },
                 );
             }
-            if !(*(*font_0).resource).as_dict().has("ToUnicode") && {
-                tounicode = pdf_encoding_get_tounicode((*font_0).encoding_id);
-                !tounicode.is_null()
-            } {
-                (*(*font_0).resource)
-                    .as_dict_mut()
-                    .set("ToUnicode", pdf_ref_obj(tounicode));
+            if !(*(*font_0).resource).as_dict().has("ToUnicode") {
+                let tounicode = pdf_encoding_get_tounicode((*font_0).encoding_id);
+                if !tounicode.is_null() {
+                    (*(*font_0).resource)
+                        .as_dict_mut()
+                        .set("ToUnicode", pdf_ref_obj(tounicode));
+                }
             }
         } else if (*font_0).subtype == 3 {
             /* encoding_id < 0 means MacRoman here (but not really)
