@@ -570,8 +570,11 @@ unsafe fn CIDFont_base_open(
     } else {
         panic!();
     };
-    if let Some(tmp) = fontdict.get("Subtype") {
-        if let Object::Name(typ) = &(*tmp).data {
+    match fontdict.get("Subtype") {
+        Some(pdf_obj {
+            data: Object::Name(typ),
+            ..
+        }) => {
             let typ = typ.to_bytes();
             let subtype = if typ == b"CIDFontType0" {
                 1
@@ -606,11 +609,8 @@ unsafe fn CIDFont_base_open(
                 fontdict: fontdict.into_obj(),
                 descriptor: descriptor.into_obj(),
             }))
-        } else {
-            panic!();
         }
-    } else {
-        panic!();
+        _ => panic!(),
     }
 }
 

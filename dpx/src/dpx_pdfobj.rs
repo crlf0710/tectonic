@@ -2358,17 +2358,18 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
                     } else {
                         None
                     };
-                if let Some(tmp) = tmp.as_mut() {
-                    if let Object::Dict(d) = &mut tmp.data {
+                match tmp.as_deref_mut() {
+                    Some(pdf_obj {
+                        data: Object::Dict(d),
+                        ..
+                    }) => {
                         parms = get_decode_parms(d)
                             .or_else(|| panic!("Invalid value(s) in DecodeParms dictionary."));
-                    } else {
+                    }
+                    _ => {
                         warn!("PDF dict expected for DecodeParms...");
                         return -1;
                     }
-                } else {
-                    warn!("PDF dict expected for DecodeParms...");
-                    return -1;
                 }
             }
             let mut filter = stream_dict.get("Filter").unwrap();
@@ -2760,11 +2761,14 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                 pdf_release_obj(objstm);
                 let objstm = tmp.into_obj();
                 let dict = (*objstm).as_stream().get_dict();
-                let typ = dict.get("Type").unwrap();
-                if matches!(&typ.data, Object::Name(name) if name.to_bytes() == b"ObjStm") {
-                    if let Some(n_obj) = dict.get("N") {
-                        if let Object::Number(n) = n_obj.data {
-                            let n = n as i32;
+                match &dict.get("Type").unwrap().data {
+                    Object::Name(name) if name.to_bytes() == b"ObjStm" => {
+                        if let Some(pdf_obj {
+                            data: Object::Number(n),
+                            ..
+                        }) = dict.get("N")
+                        {
+                            let n = *n as i32;
                             if let Some(first_obj) = dict.get("First") {
                                 if let Object::Number(first) = first_obj.data {
                                     let first = first as i32;
@@ -2812,6 +2816,7 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                             }
                         }
                     }
+                    _ => {}
                 }
             }
         }
@@ -3481,31 +3486,36 @@ pub unsafe fn pdf_open(ident: &str, mut handle: InFile) -> Option<&mut Box<pdf_f
             return None;
         }
         pf.catalog = pdf_deref_obj((*pf.trailer).as_dict_mut().get_mut("Root"));
-        match pf.catalog.as_ref() {
-            Some(cat) if matches!(cat.data, Object::Dict(_)) => {}
+        match pf.catalog.as_mut() {
+            Some(pdf_obj {
+                data: Object::Dict(catalog),
+                ..
+            }) => {
+                if let Some(new_version) = DerefObj::new(catalog.get_mut("Version")) {
+                    let minor = if let Object::Name(n) = &new_version.data {
+                        let new_version_str = n.to_bytes();
+                        let minor_num_str = if new_version_str.starts_with(b"1.") {
+                            std::str::from_utf8(&new_version_str[2..]).unwrap_or("")
+                        } else {
+                            ""
+                        };
+                        if let Ok(minor_) = minor_num_str.parse::<u32>() {
+                            minor_
+                        } else {
+                            warn!("Illegal Version entry in document catalog. Broken PDF file?");
+                            return None;
+                        }
+                    } else {
+                        0
+                    };
+                    if pf.version < minor {
+                        pf.version = minor
+                    }
+                }
+            }
             _ => {
                 warn!("Cannot read PDF document catalog. Broken PDF file?");
                 return None;
-            }
-        }
-        if let Some(new_version) = DerefObj::new((*pf.catalog).as_dict_mut().get_mut("Version")) {
-            let mut minor: u32 = 0;
-            if let Object::Name(n) = &new_version.data {
-                let new_version_str = n.to_bytes();
-                let minor_num_str = if new_version_str.starts_with(b"1.") {
-                    std::str::from_utf8(&new_version_str[2..]).unwrap_or("")
-                } else {
-                    ""
-                };
-                if let Ok(minor_) = minor_num_str.parse::<u32>() {
-                    minor = minor_;
-                } else {
-                    warn!("Illegal Version entry in document catalog. Broken PDF file?");
-                    return None;
-                }
-            }
-            if pf.version < minor {
-                pf.version = minor
             }
         }
         pdf_files.insert(ident.as_bytes().to_owned(), pf);

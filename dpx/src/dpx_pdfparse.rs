@@ -464,15 +464,12 @@ impl ParsePdfObj for &[u8] {
         /* Stream length */
         if let Some(tmp) = unsafe { dict.get_mut("Length") } {
             unsafe {
-                stream_length = if let Some(tmp2) = DerefObj::new(Some(tmp)) {
-                    let l = if let Object::Number(v) = tmp2.data {
-                        v as i32
-                    } else {
-                        -1
-                    };
-                    l
-                } else {
-                    -1
+                stream_length = match DerefObj::new(Some(tmp)).as_deref() {
+                    Some(pdf_obj {
+                        data: Object::Number(v),
+                        ..
+                    }) => *v as i32,
+                    _ => -1,
                 }
             }
         } else {

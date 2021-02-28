@@ -90,17 +90,16 @@ pub(crate) unsafe fn pdf_include_page(
         info.matrix = matrix;
         let catalog = pdf_file_get_catalog(pf);
         if let Some(mut markinfo) = DerefObj::new((*catalog).as_dict_mut().get_mut("MarkInfo")) {
-            let tmp = DerefObj::new(markinfo.as_dict_mut().get_mut("Marked"));
-            if let Some(tmp) = tmp {
-                if let Object::Boolean(b) = tmp.data {
-                    if b {
+            match DerefObj::new(markinfo.as_dict_mut().get_mut("Marked")).as_deref() {
+                Some(pdf_obj {
+                    data: Object::Boolean(b),
+                    ..
+                }) => {
+                    if *b {
                         warn!("PDF file is tagged... Ignoring tags.");
                     }
-                } else {
-                    return error();
                 }
-            } else {
-                return error();
+                _ => return error(),
             }
         }
 
@@ -126,21 +125,23 @@ pub(crate) unsafe fn pdf_include_page(
                     let len = array.len();
                     let mut content_new = pdf_stream::new(STREAM_COMPRESS);
                     for idx in 0..len {
-                        if let Some(mut content_seg) = if idx < array.len() {
+                        match (if idx < array.len() {
                             DerefObj::new(Some(&mut *array[idx]))
                         } else {
                             None
-                        } {
-                            if let Object::Stream(s) = &mut content_seg.data {
+                        })
+                        .as_deref_mut()
+                        {
+                            Some(pdf_obj {
+                                data: Object::Stream(s),
+                                ..
+                            }) => {
                                 if pdf_concat_stream(&mut content_new, s) >= 0 {
                                 } else {
                                     return error();
                                 }
-                            } else {
-                                return error();
                             }
-                        } else {
-                            return error();
+                            _ => return error(),
                         }
                     }
                     content_new.into_obj()

@@ -466,7 +466,6 @@ impl pdf_ximage {
                 self.attr.height = info.height;
                 self.attr.xdensity = info.xdensity;
                 self.attr.ydensity = info.ydensity;
-                self.reference = pdf_ref_obj(resource);
                 let dict = (*resource).as_stream_mut().get_dict_mut();
                 dict.set("Type", "XObject");
                 dict.set("Subtype", "Image");
@@ -480,6 +479,7 @@ impl pdf_ximage {
                 if !self.attr.dict.is_null() {
                     dict.merge((*self.attr.dict).as_dict());
                 }
+                self.reference = pdf_ref_obj(resource);
                 pdf_release_obj(resource);
                 self.resource = ptr::null_mut();
             } else {

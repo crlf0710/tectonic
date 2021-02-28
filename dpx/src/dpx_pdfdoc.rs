@@ -756,13 +756,17 @@ impl PdfDoc {
 
 pub unsafe fn pdf_doc_get_page_count(pf: &pdf_file) -> i32 {
     let catalog = pdf_file_get_catalog(pf);
-    if let Some(mut page_tree) = DerefObj::new((*catalog).as_dict_mut().get_mut("Pages")) {
-        if let Object::Dict(page_tree) = &mut page_tree.data {
-            if let Some(tmp) = DerefObj::new(page_tree.get_mut("Count")) {
-                if let Object::Number(count) = tmp.data {
-                    return count as i32;
-                }
-            }
+    if let Some(pdf_obj {
+        data: Object::Dict(page_tree),
+        ..
+    }) = DerefObj::new((*catalog).as_dict_mut().get_mut("Pages")).as_deref_mut()
+    {
+        if let Some(pdf_obj {
+            data: Object::Number(count),
+            ..
+        }) = DerefObj::new(page_tree.get_mut("Count")).as_deref()
+        {
+            return *count as i32;
         }
     }
     0
@@ -846,17 +850,17 @@ unsafe fn set_bounding_box(
     if let Some(mut box_0) = box_0 {
         for i in (0..4).rev() {
             let array = box_0.as_array_mut();
-            if let Some(tmp) = DerefObj::new(Some(&mut *array[i])) {
-                if let Object::Number(x) = tmp.data {
-                    match i {
-                        0 => bbox.min.x = x,
-                        1 => bbox.min.y = x,
-                        2 => bbox.max.x = x,
-                        3 => bbox.max.y = x,
-                        _ => {}
-                    }
-                } else {
-                    return None;
+            if let Some(pdf_obj {
+                data: Object::Number(x),
+                ..
+            }) = DerefObj::new(Some(&mut *array[i])).as_deref()
+            {
+                match i {
+                    0 => bbox.min.x = *x,
+                    1 => bbox.min.y = *x,
+                    2 => bbox.max.x = *x,
+                    3 => bbox.max.y = *x,
+                    _ => {}
                 }
             } else {
                 return None;
@@ -869,8 +873,12 @@ unsafe fn set_bounding_box(
         is_xdv != 0 || opt_bbox != PdfPageBoundary::Auto {
             let array = media_box.as_mut().unwrap().as_array_mut();
             for i in (0..4).rev() {
-                if let Some(tmp) = DerefObj::new(Some(&mut *array[i])) {
-                    if let Object::Number(x) = tmp.data {
+                match DerefObj::new(Some(&mut *array[i])).as_deref() {
+                    Some(pdf_obj {
+                        data: Object::Number(x),
+                        ..
+                    }) => {
+                        let x = *x;
                         match i {
                             0 => {
                                 if bbox.min.x < x {
@@ -894,11 +902,8 @@ unsafe fn set_bounding_box(
                             }
                             _ => {}
                         }
-                    } else {
-                        return None;
                     }
-                } else {
-                    return None;
+                    _ => return None,
                 }
             }
         }
@@ -1050,16 +1055,12 @@ pub unsafe fn pdf_doc_get_page(
                 pdf_release_obj(resources);
                 None
             };
-            let count = {
-                if let Some(tmp) = DerefObj::new(page_tree.as_dict_mut().get_mut("Count")) {
-                    if let Object::Number(count) = tmp.data {
-                        count as i32
-                    } else {
-                        return error_exit();
-                    }
-                } else {
-                    return error_exit();
-                }
+            let count = match DerefObj::new(page_tree.as_dict_mut().get_mut("Count")).as_deref() {
+                Some(pdf_obj {
+                    data: Object::Number(count),
+                    ..
+                }) => *count as i32,
+                _ => return error_exit(),
             };
             if page_no <= 0 || page_no > count {
                 warn!("Page {} does not exist.", page_no);

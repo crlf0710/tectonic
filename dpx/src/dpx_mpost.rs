@@ -59,7 +59,7 @@ use super::dpx_pdfdraw::{
 use super::dpx_pdfparse::dump;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
-use crate::dpx_pdfobj::{pdf_dict, pdf_name, pdf_set_number, Object};
+use crate::dpx_pdfobj::{pdf_dict, pdf_name, pdf_obj, pdf_set_number, Object};
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
 };
@@ -468,21 +468,29 @@ unsafe fn cvr_array(array: Object, values: &mut [f64]) -> i32 {
 }
 unsafe fn is_fontdict(dict: &Object) -> bool {
     if let Object::Dict(d) = &dict {
-        if let Some(typ) = d.get("Type") {
-            if matches!(&typ.data, Object::Name(typ) if typ.to_bytes() == b"Font") {
-                if let Some(name) = d.get("FontName") {
-                    if let Object::Name(_) = name.data {
-                        if let Some(scale) = d.get("FontScale") {
-                            return matches!(scale.data, Object::Number(_));
-                        }
+        match d.get("Type") {
+            Some(pdf_obj {
+                data: Object::Name(typ),
+                ..
+            }) if typ.to_bytes() == b"Font" => {
+                if let Some(pdf_obj {
+                    data: Object::Name(_),
+                    ..
+                }) = d.get("FontName")
+                {
+                    if let Some(pdf_obj {
+                        data: Object::Number(_),
+                        ..
+                    }) = d.get("FontScale")
+                    {
+                        return true;
                     }
                 }
             }
+            _ => {}
         }
-        false
-    } else {
-        false
     }
+    false
 }
 unsafe fn do_findfont() -> i32 {
     let mut error = 0;
@@ -593,8 +601,8 @@ unsafe fn do_show() -> i32 {
         return 1;
     }
     pdf_dev_currentpoint(&mut cp);
-    if let Some(text) = STACK.pop() {
-        if let Object::String(text) = &text {
+    match STACK.pop() {
+        Some(Object::String(text)) => {
             if (*font).font_id < 0 {
                 warn!("mpost: not set.");
                 return 1;
@@ -647,11 +655,8 @@ unsafe fn do_show() -> i32 {
             }
             graphics_mode();
             0
-        } else {
-            -1
         }
-    } else {
-        -1
+        _ => -1,
     }
 }
 unsafe fn do_mpost_bind_def(ps_code: *const i8, x_user: f64, y_user: f64) -> i32 {
@@ -943,12 +948,11 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
             let mut values = [0.; 1];
             error = pop_get_numbers(values.as_mut());
             if error == 0 {
-                let mut num_dashes = 0_usize;
                 let mut dash_values: [f64; 16] = [0.; 16];
                 let offset = values[0];
-                if let Some(pattern) = STACK.pop() {
-                    if let Object::Array(pattern) = pattern {
-                        num_dashes = pattern.len();
+                match STACK.pop() {
+                    Some(Object::Array(pattern)) => {
+                        let num_dashes = pattern.len();
                         if num_dashes > 16 {
                             warn!("Too many dashes...");
                             error = 1
@@ -966,11 +970,8 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                                 error = pdf_dev_setdash(&dash_values[..num_dashes], offset)
                             }
                         }
-                    } else {
-                        error = 1
                     }
-                } else {
-                    error = 1;
+                    _ => error = 1,
                 }
             }
         }
