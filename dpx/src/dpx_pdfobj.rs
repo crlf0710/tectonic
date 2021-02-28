@@ -331,10 +331,6 @@ pub struct pdf_number {
     pub(crate) value: f64,
 }
 
-// Must be replaced with std::convert::From
-pub(crate) trait IntoObject {
-    fn into_object(self) -> Object;
-}
 pub(crate) trait IntoObj {
     fn into_pdf_obj(self) -> pdf_obj;
     #[inline(always)]
@@ -354,14 +350,14 @@ pub(crate) trait IntoObj {
 }
 impl<T> IntoObj for T
 where
-    T: IntoObject,
+    T: Into<Object>,
 {
     #[inline(always)]
     fn into_pdf_obj(self) -> pdf_obj
     where
         Self: Sized,
     {
-        let data = self.into_object();
+        let data: Object = self.into();
         let flags = if let Object::Stream(_) = &data {
             OBJ_NO_OBJSTM
         } else {
@@ -388,89 +384,70 @@ impl IntoObj for *mut pdf_obj {
     }
 }
 
-impl IntoObj for pdf_obj {
-    fn into_pdf_obj(self) -> pdf_obj {
-        self
-    }
-}
-
-impl IntoObject for Object {
+impl From<f64> for Object {
     #[inline(always)]
-    fn into_object(self) -> Object {
-        self
+    fn from(f: f64) -> Self {
+        Self::Number(f)
     }
 }
-
-impl IntoObject for f64 {
+impl From<bool> for Object {
     #[inline(always)]
-    fn into_object(self) -> Object {
-        Object::Number(self)
+    fn from(b: bool) -> Self {
+        Self::Boolean(b)
     }
 }
-
-impl IntoObject for bool {
+impl From<&str> for Object {
     #[inline(always)]
-    fn into_object(self) -> Object {
-        Object::Boolean(self)
+    fn from(s: &str) -> Self {
+        pdf_name::new(s).into()
     }
 }
-
-impl IntoObject for &str {
+impl From<Vec<*mut pdf_obj>> for Object {
     #[inline(always)]
-    fn into_object(self) -> Object {
-        pdf_name::new(self).into_object()
+    fn from(v: Vec<*mut pdf_obj>) -> Self {
+        Self::Array(Array(v))
     }
 }
-
-impl IntoObject for Vec<*mut pdf_obj> {
+impl From<pdf_name> for Object {
     #[inline(always)]
-    fn into_object(self) -> Object {
-        Object::Array(Array(self))
+    fn from(n: pdf_name) -> Self {
+        Self::Name(n)
     }
 }
-
-impl IntoObject for pdf_name {
+impl From<pdf_string> for Object {
     #[inline(always)]
-    fn into_object(self) -> Object {
-        Object::Name(self)
+    fn from(s: pdf_string) -> Self {
+        Self::String(s)
     }
 }
-
-impl IntoObject for pdf_string {
+impl From<pdf_stream> for Object {
     #[inline(always)]
-    fn into_object(self) -> Object {
-        Object::String(self)
+    fn from(s: pdf_stream) -> Self {
+        Self::Stream(s)
+    }
+}
+impl From<pdf_dict> for Object {
+    fn from(d: pdf_dict) -> Self {
+        Self::Dict(d)
+    }
+}
+impl From<pdf_indirect> for Object {
+    fn from(r: pdf_indirect) -> Self {
+        Self::Indirect(r)
     }
 }
 
-impl IntoObject for pdf_stream {
-    #[inline(always)]
-    fn into_object(self) -> Object {
-        Object::Stream(self)
-    }
-}
-
-impl IntoObject for pdf_dict {
-    fn into_object(self) -> Object {
-        Object::Dict(self)
-    }
-}
-
-impl IntoObject for pdf_indirect {
-    fn into_object(self) -> Object {
-        Object::Indirect(self)
-    }
-}
 pub(crate) trait IntoRef {
     unsafe fn into_ref(self) -> pdf_indirect;
+    unsafe fn into_ref_with_no_encrypt(self) -> pdf_indirect;
 }
 impl<T> IntoRef for T
 where
-    T: IntoObject,
+    T: Into<Object>,
 {
     // Writes object data to file and convert it into `pdf_indirect`
     unsafe fn into_ref(self) -> pdf_indirect {
-        let mut object = self.into_object();
+        let mut object: Object = self.into();
         let flags = if let Object::Stream(_) = &object {
             OBJ_NO_OBJSTM
         } else {
@@ -485,13 +462,15 @@ where
             obj: ptr::null_mut(),
         }
     }
-}
-impl IntoRef for pdf_obj {
-    unsafe fn into_ref(mut self) -> pdf_indirect {
-        pdf_label_obj(&mut self);
-        let id = self.id;
-        let flags = self.flags;
-        output_pdf_obj(&mut self.data, id, flags);
+    unsafe fn into_ref_with_no_encrypt(self) -> pdf_indirect {
+        let mut object: Object = self.into();
+        let flags = if let Object::Stream(_) = &object {
+            OBJ_NO_OBJSTM
+        } else {
+            0
+        };
+        let id = pdf_next_label();
+        output_pdf_obj(&mut object, id, flags | OBJ_NO_ENCRYPT);
 
         pdf_indirect {
             pf: ptr::null_mut(),
@@ -764,11 +743,10 @@ pub(crate) unsafe fn pdf_set_id(id: Vec<*mut pdf_obj>) {
         panic!("ID already set!");
     }
 }
-pub(crate) unsafe fn pdf_set_encrypt(mut encrypt: pdf_obj) {
-    encrypt.flags |= OBJ_NO_ENCRYPT;
+pub(crate) unsafe fn pdf_set_encrypt(encrypt: pdf_dict) {
     if (*trailer_dict)
         .as_dict_mut()
-        .set("Encrypt", encrypt.into_ref())
+        .set("Encrypt", encrypt.into_ref_with_no_encrypt())
         != 0
     {
         panic!("Encrypt object already set!");
@@ -2507,7 +2485,7 @@ unsafe fn release_objstm((mut objstm, id): (pdf_stream, ObjectId)) {
     dict.set("N", pos as f64);
     dict.set("First", len as f64);
     objstm.add_slice(old_buf.as_ref());
-    let mut objstm = objstm.into_object();
+    let mut objstm: Object = objstm.into();
     if id.0 != 0 {
         if let Some(handle) = pdf_output_handle.as_mut() {
             pdf_flush_obj(&mut objstm, id, doc_enc_mode as i32 != 0, handle);

@@ -2192,7 +2192,7 @@ impl PdfDoc {
         self.init_page_tree(media_width, media_height);
         pdf_doc_set_bgcolor(None);
         if enable_encrypt {
-            let encrypt = pdf_encrypt_obj().into_pdf_obj();
+            let encrypt = pdf_encrypt_obj();
             pdf_set_encrypt(encrypt);
         }
         pdf_set_id(pdf_enc_id_array());

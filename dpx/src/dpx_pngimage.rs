@@ -36,7 +36,7 @@ use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_obj, pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj,
-    IntoObject, IntoRef, PushObj, STREAM_COMPRESS,
+    IntoRef, Object, PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -184,7 +184,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
         stream_dict.set("Intent", intent);
     }
     let mut colorspace = ptr::null_mut();
-    let mask;
+    let mask: Option<Object>;
     match color_type as i32 {
         3 => {
             colorspace = create_cspace_Indexed(png, png_info)
@@ -193,12 +193,11 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             mask = match trans_type {
                 1 => {
                     /* Color-key masking */
-                    create_ckey_mask(png, png_info).map(IntoObject::into_object)
+                    create_ckey_mask(png, png_info).map(Into::into)
                 }
                 2 => {
                     /* Soft mask */
-                    create_soft_mask(png, png_info, stream_data_ptr, width, height)
-                        .map(IntoObject::into_object)
+                    create_soft_mask(png, png_info, stream_data_ptr, width, height).map(Into::into)
                 }
                 _ => None,
             };
@@ -220,11 +219,11 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 colorspace = "DeviceRGB".into_obj()
             }
             mask = match trans_type {
-                1 => create_ckey_mask(png, png_info).map(IntoObject::into_object),
+                1 => create_ckey_mask(png, png_info).map(Into::into),
                 2 => {
                     /* rowbytes changes 4 to 3 at here */
                     strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
-                        .map(IntoObject::into_object)
+                        .map(Into::into)
                 }
                 _ => None,
             };
@@ -246,9 +245,9 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 colorspace = "DeviceGray".into_obj()
             }
             mask = match trans_type {
-                1 => create_ckey_mask(png, png_info).map(IntoObject::into_object),
+                1 => create_ckey_mask(png, png_info).map(Into::into),
                 2 => strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
-                    .map(IntoObject::into_object),
+                    .map(Into::into),
                 _ => None,
             };
             info.num_components = 1

@@ -57,7 +57,7 @@ use super::dpx_pdfdraw::{
 use super::dpx_pdfparse::dump;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
-use crate::dpx_pdfobj::{pdf_dict, pdf_name, pdf_set_number, IntoObject, Object};
+use crate::dpx_pdfobj::{pdf_dict, pdf_name, pdf_set_number, Object};
 use crate::dpx_pdfparse::{
     parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
 };
@@ -391,15 +391,15 @@ static mut STACK: Vec<Object> = Vec::new();
 trait PushChecked {
     fn push_checked<T>(&mut self, val: T) -> Result<(), ()>
     where
-        T: IntoObject;
+        T: Into<Object>;
 }
 impl PushChecked for Vec<Object> {
     fn push_checked<T>(&mut self, val: T) -> Result<(), ()>
     where
-        T: IntoObject,
+        T: Into<Object>,
     {
         if self.len() < 1024 {
-            self.push(val.into_object());
+            self.push(val.into());
             Ok(())
         } else {
             warn!("PS stack overflow including MetaPost file or inline PS code");
@@ -571,7 +571,7 @@ unsafe fn do_currentfont() -> i32 {
         font_dict.set("FontName", pdf_name::new((*font).font_name.as_bytes()));
         font_dict.set("FontScale", (*font).pt_size);
         if STACK.len() < 1024 {
-            STACK.push(font_dict.into_object())
+            STACK.push(font_dict.into())
         } else {
             warn!("PS stack overflow...");
             error = 1
