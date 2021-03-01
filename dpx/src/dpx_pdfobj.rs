@@ -35,7 +35,6 @@ use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
 
-use super::dpx_mem::new;
 use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
@@ -44,7 +43,7 @@ use crate::bridge::{
     ttstub_input_get_size, ttstub_output_close, ttstub_output_open_stdout, ttstub_output_putc,
     ReadByte,
 };
-use libc::{free, memset, strlen, strtoul};
+use libc::{free, strlen, strtoul};
 
 use libz_sys as libz;
 
@@ -1302,18 +1301,18 @@ pub(crate) unsafe fn pdf_stream_set_predictor(
  *   Crocker in February 1995.
  */
 #[cfg(feature = "libz-sys")]
-unsafe fn filter_PNG15_apply_filter(
+fn filter_PNG15_apply_filter(
     raster: &[u8],
     columns: i32,
-    rows: i32,
+    rows: usize,
     bpc: i8,
     colors: i8,
 ) -> Vec<u8> {
     let bits_per_pixel: i32 = colors as i32 * bpc as i32;
-    let bytes_per_pixel: i32 = (bits_per_pixel + 7) / 8;
-    let rowbytes: i32 = columns * bytes_per_pixel;
+    let bytes_per_pixel = ((bits_per_pixel + 7) / 8) as usize;
+    let rowbytes = (columns as usize) * bytes_per_pixel;
     /* Result */
-    let mut dst = vec![0_u8; ((rowbytes + 1) * rows) as _];
+    let mut dst = vec![0_u8; (rowbytes + 1) * rows];
     for j in 0..rows {
         let pp = &mut dst[(j * (rowbytes + 1)) as usize..((j + 1) * (rowbytes + 1)) as usize];
         let p = &raster[(j * rowbytes) as usize..((j + 1) * rowbytes) as usize];
@@ -1327,19 +1326,15 @@ unsafe fn filter_PNG15_apply_filter(
          * of optimal predictor function.
          */
         for i in 0..rowbytes {
-            let left: i32 = if i - bytes_per_pixel >= 0 {
-                p[(i - bytes_per_pixel) as usize] as i32
+            let left: i32 = if i >= bytes_per_pixel {
+                p[i - bytes_per_pixel] as i32
             } else {
                 0
             };
-            let up: i32 = if j > 0 {
-                prev_row[i as usize] as i32
-            } else {
-                0
-            };
+            let up: i32 = if j > 0 { prev_row[i] as i32 } else { 0 };
             let uplft: i32 = if j > 0 {
-                if i - bytes_per_pixel >= 0 {
-                    prev_row[(i - bytes_per_pixel) as usize] as i32
+                if i >= bytes_per_pixel {
+                    prev_row[i - bytes_per_pixel] as i32
                 } else {
                     0
                 }
@@ -1347,32 +1342,32 @@ unsafe fn filter_PNG15_apply_filter(
                 0
             };
             /* Type 0 -- None */
-            sum[0] += p[i as usize] as u32;
+            sum[0] += p[i] as u32;
             /* Type 1 -- Sub */
-            sum[1] += (p[i as usize] as i32 - left).abs() as u32;
+            sum[1] += (p[i] as i32 - left).abs() as u32;
             /* Type 2 -- Up */
-            sum[2] += (p[i as usize] as i32 - up).abs() as u32;
+            sum[2] += (p[i] as i32 - up).abs() as u32;
             /* Type 3 -- Average */
             let tmp: i32 = (((up + left) / 2) as f64).floor() as i32;
-            sum[3] += (p[i as usize] as i32 - tmp).abs() as u32;
+            sum[3] += (p[i] as i32 - tmp).abs() as u32;
             /* Type 4 -- Peath */
             let q: i32 = left + up - uplft;
             let qa: i32 = (q - left).abs();
             let qb: i32 = (q - up).abs();
             let qc: i32 = (q - uplft).abs();
             if qa <= qb && qa <= qc {
-                sum[4] += (p[i as usize] as i32 - left).abs() as u32;
+                sum[4] += (p[i] as i32 - left).abs() as u32;
             } else if qb <= qc {
-                sum[4] += (p[i as usize] as i32 - up).abs() as u32;
+                sum[4] += (p[i] as i32 - up).abs() as u32;
             } else {
-                sum[4] += (p[i as usize] as i32 - uplft).abs() as u32;
+                sum[4] += (p[i] as i32 - uplft).abs() as u32;
             }
         }
         let mut min: i32 = sum[0] as i32;
-        let mut min_idx: i32 = 0;
+        let mut min_idx = 0;
         for i in 0..5 {
-            if sum[i as usize] < min as u32 {
-                min = sum[i as usize] as i32;
+            if sum[i] < min as u32 {
+                min = sum[i] as i32;
                 min_idx = i
             }
         }
@@ -1385,56 +1380,44 @@ unsafe fn filter_PNG15_apply_filter(
             }
             1 => {
                 for i in 0..rowbytes {
-                    let left_0 = if i - bytes_per_pixel >= 0 {
-                        p[(i - bytes_per_pixel) as usize] as i32
+                    let left_0 = if i >= bytes_per_pixel {
+                        p[i - bytes_per_pixel] as i32
                     } else {
                         0
                     };
-                    pp[(i + 1) as usize] = (p[i as usize] as i32 - left_0) as u8;
+                    pp[i + 1] = (p[i] as i32 - left_0) as u8;
                 }
             }
             2 => {
                 for i in 0..rowbytes {
-                    let up_0: i32 = if j > 0 {
-                        prev_row[i as usize] as i32
-                    } else {
-                        0
-                    };
-                    pp[(i + 1) as usize] = (p[i as usize] as i32 - up_0) as u8;
+                    let up_0: i32 = if j > 0 { prev_row[i] as i32 } else { 0 };
+                    pp[i + 1] = (p[i] as i32 - up_0) as u8;
                 }
             }
             3 => {
                 for i in 0..rowbytes {
-                    let up_1: i32 = if j > 0 {
-                        prev_row[i as usize] as i32
-                    } else {
-                        0
-                    };
-                    let left_1: i32 = if i - bytes_per_pixel >= 0 {
-                        p[(i - bytes_per_pixel) as usize] as i32
+                    let up_1: i32 = if j > 0 { prev_row[i] as i32 } else { 0 };
+                    let left_1: i32 = if i >= bytes_per_pixel {
+                        p[i - bytes_per_pixel] as i32
                     } else {
                         0
                     };
                     let tmp_0: i32 = (((up_1 + left_1) / 2) as f64).floor() as i32;
-                    pp[(i + 1) as usize] = (p[i as usize] as i32 - tmp_0) as u8;
+                    pp[i + 1] = (p[i] as i32 - tmp_0) as u8;
                 }
             }
             4 => {
                 /* Peath */
                 for i in 0..rowbytes {
-                    let up_2: i32 = if j > 0 {
-                        prev_row[i as usize] as i32
-                    } else {
-                        0
-                    };
-                    let left_2: i32 = if i - bytes_per_pixel >= 0 {
-                        p[(i - bytes_per_pixel) as usize] as i32
+                    let up_2: i32 = if j > 0 { prev_row[i] as i32 } else { 0 };
+                    let left_2: i32 = if i >= bytes_per_pixel {
+                        p[i - bytes_per_pixel] as i32
                     } else {
                         0
                     };
                     let uplft_0 = if j > 0 {
-                        if i - bytes_per_pixel >= 0 {
-                            prev_row[(i - bytes_per_pixel) as usize] as i32
+                        if i >= bytes_per_pixel {
+                            prev_row[i - bytes_per_pixel] as i32
                         } else {
                             0
                         }
@@ -1446,18 +1429,18 @@ unsafe fn filter_PNG15_apply_filter(
                     let qb_0: i32 = (q_0 - up_2).abs();
                     let qc_0: i32 = (q_0 - uplft_0).abs();
                     if qa_0 <= qb_0 && qa_0 <= qc_0 {
-                        pp[(i + 1) as usize] = (p[i as usize] as i32 - left_2) as u8
+                        pp[i + 1] = (p[i] as i32 - left_2) as u8
                     } else if qb_0 <= qc_0 {
-                        pp[(i + 1) as usize] = (p[i as usize] as i32 - up_2) as u8
+                        pp[i + 1] = (p[i] as i32 - up_2) as u8
                     } else {
-                        pp[(i + 1) as usize] = (p[i as usize] as i32 - uplft_0) as u8
+                        pp[i + 1] = (p[i] as i32 - uplft_0) as u8
                     }
                 }
             }
             _ => {}
         }
     }
-    return dst;
+    dst
 }
 /* TIFF predictor filter support
  *
@@ -1474,31 +1457,18 @@ unsafe fn filter_PNG15_apply_filter(
  */
 /* This modifies "raster" itself! */
 #[cfg(feature = "libz-sys")]
-unsafe fn apply_filter_TIFF2_1_2_4(
-    raster: *mut u8,
-    width: i32,
-    height: i32,
-    bpc: i8,
-    num_comp: i8,
-) {
-    let rowbytes: i32 = (bpc as i32 * num_comp as i32 * width + 7) / 8;
+fn apply_filter_TIFF2_1_2_4(raster: &mut [u8], width: i32, height: i32, bpc: i8, num_comp: i8) {
+    let rowbytes = ((bpc as i32 * num_comp as i32 * width + 7) / 8) as usize;
     let mask: u8 = ((1 << bpc as i32) - 1) as u8;
-    assert!(!raster.is_null());
     assert!(bpc as i32 > 0 && bpc as i32 <= 8);
-    let prev =
-        new((num_comp as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
-            as *mut u16;
+    let mut prev = vec![0_u16; num_comp as _];
     /* Generic routine for 1 to 16 bit.
      * It supports, e.g., 7 bpc images too.
      * Actually, it is not necessary to have 16 bit inbuf and outbuf
      * since we only need 1, 2, and 4 bit support here. 8 bit is enough.
      */
-    for j in 0..height {
-        memset(
-            prev as *mut libc::c_void,
-            0,
-            (::std::mem::size_of::<u16>() as u64).wrapping_mul(num_comp as u64) as _,
-        );
+    for j in 0..height as usize {
+        prev.fill(0);
         let mut outbuf = 0 as u16;
         let mut inbuf = outbuf;
         let mut outbits = 0;
@@ -1506,17 +1476,17 @@ unsafe fn apply_filter_TIFF2_1_2_4(
         let mut k = j * rowbytes;
         let mut l = k;
         for _ in 0..width {
-            for c in 0..num_comp as i32 {
+            for c in 0..num_comp as usize {
                 if inbits < bpc as i32 {
                     /* need more byte */
-                    inbuf = ((inbuf as i32) << 8 | *raster.offset(l as isize) as i32) as u16; /* consumed bpc bits */
+                    inbuf = ((inbuf as i32) << 8 | raster[l] as i32) as u16; /* consumed bpc bits */
                     l += 1;
                     inbits += 8
                 }
                 let cur = (inbuf as i32 >> inbits - bpc as i32 & mask as i32) as u8;
                 inbits -= bpc as i32;
-                let mut sub = (cur as i32 - *prev.offset(c as isize) as i32) as i8;
-                *prev.offset(c as isize) = cur as u16;
+                let mut sub = (cur as i32 - prev[c] as i32) as i8;
+                prev[c] = cur as u16;
                 if (sub as i32) < 0 {
                     sub = (sub as i32 + (1 << bpc as i32)) as i8
                 }
@@ -1525,20 +1495,19 @@ unsafe fn apply_filter_TIFF2_1_2_4(
                 outbits += bpc as i32;
                 /* flush */
                 if outbits >= 8 {
-                    *raster.offset(k as isize) = (outbuf as i32 >> outbits - 8) as u8;
+                    raster[k] = (outbuf as i32 >> outbits - 8) as u8;
                     k += 1;
-                    outbits -= 8
+                    outbits -= 8;
                 }
             }
         }
         if outbits > 0 {
-            *raster.offset(k as isize) = ((outbuf as i32) << 8 - outbits) as u8
+            raster[k as usize] = ((outbuf as i32) << 8 - outbits) as u8;
         }
     }
-    free(prev as *mut libc::c_void);
 }
 #[cfg(feature = "libz-sys")]
-unsafe fn filter_TIFF2_apply_filter(
+fn filter_TIFF2_apply_filter(
     raster: &[u8],
     columns: i32,
     rows: i32,
@@ -1549,19 +1518,19 @@ unsafe fn filter_TIFF2_apply_filter(
     let mut dst = Vec::from(&raster[..(rowbytes * rows) as _]);
     match bpc as i32 {
         1 | 2 | 4 => {
-            apply_filter_TIFF2_1_2_4(dst.as_mut_ptr(), columns, rows, bpc, colors);
+            apply_filter_TIFF2_1_2_4(&mut dst, columns, rows, bpc, colors);
         }
         8 => {
             let mut prev = vec![0_u16; colors as _];
             for j in 0..rows {
                 prev.fill(0);
                 for i in 0..columns {
-                    let pos: i32 = colors as i32 * (columns * j + i);
-                    for c in 0..colors as i32 {
-                        let cur: u8 = raster[(pos + c) as usize];
-                        let sub: i32 = cur as i32 - prev[c as usize] as i32;
-                        prev[c as usize] = cur as u16;
-                        dst[(pos + c) as usize] = sub as u8;
+                    let pos = (colors as i32 * (columns * j + i)) as usize;
+                    for c in 0..colors as usize {
+                        let cur: u8 = raster[pos + c];
+                        let sub: i32 = cur as i32 - prev[c] as i32;
+                        prev[c] = cur as u16;
+                        dst[pos + c] = sub as u8;
                     }
                 }
             }
@@ -1571,15 +1540,15 @@ unsafe fn filter_TIFF2_apply_filter(
             for j in 0..rows {
                 prev.fill(0);
                 for i in 0..columns {
-                    let pos_0: i32 = 2 * colors as i32 * (columns * j + i);
-                    for c_0 in 0..colors as i32 {
-                        let cur_0: u16 = (raster[(pos_0 + 2 * c_0) as usize] as i32 * 256
-                            + raster[(pos_0 + 2 * c_0 + 1) as usize] as i32)
+                    let pos = (2 * colors as i32 * (columns * j + i)) as usize;
+                    for c in 0..colors as usize {
+                        let cur: u16 = (raster[pos + 2 * c] as i32 * 256
+                            + raster[pos + 2 * c + 1] as i32)
                             as u16;
-                        let sub_0: u16 = (cur_0 as i32 - prev[c_0 as usize] as i32) as u16;
-                        prev[c_0 as usize] = cur_0;
-                        dst[(pos_0 + 2 * c_0) as usize] = (sub_0 as i32 >> 8 & 0xff) as u8;
-                        dst[(pos_0 + 2 * c_0 + 1) as usize] = (sub_0 as i32 & 0xff) as u8;
+                        let sub: u16 = (cur as i32 - prev[c] as i32) as u16;
+                        prev[c] = cur;
+                        dst[pos + 2 * c] = (sub as i32 >> 8 & 0xff) as u8;
+                        dst[pos + 2 * c + 1] = (sub as i32 & 0xff) as u8;
                     }
                 }
             }
@@ -1656,7 +1625,7 @@ unsafe fn write_stream(stream: &mut pdf_stream, handle: &mut OutputHandleWrapper
                         filtered2 = Some(filter_PNG15_apply_filter(
                             &filtered,
                             stream.decodeparms.columns,
-                            rows,
+                            rows as usize,
                             stream.decodeparms.bits_per_component as i8,
                             stream.decodeparms.colors as i8,
                         ));
