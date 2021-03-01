@@ -1472,100 +1472,109 @@ impl PdfDoc {
         if let Some(subtype) = DerefObj::new(annot_dict.get_mut("Subtype")) {
             match &subtype.data {
                 Object::Undefined => {
-                    return undefined(ptr::null_mut(), ptr::null_mut());
+                    return warn_undefined();
                 }
                 Object::Name(n) if n.to_bytes() == b"Link" => {}
                 Object::Name(_) => {
                     return;
                 }
                 _ => {
-                    return error(ptr::null_mut(), ptr::null_mut());
+                    return warn_error();
                 }
             }
         }
 
         let mut key = "Dest";
-        let mut D = pdf_deref_obj(annot_dict.get_mut(key));
-        let mut dict = annot_dict;
-        match D.as_mut() {
-            Some(D) if matches!(D.data, Object::Undefined) => {
-                return undefined(ptr::null_mut(), D);
+        let mut D = DerefObj::new(annot_dict.get_mut(key));
+        match D.as_deref_mut() {
+            Some(pdf_obj {
+                data: Object::Undefined,
+                ..
+            }) => {
+                warn_undefined();
+                return;
             }
-            _ => {}
-        }
-
-        let A = pdf_deref_obj(dict.get_mut("A"));
-        if let Some(A) = A.as_mut() {
-            if let Object::Undefined = A.data {
-                return undefined(A, D);
-            } else if D.as_ref().is_some() {
-                return error(A, D);
-            } else {
-                if let Object::Dict(a) = &mut A.data {
-                    if let Some(S) = DerefObj::new(a.get_mut("S")) {
-                        match &S.data {
-                            Object::Undefined => {
-                                return undefined(A, D);
-                            }
-                            Object::Name(n) if n.to_bytes() == b"GoTo" => {}
-                            Object::Name(_) => {
-                                return cleanup(A, D);
-                            }
-                            _ => {
-                                return error(A, D);
-                            }
-                        }
+            _ => {
+                if let Some(mut A) = DerefObj::new(annot_dict.get_mut("A")) {
+                    if let Object::Undefined = A.data {
+                        warn_undefined();
+                        return;
+                    } else if D.as_ref().is_some() {
+                        warn_error();
+                        return;
                     } else {
-                        return error(A, D);
-                    }
+                        if let Object::Dict(a) = &mut A.data {
+                            if let Some(S) = DerefObj::new(a.get_mut("S")) {
+                                match &S.data {
+                                    Object::Undefined => {
+                                        warn_undefined();
+                                        return;
+                                    }
+                                    Object::Name(n) if n.to_bytes() == b"GoTo" => {}
+                                    Object::Name(_) => {
+                                        return;
+                                    }
+                                    _ => {
+                                        warn_error();
+                                        return;
+                                    }
+                                }
+                            } else {
+                                warn_error();
+                                return;
+                            }
 
-                    key = "D";
-                    D = pdf_deref_obj(a.get_mut(key));
-                    dict = a;
+                            key = "D";
+                            if let Some(D) = DerefObj::new(a.get_mut(key)).as_deref() {
+                                self.replace(a, key, D);
+                            } else {
+                                warn_error();
+                            }
+                        } else {
+                            warn_error();
+                            return;
+                        }
+                    }
                 } else {
-                    return error(A, D);
+                    if let Some(D) = D.as_deref_mut() {
+                        self.replace(annot_dict, key, D);
+                    } else {
+                        warn_error();
+                    }
                 }
             }
         }
 
-        let dest = if let Some(D) = D.as_mut() {
-            match &D.data {
-                Object::String(s) => s.to_bytes(),
-                Object::Array(_) => return cleanup(A, D),
-                Object::Undefined => return undefined(A, D),
-                _ => return error(A, D),
-            }
-        } else {
-            return error(A, D);
-        };
-
-        let mut D_new = ht_lookup_table(&mut self.gotos, dest) as *mut pdf_obj;
-        if D_new.is_null() {
-            /* We use hexadecimal notation for our numeric destinations.
-             * Other bases (e.g., 10+26 or 10+2*26) would be more efficient.
-             */
-            let buf = format!("{:x}", ht_table_size(&mut self.gotos));
-            /* Maybe reference */
-            D_new = pdf_string::new(buf).into_obj();
-            ht_append_table(&mut self.gotos, dest, D_new as *mut libc::c_void);
-        }
-
-        dict.set(key, pdf_link_obj(D_new));
-
-        return;
-
-        unsafe fn cleanup(A: *mut pdf_obj, D: *mut pdf_obj) {
-            pdf_release_obj(A);
-            pdf_release_obj(D);
-        }
-
-        unsafe fn error(A: *mut pdf_obj, D: *mut pdf_obj) {
+        fn warn_error() {
             warn!("Unknown PDF annotation format. Output file may be broken.");
-            cleanup(A, D)
         }
-        unsafe fn undefined(A: *mut pdf_obj, D: *mut pdf_obj) {
+
+        fn warn_undefined() {
             warn!("Cannot optimize PDF annotations. Output file may be broken. Please restart with option \"-C 0x10\"\n");
-            cleanup(A, D)
+        }
+    }
+
+    unsafe fn replace(&mut self, dict: &mut pdf_dict, key: &str, D: &pdf_obj) {
+        match &D.data {
+            Object::String(s) => {
+                let dest = s.to_bytes();
+
+                let mut D_new = ht_lookup_table(&mut self.gotos, dest) as *mut pdf_obj;
+                if D_new.is_null() {
+                    /* We use hexadecimal notation for our numeric destinations.
+                     * Other bases (e.g., 10+26 or 10+2*26) would be more efficient.
+                     */
+                    let buf = format!("{:x}", ht_table_size(&mut self.gotos));
+                    /* Maybe reference */
+                    D_new = pdf_string::new(buf).into_obj();
+                    ht_append_table(&mut self.gotos, dest, D_new as *mut libc::c_void);
+                }
+
+                dict.set(key, pdf_link_obj(D_new));
+            }
+            Object::Array(_) => {}
+            Object::Undefined => warn!("Cannot optimize PDF annotations. Output file may be broken. Please restart with option \"-C 0x10\"\n"),
+            _ => warn!("Unknown PDF annotation format. Output file may be broken."),
         }
     }
 }
