@@ -33,7 +33,6 @@ use crate::warn;
 use std::cmp::Ordering;
 use std::fmt::Write;
 use std::ptr;
-use std::slice;
 
 use super::dpx_dpxutil::{
     ht_append_table, ht_clear_iter, ht_clear_table, ht_init_table, ht_iter_getval, ht_iter_next,
@@ -46,8 +45,6 @@ use crate::dpx_pdfobj::{
 };
 use libc::free;
 
-use crate::bridge::size_t;
-
 use super::dpx_dpxutil::ht_iter;
 use super::dpx_dpxutil::ht_table;
 /* Hash */
@@ -58,17 +55,15 @@ pub(crate) struct obj_data {
     pub(crate) closed: i32,
     /* 1 if object is closed */
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub(crate) struct named_object {
-    pub(crate) key: *const u8,
-    pub(crate) keylen: i32,
+    pub(crate) key: Vec<u8>, // TODO: replace with &[u8] slice
     pub(crate) value: *mut pdf_obj,
 }
 impl Default for named_object {
     fn default() -> Self {
         Self {
-            key: ptr::null_mut(),
-            keylen: 0,
+            key: Vec::new(),
             value: ptr::null_mut(),
         }
     }
@@ -215,16 +210,12 @@ pub(crate) unsafe fn pdf_names_close_object(names: *mut ht_table, key: &[u8]) ->
 }
 #[inline]
 fn cmp_key(sd1: &named_object, sd2: &named_object) -> Ordering {
-    if sd1.key.is_null() {
+    if sd1.key.is_empty() {
         Ordering::Less
-    } else if sd2.key.is_null() {
+    } else if sd2.key.is_empty() {
         Ordering::Greater
     } else {
-        unsafe {
-            let key1 = slice::from_raw_parts(sd1.key, sd1.keylen as usize);
-            let key2 = slice::from_raw_parts(sd2.key, sd2.keylen as usize);
-            key1.cmp(key2)
-        }
+        unsafe { sd1.key.cmp(&sd2.key) }
     }
 }
 unsafe fn build_name_tree(nobjects: &mut [named_object], is_root: bool) -> pdf_dict {
@@ -241,37 +232,22 @@ unsafe fn build_name_tree(nobjects: &mut [named_object], is_root: bool) -> pdf_d
     if !is_root {
         let mut limits = vec![];
         let first = &nobjects[0];
-        limits.push_obj(pdf_string::new_from_ptr(
-            first.key as *const libc::c_void,
-            first.keylen as size_t,
-        ));
+        limits.push_obj(pdf_string::new(&first.key));
         let last = &nobjects[nobjects.len() - 1];
-        limits.push_obj(pdf_string::new_from_ptr(
-            last.key as *const libc::c_void,
-            last.keylen as size_t,
-        ));
+        limits.push_obj(pdf_string::new(&last.key));
         result.set("Limits", limits);
     }
     if nobjects.len() > 0 && nobjects.len() <= 2 * 4 {
         /* Create leaf nodes. */
         let mut names = vec![];
         for cur in nobjects.iter_mut() {
-            names.push_obj(pdf_string::new_from_ptr(
-                cur.key as *const libc::c_void,
-                cur.keylen as size_t,
-            ));
+            names.push_obj(pdf_string::new(&cur.key));
             match (&*cur.value).data {
                 Object::Array(_) | Object::Dict(_) | Object::Stream(_) | Object::String(_) => {
                     names.push(pdf_ref_obj(cur.value));
                 }
                 Object::Invalid => {
-                    panic!(
-                        "Invalid object...: {}",
-                        printable_key(std::slice::from_raw_parts(
-                            cur.key as *const u8,
-                            cur.keylen as _
-                        ))
-                    );
+                    panic!("Invalid object...: {}", printable_key(&cur.key));
                 }
                 _ => {
                     names.push(pdf_link_obj(cur.value));
@@ -327,14 +303,12 @@ unsafe fn flat_table(
                     printable_key(key),
                 );
                 named_object {
-                    key: key.as_ptr(),
-                    keylen: key.len() as _,
+                    key: key.to_owned(),
                     value: Object::Null.into_obj(),
                 }
             } else {
                 named_object {
-                    key: key.as_ptr(),
-                    keylen: key.len() as _,
+                    key: key.to_owned(),
                     value: pdf_link_obj((*value).object as *mut _),
                 }
             });
