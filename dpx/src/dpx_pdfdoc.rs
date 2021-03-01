@@ -688,7 +688,7 @@ impl PdfDoc {
          */
         for page_no in (self.pages.num_entries + 1)..=self.pages.entries.len() {
             let page = self.get_page_entry(page_no);
-            if !page.page_obj.is_null() {
+            if !page.page_ref.is_null() {
                 warn!("Nonexistent page #{} refered.", page_no);
                 pdf_release_obj(page.page_ref);
                 page.page_ref = ptr::null_mut()
