@@ -680,12 +680,7 @@ unsafe fn calculate_key(p: &mut pdf_sec) -> [u8; 16] {
     md5.result().into()
 }
 
-pub(crate) unsafe fn pdf_encrypt_data(
-    plain: *const u8,
-    plain_len: size_t,
-    cipher: &mut *mut u8,
-    cipher_len: *mut size_t,
-) {
+pub(crate) unsafe fn pdf_encrypt_data(plain: &[u8], cipher: &mut *mut u8, cipher_len: *mut size_t) {
     let p = &mut sec_data;
     match p.V {
         1 | 2 => {
@@ -695,7 +690,7 @@ pub(crate) unsafe fn pdf_encrypt_data(
                 idx_j: 0,
                 sbox: [0; 256],
             };
-            *cipher_len = plain_len;
+            *cipher_len = plain.len() as _;
             *cipher = new(
                 (*cipher_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
             ) as *mut u8;
@@ -708,7 +703,7 @@ pub(crate) unsafe fn pdf_encrypt_data(
                 }) as u32,
                 key.as_mut_ptr(),
             );
-            ARC4(&mut arc4, plain_len as u32, plain, *cipher);
+            ARC4(&mut arc4, plain.len() as u32, plain.as_ptr(), *cipher);
         }
         4 => {
             let mut key = calculate_key(p);
@@ -721,8 +716,8 @@ pub(crate) unsafe fn pdf_encrypt_data(
                 }) as size_t,
                 ptr::null(),
                 1,
-                plain,
-                plain_len,
+                plain.as_ptr(),
+                plain.len() as _,
                 cipher,
                 cipher_len,
             );
@@ -733,8 +728,8 @@ pub(crate) unsafe fn pdf_encrypt_data(
                 p.key_size as size_t,
                 ptr::null(),
                 1,
-                plain,
-                plain_len,
+                plain.as_ptr(),
+                plain.len() as _,
                 cipher,
                 cipher_len,
             );
