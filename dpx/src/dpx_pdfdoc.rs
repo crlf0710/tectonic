@@ -1526,7 +1526,7 @@ impl PdfDoc {
 
                             key = "D";
                             if let Some(D) = DerefObj::new(a.get_mut(key)).as_deref() {
-                                self.replace(a, key, D);
+                                self.replace(a, key, &D.data);
                             } else {
                                 warn_error();
                             }
@@ -1537,7 +1537,7 @@ impl PdfDoc {
                     }
                 } else {
                     if let Some(D) = D.as_deref_mut() {
-                        self.replace(annot_dict, key, D);
+                        self.replace(annot_dict, key, &D.data);
                     } else {
                         warn_error();
                     }
@@ -1554,8 +1554,8 @@ impl PdfDoc {
         }
     }
 
-    unsafe fn replace(&mut self, dict: &mut pdf_dict, key: &str, D: &pdf_obj) {
-        match &D.data {
+    unsafe fn replace(&mut self, dict: &mut pdf_dict, key: &str, d: &Object) {
+        match d {
             Object::String(s) => {
                 let dest = s.to_bytes();
 
