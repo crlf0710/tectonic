@@ -43,7 +43,7 @@ use crate::bridge::{
     ttstub_input_get_size, ttstub_output_close, ttstub_output_open_stdout, ttstub_output_putc,
     ReadByte,
 };
-use libc::{free, strlen, strtoul};
+use libc::{strlen, strtoul};
 
 use libz_sys as libz;
 
@@ -968,11 +968,14 @@ pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut Vec<u8>, s: *const u8, len: 
     }
 }
 unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
-    let mut s: *mut u8 = ptr::null_mut();
+    let s;
     let mut nescc: i32 = 0;
-    let mut len: size_t = 0 as size_t;
+    let len;
+    let mut cipher;
     if enc_mode {
-        pdf_encrypt_data(strn.to_bytes(), &mut s, &mut len);
+        cipher = pdf_encrypt_data(strn.to_bytes());
+        len = cipher.len() as _;
+        s = cipher.as_mut_ptr();
     } else {
         s = strn.string.as_ptr() as *const u8 as *mut u8;
         len = strn.len() as size_t;
@@ -1017,9 +1020,6 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
         }
         pdf_out_char(handle, b')');
     }
-    if enc_mode as i32 != 0 && !s.is_null() {
-        free(s as *mut libc::c_void);
-    };
 }
 
 /* Name does *not* include the /. */
@@ -1704,11 +1704,7 @@ unsafe fn write_stream(stream: &mut pdf_stream, handle: &mut OutputHandleWrapper
     /* HAVE_ZLIB */
     /* AES will change the size of data! */
     if enc_mode {
-        let mut cipher: *mut u8 = ptr::null_mut();
-        let mut cipher_len: size_t = 0;
-        pdf_encrypt_data(&filtered, &mut cipher, &mut cipher_len);
-        filtered = Vec::from(std::slice::from_raw_parts(cipher, cipher_len as _));
-        free(cipher as *mut libc::c_void);
+        filtered = pdf_encrypt_data(&filtered);
     }
     (*stream.dict)
         .as_dict_mut()

@@ -409,10 +409,7 @@ pub(crate) unsafe fn sfd_load_record(sfd_name: &str, subfont_id: &str) -> i32 {
                 if i % 16 == 0 {
                     info!("\nsubfont>>  ");
                 }
-                info!(
-                    " {:04x}",
-                    sfd_record[rec_id as usize].vector[i],
-                );
+                info!(" {:04x}", sfd_record[rec_id as usize].vector[i],);
             }
         }
         info!("\n");
