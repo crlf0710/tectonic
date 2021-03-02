@@ -150,7 +150,7 @@ pub(crate) unsafe fn pdf_names_add_object(
         ht_append_table(names, key, value as *mut libc::c_void);
     } else {
         assert!(!(*value).object.is_null());
-        if !(*value).object.is_null() && (*(*value).object).is_undefined() {
+        if (*(*value).object).is_undefined() {
             pdf_transfer_label(object, &mut *(*value).object);
             pdf_release_obj((*value).object);
             (*value).object = object

@@ -2354,7 +2354,7 @@ unsafe fn release_objstm((mut objstm, id): (pdf_stream, ObjectId)) {
     let mut objstm: Object = objstm.into();
     if id.0 != 0 {
         if let Some(handle) = pdf_output_handle.as_mut() {
-            pdf_flush_obj(&mut objstm, id, doc_enc_mode as i32 != 0, handle);
+            pdf_flush_obj(&mut objstm, id, doc_enc_mode, handle);
         }
     }
 }
@@ -2363,13 +2363,13 @@ pub unsafe fn output_pdf_obj(object: &mut Object, id: ObjectId, flags: i32) {
     if let Some(handle) = pdf_output_handle.as_mut() {
         if !do_objstm
             || flags & OBJ_NO_OBJSTM != 0
-            || doc_enc_mode as i32 != 0 && flags & OBJ_NO_ENCRYPT != 0
+            || doc_enc_mode && flags & OBJ_NO_ENCRYPT != 0
             || id.1 as i32 != 0
         {
             pdf_flush_obj(
                 object,
                 id,
-                doc_enc_mode as i32 != 0 && flags & OBJ_NO_ENCRYPT == 0,
+                doc_enc_mode && flags & OBJ_NO_ENCRYPT == 0,
                 handle,
             );
         } else {

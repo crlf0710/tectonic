@@ -91,15 +91,15 @@ static mut line_buf: [i8; 4096] = [0; 4096];
  * SFD file format uses a '\' before newline sequence
  * for line-continuation.
  */
-unsafe fn readline<R: Read + Seek>(buf: *mut i8, buf_len: i32, handle: &mut R) -> *mut i8 {
-    let mut q: *mut i8 = ptr::null_mut();
+unsafe fn readline<R: Read + Seek>(buf: *mut i8, buf_len: usize, handle: &mut R) -> *mut i8 {
     let mut p: *mut i8 = buf;
-    let mut n: i32 = 0;
+    let mut n = 0;
     let mut c: i32 = 0;
-    while buf_len - n > 0 && {
-        q = tt_mfgets(p, buf_len - n, handle);
-        !q.is_null()
-    } {
+    while n < buf_len {
+        let mut q = tt_mfgets(p, buf_len - n, handle);
+        if q.is_null() {
+            break;
+        }
         c += 1;
         let r = strchr(q, '#' as i32);
         /* Comment is converted to single wsp (followed by a newline). */
@@ -107,11 +107,12 @@ unsafe fn readline<R: Read + Seek>(buf: *mut i8, buf_len: i32, handle: &mut R) -
             *r = ' ' as i32 as i8; /* empty line */
             *r.offset(1) = '\u{0}' as i32 as i8
         }
-        if strlen(q) == 0 {
+        let qlen = strlen(q) as usize;
+        if qlen == 0 {
             break;
         }
-        n = (n as u64).wrapping_add(strlen(q) as _) as _;
-        q = q.offset(strlen(q).wrapping_sub(1) as _);
+        n += qlen;
+        q = q.add(qlen - 1);
         if *q as i32 != '\\' as i32 {
             break;
         }
@@ -399,18 +400,18 @@ pub(crate) unsafe fn sfd_load_record(sfd_name: &str, subfont_id: &str) -> i32 {
             sfd.ident, subfont_id,
         );
     }
-    sfd.rec_id[i as usize] = rec_id;
+    sfd.rec_id[i] = rec_id;
     if verbose > 3 {
         if rec_id >= 0 {
             info!(" at id=\"{}\"", rec_id);
             info!("\nsubfont>> Content of mapping table:");
-            for __i_0 in 0..256 {
-                if __i_0 % 16 == 0 {
+            for i in 0..256 {
+                if i % 16 == 0 {
                     info!("\nsubfont>>  ");
                 }
                 info!(
                     " {:04x}",
-                    sfd_record[rec_id as usize].vector[__i_0 as usize],
+                    sfd_record[rec_id as usize].vector[i],
                 );
             }
         }
