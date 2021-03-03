@@ -186,25 +186,24 @@ pub(crate) unsafe fn CMap_is_Identity(cmap: &CMap) -> bool {
     cmap.name == "Identity-H" || cmap.name == "Identity-V"
 }
 
-pub(crate) unsafe fn CMap_is_valid(cmap: *mut CMap) -> bool {
+pub(crate) unsafe fn CMap_is_valid(cmap: &mut CMap) -> bool {
     /* Quick check */
-    if cmap.is_null()
-        || (*cmap).name.is_empty()
-        || (*cmap).type_0 < 0
-        || (*cmap).type_0 > 3
-        || (*cmap).codespace.num < 1
-        || (*cmap).type_0 != 0 && (*cmap).mapTbl.is_null()
+    if cmap.name.is_empty()
+        || cmap.type_0 < 0
+        || cmap.type_0 > 3
+        || cmap.codespace.num < 1
+        || cmap.type_0 != 0 && cmap.mapTbl.is_null()
     {
         return false;
     }
-    if !(*cmap).useCMap.is_null() {
+    if !cmap.useCMap.is_null() {
         let csi1 = CMap_get_CIDSysInfo(cmap);
-        let csi2 = CMap_get_CIDSysInfo((*cmap).useCMap);
+        let csi2 = CMap_get_CIDSysInfo(cmap.useCMap);
         if (*csi1).registry != (*csi2).registry || (*csi1).ordering != (*csi2).ordering {
             warn!(
                 "CIDSystemInfo mismatched {} <--> {}",
-                CMap_get_name(&*cmap),
-                CMap_get_name(&*(*cmap).useCMap),
+                CMap_get_name(cmap),
+                CMap_get_name(&*cmap.useCMap),
             );
             return false;
         }
@@ -465,10 +464,9 @@ pub(crate) unsafe fn CMap_set_CIDSysInfo(cmap: &mut CMap, csi: *const CIDSysInfo
  * Can have muliple entry ?
  */
 
-pub(crate) unsafe fn CMap_set_usecmap(cmap: &mut CMap, ucmap: *mut CMap) {
+pub(crate) unsafe fn CMap_set_usecmap(cmap: &mut CMap, ucmap: &mut CMap) {
     /* Maybe if (!ucmap) panic! is better for this. */
-    assert!(!ucmap.is_null());
-    if (cmap as *mut CMap) == ucmap {
+    if (cmap as *mut CMap) == (ucmap as *mut CMap) {
         panic!(
             "{}: Identical CMap object cannot be used for usecmap CMap: 0x{:p}=0x{:p}",
             "CMap", cmap, ucmap,
@@ -482,28 +480,26 @@ pub(crate) unsafe fn CMap_set_usecmap(cmap: &mut CMap, ucmap: *mut CMap) {
      *  CMapName of cmap can be undefined when usecmap is executed in CMap parsing.
      *  And it is also possible CSI is not defined at that time.
      */
-    if cmap.name == (*ucmap).name {
+    if cmap.name == ucmap.name {
         panic!(
             "{}: CMap refering itself not allowed: CMap {} --> {}",
-            "CMap",
-            cmap.name,
-            (*ucmap).name,
+            "CMap", cmap.name, ucmap.name,
         );
     }
     if !cmap.CSI.is_null() {
-        if (*cmap.CSI).registry != (*(*ucmap).CSI).registry
-            || (*cmap.CSI).ordering != (*(*ucmap).CSI).ordering
+        if (*cmap.CSI).registry != (*ucmap.CSI).registry
+            || (*cmap.CSI).ordering != (*ucmap.CSI).ordering
         {
             panic!(
                 "CMap: CMap {} required by {} have different CSI.",
-                CMap_get_name(&*cmap),
-                CMap_get_name(&*ucmap),
+                CMap_get_name(cmap),
+                CMap_get_name(ucmap),
             );
         }
     }
     /* We must copy codespaceranges. */
-    for i in 0..(*ucmap).codespace.num {
-        let csr: *mut rangeDef = (*ucmap).codespace.ranges.offset(i as isize);
+    for i in 0..ucmap.codespace.num {
+        let csr: *mut rangeDef = ucmap.codespace.ranges.offset(i as isize);
         CMap_add_codespacerange(cmap, (*csr).codeLo, (*csr).codeHi, (*csr).dim);
     }
     cmap.useCMap = ucmap;

@@ -531,7 +531,7 @@ pub(crate) unsafe fn CMap_parse(cmap: &mut CMap, mut handle: InFile) -> Result<i
                                 status = -1;
                             } else {
                                 let ucmap = CMap_cache_get(id);
-                                CMap_set_usecmap(cmap, ucmap);
+                                CMap_set_usecmap(cmap, &mut *ucmap);
                             }
                         }
                         _ => {}

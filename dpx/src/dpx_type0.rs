@@ -288,9 +288,9 @@ pub(crate) unsafe fn Type0Font_cache_find(
      */
     let cmap = CMap_cache_get(cmap_id);
     let csi = if CMap_is_Identity(&*cmap) as i32 != 0 {
-        ptr::null_mut()
+        None
     } else {
-        CMap_get_CIDSysInfo(cmap)
+        CMap_get_CIDSysInfo(cmap).as_ref().cloned()
     };
     let cid_id = CIDFont_cache_find(map_name, csi, fmap_opt);
     if cid_id < 0 {

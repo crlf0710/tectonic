@@ -513,9 +513,10 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * CIDSystemInfo comes here since Supplement can be increased.
      */
     let mut tmp = pdf_dict::new();
-    tmp.set("Registry", pdf_string::new((*font.csi).registry.as_bytes()));
-    tmp.set("Ordering", pdf_string::new((*font.csi).ordering.as_bytes()));
-    tmp.set("Supplement", (*font.csi).supplement as f64);
+    let csi = &font.csi;
+    tmp.set("Registry", pdf_string::new(csi.registry.as_bytes()));
+    tmp.set("Ordering", pdf_string::new(csi.ordering.as_bytes()));
+    tmp.set("Supplement", csi.supplement as f64);
     (*font.fontdict).as_dict_mut().set("CIDSystemInfo", tmp);
     /* Quick exit for non-embedded & fixed-pitch font. */
     if CIDFont_get_embedding(font) == 0 && opt_flags & 1 << 1 != 0 {
@@ -557,7 +558,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     /*
      * Adobe-Identity means font's internal glyph ordering here.
      */
-    let glyph_ordering = (*font.csi).registry == "Adobe" && (*font.csi).ordering == "Identity";
+    let glyph_ordering = csi.registry == "Adobe" && csi.ordering == "Identity";
     /*
      * Select TrueType cmap table, find ToCode CMap for each TrueType encodings.
      */
@@ -586,8 +587,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             );
             warn!(
                 "CID character collection for this font is set to \"{}-{}\"",
-                (*font.csi).registry,
-                (*font.csi).ordering,
+                csi.registry, csi.ordering,
             );
             panic!("Cannot continue without this...");
         } else {
@@ -600,7 +600,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
         /*
          * NULL is returned if CMap is Identity CMap.
          */
-        cmap = find_tocode_cmap(&(*font.csi).registry, &(*font.csi).ordering, i)
+        cmap = find_tocode_cmap(&csi.registry, &csi.ordering, i)
     } /* .notdef */
     let mut glyphs = tt_glyphs::init();
     let mut last_cid = 0 as CID;
@@ -887,34 +887,32 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
 
 pub(crate) unsafe fn CIDFont_type2_open(
     name: &str,
-    cmap_csi: *mut CIDSysInfo,
-    mut opt: *mut cid_opt,
-) -> Option<Box<CIDFont>> {
+    cmap_csi: &Option<CIDSysInfo>,
+    mut opt: Box<cid_opt>,
+) -> Result<Box<CIDFont>, Box<cid_opt>> {
     let offset;
-    assert!(!opt.is_null());
-
     let mut sfont = if let Some(handle) = dpx_open_truetype_file(name) {
         sfnt_open(handle)
     } else if let Some(handle) = dpx_open_dfont_file(name) {
-        if let Some(sfont) = dfont_open(handle, (*opt).index) {
+        if let Some(sfont) = dfont_open(handle, opt.index) {
             sfont
         } else {
-            return None;
+            return Err(opt);
         }
     } else {
-        return None;
+        return Err(opt);
     };
     match sfont.type_0 {
-        16 => offset = ttc_read_offset(&mut sfont, (*opt).index),
+        16 => offset = ttc_read_offset(&mut sfont, opt.index),
         1 => {
-            if (*opt).index > 0 {
+            if opt.index > 0 {
                 panic!("Invalid TTC index (not TTC font): {}", name);
             }
             offset = 0_u32
         }
         256 => offset = sfont.offset,
         _ => {
-            return None;
+            return Err(opt);
         }
     }
     if sfnt_read_table_directory(&mut sfont, offset) < 0 {
@@ -922,20 +920,20 @@ pub(crate) unsafe fn CIDFont_type2_open(
     }
     /* Ignore TrueType Collection with CFF table. */
     if sfont.type_0 == 1 << 4 && sfnt_find_table_pos(&sfont, b"CFF ") != 0 {
-        return None;
+        return Err(opt);
     }
     /* MAC-ROMAN-EN-POSTSCRIPT or WIN-UNICODE-EN(US)-POSTSCRIPT */
     /* for SJIS, UTF-16, ... string */
     let shortname = tt_get_ps_fontname(&mut sfont).unwrap_or_else(|| name.to_owned());
     let shortname = validate_name(shortname);
 
-    if (*opt).embed != 0 && (*opt).style != 0 {
+    if opt.embed != 0 && opt.style != 0 {
         warn!("Embedding disabled due to style option for {}.", name);
-        (*opt).embed = 0
+        opt.embed = 0;
     }
 
     let mut fontname = shortname
-        + match (*opt).style {
+        + match opt.style {
             1 => ",Bold",
             2 => ",Italic",
             3 => ",BoldItalic",
@@ -945,75 +943,63 @@ pub(crate) unsafe fn CIDFont_type2_open(
      * CIDSystemInfo is determined from CMap or from map record option.
      */
     let subtype = 2;
-    let csi = Box::into_raw(Box::new(CIDSysInfo {
-        ordering: "".into(),
-        registry: "".into(),
-        supplement: 0,
-    }));
-    if !(*opt).csi.is_null() {
-        if !cmap_csi.is_null() {
-            if (*(*opt).csi).registry != (*cmap_csi).registry
-                || (*(*opt).csi).ordering != (*cmap_csi).ordering
-            {
+    let csi = Box::new(if let Some(opt_csi) = opt.csi.as_deref_mut() {
+        if let Some(cmap_csi) = cmap_csi.as_ref() {
+            if opt_csi.registry != cmap_csi.registry || opt_csi.ordering != cmap_csi.ordering {
                 warn!("CID character collection mismatched:\n");
                 info!(
                     "\tFont: {}-{}-{}\n",
-                    (*(*opt).csi).registry,
-                    (*(*opt).csi).ordering,
-                    (*(*opt).csi).supplement,
+                    opt_csi.registry, opt_csi.ordering, opt_csi.supplement,
                 );
                 info!(
                     "\tCMap: {}-{}-{}\n",
-                    (*cmap_csi).registry,
-                    (*cmap_csi).ordering,
-                    (*cmap_csi).supplement,
+                    cmap_csi.registry, cmap_csi.ordering, cmap_csi.supplement,
                 );
                 panic!("Incompatible CMap specified for this font.");
             }
-            if (*(*opt).csi).supplement < (*cmap_csi).supplement {
+            if opt_csi.supplement < cmap_csi.supplement {
                 warn!("Supplmement value in CIDSystemInfo increased.");
                 warn!("Some characters may not shown.");
-                (*(*opt).csi).supplement = (*cmap_csi).supplement
+                opt_csi.supplement = cmap_csi.supplement;
             }
         }
-        (*csi).registry = (*(*opt).csi).registry.clone();
-        (*csi).ordering = (*(*opt).csi).ordering.clone();
-        (*csi).supplement = (*(*opt).csi).supplement
-    } else if !cmap_csi.is_null() {
-        (*csi).registry = (*cmap_csi).registry.clone();
-        (*csi).ordering = (*cmap_csi).ordering.clone();
-        (*csi).supplement = (*cmap_csi).supplement
+        CIDSysInfo {
+            registry: opt_csi.registry.clone(),
+            ordering: opt_csi.ordering.clone(),
+            supplement: opt_csi.supplement,
+        }
     } else {
-        (*csi).registry = "Adobe".into();
-        (*csi).ordering = "Identity".into();
-        (*csi).supplement = 0
-    }
-    let fontdict = pdf_dict::new().into_obj();
-    (*fontdict).as_dict_mut().set("Type", "Font");
-    (*fontdict).as_dict_mut().set("Subtype", "CIDFontType2");
-    let descriptor = if let Some(descriptor) =
-        tt_get_fontdesc(&sfont, &mut (*opt).embed, (*opt).stemv, 0, name)
-    {
-        descriptor.into_obj()
-    } else {
-        panic!("Could not obtain necessary font info.");
-    };
-    if (*opt).embed != 0 {
+        if let Some(cmap_csi) = cmap_csi.as_ref() {
+            CIDSysInfo {
+                registry: cmap_csi.registry.clone(),
+                ordering: cmap_csi.ordering.clone(),
+                supplement: cmap_csi.supplement,
+            }
+        } else {
+            CIDSysInfo {
+                registry: "Adobe".into(),
+                ordering: "Identity".into(),
+                supplement: 0,
+            }
+        }
+    });
+    let mut fontdict = pdf_dict::new();
+    fontdict.set("Type", "Font");
+    fontdict.set("Subtype", "CIDFontType2");
+    let mut descriptor = tt_get_fontdesc(&sfont, &mut opt.embed, opt.stemv, 0, name)
+        .unwrap_or_else(|| panic!("Could not obtain necessary font info."));
+    if opt.embed != 0 {
         let tag = pdf_font_make_uniqueTag();
         fontname = format!("{}+{}", tag, fontname);
     }
-    (*descriptor)
-        .as_dict_mut()
-        .set("FontName", pdf_name::new(fontname.as_bytes()));
-    (*fontdict)
-        .as_dict_mut()
-        .set("BaseFont", pdf_name::new(fontname.as_bytes()));
+    descriptor.set("FontName", pdf_name::new(fontname.as_bytes()));
+    fontdict.set("BaseFont", pdf_name::new(fontname.as_bytes()));
 
     /*
      * Don't write fontdict here.
      * /Supplement in /CIDSystemInfo may change.
      */
-    Some(Box::new(CIDFont {
+    Ok(Box::new(CIDFont {
         ident: name.to_string(),
         name: name.to_string(),
         fontname,
@@ -1023,7 +1009,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
         csi,
         options: opt,
         indirect: ptr::null_mut(),
-        fontdict,
-        descriptor,
+        fontdict: fontdict.into_obj(),
+        descriptor: descriptor.into_obj(),
     }))
 }

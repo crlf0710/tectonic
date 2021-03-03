@@ -247,34 +247,34 @@ unsafe fn write_map(
     count as i32
 }
 
-pub(crate) unsafe fn CMap_create_stream(cmap: *mut CMap) -> Option<pdf_stream> {
-    if cmap.is_null() || !CMap_is_valid(cmap) {
+pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
+    if !CMap_is_valid(cmap) {
         warn!("Invalid CMap");
         return None;
     }
-    if (*cmap).type_0 == 0 {
+    if cmap.type_0 == 0 {
         return None;
     }
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = stream.get_dict_mut();
     let mut csi = CMap_get_CIDSysInfo(cmap);
     if csi.is_null() {
-        csi = if (*cmap).type_0 != 2 {
+        csi = if cmap.type_0 != 2 {
             &mut CSI_IDENTITY
         } else {
             &mut CSI_UNICODE
         }
     }
-    if (*cmap).type_0 != 2 {
+    if cmap.type_0 != 2 {
         let mut csi_dict = pdf_dict::new();
         csi_dict.set("Registry", pdf_string::new((*csi).registry.as_bytes()));
         csi_dict.set("Ordering", pdf_string::new((*csi).ordering.as_bytes()));
         csi_dict.set("Supplement", (*csi).supplement as f64);
         stream_dict.set("Type", "CMap");
-        stream_dict.set("CMapName", (*cmap).name.as_str());
+        stream_dict.set("CMapName", cmap.name.as_str());
         stream_dict.set("CIDSystemInfo", csi_dict);
-        if (*cmap).wmode != 0 {
-            stream_dict.set("WMode", (*cmap).wmode as f64);
+        if cmap.wmode != 0 {
+            stream_dict.set("WMode", cmap.wmode as f64);
         }
     }
     /* TODO:
