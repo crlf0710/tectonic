@@ -36,6 +36,9 @@ jobs:
           toolchain: nightly
           override: true
 
+      - name: Install dependencies 
+        run: sudo apt-get install libgraphite2-dev libharfbuzz-dev
+
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
@@ -55,6 +58,9 @@ jobs:
           toolchain: nightly
           override: true
 
+      - name: Install dependencies 
+        run: sudo apt-get install libgraphite2-dev libharfbuzz-dev
+
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
@@ -73,6 +79,9 @@ jobs:
         with:
           toolchain: stable
           override: true
+
+      - name: Install dependencies 
+        run: sudo apt-get install libgraphite2-dev libharfbuzz-dev
 
       - name: Run tests
         uses: actions-rs/cargo@v1
