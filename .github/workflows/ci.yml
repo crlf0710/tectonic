@@ -12,7 +12,7 @@ env:
 jobs:
   rustfmt:
     name: Format
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -25,7 +25,7 @@ jobs:
 
   check:
     name: Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -43,7 +43,7 @@ jobs:
 
   check_nightly:
     name: Check Nightly
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout sources
@@ -62,7 +62,7 @@ jobs:
 
   linux:
     name: Linux Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout sources
