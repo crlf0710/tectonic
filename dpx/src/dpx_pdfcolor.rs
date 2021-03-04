@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -25,7 +25,7 @@
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
-    PushObj, STREAM_COMPRESS,
+    IntoRef, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{info, warn, FromBEByteSlice};
@@ -452,10 +452,6 @@ pub(crate) struct ColorStack {
     pub(crate) stroke: [PdfColor; 128],
     pub(crate) fill: [PdfColor; 128],
 }
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
 /* No page independence here...
  */
 static mut VERBOSE: i32 = 0;
@@ -1069,13 +1065,13 @@ pub(crate) unsafe fn iccp_load_profile(ident: &str, profile: &[u8]) -> i32 {
         print_iccp_header(&mut icch, checksum.as_mut_ptr());
     }
     let mut resource = vec![];
-    let stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
+    let mut stream = pdf_stream::new(STREAM_COMPRESS);
     resource.push_obj("ICCBased");
-    resource.push(pdf_ref_obj(stream));
-    let stream_dict = (*stream).as_stream_mut().get_dict_mut();
-    stream_dict.set("N", get_num_components_iccbased(&cdata) as f64);
-    (*stream).as_stream_mut().add_slice(profile);
-    pdf_release_obj(stream);
+    stream
+        .get_dict_mut()
+        .set("N", get_num_components_iccbased(&cdata) as f64);
+    stream.add_slice(profile);
+    resource.push_obj(stream.into_ref());
     cspc_id = pdf_colorspace_defineresource(ident, 4, cdata, resource.into_obj());
     cspc_id
 }

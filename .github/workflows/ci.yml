@@ -12,7 +12,7 @@ env:
 jobs:
   rustfmt:
     name: Format
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -25,7 +25,7 @@ jobs:
 
   check:
     name: Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -35,6 +35,9 @@ jobs:
         with:
           toolchain: nightly
           override: true
+
+      - name: Install dependencies 
+        run: sudo apt-get install libgraphite2-dev libharfbuzz-dev
 
       - name: Run cargo check
         uses: actions-rs/cargo@v1
@@ -43,7 +46,7 @@ jobs:
 
   check_nightly:
     name: Check Nightly
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout sources
@@ -55,6 +58,9 @@ jobs:
           toolchain: nightly
           override: true
 
+      - name: Install dependencies 
+        run: sudo apt-get install libgraphite2-dev libharfbuzz-dev
+
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
@@ -62,7 +68,7 @@ jobs:
 
   linux:
     name: Linux Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout sources
@@ -73,6 +79,9 @@ jobs:
         with:
           toolchain: stable
           override: true
+
+      - name: Install dependencies 
+        run: sudo apt-get install libgraphite2-dev libharfbuzz-dev
 
       - name: Run tests
         uses: actions-rs/cargo@v1

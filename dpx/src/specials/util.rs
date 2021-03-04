@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -26,17 +26,13 @@ use super::{SpcArg, SpcEnv};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use crate::dpx_pdfcolor::{PdfColor, RgbPdfColor};
 use crate::dpx_pdfdev::{transform_info, Rect, TMatrix};
+use crate::dpx_pdfdoc::PdfPageBoundary;
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 use crate::SkipBlank;
 use arrayvec::ArrayVec;
 use std::convert::TryInto;
 use std::f64::consts::PI;
-
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
 
 /// Read numbers from [`SpcArg`]. The maximum amount read depends on the
 /// capacity of the provided [`Array`] type.
@@ -609,7 +605,7 @@ pub(crate) fn spc_util_read_blahblah(
     spe: &mut SpcEnv,
     p: &mut transform_info,
     page_no: &mut Option<i32>,
-    bbox_type: &mut Option<i32>,
+    bbox_type: &mut Option<PdfPageBoundary>,
     ap: &mut SpcArg,
 ) -> i32 {
     let mut error: i32 = 0;
@@ -734,17 +730,17 @@ pub(crate) fn spc_util_read_blahblah(
                         if bbox_type.is_some() {
                             // TODO: bbox_type can probably be an enum, use try_from
                             match q.to_ascii_lowercase().as_str() {
-                                "cropbox" => *bbox_type = Some(1),
-                                "mediabox" => *bbox_type = Some(2),
-                                "artbox" => *bbox_type = Some(3),
-                                "trimbox" => *bbox_type = Some(4),
-                                "bleedbox" => *bbox_type = Some(5),
+                                "cropbox" => *bbox_type = Some(PdfPageBoundary::Cropbox),
+                                "mediabox" => *bbox_type = Some(PdfPageBoundary::Mediabox),
+                                "artbox" => *bbox_type = Some(PdfPageBoundary::Artbox),
+                                "trimbox" => *bbox_type = Some(PdfPageBoundary::Trimbox),
+                                "bleedbox" => *bbox_type = Some(PdfPageBoundary::Bleedbox),
                                 _ => {}
                             }
                         }
                     // TODO: Maybe remove is_some check
                     } else if bbox_type.is_some() {
-                        *bbox_type = Some(0);
+                        *bbox_type = Some(PdfPageBoundary::Auto);
                     }
                 }
                 _ => error = -1,

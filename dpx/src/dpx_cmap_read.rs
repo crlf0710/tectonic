@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -531,7 +531,7 @@ pub(crate) unsafe fn CMap_parse(cmap: &mut CMap, mut handle: InFile) -> Result<i
                                 status = -1;
                             } else {
                                 let ucmap = CMap_cache_get(id);
-                                CMap_set_usecmap(cmap, ucmap);
+                                CMap_set_usecmap(cmap, &mut *ucmap);
                             }
                         }
                         _ => {}

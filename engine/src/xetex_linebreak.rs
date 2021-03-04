@@ -709,8 +709,10 @@ pub(crate) unsafe fn line_break(d: bool) {
                             flag = false;
                         }
                         CharOrText::Text(TxtNode::Math(m))
-                            if matches!(m.subtype(), MathType::Eq(_, MathMode::Left)
-                                | MathType::Eq(_, MathMode::Right)) =>
+                            if matches!(
+                                m.subtype(),
+                                MathType::Eq(_, MathMode::Left) | MathType::Eq(_, MathMode::Right)
+                            ) =>
                         {
                             flag = false
                         }

@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -27,7 +27,6 @@
     non_upper_case_globals
 )]
 
-use super::dpx_mem::new;
 use crate::FromBEByteSlice;
 use libc::{memcpy, memset, rand};
 
@@ -287,28 +286,28 @@ pub(crate) unsafe fn AES_ecb_encrypt(
     key_len: size_t,
     plain: *const u8,
     plain_len: size_t,
-    cipher: &mut *mut u8,
-    cipher_len: *mut size_t,
-) {
+) -> Vec<u8> {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,
         rk: [0; 60],
         iv: [0; 16],
     };
     let ctx = &mut aes;
-    *cipher_len = plain_len;
-    *cipher =
-        new((*cipher_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
+    let mut cipher = vec![0_u8; plain_len as _];
     (*ctx).nrounds =
         rijndaelSetupEncrypt((*ctx).rk.as_mut_ptr(), key, key_len.wrapping_mul(8) as i32);
     let mut inptr = plain;
-    let mut outptr = *cipher;
+    let mut outptr = cipher.as_mut_slice();
     let mut len = plain_len;
     while len >= 16 {
-        rijndaelEncrypt((*ctx).rk.as_mut_ptr(), (*ctx).nrounds, inptr, outptr);
+        rijndaelEncrypt(
+            (*ctx).rk.as_mut_ptr(),
+            (*ctx).nrounds,
+            inptr,
+            outptr.as_mut_ptr(),
+        );
         inptr = inptr.offset(16);
-        outptr = outptr.offset(16);
+        outptr = &mut outptr[16..];
         len -= 16;
     }
     if len > 0 {
@@ -322,9 +321,10 @@ pub(crate) unsafe fn AES_ecb_encrypt(
             (*ctx).rk.as_mut_ptr(),
             (*ctx).nrounds,
             block.as_mut_ptr() as *const u8,
-            outptr,
+            outptr.as_mut_ptr(),
         );
-    };
+    }
+    cipher
 }
 /* libgcrypt arcfour */
 /* NULL iv means here "use random IV". */
@@ -336,9 +336,7 @@ pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
     padding: i32,
     plain: *const u8,
     plain_len: size_t,
-    cipher: &mut *mut u8,
-    cipher_len: *mut size_t,
-) {
+) -> Vec<u8> {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,
         rk: [0; 60],
@@ -370,23 +368,17 @@ pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
         0 as u64
     }) as i32;
     /* We do NOT write IV to the output stream if IV is explicitly specified. */
-    *cipher_len = plain_len
+    let cipher_len = plain_len
         .wrapping_add((if !iv.is_null() { 0 } else { 16 }) as usize)
         .wrapping_add(padbytes as usize);
-    *cipher =
-        new((*cipher_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
+    let mut cipher = vec![0_u8; cipher_len as _];
     (*ctx).nrounds =
         rijndaelSetupEncrypt((*ctx).rk.as_mut_ptr(), key, key_len.wrapping_mul(8) as i32);
     let mut inptr = plain;
-    let mut outptr = *cipher;
+    let mut outptr = cipher.as_mut_slice();
     if iv.is_null() {
-        memcpy(
-            outptr as *mut libc::c_void,
-            (*ctx).iv.as_mut_ptr() as *const libc::c_void,
-            16,
-        );
-        outptr = outptr.offset(16)
+        outptr[..16].copy_from_slice(&(*ctx).iv[..]);
+        outptr = &mut outptr[16..];
     }
     let mut len = plain_len;
     while len >= 16 {
@@ -397,16 +389,12 @@ pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
         rijndaelEncrypt(
             (*ctx).rk.as_mut_ptr(),
             (*ctx).nrounds,
-            block.as_mut_ptr() as *const u8,
-            outptr,
+            block.as_ptr(),
+            outptr.as_mut_ptr(),
         );
-        memcpy(
-            (*ctx).iv.as_mut_ptr() as *mut libc::c_void,
-            outptr as *const libc::c_void,
-            16,
-        );
+        (*ctx).iv.copy_from_slice(&outptr[..16]);
         inptr = inptr.offset(16);
-        outptr = outptr.offset(16);
+        outptr = &mut outptr[16..];
         len -= 16;
     }
     if len > 0 || padding != 0 {
@@ -420,15 +408,12 @@ pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
         rijndaelEncrypt(
             (*ctx).rk.as_mut_ptr(),
             (*ctx).nrounds,
-            block.as_mut_ptr() as *const u8,
-            outptr,
+            block.as_ptr(),
+            outptr.as_mut_ptr(),
         );
-        memcpy(
-            (*ctx).iv.as_mut_ptr() as *mut libc::c_void,
-            outptr as *const libc::c_void,
-            16,
-        );
-    };
+        (*ctx).iv.copy_from_slice(&outptr[..16]);
+    }
+    cipher
 }
 /* The following section contains a Rijndael encryption implementation
  * based on code from Philip J. Erdelsky's public domain one.

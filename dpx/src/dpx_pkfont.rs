@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -42,7 +42,7 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_stream, IntoObj, IntoRef, PushObj, STREAM_COMPRESS,
 };
 use libc::{free, memset};
 
@@ -602,8 +602,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
                     charwidth,
                     pkt_ptr.as_mut_ptr(),
                     bytesread as u32,
-                )
-                .into_obj();
+                );
                 let charname = if encoding_id >= 0 && !enc_vec[0].is_empty() {
                     if enc_vec[(pkh.chrcode & 0xff) as usize].is_empty() {
                         warn!(
@@ -618,8 +617,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
                     /* ENABLE_GLYPHENC */
                     format!("x{:02X}", pkh.chrcode)
                 };
-                charprocs.set(charname.as_bytes(), pdf_ref_obj(charproc));
-                pdf_release_obj(charproc);
+                charprocs.set(charname.as_bytes(), charproc.into_ref());
             }
             charavail[(pkh.chrcode & 0xff) as usize] = 1_i8
         } else {
@@ -653,11 +651,9 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
     }
     /* Now actually fill fontdict. */
     let fontdict = pdf_font_get_resource(&mut *font);
-    let charprocs = charprocs.into_obj();
     fontdict
         .as_dict_mut()
-        .set("CharProcs", pdf_ref_obj(charprocs));
-    pdf_release_obj(charprocs);
+        .set("CharProcs", charprocs.into_ref());
     /*
      * Resources:
      *
@@ -713,11 +709,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
         let mut encoding = pdf_dict::new();
         encoding.set("Type", "Encoding");
         encoding.set("Differences", tmp_array);
-        let encoding = encoding.into_obj();
-        fontdict
-            .as_dict_mut()
-            .set("Encoding", pdf_ref_obj(encoding));
-        pdf_release_obj(encoding);
+        fontdict.as_dict_mut().set("Encoding", encoding.into_ref());
     }
     /* FontBBox: Accurate value is important.
      */
@@ -738,9 +730,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
             tmp_array.push_obj(0_f64);
         }
     }
-    let tmp_array = tmp_array.into_obj();
-    fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmp_array));
-    pdf_release_obj(tmp_array);
+    fontdict.as_dict_mut().set("Widths", tmp_array.into_ref());
     /* FontMatrix */
     let mut tmp_array = vec![];
     tmp_array.push_obj(0.001_f64 * pix2charu);

@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -29,7 +29,6 @@
 use crate::warn;
 
 use super::dpx_numbers::GetFromFile;
-use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::bridge::ttstub_input_get_size;
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj};
 use std::io::{Read, Seek, SeekFrom};
@@ -357,7 +356,7 @@ pub(crate) unsafe fn jp2_include_image<R: Read + Seek>(ximage: &mut pdf_ximage, 
         }
         stream.add(buffer.as_mut_ptr() as *const libc::c_void, nb_read as i32);
     }
-    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
+    ximage.set_image(&info, stream.into_obj());
     0
 }
 

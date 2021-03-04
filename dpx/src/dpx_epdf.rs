@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -32,7 +32,6 @@ use std::ptr;
 use crate::warn;
 
 use super::dpx_pdfdoc::pdf_doc_get_page;
-use super::dpx_pdfximage::{pdf_ximage_init_form_info, pdf_ximage_set_form};
 use crate::dpx_pdfobj::{
     pdf_concat_stream, pdf_file_get_catalog, pdf_file_get_version, pdf_get_version,
     pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, DerefObj, IntoObj, Object,
@@ -42,33 +41,14 @@ pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
 
 use crate::dpx_pdfximage::{load_options, pdf_ximage, xform_info};
-//pub(crate) const OP_CURVETO2: C2RustUnnamed_0 = 15;
-//pub(crate) const OP_CURVETO1: C2RustUnnamed_0 = 14;
-//pub(crate) const OP_GRESTORE: C2RustUnnamed_0 = 13;
-//pub(crate) const OP_GSAVE: C2RustUnnamed_0 = 12;
-//pub(crate) const OP_NOOP: C2RustUnnamed_0 = 11;
-//pub(crate) const OP_MOVETO: C2RustUnnamed_0 = 10;
-//pub(crate) const OP_LINETO: C2RustUnnamed_0 = 9;
-//pub(crate) const OP_CLOSEPATH: C2RustUnnamed_0 = 8;
-//pub(crate) const OP_CURVETO: C2RustUnnamed_0 = 7;
-//pub(crate) const OP_RECTANGLE: C2RustUnnamed_0 = 6;
-//pub(crate) const OP_SETCOLORSPACE: C2RustUnnamed_0 = 5;
-//pub(crate) const OP_CONCATMATRIX: C2RustUnnamed_0 = 4;
-//pub(crate) const OP_CLIP: C2RustUnnamed_0 = 3;
-//pub(crate) const OP_CLOSEandCLIP: C2RustUnnamed_0 = 2;
-//pub(crate) const OP_SETCOLOR: C2RustUnnamed_0 = 1;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct operator {
     pub(crate) token: *const i8,
     pub(crate) opcode: i32,
 }
-//pub(crate) type C2RustUnnamed_0 = u32;
-//pub(crate) const OP_UNKNOWN: C2RustUnnamed_0 = 16;
-/* tectonic/core-strutils.h: miscellaneous C string utilities
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
+
 /* ximage here is the result. DONT USE IT FOR PASSING OPTIONS! */
 
 pub(crate) unsafe fn pdf_include_page(
@@ -105,23 +85,21 @@ pub(crate) unsafe fn pdf_include_page(
     if let Some((mut page, bbox, matrix)) =
         pdf_doc_get_page(pf, options.page_no, options.bbox_type, &mut resources)
     {
-        let mut info = xform_info::default();
-        pdf_ximage_init_form_info(&mut info);
+        let mut info = xform_info::new();
         info.bbox = bbox;
         info.matrix = matrix;
         let catalog = pdf_file_get_catalog(pf);
         if let Some(mut markinfo) = DerefObj::new((*catalog).as_dict_mut().get_mut("MarkInfo")) {
-            let tmp = DerefObj::new(markinfo.as_dict_mut().get_mut("Marked"));
-            if let Some(tmp) = tmp {
-                if let Object::Boolean(b) = tmp.data {
-                    if b {
+            match DerefObj::new(markinfo.as_dict_mut().get_mut("Marked")).as_deref() {
+                Some(pdf_obj {
+                    data: Object::Boolean(b),
+                    ..
+                }) => {
+                    if *b {
                         warn!("PDF file is tagged... Ignoring tags.");
                     }
-                } else {
-                    return error();
                 }
-            } else {
-                return error();
+                _ => return error(),
             }
         }
 
@@ -147,21 +125,23 @@ pub(crate) unsafe fn pdf_include_page(
                     let len = array.len();
                     let mut content_new = pdf_stream::new(STREAM_COMPRESS);
                     for idx in 0..len {
-                        if let Some(mut content_seg) = if idx < array.len() {
+                        match (if idx < array.len() {
                             DerefObj::new(Some(&mut *array[idx]))
                         } else {
                             None
-                        } {
-                            if let Object::Stream(s) = &mut content_seg.data {
+                        })
+                        .as_deref_mut()
+                        {
+                            Some(pdf_obj {
+                                data: Object::Stream(s),
+                                ..
+                            }) => {
                                 if pdf_concat_stream(&mut content_new, s) >= 0 {
                                 } else {
                                     return error();
                                 }
-                            } else {
-                                return error();
                             }
-                        } else {
-                            return error();
+                            _ => return error(),
                         }
                     }
                     content_new.into_obj()
@@ -199,7 +179,7 @@ pub(crate) unsafe fn pdf_include_page(
         contents_dict.set("Resources", pdf_import_object(resources));
         pdf_release_obj(resources);
 
-        pdf_ximage_set_form(ximage, &mut info, contents);
+        ximage.set_form(&info, contents);
 
         0
     } else {

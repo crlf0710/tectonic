@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -25,6 +25,13 @@
     non_snake_case,
     non_upper_case_globals
 )]
+
+pub(crate) type Result<T> = std::result::Result<T, std::num::NonZeroI32>;
+pub(crate) const ERR1: Result<()> = Err(unsafe { std::num::NonZeroI32::new_unchecked(1) });
+pub(crate) const ERR: Result<()> = Err(unsafe { std::num::NonZeroI32::new_unchecked(-1) });
+pub(crate) const fn ERROR<T>() -> Result<T> {
+    Err(unsafe { std::num::NonZeroI32::new_unchecked(-1) })
+}
 
 use crate::bridge::ttstub_output_open_stdout;
 

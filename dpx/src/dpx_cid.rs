@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -41,12 +41,10 @@ use super::dpx_cidtype0::{
 use super::dpx_cidtype2::{
     CIDFont_type2_dofont, CIDFont_type2_open, CIDFont_type2_set_flags, CIDFont_type2_set_verbose,
 };
-use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
     pdf_remove_dict, Object,
 };
-use libc::free;
 use std::borrow::Cow;
 
 #[derive(Clone)]
@@ -63,8 +61,8 @@ pub(crate) struct CIDFont {
     pub(crate) subtype: i32,
     pub(crate) flags: i32,
     pub(crate) parent: [i32; 2],
-    pub(crate) csi: *mut CIDSysInfo,
-    pub(crate) options: *mut cid_opt,
+    pub(crate) csi: Box<CIDSysInfo>,
+    pub(crate) options: Box<cid_opt>,
     pub(crate) indirect: *mut pdf_obj,
     pub(crate) fontdict: *mut pdf_obj,
     pub(crate) descriptor: *mut pdf_obj,
@@ -72,7 +70,7 @@ pub(crate) struct CIDFont {
 #[derive(Clone)]
 pub(crate) struct cid_opt {
     pub(crate) name: String,
-    pub(crate) csi: *mut CIDSysInfo,
+    pub(crate) csi: Option<Box<CIDSysInfo>>,
     pub(crate) index: i32,
     pub(crate) style: i32,
     pub(crate) embed: i32,
@@ -130,17 +128,6 @@ pub(crate) struct C2RustUnnamed_3 {
     pub(crate) name: &'static str,
     pub(crate) index: i32,
 }
-/* tectonic/core-strutils.h: miscellaneous C string utilities
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-/* Note that we explicitly do *not* change this on Windows. For maximum
- * portability, we should probably accept *either* forward or backward slashes
- * as directory separators. */
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
 static mut CIDFont_stdcc_def: [C2RustUnnamed_0; 6] = [
     C2RustUnnamed_0 {
         registry: "Adobe",
@@ -274,12 +261,12 @@ pub(crate) unsafe fn CIDFont_set_verbose(level: i32) {
 
 /* It does write PDF objects. */
 unsafe fn CIDFont_flush(font: &mut CIDFont) {
-    pdf_release_obj((*font).indirect);
-    (*font).indirect = ptr::null_mut();
-    pdf_release_obj((*font).fontdict);
-    (*font).fontdict = ptr::null_mut();
-    pdf_release_obj((*font).descriptor);
-    (*font).descriptor = ptr::null_mut();
+    pdf_release_obj(font.indirect);
+    font.indirect = ptr::null_mut();
+    pdf_release_obj(font.fontdict);
+    font.fontdict = ptr::null_mut();
+    pdf_release_obj(font.descriptor);
+    font.descriptor = ptr::null_mut();
 }
 impl Drop for CIDFont {
     fn drop(&mut self) {
@@ -293,22 +280,12 @@ impl Drop for CIDFont {
             if !self.descriptor.is_null() {
                 panic!("CIDFont: Object not flushed.");
             }
-            if !self.csi.is_null() {
-                free(self.csi as *mut libc::c_void);
-            }
-            if !self.options.is_null() {
-                release_opt(self.options);
-            }
         };
     }
 }
 
 pub(crate) unsafe fn CIDFont_get_opt_index(font: &CIDFont) -> i32 {
-    if !font.options.is_null() {
-        (*font.options).index
-    } else {
-        0
-    }
+    font.options.index
 }
 
 pub(crate) unsafe fn CIDFont_get_subtype(font: &CIDFont) -> i32 {
@@ -316,11 +293,11 @@ pub(crate) unsafe fn CIDFont_get_subtype(font: &CIDFont) -> i32 {
 }
 
 pub(crate) unsafe fn CIDFont_get_embedding(font: &CIDFont) -> i32 {
-    (*font.options).embed
+    font.options.embed
 }
 
 pub(crate) unsafe fn CIDFont_get_CIDSysInfo(font: &CIDFont) -> &CIDSysInfo {
-    &*font.csi
+    &font.csi
 }
 /*
  * Returns ID of parent Type0 font
@@ -355,12 +332,9 @@ pub(crate) unsafe fn CIDFont_attach_parent(font: &mut CIDFont, parent_id: i32, w
 }
 
 pub(crate) unsafe fn CIDFont_is_ACCFont(font: &CIDFont) -> bool {
-    if font.csi.is_null() {
-        panic!("{}: CIDSystemInfo undefined.", "CIDFont");
-    }
     for i in 1..=4 {
-        if (*font.csi).registry == CIDFont_stdcc_def[i as usize].registry
-            && (*font.csi).ordering == CIDFont_stdcc_def[i as usize].ordering
+        if font.csi.registry == CIDFont_stdcc_def[i as usize].registry
+            && font.csi.ordering == CIDFont_stdcc_def[i as usize].ordering
         {
             return true;
         }
@@ -523,22 +497,22 @@ static mut cid_basefont: [C2RustUnnamed_2; 20] = [
 ];
 unsafe fn CIDFont_base_open(
     name: &str,
-    cmap_csi: *mut CIDSysInfo,
-    opt: *mut cid_opt,
-) -> Option<Box<CIDFont>> {
+    cmap_csi: &Option<CIDSysInfo>,
+    mut opt: Box<cid_opt>,
+) -> Result<Box<CIDFont>, Box<cid_opt>> {
     let basefont = cid_basefont.iter().find(|font| {
         let acro = name.to_string() + "-Acro";
         font.fontname == name || font.fontname == acro
     });
 
     if basefont.is_none() {
-        return None;
+        return Err(opt);
     }
 
     let basefont = basefont.unwrap();
 
     let fontname = name.to_string()
-        + match (*opt).style {
+        + match opt.style {
             1 => ",Bold",
             2 => ",Italic",
             3 => ",BoldItalic",
@@ -556,15 +530,15 @@ unsafe fn CIDFont_base_open(
             .unwrap()
             .to_string();
         let supplement = tmp.get("Supplement").unwrap().as_f64() as i32;
-        if !cmap_csi.is_null() {
+        if let Some(cmap_csi) = cmap_csi.as_ref() {
             /* NULL for accept any */
-            if registry != (*cmap_csi).registry || ordering != (*cmap_csi).ordering {
+            if registry != cmap_csi.registry || ordering != cmap_csi.ordering {
                 panic!(
                     "Inconsistent CMap used for CID-keyed font {}.",
                     basefont.fontname
                 );
             } else {
-                if supplement < (*cmap_csi).supplement {
+                if supplement < cmap_csi.supplement {
                     warn!(
                         "CMap has higher supplement number than CIDFont: {}",
                         fontname,
@@ -573,16 +547,19 @@ unsafe fn CIDFont_base_open(
                 }
             }
         }
-        Box::into_raw(Box::new(CIDSysInfo {
+        Box::new(CIDSysInfo {
             registry: registry.into(),
             ordering: ordering.into(),
             supplement,
-        }))
+        })
     } else {
         panic!();
     };
-    if let Some(tmp) = fontdict.get("Subtype") {
-        if let Object::Name(typ) = &(*tmp).data {
+    match fontdict.get("Subtype") {
+        Some(pdf_obj {
+            data: Object::Name(typ),
+            ..
+        }) => {
             let typ = typ.to_bytes();
             let subtype = if typ == b"CIDFontType0" {
                 1
@@ -603,8 +580,8 @@ unsafe fn CIDFont_base_open(
             fontdict.set("BaseFont", pdf_name::new(fontname.as_bytes()));
             descriptor.set("Type", "FontDescriptor");
             descriptor.set("FontName", pdf_name::new(fontname.as_bytes()));
-            (*opt).embed = 0;
-            Some(Box::new(CIDFont {
+            opt.embed = 0;
+            Ok(Box::new(CIDFont {
                 ident: name.to_string(),
                 name: name.to_string(),
                 fontname,
@@ -617,11 +594,8 @@ unsafe fn CIDFont_base_open(
                 fontdict: fontdict.into_obj(),
                 descriptor: descriptor.into_obj(),
             }))
-        } else {
-            panic!();
         }
-    } else {
-        panic!();
+        _ => panic!(),
     }
 }
 
@@ -641,10 +615,10 @@ pub(crate) unsafe fn CIDFont_cache_get(font_id: i32) -> &'static mut CIDFont {
 
 pub(crate) unsafe fn CIDFont_cache_find(
     map_name: &str,
-    cmap_csi: *mut CIDSysInfo,
+    cmap_csi: Option<CIDSysInfo>,
     fmap_opt: &mut fontmap_opt,
 ) -> i32 {
-    let opt = Box::into_raw(Box::new(cid_opt {
+    let mut opt = Box::new(cid_opt {
         style: fmap_opt.style,
         index: fmap_opt.index,
         embed: if fmap_opt.flags & 1 << 1 != 0 { 0 } else { 1 },
@@ -652,14 +626,16 @@ pub(crate) unsafe fn CIDFont_cache_find(
         csi: get_cidsysinfo(map_name, fmap_opt),
         stemv: fmap_opt.stemv,
         cff_charsets: ptr::null_mut(),
-    }));
+    });
 
-    if (*opt).csi.is_null() && !cmap_csi.is_null() {
-        /*
-         * No CIDSystemInfo supplied explicitly. Copy from CMap's one if available.
-         * It is not neccesary for CID-keyed fonts. But TrueType requires them.
-         */
-        (*opt).csi = Box::into_raw(Box::new((*cmap_csi).clone()));
+    if opt.csi.is_none() {
+        if let Some(cmap_csi) = cmap_csi.as_ref() {
+            /*
+             * No CIDSystemInfo supplied explicitly. Copy from CMap's one if available.
+             * It is not neccesary for CID-keyed fonts. But TrueType requires them.
+             */
+            opt.csi = Some(Box::new(cmap_csi.clone()));
+        }
     }
     /*
      * Here, we do not compare font->ident and map_name because of
@@ -669,64 +645,63 @@ pub(crate) unsafe fn CIDFont_cache_find(
     while font_id < __cache.len() as i32 {
         let font = &mut *__cache[font_id as usize];
         if font.name == map_name
-            && (*font.options).style == (*opt).style
-            && (*font.options).index == (*opt).index
+            && (*font.options).style == opt.style
+            && (*font.options).index == opt.index
         {
-            if (*font.options).embed == (*opt).embed {
+            if (*font.options).embed == opt.embed {
                 /*
                  * Case 1: CSI not available (Identity CMap)
                  *         Font is TrueType --> continue
                  *         Font is CIDFont  --> break
                  * Case 2: CSI matched      --> break
                  */
-                if (*opt).csi.is_null() {
-                    if !(font.subtype == 2) {
-                        break;
-                    }
-                } else if ((*font.csi).registry == (*(*opt).csi).registry)
-                    && ((*font.csi).ordering == (*(*opt).csi).ordering)
-                {
-                    if font.subtype == 2 {
-                        (*font.csi).supplement =
-                            if (*(*opt).csi).supplement > (*font.csi).supplement {
-                                (*(*opt).csi).supplement
+                if let Some(opt_csi) = opt.csi.as_deref() {
+                    if ((*font.csi).registry == opt_csi.registry)
+                        && ((*font.csi).ordering == opt_csi.ordering)
+                    {
+                        if font.subtype == 2 {
+                            (*font.csi).supplement = if opt_csi.supplement > (*font.csi).supplement
+                            {
+                                opt_csi.supplement
                             } else {
                                 (*font.csi).supplement
                             }
+                        }
+                        break;
                     }
-                    break;
+                } else {
+                    if font.subtype != 2 {
+                        break;
+                    }
                 }
             } else if CIDFont_is_BaseFont(font) {
-                (*opt).embed = 0;
+                opt.embed = 0;
                 break;
             }
         }
         font_id += 1
     }
-    if font_id < __cache.len() as i32 && !cmap_csi.is_null() {
-        let font = &mut __cache[font_id as usize];
-        if (*font.csi).registry != (*cmap_csi).registry
-            || ((*font.csi).ordering != (*cmap_csi).ordering)
-        {
-            panic!("CIDFont: Incompatible CMap for CIDFont \"{}\"", map_name);
+    if font_id < __cache.len() as i32 {
+        if let Some(cmap_csi) = cmap_csi.as_ref() {
+            let font = &mut __cache[font_id as usize];
+            if font.csi.registry != cmap_csi.registry || (font.csi.ordering != cmap_csi.ordering) {
+                panic!("CIDFont: Incompatible CMap for CIDFont \"{}\"", map_name);
+            }
         }
     }
     if font_id == __cache.len() as i32 {
-        if let Some(font) = CIDFont_type0_open(map_name, cmap_csi, opt, 0)
-            .or_else(|| CIDFont_type2_open(map_name, cmap_csi, opt))
-            .or_else(|| CIDFont_type0_open(map_name, cmap_csi, opt, 1 << 8))
-            .or_else(|| CIDFont_type0_open(map_name, cmap_csi, opt, 1 << 9))
-            .or_else(|| CIDFont_base_open(map_name, cmap_csi, opt))
+        if let Ok(font) = CIDFont_type0_open(map_name, &cmap_csi, opt, 0)
+            .or_else(|opt| CIDFont_type2_open(map_name, &cmap_csi, opt))
+            .or_else(|opt| CIDFont_type0_open(map_name, &cmap_csi, opt, 1 << 8))
+            .or_else(|opt| CIDFont_type0_open(map_name, &cmap_csi, opt, 1 << 9))
+            .or_else(|opt| CIDFont_base_open(map_name, &cmap_csi, opt))
         {
-            fmap_opt.cff_charsets = (*opt).cff_charsets;
+            fmap_opt.cff_charsets = font.options.cff_charsets;
 
             __cache.push(font);
         } else {
-            release_opt(opt);
             return -1;
         }
-    } else if !opt.is_null() {
-        release_opt(opt);
     }
     font_id
 }
@@ -755,41 +730,44 @@ pub(crate) unsafe fn CIDFont_cache_close() {
  *
  *   (:int:)?!?string(/string)?(,string)?
  */
-unsafe fn release_opt(opt: *mut cid_opt) {
-    if !(*opt).csi.is_null() {
-        free((*opt).csi as *mut libc::c_void);
-        if !(*opt).cff_charsets.is_null() {
-            cff_release_charsets((*opt).cff_charsets as *mut cff_charsets);
+impl Drop for cid_opt {
+    fn drop(&mut self) {
+        unsafe {
+            if self.csi.is_some() {
+                if !self.cff_charsets.is_null() {
+                    cff_release_charsets(self.cff_charsets as *mut cff_charsets);
+                }
+            }
         }
     }
-    free(opt as *mut libc::c_void);
 }
-unsafe fn get_cidsysinfo(map_name: &str, fmap_opt: *mut fontmap_opt) -> *mut CIDSysInfo {
-    let mut csi: *mut CIDSysInfo = ptr::null_mut();
+unsafe fn get_cidsysinfo(map_name: &str, fmap_opt: *mut fontmap_opt) -> Option<Box<CIDSysInfo>> {
+    let mut csi = None;
     let mut csi_idx: i32 = -1;
     let pdf_ver = pdf_get_version() as i32;
     /* Use heighest supported value for current output PDF version. */
 
     if fmap_opt.is_null() || (*fmap_opt).charcoll.is_empty() {
-        return ptr::null_mut();
+        return None;
     }
     /* First try alias for standard one. */
     for alias in &CIDFont_stdcc_alias {
         let n = alias.name.len();
         if (*fmap_opt).charcoll.starts_with(alias.name) {
             csi_idx = alias.index;
-            csi = new(::std::mem::size_of::<CIDSysInfo>() as u32) as *mut CIDSysInfo;
-            (*csi).registry = Cow::Borrowed(CIDFont_stdcc_def[csi_idx as usize].registry);
-            (*csi).ordering = Cow::Borrowed(CIDFont_stdcc_def[csi_idx as usize].ordering);
-            if (*fmap_opt).charcoll.len() > n as usize {
-                (*csi).supplement = (*fmap_opt).charcoll[n..].parse::<i32>().unwrap_or(0);
-            } else {
-                (*csi).supplement = CIDFont_stdcc_def[csi_idx as usize].supplement[pdf_ver as usize]
-            }
+            csi = Some(Box::new(CIDSysInfo {
+                registry: Cow::Borrowed(CIDFont_stdcc_def[csi_idx as usize].registry),
+                ordering: Cow::Borrowed(CIDFont_stdcc_def[csi_idx as usize].ordering),
+                supplement: if (*fmap_opt).charcoll.len() > n as usize {
+                    (*fmap_opt).charcoll[n..].parse::<i32>().unwrap_or(0)
+                } else {
+                    CIDFont_stdcc_def[csi_idx as usize].supplement[pdf_ver as usize]
+                },
+            }));
             break;
         }
     }
-    if csi.is_null() {
+    let csi = csi.unwrap_or_else(|| {
         /* Full REGISTRY-ORDERING-SUPPLEMENT */
         let charcoll_parts = (*fmap_opt).charcoll.split("-").collect::<Vec<_>>();
         assert_eq!(
@@ -798,28 +776,29 @@ unsafe fn get_cidsysinfo(map_name: &str, fmap_opt: *mut fontmap_opt) -> *mut CID
             "CIDFont: String can\'t be converted to REGISTRY-ORDERING-SUPPLEMENT",
         );
 
-        csi = Box::into_raw(Box::new(CIDSysInfo {
+        let csi = Box::new(CIDSysInfo {
             registry: charcoll_parts[0].to_string().into(),
             ordering: charcoll_parts[1].to_string().into(),
             supplement: charcoll_parts[2].parse::<i32>().unwrap_or(0),
-        }));
+        });
 
         /* Check for standart character collections. */
         for (i, def) in CIDFont_stdcc_def.iter().enumerate() {
-            if (*csi).registry == def.registry && (*csi).ordering == def.ordering {
+            if csi.registry == def.registry && csi.ordering == def.ordering {
                 csi_idx = i as i32;
             }
         }
-    }
-    if !csi.is_null() && csi_idx >= 0 {
-        if (*csi).supplement > CIDFont_stdcc_def[csi_idx as usize].supplement[pdf_ver as usize]
+        csi
+    });
+    if csi_idx >= 0 {
+        if csi.supplement > CIDFont_stdcc_def[csi_idx as usize].supplement[pdf_ver as usize]
             && (*fmap_opt).flags & 1 << 1 != 0
         {
             warn!(
                 "CIDFont: Heighest supplement number supported in PDF-1.{} for {}-{} is {}.",
                 pdf_ver,
-                (*csi).registry,
-                (*csi).ordering,
+                csi.registry,
+                csi.ordering,
                 CIDFont_stdcc_def[csi_idx as usize].supplement[pdf_ver as usize],
             );
             warn!(
@@ -828,7 +807,7 @@ unsafe fn get_cidsysinfo(map_name: &str, fmap_opt: *mut fontmap_opt) -> *mut CID
             );
         }
     }
-    csi
+    Some(csi)
 }
 /* CIDFont types */
 

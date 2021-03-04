@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -141,10 +141,7 @@ pub(crate) struct t1_stemgroup {
     pub(crate) num_stems: i32,
     pub(crate) stems: [f64; 96],
 }
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
+
 static mut status: i32 = -1;
 static mut phase: i32 = -1;
 static mut nest: i32 = -1;

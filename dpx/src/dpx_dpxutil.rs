@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -30,15 +30,82 @@ use std::ffi::{CStr, CString};
 use std::ptr;
 
 use super::dpx_mem::new;
-use libc::{free, memcmp, memcpy};
+use libc::{free, memcpy};
+
+use std::collections::HashMap;
+
+// HtTable implements defers to a normal std::collections::HashMap
+// but tracks the iteration order of dvipdfmx's ht_table for backwards compat
+// Note: Elements are wrapped in a Box to allow the (highly unsafe!)
+// access pattern of storing .get_mut(x).as_mut_ptr() pointers.
+pub(crate) struct HtTable<T> {
+    backing: HashMap<Vec<u8>, Box<T>>,
+    compat_iteration_order: HashMap<u32, Vec<Vec<u8>>>,
+}
+
+impl<T> HtTable<T> {
+    pub(crate) fn new() -> Self {
+        unsafe {
+            let backing = HashMap::new();
+            let compat_iteration_order = HashMap::new();
+
+            HtTable {
+                backing,
+                compat_iteration_order,
+            }
+        }
+    }
+
+    pub(crate) fn hash_key(key: &[u8]) -> u32 {
+        key.iter()
+            .fold(0u32, |a, &b| {
+                (a << 5).wrapping_add(a).wrapping_add(b as u32)
+            })
+            .wrapping_rem(503)
+    }
+
+    pub(crate) fn insert(&mut self, key: Vec<u8>, val: Box<T>) {
+        self.compat_iteration_order
+            .entry(Self::hash_key(&key))
+            .or_default()
+            .push(key.clone());
+        self.backing.insert(key, val);
+    }
+
+    pub(crate) fn get_mut(&mut self, key: &[u8]) -> Option<&mut Box<T>> {
+        self.backing.get_mut(key)
+    }
+
+    pub(crate) fn clear(&mut self) {
+        *self = Self::new();
+    }
+}
+
+impl<T> Drop for HtTable<T> {
+    fn drop(&mut self) {
+        // drop entries in iteration order
+        for i in 0u32..503 {
+            if let Some(keys) = self.compat_iteration_order.get(&i) {
+                for key in keys {
+                    self.backing.remove(key);
+                }
+            }
+        }
+    }
+}
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct ht_entry {
-    pub(crate) key: *mut i8,
+    pub(crate) key: *mut u8,
     pub(crate) keylen: i32,
     pub(crate) value: *mut libc::c_void,
     pub(crate) next: *mut ht_entry,
+}
+impl ht_entry {
+    pub(crate) fn get_key(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.key, self.keylen as _) }
+    }
 }
 pub(crate) type hval_free_func = Option<unsafe fn(_: *mut libc::c_void) -> ()>;
 #[derive(Copy, Clone)]
@@ -55,10 +122,6 @@ pub(crate) struct ht_iter {
     pub(crate) curr: *mut libc::c_void,
     pub(crate) hash: *mut ht_table,
 }
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
 
 pub(crate) fn xtoi(c: u8) -> i32 {
     if c.is_ascii_digit() {
@@ -125,28 +188,22 @@ pub(crate) unsafe fn ht_table_size(ht: *mut ht_table) -> i32 {
     assert!(!ht.is_null());
     (*ht).count
 }
-unsafe fn get_hash(key: *const libc::c_void, keylen: i32) -> u32 {
+unsafe fn get_hash(key: &[u8]) -> u32 {
     let mut hkey: u32 = 0_u32;
-    for i in 0..keylen {
+    for i in 0..key.len() {
         hkey = (hkey << 5)
             .wrapping_add(hkey)
-            .wrapping_add(*(key as *const i8).offset(i as isize) as u32);
+            .wrapping_add(key[i] as i8 as u32);
     }
     hkey.wrapping_rem(503_u32)
 }
 
-pub(crate) unsafe fn ht_lookup_table(
-    ht: *mut ht_table,
-    key: *const libc::c_void,
-    keylen: i32,
-) -> *mut libc::c_void {
-    assert!(!ht.is_null() && !key.is_null());
-    let hkey = get_hash(key, keylen);
+pub(crate) unsafe fn ht_lookup_table(ht: *mut ht_table, key: &[u8]) -> *mut libc::c_void {
+    assert!(!ht.is_null() && !key.is_empty());
+    let hkey = get_hash(key);
     let mut hent = (*ht).table[hkey as usize];
     while !hent.is_null() {
-        if (*hent).keylen == keylen
-            && memcmp((*hent).key as *const libc::c_void, key, keylen as _) == 0
-        {
+        if (*hent).get_key() == key {
             return (*hent).value;
         }
         hent = (*hent).next
@@ -154,14 +211,9 @@ pub(crate) unsafe fn ht_lookup_table(
     ptr::null_mut()
 }
 
-pub(crate) unsafe fn ht_append_table(
-    mut ht: *mut ht_table,
-    key: *const libc::c_void,
-    keylen: i32,
-    value: *mut libc::c_void,
-) {
+pub(crate) unsafe fn ht_append_table(mut ht: *mut ht_table, key: &[u8], value: *mut libc::c_void) {
     let mut last: *mut ht_entry = ptr::null_mut();
-    let hkey = get_hash(key, keylen) as usize;
+    let hkey = get_hash(key) as usize;
     let mut hent = (*ht).table[hkey];
     if hent.is_null() {
         hent = new((1_u64).wrapping_mul(::std::mem::size_of::<ht_entry>() as u64) as u32)
@@ -177,10 +229,13 @@ pub(crate) unsafe fn ht_append_table(
         (*last).next = hent
     }
     (*hent).key =
-        new((keylen as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-            as *mut i8;
-    memcpy((*hent).key as *mut libc::c_void, key, keylen as _);
-    (*hent).keylen = keylen;
+        new((key.len() as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
+    memcpy(
+        (*hent).key as *mut libc::c_void,
+        key.as_ptr() as *const libc::c_void,
+        key.len() as _,
+    );
+    (*hent).keylen = key.len() as _;
     (*hent).value = value;
     (*hent).next = ptr::null_mut();
     (*ht).count += 1;
@@ -207,18 +262,18 @@ pub(crate) unsafe fn ht_clear_iter(mut iter: *mut ht_iter) {
     };
 }
 
-pub(crate) unsafe fn ht_iter_getkey(iter: *mut ht_iter, keylen: *mut i32) -> *mut i8 {
-    let hent = (*iter).curr as *mut ht_entry;
-    if !iter.is_null() && !hent.is_null() {
-        *keylen = (*hent).keylen;
-        return (*hent).key;
-    } else {
-        *keylen = 0;
-        return ptr::null_mut();
-    };
+impl ht_iter {
+    pub(crate) unsafe fn get_key(&self) -> &[u8] {
+        let hent = self.curr as *mut ht_entry;
+        if !hent.is_null() {
+            return std::slice::from_raw_parts((*hent).key, (*hent).keylen as _);
+        } else {
+            return &[];
+        };
+    }
 }
 
-pub(crate) unsafe fn ht_iter_getval(iter: *mut ht_iter) -> *mut libc::c_void {
+pub(crate) unsafe fn ht_iter_getval(iter: *const ht_iter) -> *const libc::c_void {
     let hent = (*iter).curr as *mut ht_entry;
     if !iter.is_null() && !hent.is_null() {
         return (*hent).value;

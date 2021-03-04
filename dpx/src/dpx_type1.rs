@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -45,9 +45,7 @@ use super::dpx_pdffont::{
 use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
 use super::dpx_tfm::{tfm_get_width, tfm_open};
-use crate::dpx_pdfobj::{
-    pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
-};
+use crate::dpx_pdfobj::{pdf_stream, pdf_string, IntoRef, PushObj, STREAM_COMPRESS};
 use bridge::{InFile, TTInputFormat};
 use libc::free;
 
@@ -80,14 +78,6 @@ use super::dpx_cff::cff_map;
 use super::dpx_cff::cff_range1;
 
 use super::dpx_t1_char::t1_ginfo;
-
-/* tectonic/core-strutils.h: miscellaneous C string utilities
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-/* Note that we explicitly do *not* change this on Windows. For maximum
- * portability, we should probably accept *either* forward or backward slashes
- * as directory separators. */
 
 /* Force bold at small text sizes */
 unsafe fn is_basefont(name: &str) -> bool {
@@ -391,12 +381,10 @@ unsafe fn add_metrics(
         }
     }
     let empty = tmp_array.is_empty();
-    let tmp_array = tmp_array.into_obj();
     let fontdict = pdf_font_get_resource(font).as_dict_mut(); /* Actually string object */
     if !empty {
-        fontdict.set("Widths", pdf_ref_obj(tmp_array));
+        fontdict.set("Widths", tmp_array.into_ref());
     }
-    pdf_release_obj(tmp_array);
     fontdict.set("FirstChar", firstchar as f64);
     fontdict.set("LastChar", lastchar as f64);
 }
@@ -499,14 +487,10 @@ unsafe fn write_fontfile(
     topdict.pack(&mut stream_data[topdict_offset..topdict_offset + len]);
     /* Copyright and Trademark Notice ommited. */
     /* Flush Font File */
-    let fontfile = pdf_stream::new(STREAM_COMPRESS).into_obj();
-    let stream_dict = (*fontfile).as_stream_mut().get_dict_mut();
-    descriptor.set("FontFile3", pdf_ref_obj(fontfile));
-    stream_dict.set("Subtype", "Type1C");
-    (*fontfile)
-        .as_stream_mut()
-        .add_slice(&stream_data[..offset]);
-    pdf_release_obj(fontfile);
+    let mut fontfile = pdf_stream::new(STREAM_COMPRESS);
+    fontfile.get_dict_mut().set("Subtype", "Type1C");
+    fontfile.add_slice(&stream_data[..offset]);
+    descriptor.set("FontFile3", fontfile.into_ref());
     descriptor.set("CharSet", pdf_string::new(&pdfcharset.content));
     offset as i32
 }
@@ -545,9 +529,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
             if let Some(tounicode) =
                 pdf_create_ToUnicode_CMap(&fullname, enc_vec.as_mut_slice(), usedchars)
             {
-                let tounicode = tounicode.into_obj();
-                fontdict.set("ToUnicode", pdf_ref_obj(tounicode));
-                pdf_release_obj(tounicode);
+                fontdict.set("ToUnicode", tounicode.into_ref());
             }
         }
         enc_vec.as_mut_slice()

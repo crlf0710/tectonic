@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -39,21 +39,21 @@ pub(crate) static mut work_buffer_u8: [u8; 1024] = [0; 1024];
 
 pub(crate) unsafe fn tt_mfgets<R: Read + Seek>(
     buffer: *mut i8,
-    length: i32,
+    length: usize,
     file: &mut R,
 ) -> *mut i8 {
     let mut ch = Some(0);
-    let mut i: i32 = 0;
+    let mut i = 0;
     while i < length - 1 {
         ch = file.read_byte();
         if let Some(ch) = ch.filter(|&c| c != b'\n' && c != b'\r') {
-            *buffer.offset(i as isize) = ch as i8;
+            *buffer.add(i) = ch as i8;
             i += 1;
         } else {
             break;
         }
     }
-    *buffer.offset(i as isize) = '\u{0}' as i32 as i8;
+    *buffer.add(i) = '\u{0}' as i32 as i8;
     if ch.is_none() && i == 0 {
         return ptr::null_mut();
     }

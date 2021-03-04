@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -21,22 +21,15 @@
 */
 #![allow()]
 
+use super::{Result, ERR};
 use super::{SpcArg, SpcEnv, SpcHandler};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
 
-/* tectonic/core-strutils.h: miscellaneous C string utilities
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-/* Note that we explicitly do *not* change this on Windows. For maximum
- * portability, we should probably accept *either* forward or backward slashes
- * as directory separators. */
-
-unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     args.cur = &[];
-    0
+    Ok(())
 }
 const DVIPDFMX_HANDLERS: [SpcHandler; 1] = [SpcHandler {
     key: "config",
@@ -52,12 +45,12 @@ pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
     sph: &mut SpcHandler,
     spe: &mut SpcEnv,
     ap: &mut SpcArg,
-) -> i32 {
-    let mut error: i32 = -1;
+) -> Result<()> {
+    let mut error = ERR;
     ap.cur.skip_white();
     if !ap.cur.starts_with(b"dvipdfmx:") {
         spc_warn!(spe, "Not dvipdfmx: special???");
-        return -1;
+        return ERR;
     }
     ap.cur = &ap.cur[b"dvipdfmx:".len()..];
     ap.cur.skip_white();
@@ -70,7 +63,7 @@ pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
                     exec: handler.exec,
                 };
                 ap.cur.skip_white();
-                error = 0;
+                error = Ok(());
                 break;
             }
         }

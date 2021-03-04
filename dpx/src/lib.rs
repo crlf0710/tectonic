@@ -225,7 +225,7 @@ pub use crate::dpx_bmpimage::{bmp_get_bbox, check_for_bmp};
 pub use crate::dpx_dvipdfmx::{dvipdfmx_main, XdvipdfmxConfig};
 pub use crate::dpx_jpegimage::{check_for_jpeg, jpeg_get_bbox};
 pub use crate::dpx_pdfdev::Corner;
-pub use crate::dpx_pdfdoc::{pdf_doc_get_page, pdf_doc_get_page_count};
+pub use crate::dpx_pdfdoc::{pdf_doc_get_page, pdf_doc_get_page_count, PdfPageBoundary};
 pub use crate::dpx_pdfdraw::pdf_dev_transform;
 pub use crate::dpx_pdfobj::{pdf_file, pdf_obj, pdf_open};
 pub use crate::dpx_pdfobj::{pdf_files_close, pdf_files_init};

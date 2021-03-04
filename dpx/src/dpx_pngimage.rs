@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -34,10 +34,9 @@ use crate::warn;
 
 use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
-use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream,
-    pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_get_version, pdf_obj, pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj,
+    IntoRef, Object, PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -87,9 +86,6 @@ unsafe extern "C" fn _png_read(png_ptr: *mut png_struct, outbytes: *mut u8, n: u
 
 pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InFile) -> i32 {
     /* Libpng stuff */
-    let mut info = ximage_info::init();
-    let mut mask = ptr::null_mut();
-    let mut colorspace = ptr::null_mut();
     handle.seek(SeekFrom::Start(0)).unwrap();
 
     let png = if let Some(png) = png_create_read_struct(
@@ -164,6 +160,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     png_read_update_info(png, png_info);
     let mut rowbytes = png_get_rowbytes(png, png_info) as png_uint_32;
     /* Values listed below will not be modified in the remaining process. */
+    let mut info = ximage_info::init();
     info.width = width as libc::c_int;
     info.height = height as libc::c_int;
     info.bits_per_component = bpc as libc::c_int;
@@ -186,26 +183,24 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     if !intent.is_null() {
         stream_dict.set("Intent", intent);
     }
+    let mut colorspace = ptr::null_mut();
+    let mask: Option<Object>;
     match color_type as i32 {
         3 => {
             colorspace = create_cspace_Indexed(png, png_info)
                 .map(IntoObj::into_obj)
                 .unwrap_or(ptr::null_mut());
-            match trans_type {
+            mask = match trans_type {
                 1 => {
                     /* Color-key masking */
-                    mask = create_ckey_mask(png, png_info)
-                        .map(IntoObj::into_obj)
-                        .unwrap_or(ptr::null_mut())
+                    create_ckey_mask(png, png_info).map(Into::into)
                 }
                 2 => {
                     /* Soft mask */
-                    mask = create_soft_mask(png, png_info, stream_data_ptr, width, height)
-                        .map(IntoObj::into_obj)
-                        .unwrap_or(ptr::null_mut())
+                    create_soft_mask(png, png_info, stream_data_ptr, width, height).map(Into::into)
                 }
-                _ => {}
-            }
+                _ => None,
+            };
             info.num_components = 1
         }
         2 | 6 => {
@@ -224,16 +219,13 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 colorspace = "DeviceRGB".into_obj()
             }
             mask = match trans_type {
-                1 => create_ckey_mask(png, png_info)
-                    .map(IntoObj::into_obj)
-                    .unwrap_or(ptr::null_mut()),
+                1 => create_ckey_mask(png, png_info).map(Into::into),
                 2 => {
                     /* rowbytes changes 4 to 3 at here */
                     strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
-                        .map(IntoObj::into_obj)
-                        .unwrap_or(ptr::null_mut())
+                        .map(Into::into)
                 }
-                _ => ptr::null_mut(),
+                _ => None,
             };
             info.num_components = 3
         }
@@ -253,17 +245,15 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 colorspace = "DeviceGray".into_obj()
             }
             mask = match trans_type {
-                1 => create_ckey_mask(png, png_info)
-                    .map(IntoObj::into_obj)
-                    .unwrap_or(ptr::null_mut()),
+                1 => create_ckey_mask(png, png_info).map(Into::into),
                 2 => strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
-                    .map(IntoObj::into_obj)
-                    .unwrap_or(ptr::null_mut()),
-                _ => ptr::null_mut(),
+                    .map(Into::into),
+                _ => None,
             };
             info.num_components = 1
         }
         _ => {
+            mask = None;
             warn!("{}: Unknown PNG colortype {}.", "PNG", color_type as i32);
         }
     }
@@ -274,24 +264,23 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     );
     free(stream_data_ptr as *mut libc::c_void);
     let stream_dict = stream.get_dict_mut();
-    if !mask.is_null() {
+    if let Some(mut mask) = mask {
         if trans_type == 1 {
+            let mask = mask.into_obj();
             stream_dict.set("Mask", mask);
         } else if trans_type == 2 {
             if info.bits_per_component >= 8 && info.width > 64 {
                 pdf_stream_set_predictor(
-                    (*mask).as_stream_mut(),
+                    mask.as_stream_mut(),
                     2,
                     info.width,
                     info.bits_per_component,
                     1,
                 );
             }
-            stream_dict.set("SMask", pdf_ref_obj(mask));
-            pdf_release_obj(mask);
+            stream_dict.set("SMask", mask.into_ref());
         } else {
             warn!("{}: Unknown transparency type...???", "PNG");
-            pdf_release_obj(mask);
         }
     }
     /* Finally read XMP Metadata
@@ -341,9 +330,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                         (*text_ptr.offset(i as isize)).text as *const libc::c_void,
                         (*text_ptr.offset(i as isize)).itxt_length as i32,
                     );
-                    let XMP_stream = XMP_stream.into_obj();
-                    stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
-                    pdf_release_obj(XMP_stream);
+                    stream_dict.set("Metadata", XMP_stream.into_ref());
                     have_XMP = 1
                 }
             }
@@ -367,7 +354,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             info.num_components,
         );
     }
-    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
+    ximage.set_image(&info, stream.into_obj());
     0
 }
 /* Transparency */

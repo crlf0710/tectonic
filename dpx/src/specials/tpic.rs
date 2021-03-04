@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -21,6 +21,8 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
+use super::{Result, ERR};
+
 use crate::bridge::DisplayExt;
 use crate::warn;
 use crate::SkipBlank;
@@ -32,9 +34,7 @@ use crate::spc_warn;
 use crate::dpx_dpxutil::{ParseCIdent, ParseCString, ParseFloatDecimal};
 use crate::dpx_pdfcolor::pdf_color_get_current;
 use crate::dpx_pdfdev::pdf_dev_scale;
-use crate::dpx_pdfdoc::{
-    pdf_doc_add_page_content, pdf_doc_add_page_resource, pdf_doc_current_page_resources,
-};
+use crate::dpx_pdfdoc::pdf_doc_mut;
 use crate::dpx_pdfdraw::{
     pdf_dev_arcx, pdf_dev_bspline, pdf_dev_concat, pdf_dev_flushpath, pdf_dev_grestore,
     pdf_dev_gsave, pdf_dev_lineto, pdf_dev_moveto, pdf_dev_newpath, pdf_dev_set_color,
@@ -42,8 +42,7 @@ use crate::dpx_pdfdraw::{
     pdf_dev_setmiterlimit,
 };
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string,
-    IntoObj, Object,
+    pdf_dict, pdf_get_version, pdf_name, pdf_obj, pdf_string, IntoObj, IntoRef, Object,
 };
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
@@ -93,7 +92,7 @@ unsafe fn create_xgstate(a: f64, f_ais: i32) -> pdf_dict
     dict
 }
 unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
-    let dict1 = pdf_doc_current_page_resources();
+    let dict1 = pdf_doc_mut().current_page_resources();
     if dict1.is_null() {
         return 0;
     }
@@ -132,13 +131,15 @@ unsafe fn set_fillstyle(g: f64, a: f64, f_ais: i32) -> i32 {
             let dict = create_xgstate(
                 (0.01f64 * alp as f64 / 0.01f64 + 0.5f64).floor() * 0.01f64,
                 f_ais,
-            )
-            .into_obj();
-            pdf_doc_add_page_resource("ExtGState", resname.as_bytes(), pdf_ref_obj(dict));
-            pdf_release_obj(dict);
+            );
+            pdf_doc_mut().add_page_resource(
+                "ExtGState",
+                resname.as_bytes(),
+                dict.into_ref().into_obj(),
+            );
         }
         let buf = format!(" /{} gs", resname);
-        pdf_doc_add_page_content(buf.as_bytes());
+        pdf_doc_mut().add_page_content(buf.as_bytes());
         /* op: gs */
     } /* get stroking and fill colors */
     let (_sc, fc) = pdf_color_get_current();
@@ -177,10 +178,10 @@ unsafe fn showpath(f_vp: bool, f_fs: bool)
         pdf_dev_newpath();
     };
 }
-unsafe fn tpic__polyline(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64) -> i32 {
+unsafe fn tpic__polyline(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64) -> Result<()> {
     let pn: f64 = tp.pen_size;
     let mut f_fs: bool = tp.fill_shape;
-    let error: i32 = 0;
+    let error = Ok(());
     /*
      * Acrobat claims 'Q' as illegal operation when there are unfinished
      * path (a path without path-painting operator applied)?
@@ -226,11 +227,11 @@ unsafe fn tpic__polyline(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64)
  * curve) control point p1, end point q2 = (p1 + p2)/2, ..., and a
  * straight line from qn to pn.
  */
-unsafe fn tpic__spline(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64) -> i32 {
+unsafe fn tpic__spline(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64) -> Result<()> {
     let mut v: [f64; 6] = [0.; 6];
     let pn: f64 = tp.pen_size;
     let mut f_fs: bool = tp.fill_shape;
-    let error: i32 = 0;
+    let error = Ok(());
     f_fs = if tp.points[0].x == tp.points[tp.points.len() - 1].x
         && tp.points[0].y == tp.points[tp.points.len() - 1].y
     {
@@ -265,7 +266,13 @@ unsafe fn tpic__spline(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64) -
     tpic__clear(tp);
     error
 }
-unsafe fn tpic__arc(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64, v: *mut f64) -> i32
+unsafe fn tpic__arc(
+    tp: &mut spc_tpic_,
+    c: &Point,
+    mut f_vp: bool,
+    da: f64,
+    v: *mut f64,
+) -> Result<()>
 /* 6 numbers */ {
     let pn: f64 = tp.pen_size;
     let mut f_fs: bool = tp.fill_shape;
@@ -302,26 +309,24 @@ unsafe fn tpic__arc(tp: &mut spc_tpic_, c: &Point, mut f_vp: bool, da: f64, v: *
         pdf_dev_grestore();
     }
     tpic__clear(tp);
-    0
+    Ok(())
 }
 unsafe fn spc_currentpoint(spe: &mut SpcEnv, pg: *mut i32) -> Point {
     *pg = 0;
     Point::new(spe.x_user, spe.y_user)
 }
-unsafe fn spc_handler_tpic_pn(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_pn(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     ap.cur.skip_blank();
     if let Some(q) = ap.cur.parse_float_decimal() {
         tp.pen_size = atof(q.as_ptr()) * (0.072f64 / pdf_dev_scale());
-        0
+        Ok(())
     } else {
         spc_warn!(spe, "Invalid pen size specified?");
-        -1
+        ERR
     }
 }
-unsafe fn spc_handler_tpic_pa(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_pa(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     let mut v: [f64; 2] = [0.; 2];
     ap.cur.skip_blank();
@@ -333,43 +338,40 @@ unsafe fn spc_handler_tpic_pa(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
             i += 1;
         } else {
             spc_warn!(spe, "Missing numbers for TPIC \"pa\" command.");
-            return -1;
+            return ERR;
         }
     }
     if i != 2 {
         spc_warn!(spe, "Invalid arg for TPIC \"pa\" command.");
-        return -1;
+        return ERR;
     }
     tp.points.push(Point::new(
         v[0] * (0.072f64 / pdf_dev_scale()),
         v[1] * (0.072f64 / pdf_dev_scale()),
     ));
-    0
+    Ok(())
 }
-unsafe fn spc_handler_tpic_fp(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_fp(spe: &mut SpcEnv, _ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     let mut pg: i32 = 0;
     if tp.points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
-        return -1;
+        return ERR;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, true, 0.0f64)
 }
-unsafe fn spc_handler_tpic_ip(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_ip(spe: &mut SpcEnv, _ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     let mut pg: i32 = 0;
     if tp.points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
-        return -1;
+        return ERR;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, false, 0.0f64)
 }
-unsafe fn spc_handler_tpic_da(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_da(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     let mut da: f64 = 0.;
     let mut pg: i32 = 0;
@@ -379,13 +381,12 @@ unsafe fn spc_handler_tpic_da(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
     }
     if tp.points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
-        return -1;
+        return ERR;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, true, da)
 }
-unsafe fn spc_handler_tpic_dt(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_dt(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     let mut da: f64 = 0.0f64;
     let mut pg: i32 = 0;
@@ -395,13 +396,12 @@ unsafe fn spc_handler_tpic_dt(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
     }
     if tp.points.len() < 2 {
         spc_warn!(spe, "Too few points (< 2) for polyline path.");
-        return -1;
+        return ERR;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__polyline(tp, &mut cp, true, da)
 }
-unsafe fn spc_handler_tpic_sp(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_sp(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     let mut da: f64 = 0.0f64;
     let mut pg: i32 = 0;
@@ -411,13 +411,12 @@ unsafe fn spc_handler_tpic_sp(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
     }
     if tp.points.len() < 3 {
         spc_warn!(spe, "Too few points (< 3) for spline path.");
-        return -1;
+        return ERR;
     }
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__spline(tp, &mut cp, true, da)
 }
-unsafe fn spc_handler_tpic_ar(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_ar(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     let mut v: [f64; 6] = [0.; 6];
     let mut pg: i32 = 0;
@@ -430,12 +429,12 @@ unsafe fn spc_handler_tpic_ar(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
             i += 1;
         } else {
             spc_warn!(spe, "Invalid args. in TPIC \"ar\" command.");
-            return -1;
+            return ERR;
         }
     }
     if i != 6 {
         spc_warn!(spe, "Invalid arg for TPIC \"ar\" command.");
-        return -1;
+        return ERR;
     }
     v[0] *= 0.072f64 / pdf_dev_scale();
     v[1] *= 0.072f64 / pdf_dev_scale();
@@ -446,8 +445,7 @@ unsafe fn spc_handler_tpic_ar(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__arc(tp, &mut cp, true, 0.0f64, v.as_mut_ptr())
 }
-unsafe fn spc_handler_tpic_ia(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_ia(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     let mut v: [f64; 6] = [0.; 6];
     let mut pg: i32 = 0;
@@ -460,12 +458,12 @@ unsafe fn spc_handler_tpic_ia(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
             i += 1;
         } else {
             spc_warn!(spe, "Invalid args. in TPIC \"ia\" command.");
-            return -1;
+            return ERR;
         }
     }
     if i != 6 {
         spc_warn!(spe, "Invalid arg for TPIC \"ia\" command.");
-        return -1;
+        return ERR;
     }
     v[0] *= 0.072f64 / pdf_dev_scale();
     v[1] *= 0.072f64 / pdf_dev_scale();
@@ -476,8 +474,7 @@ unsafe fn spc_handler_tpic_ia(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
     let mut cp = spc_currentpoint(spe, &mut pg);
     tpic__arc(tp, &mut cp, false, 0.0f64, v.as_mut_ptr())
 }
-unsafe fn spc_handler_tpic_sh(_spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_sh(_spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     tp.fill_shape = true;
     tp.fill_color = 0.5f64;
@@ -488,32 +485,29 @@ unsafe fn spc_handler_tpic_sh(_spe: &mut SpcEnv, ap: &mut SpcArg) -> i32
             tp.fill_color = g
         } else {
             warn!("Invalid fill color specified: {}\n", g);
-            return -1;
+            return ERR;
         }
     }
-    0
+    Ok(())
 }
-unsafe fn spc_handler_tpic_wh(_spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_wh(_spe: &mut SpcEnv, _ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     tp.fill_shape = true;
     tp.fill_color = 0.0f64;
-    0
+    Ok(())
 }
-unsafe fn spc_handler_tpic_bk(_spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_bk(_spe: &mut SpcEnv, _ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     tp.fill_shape = true;
     tp.fill_color = 1.0f64;
-    0
+    Ok(())
 }
-unsafe fn spc_handler_tpic_tx(spe: &mut SpcEnv, _ap: &mut SpcArg) -> i32
-/* , void *dp) */ {
+unsafe fn spc_handler_tpic_tx(spe: &mut SpcEnv, _ap: &mut SpcArg) -> Result<()> {
     let _tp = &mut _TPIC_STATE; /* NULL terminate */
     spc_warn!(spe, "TPIC command \"tx\" not supported.");
-    -1
+    ERR
 }
-unsafe fn spc_handler_tpic__init(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
+unsafe fn spc_handler_tpic__init(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> Result<()> {
     tp.pen_size = 1.0f64;
     tp.fill_shape = false;
     tp.fill_color = 0.0f64;
@@ -523,27 +517,27 @@ unsafe fn spc_handler_tpic__init(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
         spc_warn!(spe, "Tpic shading support requires PDF version 1.4.");
         tp.mode.fill = 0
     }
-    0
+    Ok(())
 }
-unsafe fn spc_handler_tpic__bophook(tp: &mut spc_tpic_) -> i32 {
+unsafe fn spc_handler_tpic__bophook(tp: &mut spc_tpic_) -> Result<()> {
     tpic__clear(tp);
-    0
+    Ok(())
 }
-unsafe fn spc_handler_tpic__eophook(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
+unsafe fn spc_handler_tpic__eophook(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> Result<()> {
     if !tp.points.is_empty() {
         let spe = &*spe;
         spc_warn!(spe, "Unflushed tpic path at end of the page.");
     }
     tpic__clear(tp);
-    0
+    Ok(())
 }
-unsafe fn spc_handler_tpic__clean(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> i32 {
+unsafe fn spc_handler_tpic__clean(spe: *mut SpcEnv, tp: &mut spc_tpic_) -> Result<()> {
     if !tp.points.is_empty() {
         let spe = &*spe;
         spc_warn!(spe, "Unflushed tpic path at end of the document.");
     }
     tpic__clear(tp);
-    0
+    Ok(())
 }
 
 pub(crate) unsafe fn tpic_set_fill_mode(mode: i32) {
@@ -551,22 +545,22 @@ pub(crate) unsafe fn tpic_set_fill_mode(mode: i32) {
     tp.mode.fill = mode;
 }
 
-pub(crate) unsafe fn spc_tpic_at_begin_page() -> i32 {
+pub(crate) unsafe fn spc_tpic_at_begin_page() -> Result<()> {
     let tp = &mut _TPIC_STATE;
     spc_handler_tpic__bophook(tp)
 }
 
-pub(crate) unsafe fn spc_tpic_at_end_page() -> i32 {
+pub(crate) unsafe fn spc_tpic_at_end_page() -> Result<()> {
     let tp = &mut _TPIC_STATE;
     spc_handler_tpic__eophook(ptr::null_mut(), tp)
 }
 
-pub(crate) unsafe fn spc_tpic_at_begin_document() -> i32 {
+pub(crate) unsafe fn spc_tpic_at_begin_document() -> Result<()> {
     let tp = &mut _TPIC_STATE;
     spc_handler_tpic__init(ptr::null_mut(), tp)
 }
 
-pub(crate) unsafe fn spc_tpic_at_end_document() -> i32 {
+pub(crate) unsafe fn spc_tpic_at_end_document() -> Result<()> {
     let tp = &mut _TPIC_STATE;
     spc_handler_tpic__clean(ptr::null_mut(), tp)
 }
@@ -640,11 +634,18 @@ unsafe fn tpic_filter_getopts(kp: &pdf_name, vp: &mut pdf_obj, tp: &mut spc_tpic
     }
     error
 }
-unsafe fn spc_handler_tpic__setopts(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_tpic__setopts(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let tp = &mut _TPIC_STATE;
     if let Some(mut dict) = spc_parse_kvpairs(ap) {
-        let error = dict.foreach(tpic_filter_getopts, tp);
-        if error == 0 {
+        let error = {
+            let res = dict.foreach(tpic_filter_getopts, tp);
+            if res == 0 {
+                Ok(())
+            } else {
+                Err(std::num::NonZeroI32::new(res).unwrap())
+            }
+        };
+        if error.is_ok() {
             if tp.mode.fill != 0 && pdf_get_version() < 4_u32 {
                 spc_warn!(spe, "Transparent fill mode requires PDF version 1.4.");
                 tp.mode.fill = 0
@@ -652,7 +653,7 @@ unsafe fn spc_handler_tpic__setopts(spe: &mut SpcEnv, ap: &mut SpcArg) -> i32 {
         }
         error
     } else {
-        -1
+        ERR
     }
 }
 /* DEBUG */
@@ -736,9 +737,9 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
     sph: &mut SpcHandler,
     _spe: &mut SpcEnv,
     ap: &mut SpcArg,
-) -> i32 {
+) -> Result<()> {
     let mut hasnsp: i32 = 0;
-    let mut error: i32 = -1;
+    let mut error = ERR;
     ap.cur.skip_blank();
     if ap.cur.starts_with(b"tpic:") {
         ap.cur = &ap.cur[b"tpic:".len()..];
@@ -752,7 +753,7 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
                 exec: Some(spc_handler_tpic__setopts),
             };
             ap.cur.skip_blank();
-            error = 0;
+            error = Ok(());
         } else {
             for handler in TPIC_HANDLERS.iter() {
                 if q == handler.key {
@@ -762,13 +763,13 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
                         exec: handler.exec,
                     };
                     ap.cur.skip_blank();
-                    error = 0;
+                    error = Ok(());
                     break;
                 }
             }
         }
     } else {
-        error = -1;
+        error = ERR;
     }
     error
 }

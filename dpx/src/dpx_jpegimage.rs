@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -33,11 +33,8 @@ use super::dpx_pdfcolor::{
     iccp_check_colorspace, iccp_get_rendering_intent, iccp_load_profile,
     pdf_get_colorspace_reference,
 };
-use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::bridge::ttstub_input_get_size;
-use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj, PushObj, STREAM_COMPRESS,
-};
+use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj, IntoRef, PushObj, STREAM_COMPRESS};
 use libc::memset;
 
 use crate::bridge::size_t;
@@ -139,10 +136,6 @@ pub(crate) struct JPEG_APPn_JFIF {
     pub(crate) thumbnail: Vec<u8>,
     /* Thumbnail data. */
 }
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
 
 pub unsafe fn check_for_jpeg<R: Read + Seek>(handle: &mut R) -> i32 {
     let mut jpeg_sig: [u8; 2] = [0; 2];
@@ -205,9 +198,8 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     /* XMP Metadata */
     if pdf_get_version() >= 4 {
         if j_info.flags & 1 << 4 != 0 {
-            let XMP_stream = JPEG_get_XMP(&mut j_info).into_obj();
-            stream_dict.set("Metadata", pdf_ref_obj(XMP_stream));
-            pdf_release_obj(XMP_stream);
+            let XMP_stream = JPEG_get_XMP(&mut j_info);
+            stream_dict.set("Metadata", XMP_stream.into_ref());
         }
     }
     /* Check embedded ICC Profile */
@@ -260,7 +252,7 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     let (xdensity, ydensity) = jpeg_get_density(&mut j_info);
     info.xdensity = xdensity;
     info.ydensity = ydensity;
-    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
+    ximage.set_image(&info, stream.into_obj());
     JPEG_info_clear(&mut j_info);
     0
 }

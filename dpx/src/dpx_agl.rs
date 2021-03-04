@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -59,14 +59,7 @@ pub(crate) struct C2RustUnnamed_0 {
     pub(crate) otl_tag: &'static [u8],
     pub(crate) suffixes: &'static [&'static [u8]],
 }
-/* quasi-hack to get the primary input */
-/* tectonic/core-strutils.h: miscellaneous C string utilities
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-/* Note that we explicitly do *not* change this on Windows. For maximum
- * portability, we should probably accept *either* forward or backward slashes
- * as directory separators. */
+
 static mut verbose: i32 = 0;
 
 pub(crate) unsafe fn agl_set_verbose(level: i32) {
@@ -428,24 +421,16 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
                 );
                 free(name as *mut libc::c_void);
             } else {
-                let agln = agl_normalized_name(CStr::from_ptr(name).to_bytes());
+                let bname = CStr::from_ptr(name).to_bytes();
+                let agln = agl_normalized_name(bname);
                 (*agln).is_predef = is_predef;
                 (*agln).n_components = n_unicodes;
                 for i in 0..n_unicodes as usize {
                     (*agln).unicodes[i] = unicodes[i];
                 }
-                let mut duplicate = ht_lookup_table(
-                    &mut aglmap,
-                    name as *const libc::c_void,
-                    strlen(name) as i32,
-                ) as *mut agl_name;
+                let mut duplicate = ht_lookup_table(&mut aglmap, bname) as *mut agl_name;
                 if duplicate.is_null() {
-                    ht_append_table(
-                        &mut aglmap,
-                        name as *const libc::c_void,
-                        strlen(name) as i32,
-                        agln as *mut libc::c_void,
-                    );
+                    ht_append_table(&mut aglmap, bname, agln as *mut libc::c_void);
                 } else {
                     while !(*duplicate).alternate.is_null() {
                         duplicate = (*duplicate).alternate
@@ -456,14 +441,14 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
                     if !(*agln).suffix.is_null() {
                         info!(
                             "agl: {} [{}.{}] -->",
-                            CStr::from_ptr(name).display(),
+                            bname.display(),
                             CStr::from_ptr((*agln).name).display(),
                             CStr::from_ptr((*agln).suffix).display(),
                         );
                     } else {
                         info!(
                             "agl: {} [{}] -->",
-                            CStr::from_ptr(name).display(),
+                            bname.display(),
                             CStr::from_ptr((*agln).name).display(),
                         );
                     }
@@ -487,26 +472,11 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
     Ok(count)
 }
 
-pub(crate) unsafe fn agl_lookup_list(glyphname: *const i8) -> *mut agl_name {
-    if glyphname.is_null() {
-        return ptr::null_mut();
-    }
-    ht_lookup_table(
-        &mut aglmap,
-        glyphname as *const libc::c_void,
-        strlen(glyphname) as i32,
-    ) as *mut agl_name
-}
-
-pub(crate) unsafe fn agl_lookup_list_str(glyphname: &str) -> *mut agl_name {
+pub(crate) unsafe fn agl_lookup_list(glyphname: &[u8]) -> *mut agl_name {
     if glyphname.is_empty() {
         return ptr::null_mut();
     }
-    ht_lookup_table(
-        &mut aglmap,
-        glyphname.as_ptr() as *const libc::c_void,
-        glyphname.len() as i32,
-    ) as *mut agl_name
+    ht_lookup_table(&mut aglmap, glyphname) as *mut agl_name
 }
 pub(crate) fn agl_name_is_unicode(glyphname: &[u8]) -> bool {
     if glyphname.is_empty() {
@@ -648,17 +618,7 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
             delim = endptr;
         }
         let sub_len = delim.offset_from(p) as i64 as i32;
-        let name_p = new(
-            ((sub_len + 1) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
-        ) as *mut i8;
-        memcpy(
-            name_p as *mut libc::c_void,
-            p as *const libc::c_void,
-            sub_len as _,
-        );
-        *name_p.offset(sub_len as isize) = '\u{0}' as i32 as i8;
-        let name = CStr::from_ptr(name_p).to_owned();
-        free(name_p as *mut libc::c_void);
+        let name = CString::new(std::slice::from_raw_parts(p as *const u8, sub_len as _)).unwrap();
         if agl_name_is_unicode(name.to_bytes()) {
             let sub_len = put_unicode_glyph(name.to_bytes(), dstpp, limptr);
             if sub_len > 0 {
@@ -667,7 +627,7 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
                 count += 1
             }
         } else {
-            let mut agln1 = agl_lookup_list(name.as_ptr());
+            let mut agln1 = agl_lookup_list(name.to_bytes());
             if agln1.is_null()
                 || (*agln1).n_components == 1
                     && ((*agln1).unicodes[0] as i64 >= 0xe000
@@ -687,7 +647,7 @@ pub(crate) unsafe fn agl_sput_UTF16BE(
                             CStr::from_ptr((*agln0).suffix).display(),
                         );
                     }
-                    agln1 = agl_lookup_list((*agln0).name);
+                    agln1 = agl_lookup_list(CStr::from_ptr((*agln0).name).to_bytes());
                     agl_release_name(agln0);
                 }
             }
@@ -779,7 +739,7 @@ pub(crate) unsafe fn agl_get_unicodes(
                 }
             }
         } else {
-            let mut agln1 = agl_lookup_list(name.as_ptr());
+            let mut agln1 = agl_lookup_list(name.to_bytes());
             if agln1.is_null()
                 || (*agln1).n_components == 1
                     && ((*agln1).unicodes[0] as i64 >= 0xe000
@@ -799,7 +759,7 @@ pub(crate) unsafe fn agl_get_unicodes(
                             CStr::from_ptr((*agln0).suffix).display(),
                         );
                     }
-                    agln1 = agl_lookup_list((*agln0).name);
+                    agln1 = agl_lookup_list(CStr::from_ptr((*agln0).name).to_bytes());
                     agl_release_name(agln0);
                 }
             }

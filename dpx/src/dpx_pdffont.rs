@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -52,7 +52,8 @@ use super::dpx_type0::{
 use super::dpx_type1::{pdf_font_load_type1, pdf_font_open_type1};
 use super::dpx_type1c::{pdf_font_load_type1c, pdf_font_open_type1c};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, Object,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, IntoRef,
+    Object,
 };
 use crate::{info, warn};
 use libc::{free, memset, rand, srand};
@@ -79,13 +80,6 @@ pub(crate) struct pdf_font {
     /* _PDFFONT_H_ */
 }
 
-/* tectonic/core-strutils.h: miscellaneous C string utilities
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-/* Note that we explicitly do *not* change this on Windows. For maximum
- * portability, we should probably accept *either* forward or backward slashes
- * as directory separators. */
 static mut __verbose: i32 = 0;
 
 pub(crate) unsafe fn pdf_font_set_verbose(level: i32) {
@@ -362,11 +356,10 @@ unsafe fn try_load_ToUnicode_CMap(font: &mut pdf_font) -> i32 {
         }
         _ => {
             if let Some(tounicode) = tounicode {
-                let tounicode = tounicode.into_obj();
-                if (*tounicode).as_stream().len() > 0 {
+                if tounicode.len() > 0 {
                     fontdict
                         .as_dict_mut()
-                        .set("ToUnicode", pdf_ref_obj(tounicode));
+                        .set("ToUnicode", tounicode.into_ref());
                     if __verbose != 0 {
                         info!(
                             "pdf_font>> ToUnicode CMap \"{}\" attached to font id=\"{}\".\n",
@@ -374,7 +367,6 @@ unsafe fn try_load_ToUnicode_CMap(font: &mut pdf_font) -> i32 {
                         );
                     }
                 }
-                pdf_release_obj(tounicode);
             }
         }
     }
@@ -453,7 +445,6 @@ pub(crate) unsafe fn pdf_close_fonts() {
         let font_0: &mut pdf_font = &mut font_cache[font_id as usize];
         if (*font_0).encoding_id >= 0 && (*font_0).subtype != 4 {
             let enc_obj: *mut pdf_obj = pdf_get_encoding_obj((*font_0).encoding_id);
-            let mut tounicode: *mut pdf_obj = ptr::null_mut();
             /* Predefined encodings (and those simplified to them) are embedded
             as direct objects, but this is purely a matter of taste. */
             if !enc_obj.is_null() {
@@ -466,13 +457,13 @@ pub(crate) unsafe fn pdf_close_fonts() {
                     },
                 );
             }
-            if !(*(*font_0).resource).as_dict().has("ToUnicode") && {
-                tounicode = pdf_encoding_get_tounicode((*font_0).encoding_id);
-                !tounicode.is_null()
-            } {
-                (*(*font_0).resource)
-                    .as_dict_mut()
-                    .set("ToUnicode", pdf_ref_obj(tounicode));
+            if !(*(*font_0).resource).as_dict().has("ToUnicode") {
+                let tounicode = pdf_encoding_get_tounicode((*font_0).encoding_id);
+                if !tounicode.is_null() {
+                    (*(*font_0).resource)
+                        .as_dict_mut()
+                        .set("ToUnicode", pdf_ref_obj(tounicode));
+                }
             }
         } else if (*font_0).subtype == 3 {
             /* encoding_id < 0 means MacRoman here (but not really)

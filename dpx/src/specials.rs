@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -19,6 +19,8 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
+
+use crate::dpx_error::{Result, ERR, ERR1, ERROR};
 
 pub(crate) mod color;
 pub(crate) mod dvipdfmx;
@@ -54,10 +56,7 @@ use self::tpic::{
 };
 use self::xtx::{spc_xtx_check_special, spc_xtx_setup_handler};
 use super::dpx_dvi::{dvi_dev_xpos, dvi_dev_ypos, dvi_link_annot, dvi_tag_depth, dvi_untag_depth};
-use super::dpx_pdfdoc::{
-    pdf_doc_begin_annot, pdf_doc_current_page_number, pdf_doc_current_page_resources,
-    pdf_doc_end_annot, pdf_doc_get_dictionary, pdf_doc_get_reference, pdf_doc_ref_page,
-};
+use super::dpx_pdfdoc::{pdf_doc, pdf_doc_begin_annot, pdf_doc_end_annot, pdf_doc_mut};
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pdfnames::{
     pdf_delete_name_tree, pdf_names_add_object, pdf_names_close_object, pdf_names_lookup_object,
@@ -87,7 +86,7 @@ pub(crate) struct SpcArg<'a> {
 #[derive(Copy, Clone, Default)]
 pub(crate) struct SpcHandler {
     pub(crate) key: &'static str,
-    pub(crate) exec: Option<unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> i32>,
+    pub(crate) exec: Option<unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> Result<()>>,
 }
 
 use super::dpx_dpxutil::ht_table;
@@ -96,12 +95,13 @@ use super::dpx_dpxutil::ht_table;
 #[repr(C)]
 pub(crate) struct Special {
     pub(crate) key: *const i8,
-    pub(crate) bodhk_func: Option<unsafe fn() -> i32>,
-    pub(crate) eodhk_func: Option<unsafe fn() -> i32>,
-    pub(crate) bophk_func: Option<unsafe fn() -> i32>,
-    pub(crate) eophk_func: Option<unsafe fn() -> i32>,
+    pub(crate) bodhk_func: Option<unsafe fn() -> Result<()>>,
+    pub(crate) eodhk_func: Option<unsafe fn() -> Result<()>>,
+    pub(crate) bophk_func: Option<unsafe fn() -> Result<()>>,
+    pub(crate) eophk_func: Option<unsafe fn() -> Result<()>>,
     pub(crate) check_func: fn(_: &[u8]) -> bool,
-    pub(crate) setup_func: unsafe fn(_: &mut SpcHandler, _: &mut SpcEnv, _: &mut SpcArg) -> i32,
+    pub(crate) setup_func:
+        unsafe fn(_: &mut SpcHandler, _: &mut SpcEnv, _: &mut SpcArg) -> Result<()>,
 }
 static mut VERBOSE: i32 = 0;
 pub(crate) unsafe fn spc_set_verbose(level: i32) {
@@ -110,24 +110,24 @@ pub(crate) unsafe fn spc_set_verbose(level: i32) {
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: *mut pdf_obj) -> i32 {
+pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: *mut pdf_obj) -> Result<()> {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
-    0
+    Ok(())
 }
-pub(crate) unsafe fn spc_end_annot(mut _spe: &mut SpcEnv) -> i32 {
+pub(crate) unsafe fn spc_end_annot(mut _spe: &mut SpcEnv) -> Result<()> {
     dvi_untag_depth();
     pdf_doc_end_annot();
-    0
+    Ok(())
 }
-pub(crate) unsafe fn spc_resume_annot(mut _spe: &mut SpcEnv) -> i32 {
+pub(crate) unsafe fn spc_resume_annot(mut _spe: &mut SpcEnv) -> Result<()> {
     dvi_link_annot(1);
-    0
+    Ok(())
 }
 
-pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut SpcEnv) -> i32 {
+pub(crate) unsafe fn spc_suspend_annot(mut _spe: &mut SpcEnv) -> Result<()> {
     dvi_link_annot(0);
-    0
+    Ok(())
 }
 static mut NAMED_OBJECTS: *mut ht_table = ptr::null_mut();
 
@@ -163,23 +163,19 @@ pub(crate) unsafe fn spc_lookup_reference(key: &str) -> Option<*mut pdf_obj> {
             pdf_dev_transform(&mut cp, None);
             ((cp.y / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
-        "thispage" => pdf_doc_get_reference("@THISPAGE"),
-        "prevpage" => pdf_doc_get_reference("@PREVPAGE"),
-        "nextpage" => pdf_doc_get_reference("@NEXTPAGE"),
-        "pages" => pdf_ref_obj(pdf_doc_get_dictionary("Pages")),
-        "names" => pdf_ref_obj(pdf_doc_get_dictionary("Names")),
-        "resources" => pdf_ref_obj(pdf_doc_current_page_resources()),
-        "catalog" => pdf_ref_obj(pdf_doc_get_dictionary("Catalog")),
-        "docinfo" => pdf_ref_obj(pdf_doc_get_dictionary("Info")),
+        "thispage" => pdf_doc_mut().get_reference("@THISPAGE"),
+        "prevpage" => pdf_doc_mut().get_reference("@PREVPAGE"),
+        "nextpage" => pdf_doc_mut().get_reference("@NEXTPAGE"),
+        "pages" => pdf_ref_obj(pdf_doc_mut().get_dictionary("Pages")),
+        "names" => pdf_ref_obj(pdf_doc_mut().get_dictionary("Names")),
+        "resources" => pdf_ref_obj(pdf_doc_mut().current_page_resources()),
+        "catalog" => pdf_ref_obj(pdf_doc_mut().get_dictionary("Catalog")),
+        "docinfo" => pdf_ref_obj(pdf_doc_mut().get_dictionary("Info")),
         _ => {
             if ispageref(key) {
-                pdf_doc_ref_page((key[4..]).parse::<i32>().unwrap() as usize)
+                pdf_doc_mut().ref_page((key[4..]).parse::<i32>().unwrap() as usize)
             } else {
-                pdf_names_lookup_reference(
-                    NAMED_OBJECTS,
-                    key.as_ptr() as *const libc::c_void,
-                    key.len() as i32,
-                )
+                pdf_names_lookup_reference(&mut *NAMED_OBJECTS, key.as_bytes())
             }
         }
     };
@@ -209,19 +205,13 @@ pub(crate) unsafe fn spc_lookup_object(key: &str) -> *mut pdf_obj {
             pdf_dev_transform(&mut cp, None);
             value = ((cp.y / 0.01 + 0.5).floor() * 0.01).into_obj()
         }
-        "thispage" => value = pdf_doc_get_dictionary("@THISPAGE"),
-        "pages" => value = pdf_doc_get_dictionary("Pages"),
-        "names" => value = pdf_doc_get_dictionary("Names"),
-        "resources" => value = pdf_doc_current_page_resources(),
-        "catalog" => value = pdf_doc_get_dictionary("Catalog"),
-        "docinfo" => value = pdf_doc_get_dictionary("Info"),
-        _ => {
-            value = pdf_names_lookup_object(
-                NAMED_OBJECTS,
-                key.as_ptr() as *const libc::c_void,
-                key.len() as i32,
-            )
-        }
+        "thispage" => value = pdf_doc_mut().get_dictionary("@THISPAGE"),
+        "pages" => value = pdf_doc_mut().get_dictionary("Pages"),
+        "names" => value = pdf_doc_mut().get_dictionary("Names"),
+        "resources" => value = pdf_doc_mut().current_page_resources(),
+        "catalog" => value = pdf_doc_mut().get_dictionary("Catalog"),
+        "docinfo" => value = pdf_doc_mut().get_dictionary("Info"),
+        _ => value = pdf_names_lookup_object(NAMED_OBJECTS, key.as_bytes()),
     }
     /* spc_handler_pdfm_bead() in spc_pdfm.c controls NULL too.
       if (!value) {
@@ -235,27 +225,18 @@ pub(crate) unsafe fn spc_push_object(key: &str, value: *mut pdf_obj) {
     if key.is_empty() || value.is_null() {
         return;
     }
-    pdf_names_add_object(
-        NAMED_OBJECTS,
-        key.as_ptr() as *const libc::c_void,
-        key.len() as i32,
-        value,
-    );
+    pdf_names_add_object(&mut *NAMED_OBJECTS, key.as_bytes(), &mut *value).ok();
 }
 pub(crate) unsafe fn spc_flush_object(key: &str) {
-    pdf_names_close_object(
-        NAMED_OBJECTS,
-        key.as_ptr() as *const libc::c_void,
-        key.len() as i32,
-    );
+    pdf_names_close_object(NAMED_OBJECTS, key.as_bytes());
 }
 pub(crate) unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
     NAMED_OBJECTS = pdf_new_name_tree();
 }
-unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> i32 {
+unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     args.cur = &[];
-    -1
+    ERR
 }
 unsafe fn init_special<'a, 'b>(
     special: &mut SpcHandler,
@@ -275,7 +256,7 @@ unsafe fn init_special<'a, 'b>(
     spe.x_user = x_user;
     spe.y_user = y_user;
     spe.mag = mag;
-    spe.pg = pdf_doc_current_page_number() as i32;
+    spe.pg = pdf_doc().current_page_number() as i32;
     args.cur = buf;
     args.base = buf;
     args.command = None;
@@ -364,8 +345,8 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_misc_setup_handler,
     },
 ];
-pub(crate) unsafe fn spc_exec_at_begin_page() -> i32 {
-    let mut error: i32 = 0;
+pub(crate) unsafe fn spc_exec_at_begin_page() -> Result<()> {
+    let mut error = Ok(());
     for spc in &KNOWN_SPECIALS {
         if let Some(bophk) = spc.bophk_func {
             error = bophk();
@@ -373,8 +354,8 @@ pub(crate) unsafe fn spc_exec_at_begin_page() -> i32 {
     }
     error
 }
-pub(crate) unsafe fn spc_exec_at_end_page() -> i32 {
-    let mut error: i32 = 0;
+pub(crate) unsafe fn spc_exec_at_end_page() -> Result<()> {
+    let mut error = Ok(());
     for spc in &KNOWN_SPECIALS {
         if let Some(eophk) = spc.eophk_func {
             error = eophk();
@@ -382,8 +363,8 @@ pub(crate) unsafe fn spc_exec_at_end_page() -> i32 {
     }
     error
 }
-pub(crate) unsafe fn spc_exec_at_begin_document() -> i32 {
-    let mut error: i32 = 0;
+pub(crate) unsafe fn spc_exec_at_begin_document() -> Result<()> {
+    let mut error = Ok(());
     assert!(NAMED_OBJECTS.is_null());
     NAMED_OBJECTS = pdf_new_name_tree();
     for spc in &KNOWN_SPECIALS {
@@ -393,8 +374,8 @@ pub(crate) unsafe fn spc_exec_at_begin_document() -> i32 {
     }
     error
 }
-pub(crate) unsafe fn spc_exec_at_end_document() -> i32 {
-    let mut error: i32 = 0;
+pub(crate) unsafe fn spc_exec_at_end_document() -> Result<()> {
+    let mut error = Ok(());
 
     for spc in &KNOWN_SPECIALS {
         if let Some(eodhk) = spc.eodhk_func {
@@ -488,8 +469,13 @@ unsafe fn print_error(name: *const i8, spe: &mut SpcEnv, ap: &mut SpcArg) {
 /* This should not use pdf_. */
 /* PDF parser shouldn't depend on this...
  */
-pub(crate) unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, mag: f64) -> i32 {
-    let mut error: i32 = -1;
+pub(crate) unsafe fn spc_exec_special(
+    buffer: &[u8],
+    x_user: f64,
+    y_user: f64,
+    mag: f64,
+) -> Result<()> {
+    let mut error = ERR;
     let mut spe = SpcEnv::default();
     let mut args = SpcArg::default();
     let mut special = SpcHandler::default();
@@ -510,10 +496,10 @@ pub(crate) unsafe fn spc_exec_special(buffer: &[u8], x_user: f64, y_user: f64, m
         let found = (spc.check_func)(buffer);
         if found {
             error = (spc.setup_func)(&mut special, &mut spe, &mut args);
-            if error == 0 {
+            if error.is_ok() {
                 error = special.exec.expect("non-null function pointer")(&mut spe, &mut args)
             }
-            if error != 0 {
+            if error.is_err() {
                 print_error(spc.key, &mut spe, &mut args);
             }
             break;

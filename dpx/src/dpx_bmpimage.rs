@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -28,7 +28,6 @@
 
 use super::dpx_mem::new;
 use super::dpx_numbers::GetFromFile;
-use super::dpx_pdfximage::pdf_ximage_set_image;
 use crate::dpx_pdfobj::{
     pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
@@ -242,7 +241,7 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
             info.num_components,
         );
     }
-    pdf_ximage_set_image(ximage, &mut info, stream.into_obj());
+    ximage.set_image(&info, stream.into_obj());
     Ok(())
 }
 

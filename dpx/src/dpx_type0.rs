@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -288,9 +288,9 @@ pub(crate) unsafe fn Type0Font_cache_find(
      */
     let cmap = CMap_cache_get(cmap_id);
     let csi = if CMap_is_Identity(&*cmap) as i32 != 0 {
-        ptr::null_mut()
+        None
     } else {
-        CMap_get_CIDSysInfo(cmap)
+        CMap_get_CIDSysInfo(cmap).as_ref().cloned()
     };
     let cid_id = CIDFont_cache_find(map_name, csi, fmap_opt);
     if cid_id < 0 {

@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -54,9 +54,7 @@ use super::dpx_pdfdev::{
     graphics_mode, pdf_dev_begin_actualtext, pdf_dev_end_actualtext, pdf_dev_locate_font,
     pdf_dev_set_dirmode, pdf_dev_set_rect, pdf_dev_set_rule, pdf_dev_set_string,
 };
-use super::dpx_pdfdoc::{
-    pdf_doc_begin_page, pdf_doc_break_annot, pdf_doc_end_page, pdf_doc_expand_box,
-};
+use super::dpx_pdfdoc::{pdf_doc_break_annot, pdf_doc_expand_box, pdf_doc_mut};
 use super::dpx_pdfparse::{dump, ParsePdfObj, SkipWhite};
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record, subfont_set_verbose};
 use super::dpx_t1_char::t1char_get_metrics;
@@ -170,13 +168,6 @@ use super::dpx_t1_char::t1_ginfo;
 /* Data Types as described in Apple's TTRefMan */
 pub(crate) type Fixed = u32;
 
-/* tectonic/core-strutils.h: miscellaneous C string utilities
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-/* Note that we explicitly do *not* change this on Windows. For maximum
- * portability, we should probably accept *either* forward or backward slashes
- * as directory separators. */
 /* UTF-32 over U+FFFF -> UTF-16 surrogate pair */
 /* Interal Variables */
 static mut dvi_handle: Option<InFile> = None;
@@ -371,7 +362,7 @@ unsafe fn find_post() -> i32 {
         || !(ch == DVI_ID || ch == DVIV_ID || ch == XDV_ID || ch == XDV_ID_OLD)
     {
         info!("DVI ID = {}\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     post_id_byte = ch as i32;
     is_xdv = (ch == XDV_ID || ch == XDV_ID_OLD) as i32;
@@ -382,14 +373,14 @@ unsafe fn find_post() -> i32 {
     let ch = handle.read_byte().unwrap();
     if ch != POST_POST {
         info!("Found {} where post_post opcode should be\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     current = i32::get(handle);
     handle.seek(SeekFrom::Start(current as u64)).unwrap();
     let ch = handle.read_byte().unwrap();
     if ch != POST {
         info!("Found {} where post_post opcode should be\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     /* Finally check the ID byte in the preamble */
     /* An Ascii pTeX DVI file has id_byte DVI_ID in the preamble but DVIV_ID in the postamble. */
@@ -397,12 +388,12 @@ unsafe fn find_post() -> i32 {
     let ch = u8::get(handle);
     if ch != PRE {
         info!("Found {} where PRE was expected\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     let ch = u8::get(handle);
     if !(ch == DVI_ID || ch == XDV_ID || ch == XDV_ID_OLD) {
         info!("DVI ID = {}\n", ch);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     pre_id_byte = ch as i32;
     check_id_bytes();
@@ -429,7 +420,7 @@ unsafe fn get_page_info(post_location: i32) {
     if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
         > dvi_file_size
     {
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     for i in (0..num_pages - 1).rev() {
         handle
@@ -441,7 +432,7 @@ unsafe fn get_page_info(post_location: i32) {
         if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
             > dvi_file_size
         {
-            panic!(invalid_signature);
+            panic!("{}", invalid_signature);
         }
     }
 }
@@ -480,11 +471,12 @@ unsafe fn get_dvi_info(post_location: i32) {
         info!("Media Height: {}\n", DVI_INFO.media_height);
         info!("Media Width: {}\n", DVI_INFO.media_width);
         info!("Stack Depth: {}\n", DVI_INFO.stackdepth);
-    };
+    }
 }
 
-pub(crate) unsafe fn dvi_comment() -> *const i8 {
-    DVI_INFO.comment.as_mut_ptr() as *const i8
+pub(crate) unsafe fn dvi_comment() -> &'static [u8] {
+    let pos = DVI_INFO.comment.iter().position(|&x| x == 0).unwrap();
+    &DVI_INFO.comment[..pos]
 }
 unsafe fn read_font_record(tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
@@ -584,7 +576,7 @@ unsafe fn get_dvi_fonts(post_location: i32) {
             }
             _ => {
                 info!("Unexpected op code: {:3}\n", code);
-                panic!(invalid_signature);
+                panic!("{}", invalid_signature);
             }
         }
     }
@@ -603,7 +595,7 @@ unsafe fn get_dvi_fonts(post_location: i32) {
             );
             info!("\n");
         }
-    };
+    }
 }
 unsafe fn get_comment() {
     let handle = dvi_handle.as_mut().unwrap();
@@ -615,7 +607,7 @@ unsafe fn get_comment() {
     DVI_INFO.comment[length as usize] = '\u{0}' as u8;
     if verbose != 0 {
         info!("DVI Comment: {}\n", DVI_INFO.comment[..length].display());
-    };
+    }
 }
 static mut dvi_state: dvi_registers = dvi_registers {
     h: 0,
@@ -717,11 +709,11 @@ pub(crate) unsafe fn dvi_do_special(buffer: &[u8]) {
     let x_user = dvi_state.h as f64 * dvi2pts;
     let y_user = -dvi_state.v as f64 * dvi2pts;
     let mag = dvi_tell_mag();
-    if spc_exec_special(buffer, x_user, y_user, mag) < 0 {
+    if spc_exec_special(buffer, x_user, y_user, mag) == crate::dpx_error::ERR {
         if verbose != 0 {
             dump(buffer);
         }
-    };
+    }
 }
 
 pub(crate) unsafe fn dvi_unit_size() -> f64 {
@@ -1445,16 +1437,16 @@ unsafe fn do_bop() {
     DVI_PAGE_BUF_INDEX += 4;
     clear_state();
     processing_page = 1;
-    pdf_doc_begin_page(dvi_tell_mag(), dev_origin_x, dev_origin_y);
-    spc_exec_at_begin_page();
+    pdf_doc_mut().begin_page(dvi_tell_mag(), dev_origin_x, dev_origin_y);
+    spc_exec_at_begin_page().ok();
 }
 unsafe fn do_eop() {
     processing_page = 0;
     if dvi_stack_depth != 0 {
         panic!("DVI stack depth is not zero at end of page");
     }
-    spc_exec_at_end_page();
-    pdf_doc_end_page();
+    spc_exec_at_end_page().ok();
+    pdf_doc_mut().end_page();
 }
 unsafe fn do_dir() {
     dvi_state.d = get_buffered_unsigned_byte() as u32;
@@ -1697,7 +1689,7 @@ unsafe fn check_postamble() {
         || post_id_byte_0 == XDV_ID_OLD)
     {
         info!("DVI ID = {}\n", post_id_byte_0);
-        panic!(invalid_signature);
+        panic!("{}", invalid_signature);
     }
     check_id_bytes();
     if has_ptex != 0 && post_id_byte_0 != DVIV_ID {
@@ -1935,7 +1927,7 @@ pub(crate) unsafe fn dvi_close() {
     tfm_close_all();
     if !DVI_PAGE_BUFFER.is_empty() {
         DVI_PAGE_BUFFER = Vec::new();
-    };
+    }
 }
 /* The following are need to implement virtual fonts
 According to documentation, the vf "subroutine"
@@ -1967,10 +1959,10 @@ pub(crate) unsafe fn dvi_vf_finish() {
     dpx_dvi_pop();
     if num_saved_fonts > 0_u32 {
         num_saved_fonts -= 1;
-        current_font = saved_dvi_font[num_saved_fonts as usize]
+        current_font = saved_dvi_font[num_saved_fonts as usize];
     } else {
         panic!("Tried to pop an empty font stack");
-    };
+    }
 }
 /* Scan various specials */
 /* This need to allow 'true' prefix for unit and
@@ -2196,8 +2188,8 @@ unsafe fn scan_special(
             }
         } else if ns_pdf != 0 && q == "encrypt" && !do_enc.is_null() {
             *do_enc = 1;
-            *user_pw = 0_i8;
-            *owner_pw = *user_pw;
+            *user_pw = 0;
+            *owner_pw = 0;
             while error == 0 && !buf.is_empty() {
                 if let Some(kp) = buf.parse_c_ident() {
                     buf.skip_white();

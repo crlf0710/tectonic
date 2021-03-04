@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -35,10 +35,8 @@ use super::dpx_dvi::{
 use super::dpx_pdfdev::{
     pdf_close_device, pdf_dev_reset_global_state, pdf_dev_set_verbose, pdf_init_device, Point, Rect,
 };
-use super::dpx_pdfdoc::pdf_doc_set_mediabox;
-use super::dpx_pdfdoc::{
-    pdf_close_document, pdf_doc_set_creator, pdf_doc_set_verbose, pdf_open_document,
-};
+use super::dpx_pdfdoc::pdf_doc_mut;
+use super::dpx_pdfdoc::{pdf_doc_set_creator, pdf_doc_set_verbose};
 use super::dpx_pdffont::{
     pdf_font_reset_unique_tag_state, pdf_font_set_deterministic_unique_tags, pdf_font_set_dpi,
 };
@@ -147,10 +145,10 @@ unsafe fn select_paper(paperspec_str: &str) {
 }
 unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
     let mut p: *const i8 = pagespec;
-    while *p as i32 != '\u{0}' as i32 {
+    while *p != 0 {
         let mut page_range = PageRange { first: 0, last: 0 };
 
-        while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
+        while *p != 0 && libc::isspace(*p as _) != 0 {
             p = p.offset(1)
         }
         let q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
@@ -160,12 +158,12 @@ unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
             page_range.last = page_range.first;
             free(q as *mut libc::c_void);
         }
-        while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
+        while *p != 0 && libc::isspace(*p as _) != 0 {
             p = p.offset(1)
         }
         if *p as i32 == '-' as i32 {
             p = p.offset(1);
-            while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
+            while *p != 0 && libc::isspace(*p as _) != 0 {
                 p = p.offset(1)
             }
             page_range.last = -1;
@@ -175,7 +173,7 @@ unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
                     page_range.last = atoi(q) - 1;
                     free(q as *mut libc::c_void);
                 }
-                while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
+                while *p != 0 && libc::isspace(*p as _) != 0 {
                     p = p.offset(1)
                 }
             }
@@ -186,7 +184,7 @@ unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
         if *p as i32 == ',' as i32 {
             p = p.offset(1)
         } else {
-            while *p as i32 != 0 && libc::isspace(*p as _) != 0 {
+            while *p != 0 && libc::isspace(*p as _) != 0 {
                 p = p.offset(1)
             }
             if *p != 0 {
@@ -200,14 +198,14 @@ unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
 }
 
 unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
-    spc_exec_at_begin_document();
+    spc_exec_at_begin_document().ok();
     let mut page_width = paper_width;
     let init_paper_width = page_width;
     let mut page_height = paper_height;
     let init_paper_height = page_height;
     let mut page_count = 0;
     let mut mediabox = Rect::new(Point::zero(), point2(paper_width, paper_height));
-    pdf_doc_set_mediabox(0, &mediabox);
+    pdf_doc_mut().set_mediabox(0, &mediabox);
     let mut i = 0;
     while i < page_ranges.len() && dvi_npages() != 0 {
         if page_ranges[i].last < 0 {
@@ -261,7 +259,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
                 }
                 if page_width != init_paper_width || page_height != init_paper_height {
                     mediabox = Rect::new(point2(0., 0.), point2(page_width, page_height));
-                    pdf_doc_set_mediabox(page_count + 1, &mediabox);
+                    pdf_doc_mut().set_mediabox(page_count + 1, &mediabox);
                 }
                 dvi_do_page(page_height, x_offset, y_offset);
                 page_count = page_count + 1;
@@ -280,7 +278,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
     if page_count < 1 {
         panic!("No pages fall in range!");
     }
-    spc_exec_at_end_document();
+    spc_exec_at_end_document().ok();
 }
 
 pub unsafe fn dvipdfmx_main(
@@ -332,9 +330,9 @@ pub unsafe fn dvipdfmx_main(
     font_dpi = 600;
     pdfdecimaldigits = 5;
     image_cache_life = -2;
-    pdf_load_fontmap_file("pdftex.map", '+' as i32);
-    pdf_load_fontmap_file("kanjix.map", '+' as i32);
-    pdf_load_fontmap_file("ckx.map", '+' as i32);
+    pdf_load_fontmap_file("pdftex.map", '+' as i32).ok();
+    pdf_load_fontmap_file("kanjix.map", '+' as i32).ok();
+    pdf_load_fontmap_file("ckx.map", '+' as i32).ok();
     if !pagespec.is_null() {
         select_pages(pagespec, &mut page_ranges);
     }
@@ -414,7 +412,7 @@ pub unsafe fn dvipdfmx_main(
      * annot_grow:    Margin of annotation.
      * bookmark_open: Miximal depth of open bookmarks.
      */
-    pdf_open_document(
+    pdf_doc_mut().open_document(
         pdf_filename,
         do_encryption != 0,
         enable_object_stream,
@@ -443,7 +441,7 @@ pub unsafe fn dvipdfmx_main(
     /* Order of close... */
     pdf_close_device();
     /* pdf_close_document flushes XObject (image) and other resources. */
-    pdf_close_document(); /* pdf_font may depend on fontmap. */
+    pdf_doc_mut().close_document(); /* pdf_font may depend on fontmap. */
     pdf_close_fontmaps();
     dvi_close();
     info!("\n");

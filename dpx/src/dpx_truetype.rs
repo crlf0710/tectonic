@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -57,7 +57,7 @@ use super::dpx_tt_gsub::{
 };
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
-use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, pdf_release_obj, IntoObj, PushObj};
+use crate::dpx_pdfobj::{pdf_obj, IntoRef, PushObj};
 use crate::shims::sprintf;
 use libc::{atoi, free, memcpy, memset, strcpy, strlen};
 
@@ -138,13 +138,6 @@ pub(crate) struct glyph_mapper<'a> {
     pub(crate) sfont: &'a sfnt,
     pub(crate) nametogid: *mut tt_post_table,
 }
-/* tectonic/core-strutils.h: miscellaneous C string utilities
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
-/* Note that we explicitly do *not* change this on Windows. For maximum
- * portability, we should probably accept *either* forward or backward slashes
- * as directory separators. */
 
 /* TrueType */
 /* Modifying this has no effect :P */
@@ -275,12 +268,9 @@ unsafe fn do_widths(font: &mut pdf_font, widths: *mut f64) {
         }
     }
     let fontdict = pdf_font_get_resource(font);
-    let empty = tmparray.is_empty();
-    let tmparray = tmparray.into_obj();
-    if !empty {
-        fontdict.as_dict_mut().set("Widths", pdf_ref_obj(tmparray));
+    if !tmparray.is_empty() {
+        fontdict.as_dict_mut().set("Widths", tmparray.into_ref());
     }
-    pdf_release_obj(tmparray);
     fontdict.as_dict_mut().set("FirstChar", firstchar as f64);
     fontdict.as_dict_mut().set("LastChar", lastchar as f64);
 }
@@ -617,13 +607,13 @@ unsafe fn findcomposite(glyphname: &mut String, gid: *mut u16, gm: &mut glyph_ma
     error
 }
 /* glyphname should not have suffix here */
-unsafe fn findparanoiac(glyphname: *const i8, gid: *mut u16, gm: &mut glyph_mapper) -> i32 {
+unsafe fn findparanoiac(glyphname: &[u8], gid: *mut u16, gm: &mut glyph_mapper) -> i32 {
     let mut idx: u16 = 0_u16;
     let mut error;
     let mut agln = agl_lookup_list(glyphname);
     while !agln.is_null() && idx as i32 == 0 {
         if !(*agln).suffix.is_null() {
-            error = findparanoiac((*agln).name, &mut idx, gm);
+            error = findparanoiac(CStr::from_ptr((*agln).name).to_bytes(), &mut idx, gm);
             if error != 0 {
                 return error;
             }
@@ -740,7 +730,7 @@ unsafe fn resolve_glyph(glyphname: &str, gid: *mut u16, gm: &mut glyph_mapper) -
                 0
             }
         } else {
-            findparanoiac(name.as_ptr(), gid, gm)
+            findparanoiac(name.to_bytes(), gid, gm)
         };
         if error == 0 {
             if let Some(suffix) = suffix {
@@ -977,10 +967,8 @@ pub(crate) unsafe fn pdf_font_load_truetype(font: &mut pdf_font) -> i32 {
     if verbose > 1 {
         info!("[{} bytes]", fontfile.len());
     }
-    let fontfile = fontfile.into_obj();
     (*descriptor)
         .as_dict_mut()
-        .set("FontFile2", pdf_ref_obj(fontfile));
-    pdf_release_obj(fontfile);
+        .set("FontFile2", fontfile.into_ref());
     0
 }

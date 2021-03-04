@@ -1,6 +1,6 @@
 /* This is dvipdfmx, an eXtended version of dvipdfm by Mark A. Wicks.
 
-    Copyright (C) 2002-2016 by Jin-Hwan Cho and Shunsaku Hirata,
+    Copyright (C) 2002-2018 by Jin-Hwan Cho and Shunsaku Hirata,
     the dvipdfmx project team.
 
     Copyright (C) 1998, 1999 by Mark A. Wicks <mwicks@kettering.edu>
@@ -32,11 +32,11 @@ use crate::info;
 use std::io::Read;
 use std::ptr;
 
-use super::dpx_agl::{agl_lookup_list_str, agl_sput_UTF16BE};
+use super::dpx_agl::{agl_lookup_list, agl_sput_UTF16BE};
 use super::dpx_cid::CSI_UNICODE;
 use super::dpx_cmap::{
-    CMap_add_bfchar, CMap_add_codespacerange, CMap_new, CMap_release, CMap_set_CIDSysInfo,
-    CMap_set_name, CMap_set_type, CMap_set_wmode,
+    CMap, CMap_add_bfchar, CMap_add_codespacerange, CMap_set_CIDSysInfo, CMap_set_name,
+    CMap_set_type, CMap_set_wmode,
 };
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
@@ -59,10 +59,7 @@ pub struct pdf_encoding {
     pub resource: *mut pdf_obj,
 }
 use super::dpx_agl::agl_name;
-/* tectonic/core-memory.h: basic dynamic memory helpers
-   Copyright 2016-2018 the Tectonic Project
-   Licensed under the MIT License.
-*/
+
 static mut verbose: u8 = 0_u8;
 
 pub(crate) unsafe fn pdf_encoding_set_verbose(level: i32) {
@@ -503,7 +500,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
 ) -> Option<pdf_stream> {
     assert!(!enc_name.is_empty());
 
-    let mut cmap = CMap_new();
+    let mut cmap = CMap::new();
     CMap_set_name(&mut cmap, &format!("{}-UTF16", enc_name));
     CMap_set_type(&mut cmap, 2);
     CMap_set_wmode(&mut cmap, 0);
@@ -514,12 +511,12 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
         if !(!is_used.is_null() && *is_used.offset(code as isize) == 0) {
             if !(enc_vec[code as usize]).is_empty() {
                 let mut fail_count: i32 = 0;
-                let agln: *mut agl_name = agl_lookup_list_str(&enc_vec[code as usize]);
+                let agln: *mut agl_name = agl_lookup_list(enc_vec[code as usize].as_bytes());
                 /* Adobe glyph naming conventions are not used by viewers,
                  * hence even ligatures (e.g, "f_i") must be explicitly defined
                  */
                 if pdf_get_version() < 5_u32 || agln.is_null() || (*agln).is_predef == 0 {
-                    wbuf[0] = (code & 0xff) as u8;
+                    let c8 = [(code & 0xff) as u8];
                     let mut p = wbuf.as_mut_ptr().offset(1);
                     let endptr = wbuf.as_mut_ptr().offset(1024);
                     let len =
@@ -527,8 +524,8 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                     if len >= 1 && fail_count == 0 {
                         CMap_add_bfchar(
                             &mut cmap,
-                            wbuf.as_mut_ptr(),
-                            1 as size_t,
+                            c8.as_ptr(),
+                            1,
                             wbuf.as_mut_ptr().offset(1),
                             len as size_t,
                         );
@@ -543,7 +540,6 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
     } else {
         CMap_create_stream(&mut cmap)
     };
-    CMap_release(&mut cmap);
     stream
 }
 /* Creates Encoding resource and ToUnicode CMap
@@ -578,7 +574,7 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
         if CMap_parse_check_sig(&mut &handle) < 0 {
             return None;
         }
-        let mut cmap = CMap_new();
+        let mut cmap = CMap::new();
         if CMap_parse(&mut cmap, handle).is_err() {
             warn!("Reading CMap file \"{}\" failed.", ident)
         } else {
@@ -590,7 +586,6 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
                 warn!("Failed to creat ToUnicode CMap stream for \"{}\".", ident)
             }
         }
-        CMap_release(&mut cmap);
         stream
     } else {
         None
