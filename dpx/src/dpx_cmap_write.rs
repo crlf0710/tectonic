@@ -31,9 +31,8 @@ use std::io::Write;
 
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
-use super::dpx_mem::new;
 use crate::dpx_pdfobj::{pdf_dict, pdf_stream, pdf_string, STREAM_COMPRESS};
-use libc::{free, memcmp, memset};
+use libc::memcmp;
 
 use crate::bridge::size_t;
 
@@ -117,7 +116,7 @@ unsafe fn sputx(c: u8, s: &mut Vec<u8>, lim: usize) {
 unsafe fn write_map(
     mtab: *mut mapDef,
     mut count: size_t,
-    codestr: *mut u8,
+    codestr: &mut [u8],
     depth: size_t,
     wbuf: &mut Vec<u8>,
     lim: usize,
@@ -128,7 +127,7 @@ unsafe fn write_map(
     let mut num_blocks: size_t = 0 as size_t;
     let mut c = 0;
     while c < 256 as u64 {
-        *codestr.offset(depth as isize) = (c & 0xff as u64) as u8;
+        codestr[depth as usize] = (c & 0xff as u64) as u8;
         if (*mtab.offset(c as isize)).flag & 1 << 4 != 0 {
             let mtab1 = (*mtab.offset(c as isize)).next;
             count = write_map(
@@ -157,7 +156,7 @@ unsafe fn write_map(
                     } else {
                         wbuf.push(b'<');
                         for i in 0..=depth {
-                            sputx(*codestr.offset(i as isize), wbuf, lim);
+                            sputx(codestr[i as usize], wbuf, lim);
                         }
                         wbuf.push(b'>');
                         wbuf.push(b' ');
@@ -213,14 +212,14 @@ unsafe fn write_map(
             let c = blocks[i as usize].start as size_t;
             wbuf.push(b'<');
             for j in 0..depth {
-                sputx(*codestr.offset(j as isize), wbuf, lim);
+                sputx(codestr[j as usize], wbuf, lim);
             }
             sputx(c as u8, wbuf, lim);
             wbuf.push(b'>');
             wbuf.push(b' ');
             wbuf.push(b'<');
             for j in 0..depth {
-                sputx(*codestr.offset(j as isize), wbuf, lim);
+                sputx(codestr[j as usize], wbuf, lim);
             }
             sputx(
                 c.wrapping_add(blocks[i as usize].count as _) as u8,
@@ -257,19 +256,18 @@ pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
     }
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = stream.get_dict_mut();
-    let mut csi = CMap_get_CIDSysInfo(cmap);
-    if csi.is_null() {
-        csi = if cmap.type_0 != 2 {
-            &mut CSI_IDENTITY
+    let csi = CMap_get_CIDSysInfo(cmap).as_ref().unwrap_or_else(|| {
+        if cmap.type_0 != 2 {
+            &CSI_IDENTITY
         } else {
-            &mut CSI_UNICODE
+            &CSI_UNICODE
         }
-    }
+    });
     if cmap.type_0 != 2 {
         let mut csi_dict = pdf_dict::new();
-        csi_dict.set("Registry", pdf_string::new((*csi).registry.as_bytes()));
-        csi_dict.set("Ordering", pdf_string::new((*csi).ordering.as_bytes()));
-        csi_dict.set("Supplement", (*csi).supplement as f64);
+        csi_dict.set("Registry", pdf_string::new(csi.registry.as_bytes()));
+        csi_dict.set("Ordering", pdf_string::new(csi.ordering.as_bytes()));
+        csi_dict.set("Supplement", csi.supplement as f64);
         stream_dict.set("Type", "CMap");
         stream_dict.set("CMapName", cmap.name.as_str());
         stream_dict.set("CIDSystemInfo", csi_dict);
@@ -280,48 +278,39 @@ pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
     /* TODO:
      * Predefined CMaps need not to be embedded.
      */
-    if !(*cmap).useCMap.is_null() {
+    if !cmap.useCMap.is_null() {
         panic!("UseCMap found (not supported yet)...");
     }
     let mut wbuf = Vec::<u8>::with_capacity(4096);
-    let codestr = new(((*cmap).profile.maxBytesIn as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-    memset(
-        codestr as *mut libc::c_void,
-        0,
-        (*cmap).profile.maxBytesIn as _,
-    );
+    let mut codestr = vec![0_u8; cmap.profile.maxBytesIn as _];
     let lim = 4096
         - ((2_u64).wrapping_mul(
-            (*cmap)
-                .profile
+            cmap.profile
                 .maxBytesIn
-                .wrapping_add((*cmap).profile.maxBytesOut) as _,
+                .wrapping_add(cmap.profile.maxBytesOut) as _,
         ) as usize)
         + 16;
     /* Start CMap */
     stream.add_str("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n");
-    writeln!(wbuf, "/CMapName /{} def", (*cmap).name).unwrap();
-    writeln!(wbuf, "/CMapType {} def", (*cmap).type_0).unwrap();
+    writeln!(wbuf, "/CMapName /{} def", cmap.name).unwrap();
+    writeln!(wbuf, "/CMapType {} def", cmap.type_0).unwrap();
 
-    if (*cmap).wmode != 0 && (*cmap).type_0 != 2 {
-        writeln!(wbuf, "/WMode {} def", (*cmap).wmode).unwrap();
+    if cmap.wmode != 0 && cmap.type_0 != 2 {
+        writeln!(wbuf, "/WMode {} def", cmap.wmode).unwrap();
     }
     writeln!(
         wbuf,
         "/CIDSystemInfo <<\n  /Registry ({})\n  /Ordering ({})\n  /Supplement {}\n>> def",
-        (*csi).registry,
-        (*csi).ordering,
-        (*csi).supplement,
+        csi.registry, csi.ordering, csi.supplement,
     )
     .unwrap();
 
     stream.add_slice(wbuf.as_slice());
     wbuf.clear();
     /* codespacerange */
-    let ranges = (*cmap).codespace.ranges;
-    writeln!(wbuf, "{} begincodespacerange", (*cmap).codespace.num).unwrap();
-    for i in 0..(*cmap).codespace.num as u64 {
+    let ranges = cmap.codespace.ranges;
+    writeln!(wbuf, "{} begincodespacerange", cmap.codespace.num).unwrap();
+    for i in 0..cmap.codespace.num as u64 {
         wbuf.push(b'<');
         for j in 0..(*ranges.offset(i as isize)).dim {
             sputx(
@@ -347,8 +336,9 @@ pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
     wbuf.clear();
     stream.add_str("endcodespacerange\n");
     /* CMap body */
-    if !(*cmap).mapTbl.is_null() {
-        let count = write_map((*cmap).mapTbl, 0, codestr, 0, &mut wbuf, lim, &mut stream) as size_t; /* Top node */
+    if !cmap.mapTbl.is_null() {
+        let count =
+            write_map(cmap.mapTbl, 0, &mut codestr, 0, &mut wbuf, lim, &mut stream) as size_t; /* Top node */
         if count > 0 {
             /* Flush */
             if count > 100 {
@@ -362,6 +352,5 @@ pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
     }
     /* End CMap */
     stream.add_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
-    free(codestr as *mut libc::c_void);
     Some(stream)
 }

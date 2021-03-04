@@ -54,8 +54,8 @@ use super::dpx_cid::{
 };
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{
-    CMap_add_bfchar, CMap_add_cidchar, CMap_add_codespacerange, CMap_cache_add, CMap_cache_find,
-    CMap_new, CMap_release, CMap_set_CIDSysInfo, CMap_set_name, CMap_set_type, CMap_set_wmode,
+    CMap, CMap_add_bfchar, CMap_add_cidchar, CMap_add_codespacerange, CMap_cache_add,
+    CMap_cache_find, CMap_set_CIDSysInfo, CMap_set_name, CMap_set_type, CMap_set_wmode,
 };
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_cs_type2::cs_copy_charstring;
@@ -1236,7 +1236,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
     if cmap_id >= 0 {
         return cmap_id;
     }
-    let mut cmap = CMap_new();
+    let mut cmap = CMap::new();
     CMap_set_name(&mut cmap, &cmap_name);
     CMap_set_type(&mut cmap, 1);
     CMap_set_wmode(&mut cmap, wmode);
@@ -1305,11 +1305,11 @@ unsafe fn create_ToUnicode_stream(
     if font_name.is_empty() || used_glyphs.is_empty() {
         return None;
     }
-    let mut cmap = CMap_new();
+    let mut cmap = CMap::new();
     CMap_set_name(&mut cmap, &format!("{}-UTF16", font_name));
     CMap_set_wmode(&mut cmap, 0);
     CMap_set_type(&mut cmap, 2);
-    CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
+    CMap_set_CIDSysInfo(&mut cmap, &CSI_UNICODE);
     CMap_add_codespacerange(&mut cmap, range_min.as_ptr(), range_max.as_ptr(), 2);
     let mut total_fail_count = 0;
     let mut glyph_count = total_fail_count;
@@ -1350,7 +1350,6 @@ unsafe fn create_ToUnicode_stream(
     } else {
         stream = CMap_create_stream(&mut cmap)
     }
-    CMap_release(&mut cmap);
     stream
 }
 /* Force bold at small text sizes */

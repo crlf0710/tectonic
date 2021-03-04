@@ -35,8 +35,8 @@ use std::ptr;
 use super::dpx_agl::{agl_lookup_list, agl_sput_UTF16BE};
 use super::dpx_cid::CSI_UNICODE;
 use super::dpx_cmap::{
-    CMap_add_bfchar, CMap_add_codespacerange, CMap_new, CMap_release, CMap_set_CIDSysInfo,
-    CMap_set_name, CMap_set_type, CMap_set_wmode,
+    CMap, CMap_add_bfchar, CMap_add_codespacerange, CMap_set_CIDSysInfo, CMap_set_name,
+    CMap_set_type, CMap_set_wmode,
 };
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
@@ -500,7 +500,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
 ) -> Option<pdf_stream> {
     assert!(!enc_name.is_empty());
 
-    let mut cmap = CMap_new();
+    let mut cmap = CMap::new();
     CMap_set_name(&mut cmap, &format!("{}-UTF16", enc_name));
     CMap_set_type(&mut cmap, 2);
     CMap_set_wmode(&mut cmap, 0);
@@ -540,7 +540,6 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
     } else {
         CMap_create_stream(&mut cmap)
     };
-    CMap_release(&mut cmap);
     stream
 }
 /* Creates Encoding resource and ToUnicode CMap
@@ -575,7 +574,7 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
         if CMap_parse_check_sig(&mut &handle) < 0 {
             return None;
         }
-        let mut cmap = CMap_new();
+        let mut cmap = CMap::new();
         if CMap_parse(&mut cmap, handle).is_err() {
             warn!("Reading CMap file \"{}\" failed.", ident)
         } else {
@@ -587,7 +586,6 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
                 warn!("Failed to creat ToUnicode CMap stream for \"{}\".", ident)
             }
         }
-        CMap_release(&mut cmap);
         stream
     } else {
         None

@@ -261,12 +261,12 @@ pub(crate) unsafe fn CIDFont_set_verbose(level: i32) {
 
 /* It does write PDF objects. */
 unsafe fn CIDFont_flush(font: &mut CIDFont) {
-    pdf_release_obj((*font).indirect);
-    (*font).indirect = ptr::null_mut();
-    pdf_release_obj((*font).fontdict);
-    (*font).fontdict = ptr::null_mut();
-    pdf_release_obj((*font).descriptor);
-    (*font).descriptor = ptr::null_mut();
+    pdf_release_obj(font.indirect);
+    font.indirect = ptr::null_mut();
+    pdf_release_obj(font.fontdict);
+    font.fontdict = ptr::null_mut();
+    pdf_release_obj(font.descriptor);
+    font.descriptor = ptr::null_mut();
 }
 impl Drop for CIDFont {
     fn drop(&mut self) {

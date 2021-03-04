@@ -40,8 +40,8 @@ use super::dpx_cff::{
 };
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{
-    CMap_add_bfchar, CMap_add_cidchar, CMap_add_codespacerange, CMap_cache_add, CMap_cache_find,
-    CMap_cache_get, CMap_decode, CMap_get_type, CMap_new, CMap_release, CMap_reverse_decode,
+    CMap, CMap_add_bfchar, CMap_add_cidchar, CMap_add_codespacerange, CMap_cache_add,
+    CMap_cache_find, CMap_cache_get, CMap_decode, CMap_get_type, CMap_reverse_decode,
     CMap_set_CIDSysInfo, CMap_set_name, CMap_set_silent, CMap_set_type, CMap_set_wmode,
 };
 use super::dpx_cmap_write::CMap_create_stream;
@@ -84,7 +84,6 @@ use super::dpx_cff::cff_font;
 
 use super::dpx_tt_post::tt_post_table;
 
-use super::dpx_cmap::CMap;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct cmap12 {
@@ -1046,11 +1045,11 @@ unsafe fn create_ToUnicode_cmap(
     } else {
         false
     };
-    let mut cmap = CMap_new();
+    let mut cmap = CMap::new();
     CMap_set_name(&mut cmap, cmap_name);
     CMap_set_wmode(&mut cmap, 0);
     CMap_set_type(&mut cmap, 2);
-    CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
+    CMap_set_CIDSysInfo(&mut cmap, &CSI_UNICODE);
     CMap_add_codespacerange(
         &mut cmap,
         srange_min.as_ptr(),
@@ -1152,7 +1151,6 @@ unsafe fn create_ToUnicode_cmap(
     } else {
         CMap_create_stream(&mut cmap)
     };
-    CMap_release(&mut cmap);
     stream
 }
 static mut cmap_plat_encs: [cmap_plat_enc_rec; 5] = [
@@ -1289,7 +1287,7 @@ unsafe fn load_base_CMap(
 ) -> i32 {
     let mut cmap_id = CMap_cache_find(cmap_name);
     if cmap_id < 0 {
-        let mut cmap = CMap_new();
+        let mut cmap = CMap::new();
         CMap_set_name(&mut cmap, cmap_name);
         CMap_set_type(&mut cmap, 1);
         CMap_set_wmode(&mut cmap, wmode);
@@ -1417,12 +1415,12 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         if tounicode_add_id >= 0 {
             tounicode_add = CMap_cache_get(tounicode_add_id)
         } else {
-            let mut cmap = CMap_new();
+            let mut cmap = CMap::new();
             CMap_set_name(&mut cmap, &tounicode_add_name);
             CMap_set_type(&mut cmap, 2);
             CMap_set_wmode(&mut cmap, 0);
             CMap_add_codespacerange(&mut cmap, srange_min.as_ptr(), srange_max.as_ptr(), 2);
-            CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
+            CMap_set_CIDSysInfo(&mut cmap, &CSI_UNICODE);
             CMap_add_bfchar(
                 &mut cmap,
                 srange_min.as_mut_ptr(),
