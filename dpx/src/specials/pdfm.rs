@@ -40,7 +40,7 @@ use super::{
     spc_push_object, spc_resume_annot, spc_suspend_annot,
 };
 
-use crate::bridge::{size_t, InFile};
+use crate::bridge::InFile;
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_dvipdfmx::is_xdv;
@@ -326,24 +326,15 @@ unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_string) -> i32 {
     if cmap.is_null() || instring.is_null() {
         return 0;
     }
-    let slice = (*instring).to_bytes();
-    let mut inbufleft = slice.len() as size_t;
-    let mut inbufcur = slice.as_ptr() as *const u8;
+    let mut inbuf = (*instring).to_bytes();
     wbuf[0] = 0xfe_u8;
     wbuf[1] = 0xff_u8;
-    let mut obufcur = wbuf.as_mut_ptr().offset(2);
-    let mut obufleft = (4096 - 2) as size_t;
-    CMap_decode(
-        &*cmap,
-        &mut inbufcur,
-        &mut inbufleft,
-        &mut obufcur,
-        &mut obufleft,
-    );
-    if inbufleft > 0 {
+    let (_, obuf) = CMap_decode(&*cmap, &mut inbuf, &mut wbuf[2..]);
+    if inbuf.len() > 0 {
         return -1;
     }
-    (*instring).set(&wbuf[..(4096_usize - obufleft as usize)]);
+    let len = 4096 - obuf.len();
+    (*instring).set(&wbuf[..len]);
     0
 }
 unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> std::result::Result<(), i32> {

@@ -40,9 +40,8 @@ use super::dpx_cff::{
 };
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{
-    CMap, CMap_add_bfchar, CMap_add_cidchar, CMap_add_codespacerange, CMap_cache_add,
-    CMap_cache_find, CMap_cache_get, CMap_decode, CMap_get_type, CMap_reverse_decode,
-    CMap_set_CIDSysInfo, CMap_set_name, CMap_set_silent, CMap_set_type, CMap_set_wmode,
+    CMap, CMap_cache_add, CMap_cache_find, CMap_cache_get, CMap_decode, CMap_reverse_decode,
+    CMap_set_silent,
 };
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::{dpx_open_dfont_file, dpx_open_opentype_file, dpx_open_truetype_file};
@@ -597,7 +596,7 @@ unsafe fn load_cmap4(
                 wbuf[1] = 0_u8;
                 wbuf[2..4].copy_from_slice(&ch.to_be_bytes());
                 wbuf[4..6].copy_from_slice(&cid.to_be_bytes());
-                CMap_add_cidchar(cmap, wbuf.as_mut_ptr(), 4 as size_t, cid);
+                cmap.add_cidchar(wbuf.as_mut_ptr(), 4 as size_t, cid);
                 if let Some(tounicode_add) = tounicode_add.as_mut() {
                     let mut p: *mut u8 = wbuf.as_mut_ptr().offset(6);
                     let uc_len = UC_UTF16BE_encode_char(
@@ -605,8 +604,7 @@ unsafe fn load_cmap4(
                         &mut p,
                         wbuf.as_mut_ptr().offset(1024).offset(-1),
                     );
-                    CMap_add_bfchar(
-                        tounicode_add,
+                    tounicode_add.add_bfchar(
                         wbuf.as_mut_ptr().offset(4),
                         2 as size_t,
                         wbuf.as_mut_ptr().offset(6),
@@ -655,7 +653,7 @@ unsafe fn load_cmap12(
             }
             wbuf[0..4].copy_from_slice(&ch.to_be_bytes());
             wbuf[4..6].copy_from_slice(&cid.to_be_bytes());
-            CMap_add_cidchar(cmap, wbuf.as_mut_ptr(), 4 as size_t, cid);
+            cmap.add_cidchar(wbuf.as_mut_ptr(), 4 as size_t, cid);
             if let Some(tounicode_add) = tounicode_add.as_mut() {
                 let mut p: *mut u8 = wbuf.as_mut_ptr().offset(6);
                 let uc_len = UC_UTF16BE_encode_char(
@@ -663,8 +661,7 @@ unsafe fn load_cmap12(
                     &mut p,
                     wbuf.as_mut_ptr().offset(1024).offset(-1),
                 );
-                CMap_add_bfchar(
-                    tounicode_add,
+                tounicode_add.add_bfchar(
                     wbuf.as_mut_ptr().offset(4),
                     2 as size_t,
                     wbuf.as_mut_ptr().offset(6),
@@ -857,8 +854,7 @@ unsafe fn handle_subst_glyphs(
                                 )
                                     as _) as size_t as size_t;
                             }
-                            CMap_add_bfchar(
-                                cmap,
+                            cmap.add_bfchar(
                                 gid.to_be_bytes().as_ptr(),
                                 2,
                                 wbuf.as_mut_ptr().offset(2),
@@ -868,23 +864,13 @@ unsafe fn handle_subst_glyphs(
                     } else {
                         wbuf[0] = (gid as i32 >> 8 & 0xff) as u8;
                         wbuf[1] = (gid as i32 & 0xff) as u8;
-                        let mut inbuf = wbuf.as_mut_ptr() as *const u8;
-                        let mut inbytesleft = 2 as size_t;
-                        let mut outbuf = wbuf.as_mut_ptr().offset(2);
-                        let mut outbytesleft = (1024 - 2) as size_t;
-                        CMap_decode(
-                            &*cmap_add,
-                            &mut inbuf,
-                            &mut inbytesleft,
-                            &mut outbuf,
-                            &mut outbytesleft,
-                        );
-                        if inbytesleft != 0 {
+                        let mut inbuf = &wbuf[..2];
+                        let (_, outbuf) = CMap_decode(&*cmap_add, &mut inbuf, &mut wbuf[2..1024]);
+                        if inbuf.len() != 0 {
                             warn!("CMap conversion failed...");
                         } else {
-                            let len = ((1024 - 2) as u64).wrapping_sub(outbytesleft as u64);
-                            CMap_add_bfchar(
-                                cmap,
+                            let len = ((1024 - 2) as u64).wrapping_sub(outbuf.len() as u64);
+                            cmap.add_bfchar(
                                 wbuf.as_mut_ptr(),
                                 2 as size_t,
                                 wbuf.as_mut_ptr().offset(2),
@@ -939,8 +925,7 @@ unsafe fn add_to_cmap_if_used(
         let mut p: *mut u8 = wbuf.as_mut_ptr().offset(2);
         count = count.wrapping_add(1);
         let len = UC_UTF16BE_encode_char(ch as i32, &mut p, wbuf.as_mut_ptr().offset(1024)) as i32;
-        CMap_add_bfchar(
-            cmap,
+        cmap.add_bfchar(
             cid.to_be_bytes().as_ptr(),
             2,
             wbuf.as_mut_ptr().offset(2),
@@ -1046,16 +1031,11 @@ unsafe fn create_ToUnicode_cmap(
         false
     };
     let mut cmap = CMap::new();
-    CMap_set_name(&mut cmap, cmap_name);
-    CMap_set_wmode(&mut cmap, 0);
-    CMap_set_type(&mut cmap, 2);
-    CMap_set_CIDSysInfo(&mut cmap, &CSI_UNICODE);
-    CMap_add_codespacerange(
-        &mut cmap,
-        srange_min.as_ptr(),
-        srange_max.as_ptr(),
-        2 as size_t,
-    );
+    cmap.set_name(cmap_name);
+    cmap.set_wmode(0);
+    cmap.set_type(2);
+    cmap.set_CIDSysInfo(&CSI_UNICODE);
+    cmap.add_codespacerange(srange_min.as_ptr(), srange_max.as_ptr(), 2 as size_t);
     /* cmap_add here stores information about all unencoded glyphs which can be
      * accessed only through OT Layout GSUB table.
      */
@@ -1074,8 +1054,7 @@ unsafe fn create_ToUnicode_cmap(
                             let len =
                                 UC_UTF16BE_encode_char(ch, &mut p, wbuf.as_mut_ptr().offset(1024))
                                     as i32;
-                            CMap_add_bfchar(
-                                &mut cmap,
+                            cmap.add_bfchar(
                                 cid.to_be_bytes()[..].as_ptr(),
                                 2,
                                 wbuf.as_ptr().offset(2),
@@ -1229,7 +1208,7 @@ pub(crate) unsafe fn otf_create_ToUnicode_stream(
         panic!("Could not read OpenType/TrueType table directory.");
     }
     let mut code_to_cid_cmap = CMap_cache_get(cmap_id);
-    let cmap_type = CMap_get_type(&*code_to_cid_cmap);
+    let cmap_type = (*code_to_cid_cmap).get_type();
     if cmap_type != 1 {
         code_to_cid_cmap = ptr::null_mut()
     }
@@ -1279,7 +1258,7 @@ unsafe fn load_base_CMap(
     cmap_name: &str,
     tounicode_add: *mut CMap,
     wmode: i32,
-    csi: *mut CIDSysInfo,
+    csi: Option<&CIDSysInfo>,
     GIDToCIDMap: *mut u8,
     gsub_vert: *mut otl_gsub,
     gsub_list: *mut otl_gsub,
@@ -1288,20 +1267,15 @@ unsafe fn load_base_CMap(
     let mut cmap_id = CMap_cache_find(cmap_name);
     if cmap_id < 0 {
         let mut cmap = CMap::new();
-        CMap_set_name(&mut cmap, cmap_name);
-        CMap_set_type(&mut cmap, 1);
-        CMap_set_wmode(&mut cmap, wmode);
-        CMap_add_codespacerange(
-            &mut cmap,
-            lrange_min.as_ptr(),
-            lrange_max.as_ptr(),
-            4 as size_t,
-        );
-        if !csi.is_null() {
+        cmap.set_name(cmap_name);
+        cmap.set_type(1);
+        cmap.set_wmode(wmode);
+        cmap.add_codespacerange(lrange_min.as_ptr(), lrange_max.as_ptr(), 4 as size_t);
+        if let Some(csi) = csi {
             /* CID */
-            CMap_set_CIDSysInfo(&mut cmap, csi);
+            cmap.set_CIDSysInfo(csi);
         } else {
-            CMap_set_CIDSysInfo(&mut cmap, &mut CSI_IDENTITY);
+            cmap.set_CIDSysInfo(&CSI_IDENTITY);
         }
         if (*ttcmap).format as i32 == 12 {
             load_cmap12(
@@ -1416,18 +1390,12 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
             tounicode_add = CMap_cache_get(tounicode_add_id)
         } else {
             let mut cmap = CMap::new();
-            CMap_set_name(&mut cmap, &tounicode_add_name);
-            CMap_set_type(&mut cmap, 2);
-            CMap_set_wmode(&mut cmap, 0);
-            CMap_add_codespacerange(&mut cmap, srange_min.as_ptr(), srange_max.as_ptr(), 2);
-            CMap_set_CIDSysInfo(&mut cmap, &CSI_UNICODE);
-            CMap_add_bfchar(
-                &mut cmap,
-                srange_min.as_mut_ptr(),
-                2,
-                srange_max.as_mut_ptr(),
-                2,
-            );
+            cmap.set_name(&tounicode_add_name);
+            cmap.set_type(2);
+            cmap.set_wmode(0);
+            cmap.add_codespacerange(srange_min.as_ptr(), srange_max.as_ptr(), 2);
+            cmap.set_CIDSysInfo(&CSI_UNICODE);
+            cmap.add_bfchar(srange_min.as_mut_ptr(), 2, srange_max.as_mut_ptr(), 2);
             tounicode_add = CMap_cache_get(CMap_cache_add(Box::new(cmap)));
         }
     } else {
@@ -1499,11 +1467,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         &cmap_name,
         tounicode_add,
         wmode,
-        if is_cidfont != 0 {
-            &mut csi
-        } else {
-            ptr::null_mut()
-        },
+        if is_cidfont != 0 { Some(&csi) } else { None },
         GIDToCIDMap,
         gsub_vert,
         gsub_list,

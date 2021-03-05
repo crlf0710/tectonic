@@ -936,9 +936,8 @@ impl pdf_string {
  * characters in an output string.
  */
 
-pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut Vec<u8>, s: *const u8, len: size_t) {
-    for i in 0..len {
-        let ch = *s.offset(i as isize);
+pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut Vec<u8>, s: &[u8]) {
+    for &ch in s {
         /*
          * We always write three octal digits. Optimization only gives few Kb
          * smaller size for most documents when zlib compressed.
@@ -1014,7 +1013,10 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
          */
         let mut wbuf = Vec::new();
         for i in 0..len {
-            pdfobj_escape_str(&mut wbuf, &mut *s.offset(i as isize), 1 as size_t);
+            pdfobj_escape_str(
+                &mut wbuf,
+                std::slice::from_raw_parts(s.offset(i as isize), 1),
+            );
             pdf_out(handle, wbuf.as_slice());
             wbuf.clear();
         }

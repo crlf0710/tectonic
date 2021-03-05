@@ -34,10 +34,7 @@ use std::ptr;
 
 use super::dpx_agl::{agl_lookup_list, agl_sput_UTF16BE};
 use super::dpx_cid::CSI_UNICODE;
-use super::dpx_cmap::{
-    CMap, CMap_add_bfchar, CMap_add_codespacerange, CMap_set_CIDSysInfo, CMap_set_name,
-    CMap_set_type, CMap_set_wmode,
-};
+use super::dpx_cmap::CMap;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
@@ -501,11 +498,11 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
     assert!(!enc_name.is_empty());
 
     let mut cmap = CMap::new();
-    CMap_set_name(&mut cmap, &format!("{}-UTF16", enc_name));
-    CMap_set_type(&mut cmap, 2);
-    CMap_set_wmode(&mut cmap, 0);
-    CMap_set_CIDSysInfo(&mut cmap, &mut CSI_UNICODE);
-    CMap_add_codespacerange(&mut cmap, range_min.as_ptr(), range_max.as_ptr(), 1);
+    cmap.set_name(&format!("{}-UTF16", enc_name));
+    cmap.set_type(2);
+    cmap.set_wmode(0);
+    cmap.set_CIDSysInfo(&CSI_UNICODE);
+    cmap.add_codespacerange(range_min.as_ptr(), range_max.as_ptr(), 1);
     let mut all_predef = 1;
     for code in 0..=0xff {
         if !(!is_used.is_null() && *is_used.offset(code as isize) == 0) {
@@ -522,13 +519,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                     let len =
                         agl_sput_UTF16BE(&enc_vec[code as usize], &mut p, endptr, &mut fail_count);
                     if len >= 1 && fail_count == 0 {
-                        CMap_add_bfchar(
-                            &mut cmap,
-                            c8.as_ptr(),
-                            1,
-                            wbuf.as_mut_ptr().offset(1),
-                            len as size_t,
-                        );
+                        cmap.add_bfchar(c8.as_ptr(), 1, wbuf.as_mut_ptr().offset(1), len as size_t);
                         all_predef &= (!agln.is_null() && (*agln).is_predef != 0) as i32
                     }
                 }

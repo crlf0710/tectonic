@@ -30,7 +30,6 @@ use crate::warn;
 use std::io::Write;
 
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
-use super::dpx_cmap::{CMap_get_CIDSysInfo, CMap_is_valid};
 use crate::dpx_pdfobj::{pdf_dict, pdf_stream, pdf_string, STREAM_COMPRESS};
 use libc::memcmp;
 
@@ -247,7 +246,7 @@ unsafe fn write_map(
 }
 
 pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
-    if !CMap_is_valid(cmap) {
+    if !cmap.is_valid() {
         warn!("Invalid CMap");
         return None;
     }
@@ -256,7 +255,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
     }
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = stream.get_dict_mut();
-    let csi = CMap_get_CIDSysInfo(cmap).as_ref().unwrap_or_else(|| {
+    let csi = cmap.get_CIDSysInfo().unwrap_or_else(|| {
         if cmap.type_0 != 2 {
             &CSI_IDENTITY
         } else {

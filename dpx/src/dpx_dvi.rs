@@ -37,7 +37,6 @@ use std::ffi::{CStr, CString};
 use super::dpx_sfnt::{
     dfont_open, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
 };
-use crate::bridge::size_t;
 use crate::mfree;
 use crate::warn;
 
@@ -1079,7 +1078,6 @@ pub(crate) unsafe fn dvi_down(y: i32) {
  */
 
 pub(crate) unsafe fn dvi_set(ch: i32) {
-    let mut wbuf: [u8; 4] = [0; 4];
     if current_font < 0 {
         panic!("No font selected!");
     }
@@ -1094,7 +1092,7 @@ pub(crate) unsafe fn dvi_set(ch: i32) {
     let mut width = tfm_get_fw_width(font.tfm_id, ch);
     width = sqxfw(font.size, width);
     if lr_mode >= 2 {
-        lr_width = (lr_width as u32).wrapping_add(width as u32) as u32;
+        lr_width += width as u32;
         return;
     }
     if lr_mode == 1 {
@@ -1104,56 +1102,32 @@ pub(crate) unsafe fn dvi_set(ch: i32) {
         1 => {
             if ch > 65535 {
                 /* _FIXME_ */
-                wbuf[0] = (0xd800 + (ch - 0x10000 >> 10 & 0x3ff) >> 8 & 0xff) as u8;
-                wbuf[1] = (0xd800 + (ch - 0x10000 >> 10 & 0x3ff) & 0xff) as u8;
-                wbuf[2] = (0xdc00 + (ch & 0x3ff) >> 8 & 0xff) as u8;
-                wbuf[3] = (0xdc00 + (ch & 0x3ff) & 0xff) as u8;
+                let wbuf = [
+                    (0xd800 + (ch - 0x10000 >> 10 & 0x3ff) >> 8 & 0xff) as u8,
+                    (0xd800 + (ch - 0x10000 >> 10 & 0x3ff) & 0xff) as u8,
+                    (0xdc00 + (ch & 0x3ff) >> 8 & 0xff) as u8,
+                    (0xdc00 + (ch & 0x3ff) & 0xff) as u8,
+                ];
                 pdf_dev_set_string(
                     dvi_state.h,
                     -dvi_state.v,
-                    wbuf.as_mut_ptr() as *const libc::c_void,
-                    4 as size_t,
+                    &wbuf[..4],
                     width,
                     font.font_id,
                     2,
                 );
             } else if ch > 255 {
                 /* _FIXME_ */
-                wbuf[0] = (ch >> 8 & 0xff) as u8; /* push/pop invoked */
-                wbuf[1] = (ch & 0xff) as u8;
-                pdf_dev_set_string(
-                    dvi_state.h,
-                    -dvi_state.v,
-                    wbuf.as_mut_ptr() as *const libc::c_void,
-                    2 as size_t,
-                    width,
-                    font.font_id,
-                    2,
-                );
+                /* push/pop invoked */
+                let wbuf = [(ch >> 8 & 0xff) as u8, (ch & 0xff) as u8];
+                pdf_dev_set_string(dvi_state.h, -dvi_state.v, &wbuf, width, font.font_id, 2);
             } else if font.subfont_id >= 0 {
                 let uch: u16 = lookup_sfd_record(font.subfont_id, ch as u8);
-                wbuf[0] = (uch as i32 >> 8 & 0xff) as u8;
-                wbuf[1] = (uch as i32 & 0xff) as u8;
-                pdf_dev_set_string(
-                    dvi_state.h,
-                    -dvi_state.v,
-                    wbuf.as_mut_ptr() as *const libc::c_void,
-                    2 as size_t,
-                    width,
-                    font.font_id,
-                    2,
-                );
+                let wbuf = [(uch as i32 >> 8 & 0xff) as u8, (uch as i32 & 0xff) as u8];
+                pdf_dev_set_string(dvi_state.h, -dvi_state.v, &wbuf, width, font.font_id, 2);
             } else {
-                wbuf[0] = ch as u8;
-                pdf_dev_set_string(
-                    dvi_state.h,
-                    -dvi_state.v,
-                    wbuf.as_mut_ptr() as *const libc::c_void,
-                    1 as size_t,
-                    width,
-                    font.font_id,
-                    1,
-                );
+                let wbuf = [ch as u8];
+                pdf_dev_set_string(dvi_state.h, -dvi_state.v, &wbuf, width, font.font_id, 1);
             }
             if dvi_is_tracking_boxes() {
                 let mut rect = Rect::zero();
@@ -1176,7 +1150,6 @@ pub(crate) unsafe fn dvi_set(ch: i32) {
 }
 
 pub(crate) unsafe fn dvi_put(ch: i32) {
-    let mut wbuf: [u8; 4] = [0; 4];
     if current_font < 0 {
         panic!("No font selected!");
     }
@@ -1190,56 +1163,24 @@ pub(crate) unsafe fn dvi_put(ch: i32) {
              */
             if ch > 65535 {
                 /* _FIXME_ */
-                wbuf[0] = (0xd800 + (ch - 0x10000 >> 10 & 0x3ff) >> 8 & 0xff) as u8;
-                wbuf[1] = (0xd800 + (ch - 0x10000 >> 10 & 0x3ff) & 0xff) as u8;
-                wbuf[2] = (0xdc00 + (ch & 0x3ff) >> 8 & 0xff) as u8;
-                wbuf[3] = (0xdc00 + (ch & 0x3ff) & 0xff) as u8;
-                pdf_dev_set_string(
-                    dvi_state.h,
-                    -dvi_state.v,
-                    wbuf.as_mut_ptr() as *const libc::c_void,
-                    4 as size_t,
-                    width,
-                    font.font_id,
-                    2,
-                );
+                let wbuf = [
+                    (0xd800 + (ch - 0x10000 >> 10 & 0x3ff) >> 8 & 0xff) as u8,
+                    (0xd800 + (ch - 0x10000 >> 10 & 0x3ff) & 0xff) as u8,
+                    (0xdc00 + (ch & 0x3ff) >> 8 & 0xff) as u8,
+                    (0xdc00 + (ch & 0x3ff) & 0xff) as u8,
+                ];
+                pdf_dev_set_string(dvi_state.h, -dvi_state.v, &wbuf, width, font.font_id, 2);
             } else if ch > 255 {
                 /* _FIXME_ */
-                wbuf[0] = (ch >> 8 & 0xff) as u8;
-                wbuf[1] = (ch & 0xff) as u8;
-                pdf_dev_set_string(
-                    dvi_state.h,
-                    -dvi_state.v,
-                    wbuf.as_mut_ptr() as *const libc::c_void,
-                    2 as size_t,
-                    width,
-                    font.font_id,
-                    2,
-                );
+                let wbuf = [(ch >> 8 & 0xff) as u8, (ch & 0xff) as u8];
+                pdf_dev_set_string(dvi_state.h, -dvi_state.v, &wbuf, width, font.font_id, 2);
             } else if font.subfont_id >= 0 {
                 let uch = lookup_sfd_record(font.subfont_id, ch as u8) as u32;
-                wbuf[0] = (uch >> 8 & 0xff_u32) as u8;
-                wbuf[1] = (uch & 0xff_u32) as u8;
-                pdf_dev_set_string(
-                    dvi_state.h,
-                    -dvi_state.v,
-                    wbuf.as_mut_ptr() as *const libc::c_void,
-                    2 as size_t,
-                    width,
-                    font.font_id,
-                    2,
-                );
+                let wbuf = [(uch >> 8 & 0xff_u32) as u8, (uch & 0xff_u32) as u8];
+                pdf_dev_set_string(dvi_state.h, -dvi_state.v, &wbuf, width, font.font_id, 2);
             } else {
-                wbuf[0] = ch as u8;
-                pdf_dev_set_string(
-                    dvi_state.h,
-                    -dvi_state.v,
-                    wbuf.as_mut_ptr() as *const libc::c_void,
-                    1 as size_t,
-                    width,
-                    font.font_id,
-                    1,
-                );
+                let wbuf = [ch as u8];
+                pdf_dev_set_string(dvi_state.h, -dvi_state.v, &wbuf, width, font.font_id, 1);
             }
             if dvi_is_tracking_boxes() {
                 let mut rect = Rect::zero();
@@ -1639,8 +1580,7 @@ unsafe fn do_glyphs(do_actual_text: i32) {
         pdf_dev_set_string(
             dvi_state.h + *xloc.offset(i as isize),
             -dvi_state.v - *yloc.offset(i as isize),
-            wbuf.as_ptr() as *const libc::c_void,
-            2 as size_t,
+            &wbuf,
             glyph_width,
             font.font_id,
             -1,

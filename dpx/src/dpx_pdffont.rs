@@ -32,8 +32,8 @@ use super::dpx_agl::{agl_close_map, agl_init_map, agl_set_verbose};
 use super::dpx_cid::CIDFont_set_verbose;
 use super::dpx_cidtype0::t1_load_UnicodeCMap;
 use super::dpx_cmap::{
-    CMap_cache_close, CMap_cache_find, CMap_cache_get, CMap_cache_init, CMap_get_name,
-    CMap_get_profile, CMap_get_type, CMap_set_verbose,
+    CMap_cache_close, CMap_cache_find, CMap_cache_get, CMap_cache_init, CMap_get_profile,
+    CMap_set_verbose,
 };
 use super::dpx_fontmap::fontmap;
 use super::dpx_mem::new;
@@ -503,7 +503,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                     cmap_id = CMap_cache_find(&enc_name);
                     if cmap_id >= 0 {
                         let cmap = CMap_cache_get(cmap_id);
-                        let cmap_type = CMap_get_type(&*cmap);
+                        let cmap_type = (*cmap).get_type();
                         let minbytes = CMap_get_profile(&*cmap, 0);
                         /*
                          * Check for output encoding.
@@ -519,7 +519,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                                 info!("\n");
                                 info!(
                                     "pdf_font>> Input encoding \"{}\" requires at least 2 bytes.\n",
-                                    CMap_get_name(&*cmap)
+                                    (*cmap).get_name()
                                 );
                                 info!(
                                     "pdf_font>> The -m <00> option will be assumed for \"{}\".\n",

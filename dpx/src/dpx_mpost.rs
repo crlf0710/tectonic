@@ -67,7 +67,6 @@ use libc::{atof, free, strtod};
 
 pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
-use crate::bridge::size_t;
 
 pub(crate) type spt_t = i32;
 
@@ -627,8 +626,7 @@ unsafe fn do_show() -> i32 {
                 pdf_dev_set_string(
                     (cp.x * dev_unit_dviunit()) as spt_t,
                     (cp.y * dev_unit_dviunit()) as spt_t,
-                    ustr.as_ptr() as *const libc::c_void,
-                    ustr.len() as size_t,
+                    &ustr,
                     (text_width * dev_unit_dviunit()) as spt_t,
                     (*font).font_id,
                     0,
@@ -641,8 +639,7 @@ unsafe fn do_show() -> i32 {
                 pdf_dev_set_string(
                     (cp.x * dev_unit_dviunit()) as spt_t,
                     (cp.y * dev_unit_dviunit()) as spt_t,
-                    text.as_ptr() as *const libc::c_void,
-                    text.len() as size_t,
+                    text,
                     (text_width * dev_unit_dviunit()) as spt_t,
                     (*font).font_id,
                     0,
