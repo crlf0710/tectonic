@@ -37,7 +37,6 @@ use crate::bridge::ttstub_input_get_size;
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj, IntoRef, PushObj, STREAM_COMPRESS};
 use libc::memset;
 
-use crate::bridge::size_t;
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
@@ -393,8 +392,8 @@ unsafe fn read_exif_bytes(pp: &mut *mut u8, n: i32, endian: i32) -> i32 {
 unsafe fn read_APP1_Exif<R: Read>(
     mut info: *mut JPEG_info,
     handle: &mut R,
-    length: size_t,
-) -> size_t {
+    length: usize,
+) -> usize {
     let bigendian: i8;
     let mut type_0;
     let mut value;
@@ -573,14 +572,14 @@ unsafe fn read_APP1_Exif<R: Read>(
 
     length
 }
-unsafe fn read_APP0_JFIF<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> size_t {
+unsafe fn read_APP0_JFIF<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> usize {
     let version = u16::get(handle);
     let units = u8::get(handle);
     let Xdensity = u16::get(handle);
     let Ydensity = u16::get(handle);
     let Xthumbnail = u8::get(handle);
     let Ythumbnail = u8::get(handle);
-    let thumb_data_len = (3 * Xthumbnail as i32 * Ythumbnail as i32) as size_t;
+    let thumb_data_len = (3 * Xthumbnail as i32 * Ythumbnail as i32) as usize;
     let mut thumbnail = vec![0; thumb_data_len as usize];
     if thumb_data_len > 0 {
         handle.read_exact(&mut thumbnail).unwrap();
@@ -615,7 +614,7 @@ unsafe fn read_APP0_JFIF<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> siz
     }
     (9 as u64).wrapping_add(thumb_data_len as _) as _
 }
-unsafe fn read_APP0_JFXX<R: Read + Seek>(handle: &mut R, length: size_t) -> size_t {
+unsafe fn read_APP0_JFXX<R: Read + Seek>(handle: &mut R, length: usize) -> usize {
     u8::get(handle);
     /* Extension Code:
      *
@@ -627,14 +626,14 @@ unsafe fn read_APP0_JFXX<R: Read + Seek>(handle: &mut R, length: size_t) -> size
     /* Ignore */
     return length; /* Starting at 1 */
 }
-unsafe fn read_APP1_XMP<R: Read>(j_info: *mut JPEG_info, handle: &mut R, length: size_t) -> size_t {
+unsafe fn read_APP1_XMP<R: Read>(j_info: *mut JPEG_info, handle: &mut R, length: usize) -> usize {
     let mut packet = vec![0; length];
     handle.read_exact(&mut packet).unwrap();
     let app_data = Box::new(JPEG_APPn_XMP { packet });
     add_APPn_marker(j_info, JM_APP1, AppData::XMP(app_data));
     length
 }
-unsafe fn read_APP2_ICC<R: Read>(j_info: *mut JPEG_info, handle: &mut R, length: size_t) -> size_t {
+unsafe fn read_APP2_ICC<R: Read>(j_info: *mut JPEG_info, handle: &mut R, length: usize) -> usize {
     let seq_id = u8::get(handle);
     let num_chunks = u8::get(handle);
     let mut chunk = vec![0; length as usize - 2];
@@ -771,7 +770,7 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
                         } else if app_sig.starts_with(b"JFXX\x00") {
                             length =
                                 (length as u64)
-                                    .wrapping_sub(read_APP0_JFXX(handle, length as size_t) as _)
+                                    .wrapping_sub(read_APP0_JFXX(handle, length as usize) as _)
                                     as i32 as i32
                         }
                     }
@@ -788,7 +787,7 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
                             length = (length as u64).wrapping_sub(read_APP1_Exif(
                                 j_info,
                                 handle,
-                                length as size_t,
+                                length as usize,
                             )
                                 as _) as i32 as i32
                         } else if app_sig.starts_with(b"http:") && length > 24 {
@@ -801,7 +800,7 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
                                 length = (length as u64).wrapping_sub(read_APP1_XMP(
                                     j_info,
                                     handle,
-                                    length as size_t,
+                                    length as usize,
                                 )
                                     as _) as i32 as i32;
                                 if count < 1024 {
@@ -826,7 +825,7 @@ unsafe fn JPEG_scan_file<R: Read + Seek>(mut j_info: *mut JPEG_info, handle: &mu
                             length = (length as u64).wrapping_sub(read_APP2_ICC(
                                 j_info,
                                 handle,
-                                length as size_t,
+                                length as usize,
                             )
                                 as _) as i32 as i32;
                             if count < 1024 {

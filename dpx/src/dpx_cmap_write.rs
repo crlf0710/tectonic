@@ -33,8 +33,6 @@ use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use crate::dpx_pdfobj::{pdf_dict, pdf_stream, pdf_string, STREAM_COMPRESS};
 use libc::memcmp;
 
-use crate::bridge::size_t;
-
 use super::dpx_cmap::mapDef;
 use super::dpx_cmap::CMap;
 
@@ -58,8 +56,8 @@ pub(crate) struct C2RustUnnamed_1 {
     pub(crate) start: i32,
     pub(crate) count: i32,
 }
-unsafe fn block_count(mtab: *mut mapDef, mut c: i32) -> size_t {
-    let mut count: size_t = 0 as size_t;
+unsafe fn block_count(mtab: *mut mapDef, mut c: i32) -> usize {
+    let mut count = 0;
     let n = (*mtab.offset(c as isize)).len.wrapping_sub(1);
     c += 1;
     while c < 256 {
@@ -86,7 +84,7 @@ unsafe fn block_count(mtab: *mut mapDef, mut c: i32) -> size_t {
         {
             break;
         }
-        count = count.wrapping_add(1);
+        count += 1;
         c += 1
     }
     count
@@ -114,16 +112,16 @@ unsafe fn sputx(c: u8, s: &mut Vec<u8>, lim: usize) {
 }
 unsafe fn write_map(
     mtab: *mut mapDef,
-    mut count: size_t,
+    mut count: usize,
     codestr: &mut [u8],
-    depth: size_t,
+    depth: usize,
     wbuf: &mut Vec<u8>,
     lim: usize,
     stream: &mut pdf_stream,
 ) -> i32 {
     /* Must be greater than 1 */
     let mut blocks: [C2RustUnnamed_1; 129] = [C2RustUnnamed_1 { start: 0, count: 0 }; 129];
-    let mut num_blocks: size_t = 0 as size_t;
+    let mut num_blocks = 0;
     let mut c = 0;
     while c < 256 as u64 {
         codestr[depth as usize] = (c & 0xff as u64) as u8;
@@ -137,7 +135,7 @@ unsafe fn write_map(
                 wbuf,
                 lim,
                 stream,
-            ) as size_t
+            ) as usize
         } else if if (*mtab.offset(c as isize)).flag & 0xf != 0 {
             1
         } else {
@@ -148,9 +146,9 @@ unsafe fn write_map(
                 1 | 4 => {
                     let block_length = block_count(mtab, c as i32);
                     if block_length >= 2 {
-                        blocks[num_blocks as usize].start = c as i32;
-                        blocks[num_blocks as usize].count = block_length as i32;
-                        num_blocks = num_blocks.wrapping_add(1);
+                        blocks[num_blocks].start = c as i32;
+                        blocks[num_blocks].count = block_length as i32;
+                        num_blocks += 1;
                         c = (c as u64).wrapping_add(block_length as _) as _
                     } else {
                         wbuf.push(b'<');
@@ -194,7 +192,7 @@ unsafe fn write_map(
             stream.add_slice(wbuf.as_slice());
             wbuf.clear();
             stream.add_str("endbfchar\n");
-            count = 0 as size_t
+            count = 0;
         }
         c = c.wrapping_add(1)
     }
@@ -204,11 +202,11 @@ unsafe fn write_map(
             stream.add_slice(wbuf.as_slice());
             wbuf.clear();
             stream.add_str("endbfchar\n");
-            count = 0 as size_t
+            count = 0;
         }
         stream.add_str(&format!("{} beginbfrange\n", num_blocks));
         for i in 0..num_blocks {
-            let c = blocks[i as usize].start as size_t;
+            let c = blocks[i].start as usize;
             wbuf.push(b'<');
             for j in 0..depth {
                 sputx(codestr[j as usize], wbuf, lim);
@@ -220,11 +218,7 @@ unsafe fn write_map(
             for j in 0..depth {
                 sputx(codestr[j as usize], wbuf, lim);
             }
-            sputx(
-                c.wrapping_add(blocks[i as usize].count as _) as u8,
-                wbuf,
-                lim,
-            );
+            sputx(c.wrapping_add(blocks[i].count as _) as u8, wbuf, lim);
             wbuf.push(b'>');
             wbuf.push(b' ');
             wbuf.push(b'<');
@@ -307,26 +301,17 @@ pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
     stream.add_slice(wbuf.as_slice());
     wbuf.clear();
     /* codespacerange */
-    let ranges = cmap.codespace.ranges;
-    writeln!(wbuf, "{} begincodespacerange", cmap.codespace.num).unwrap();
-    for i in 0..cmap.codespace.num as u64 {
+    writeln!(wbuf, "{} begincodespacerange", cmap.codespace.len()).unwrap();
+    for csr in &cmap.codespace {
         wbuf.push(b'<');
-        for j in 0..(*ranges.offset(i as isize)).dim {
-            sputx(
-                *(*ranges.offset(i as isize)).codeLo.offset(j as isize),
-                &mut wbuf,
-                lim,
-            );
+        for j in 0..csr.dim {
+            sputx(*csr.codeLo.offset(j as isize), &mut wbuf, lim);
         }
         wbuf.push(b'>');
         wbuf.push(b' ');
         wbuf.push(b'<');
-        for j in 0..(*ranges.offset(i as isize)).dim {
-            sputx(
-                *(*ranges.offset(i as isize)).codeHi.offset(j as isize),
-                &mut wbuf,
-                lim,
-            );
+        for j in 0..csr.dim {
+            sputx(*csr.codeHi.offset(j as isize), &mut wbuf, lim);
         }
         wbuf.push(b'>');
         wbuf.push(b'\n');
@@ -337,7 +322,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
     /* CMap body */
     if !cmap.mapTbl.is_null() {
         let count =
-            write_map(cmap.mapTbl, 0, &mut codestr, 0, &mut wbuf, lim, &mut stream) as size_t; /* Top node */
+            write_map(cmap.mapTbl, 0, &mut codestr, 0, &mut wbuf, lim, &mut stream) as usize; /* Top node */
         if count > 0 {
             /* Flush */
             if count > 100 {

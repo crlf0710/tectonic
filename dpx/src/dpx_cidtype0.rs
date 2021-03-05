@@ -78,8 +78,6 @@ use libc::{free, memset};
 
 use std::io::{Read, Seek, SeekFrom};
 
-use crate::bridge::size_t;
-
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
 use super::dpx_sfnt::sfnt;
@@ -1329,7 +1327,7 @@ unsafe fn create_ToUnicode_stream(
                             cid.to_be_bytes().as_ptr(),
                             2,
                             wbuf.as_mut_ptr().offset(2),
-                            len as size_t,
+                            len as usize,
                         );
                     }
                 }

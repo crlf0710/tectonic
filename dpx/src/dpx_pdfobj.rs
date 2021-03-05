@@ -47,7 +47,7 @@ use libc::{strlen, strtoul};
 
 use libz_sys as libz;
 
-use bridge::{size_t, InFile, OutputHandleWrapper};
+use bridge::{InFile, OutputHandleWrapper};
 
 pub(crate) const STREAM_COMPRESS: i32 = 1 << 0;
 pub(crate) const STREAM_USE_PREDICTOR: i32 = 1 << 1;
@@ -898,7 +898,7 @@ impl pdf_string {
         string.push(0);
         Self { string }
     }
-    pub(crate) unsafe fn new_from_ptr(ptr: *const libc::c_void, length: size_t) -> Self {
+    pub(crate) unsafe fn new_from_ptr(ptr: *const libc::c_void, length: usize) -> Self {
         if ptr.is_null() {
             Self::new(&[])
         } else {
@@ -977,7 +977,7 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
         s = cipher.as_mut_ptr();
     } else {
         s = strn.string.as_ptr() as *const u8 as *mut u8;
-        len = strn.len() as size_t;
+        len = strn.len();
     }
     /*
      * Count all ASCII non-printable characters.

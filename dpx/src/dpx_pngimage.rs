@@ -42,7 +42,7 @@ use libc::free;
 
 use std::io::{Seek, SeekFrom};
 
-use bridge::{size_t, InFile};
+use bridge::InFile;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 
@@ -786,17 +786,13 @@ unsafe fn create_cspace_Indexed(
     }
     colorspace.push(base);
     colorspace.push_obj((num_plte - 1) as f64);
-    let data_ptr = new(((num_plte * 3) as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
-        as *mut png_byte;
+    let mut data = Vec::<png_byte>::with_capacity((num_plte * 3) as usize);
     for i in 0..num_plte {
-        *data_ptr.offset((3 * i) as isize) = (*plte.offset(i as isize)).red;
-        *data_ptr.offset((3 * i + 1) as isize) = (*plte.offset(i as isize)).green;
-        *data_ptr.offset((3 * i + 2) as isize) = (*plte.offset(i as isize)).blue;
+        data.push((*plte.offset(i as isize)).red);
+        data.push((*plte.offset(i as isize)).green);
+        data.push((*plte.offset(i as isize)).blue);
     }
-    let lookup =
-        pdf_string::new_from_ptr(data_ptr as *const libc::c_void, (num_plte * 3) as size_t);
-    free(data_ptr as *mut libc::c_void);
+    let lookup = pdf_string::new(&data);
     colorspace.push_obj(lookup);
     Some(colorspace)
 }

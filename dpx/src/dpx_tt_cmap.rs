@@ -65,7 +65,6 @@ use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
 
 use super::dpx_sfnt::sfnt;
-use crate::bridge::size_t;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -596,7 +595,7 @@ unsafe fn load_cmap4(
                 wbuf[1] = 0_u8;
                 wbuf[2..4].copy_from_slice(&ch.to_be_bytes());
                 wbuf[4..6].copy_from_slice(&cid.to_be_bytes());
-                cmap.add_cidchar(wbuf.as_mut_ptr(), 4 as size_t, cid);
+                cmap.add_cidchar(wbuf.as_mut_ptr(), 4, cid);
                 if let Some(tounicode_add) = tounicode_add.as_mut() {
                     let mut p: *mut u8 = wbuf.as_mut_ptr().offset(6);
                     let uc_len = UC_UTF16BE_encode_char(
@@ -606,7 +605,7 @@ unsafe fn load_cmap4(
                     );
                     tounicode_add.add_bfchar(
                         wbuf.as_mut_ptr().offset(4),
-                        2 as size_t,
+                        2,
                         wbuf.as_mut_ptr().offset(6),
                         uc_len,
                     );
@@ -653,7 +652,7 @@ unsafe fn load_cmap12(
             }
             wbuf[0..4].copy_from_slice(&ch.to_be_bytes());
             wbuf[4..6].copy_from_slice(&cid.to_be_bytes());
-            cmap.add_cidchar(wbuf.as_mut_ptr(), 4 as size_t, cid);
+            cmap.add_cidchar(wbuf.as_mut_ptr(), 4, cid);
             if let Some(tounicode_add) = tounicode_add.as_mut() {
                 let mut p: *mut u8 = wbuf.as_mut_ptr().offset(6);
                 let uc_len = UC_UTF16BE_encode_char(
@@ -663,7 +662,7 @@ unsafe fn load_cmap12(
                 );
                 tounicode_add.add_bfchar(
                     wbuf.as_mut_ptr().offset(4),
-                    2 as size_t,
+                    2,
                     wbuf.as_mut_ptr().offset(6),
                     uc_len,
                 );
@@ -847,12 +846,11 @@ unsafe fn handle_subst_glyphs(
                             let mut p: *mut u8 = wbuf.as_mut_ptr().offset(2);
                             let mut len = 0;
                             for k in 0..unicode_count {
-                                len = (len as u64).wrapping_add(UC_UTF16BE_encode_char(
+                                len += UC_UTF16BE_encode_char(
                                     unicodes[k as usize],
                                     &mut p,
                                     wbuf.as_mut_ptr().offset(1024),
-                                )
-                                    as _) as size_t as size_t;
+                                ) as usize;
                             }
                             cmap.add_bfchar(
                                 gid.to_be_bytes().as_ptr(),
@@ -872,7 +870,7 @@ unsafe fn handle_subst_glyphs(
                             let len = ((1024 - 2) as u64).wrapping_sub(outbuf.len() as u64);
                             cmap.add_bfchar(
                                 wbuf.as_mut_ptr(),
-                                2 as size_t,
+                                2,
                                 wbuf.as_mut_ptr().offset(2),
                                 len as _,
                             );
@@ -929,7 +927,7 @@ unsafe fn add_to_cmap_if_used(
             cid.to_be_bytes().as_ptr(),
             2,
             wbuf.as_mut_ptr().offset(2),
-            len as size_t,
+            len as usize,
         );
         /* Avoid duplicate entry
          * There are problem when two Unicode code is mapped to
@@ -1035,7 +1033,7 @@ unsafe fn create_ToUnicode_cmap(
     cmap.set_wmode(0);
     cmap.set_type(2);
     cmap.set_CIDSysInfo(&CSI_UNICODE);
-    cmap.add_codespacerange(srange_min.as_ptr(), srange_max.as_ptr(), 2 as size_t);
+    cmap.add_codespacerange(srange_min.as_ptr(), srange_max.as_ptr(), 2);
     /* cmap_add here stores information about all unencoded glyphs which can be
      * accessed only through OT Layout GSUB table.
      */
@@ -1058,7 +1056,7 @@ unsafe fn create_ToUnicode_cmap(
                                 cid.to_be_bytes()[..].as_ptr(),
                                 2,
                                 wbuf.as_ptr().offset(2),
-                                len as size_t,
+                                len as usize,
                             );
                             count = count.wrapping_add(1)
                         }
@@ -1270,7 +1268,7 @@ unsafe fn load_base_CMap(
         cmap.set_name(cmap_name);
         cmap.set_type(1);
         cmap.set_wmode(wmode);
-        cmap.add_codespacerange(lrange_min.as_ptr(), lrange_max.as_ptr(), 4 as size_t);
+        cmap.add_codespacerange(lrange_min.as_ptr(), lrange_max.as_ptr(), 4);
         if let Some(csi) = csi {
             /* CID */
             cmap.set_CIDSysInfo(csi);

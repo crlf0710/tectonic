@@ -30,17 +30,17 @@ use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::new;
 use libc::{free, memcmp, memcpy, memset};
 
-use bridge::{size_t, InFile, TTInputFormat};
+use bridge::{InFile, TTInputFormat};
 
 use super::dpx_cid::CIDSysInfo;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct rangeDef {
-    pub(crate) dim: size_t,
+    pub(crate) dim: usize,
     pub(crate) codeLo: *mut u8,
     pub(crate) codeHi: *mut u8,
 }
@@ -48,7 +48,7 @@ pub(crate) struct rangeDef {
 #[repr(C)]
 pub(crate) struct mapDef {
     pub(crate) flag: i32,
-    pub(crate) len: size_t,
+    pub(crate) len: usize,
     pub(crate) code: *mut u8,
     pub(crate) next: *mut mapDef,
 }
@@ -70,7 +70,7 @@ pub(crate) struct CMap {
     pub(crate) wmode: i32,
     pub(crate) CSI: Option<Box<CIDSysInfo>>,
     pub(crate) useCMap: *mut CMap,
-    pub(crate) codespace: C2RustUnnamed_0,
+    pub(crate) codespace: Vec<rangeDef>,
     pub(crate) mapTbl: *mut mapDef,
     pub(crate) mapData: *mut mapData,
     pub(crate) flags: i32,
@@ -80,17 +80,10 @@ pub(crate) struct CMap {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct C2RustUnnamed {
-    pub(crate) minBytesIn: size_t,
-    pub(crate) maxBytesIn: size_t,
-    pub(crate) minBytesOut: size_t,
-    pub(crate) maxBytesOut: size_t,
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct C2RustUnnamed_0 {
-    pub(crate) num: u32,
-    pub(crate) max: u32,
-    pub(crate) ranges: *mut rangeDef,
+    pub(crate) minBytesIn: usize,
+    pub(crate) maxBytesIn: usize,
+    pub(crate) minBytesOut: usize,
+    pub(crate) maxBytesOut: usize,
 }
 pub(crate) type CID = u16;
 
@@ -151,11 +144,7 @@ impl CMap {
             useCMap: ptr::null_mut(),
             CSI: None,
             flags: 0,
-            codespace: C2RustUnnamed_0 {
-                num: 0,
-                max: 10,
-                ranges: new(10 * ::std::mem::size_of::<rangeDef>() as u32) as *mut rangeDef,
-            },
+            codespace: Vec::with_capacity(10),
             mapTbl: ptr::null_mut(),
             mapData: map_data,
             reverseMap: reverse_map,
@@ -166,7 +155,6 @@ impl CMap {
 impl Drop for CMap {
     fn drop(&mut self) {
         unsafe {
-            free(self.codespace.ranges as *mut libc::c_void);
             if !self.mapTbl.is_null() {
                 mapDef_release(self.mapTbl);
             }
@@ -192,7 +180,7 @@ impl CMap {
         if self.name.is_empty()
             || self.type_0 < 0
             || self.type_0 > 3
-            || self.codespace.num < 1
+            || self.codespace.len() < 1
             || self.type_0 != 0 && self.mapTbl.is_null()
         {
             return false;
@@ -262,7 +250,7 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
     mut outbuf: &'a mut [u8],
 ) -> &'a mut [u8] {
     let mut c: u8 = 0_u8;
-    let mut count: size_t = 0;
+    let mut count: usize = 0;
     let mut save = *inbuf;
     let mut p = save;
     /*
@@ -464,22 +452,20 @@ pub(crate) unsafe fn CMap_set_usecmap(cmap: &mut CMap, ucmap: &mut CMap) {
         }
     }
     /* We must copy codespaceranges. */
-    for i in 0..ucmap.codespace.num {
-        let csr = &*ucmap.codespace.ranges.offset(i as isize);
+    for csr in &ucmap.codespace {
         cmap.add_codespacerange(csr.codeLo, csr.codeHi, csr.dim);
     }
     cmap.useCMap = ucmap;
 }
 /* Test the validity of character c. */
-unsafe fn CMap_match_codespace(cmap: *mut CMap, c: *const u8, dim: size_t) -> i32 {
+unsafe fn CMap_match_codespace(cmap: *mut CMap, c: *const u8, dim: usize) -> i32 {
     assert!(!cmap.is_null());
-    for i in 0..(*cmap).codespace.num {
-        let csr: *mut rangeDef = (*cmap).codespace.ranges.offset(i as isize);
-        if !((*csr).dim != dim) {
+    for csr in &(*cmap).codespace {
+        if csr.dim == dim {
             let mut pos = 0_u32;
             while (pos as u64) < dim as _ {
-                if *c.offset(pos as isize) as i32 > *(*csr).codeHi.offset(pos as isize) as i32
-                    || (*c.offset(pos as isize) as i32) < *(*csr).codeLo.offset(pos as isize) as i32
+                if *c.offset(pos as isize) as i32 > *csr.codeHi.offset(pos as isize) as i32
+                    || (*c.offset(pos as isize) as i32) < *csr.codeLo.offset(pos as isize) as i32
                 {
                     break;
                 }
@@ -502,19 +488,18 @@ impl CMap {
         &mut self,
         codelo: *const u8,
         codehi: *const u8,
-        dim: size_t,
+        dim: usize,
     ) -> i32 {
         assert!(dim > 0);
-        for i in 0..self.codespace.num {
+        for csr in &self.codespace {
             let mut overlap: bool = true;
-            let csr = self.codespace.ranges.offset(i as isize);
-            let mut j = 0 as size_t;
-            while j < (if (*csr).dim < dim { (*csr).dim } else { dim }) && overlap as i32 != 0 {
-                if *codelo.offset(j as isize) as i32 >= *(*csr).codeLo.offset(j as isize) as i32
-                    && *codelo.offset(j as isize) as i32 <= *(*csr).codeHi.offset(j as isize) as i32
-                    || *codehi.offset(j as isize) as i32 >= *(*csr).codeLo.offset(j as isize) as i32
+            let mut j = 0;
+            while j < (if csr.dim < dim { csr.dim } else { dim }) && overlap as i32 != 0 {
+                if *codelo.offset(j as isize) as i32 >= *csr.codeLo.offset(j as isize) as i32
+                    && *codelo.offset(j as isize) as i32 <= *csr.codeHi.offset(j as isize) as i32
+                    || *codehi.offset(j as isize) as i32 >= *csr.codeLo.offset(j as isize) as i32
                         && *codehi.offset(j as isize) as i32
-                            <= *(*csr).codeHi.offset(j as isize) as i32
+                            <= *csr.codeHi.offset(j as isize) as i32
                 {
                     overlap = true
                 } else {
@@ -533,38 +518,30 @@ impl CMap {
         if dim > self.profile.maxBytesIn {
             self.profile.maxBytesIn = dim
         }
-        if self.codespace.num.wrapping_add(1_u32) > self.codespace.max {
-            self.codespace.max = self.codespace.max.wrapping_add(10_u32);
-            self.codespace.ranges = renew(
-                self.codespace.ranges as *mut libc::c_void,
-                (self.codespace.max as u64).wrapping_mul(::std::mem::size_of::<rangeDef>() as u64)
-                    as u32,
-            ) as *mut rangeDef
-        }
-        let csr = self.codespace.ranges.offset(self.codespace.num as isize);
-        (*csr).dim = dim;
-        (*csr).codeHi = get_mem(self, dim as i32);
-        (*csr).codeLo = get_mem(self, dim as i32);
+
+        let num = self.codespace.len();
+        let codeHi = get_mem(self, dim as i32);
+        let codeLo = get_mem(self, dim as i32);
+        self.codespace.push(rangeDef {
+            dim,
+            codeHi,
+            codeLo,
+        });
+        let csr = &self.codespace[num];
         memcpy(
-            (*csr).codeHi as *mut libc::c_void,
+            csr.codeHi as *mut libc::c_void,
             codehi as *const libc::c_void,
             dim as _,
         );
         memcpy(
-            (*csr).codeLo as *mut libc::c_void,
+            csr.codeLo as *mut libc::c_void,
             codelo as *const libc::c_void,
             dim as _,
         );
-        self.codespace.num += 1;
         0
     }
 
-    pub(crate) unsafe fn add_notdefchar(
-        &mut self,
-        src: *const u8,
-        srcdim: size_t,
-        dst: CID,
-    ) -> i32 {
+    pub(crate) unsafe fn add_notdefchar(&mut self, src: *const u8, srcdim: usize, dst: CID) -> i32 {
         self.add_notdefrange(src, src, srcdim, dst)
     }
 
@@ -572,7 +549,7 @@ impl CMap {
         &mut self,
         srclo: *const u8,
         srchi: *const u8,
-        srcdim: size_t,
+        srcdim: usize,
         mut dst: CID,
     ) -> i32 {
         /* dst not used here */
@@ -583,7 +560,7 @@ impl CMap {
             srchi,
             srcdim,
             &mut dst as *mut CID as *const u8,
-            2 as size_t,
+            2,
         ) < 0
         {
             return -1;
@@ -610,7 +587,7 @@ impl CMap {
             } else {
                 (*cur.offset(c as isize)).flag = 0 | 1 << 3;
                 (*cur.offset(c as isize)).code = get_mem(self, 2);
-                (*cur.offset(c as isize)).len = 2 as size_t;
+                (*cur.offset(c as isize)).len = 2;
                 *(*cur.offset(c as isize)).code.offset(0) = (dst as i32 >> 8) as u8;
                 *(*cur.offset(c as isize)).code.offset(1) = (dst as i32 & 0xff) as u8
             }
@@ -624,9 +601,9 @@ impl CMap {
     pub(crate) unsafe fn add_bfchar(
         &mut self,
         src: *const u8,
-        srcdim: size_t,
+        srcdim: usize,
         dst: *const u8,
-        dstdim: size_t,
+        dstdim: usize,
     ) -> i32 {
         self.add_bfrange(src, src, srcdim, dst, dstdim)
     }
@@ -635,9 +612,9 @@ impl CMap {
         &mut self,
         srclo: *const u8,
         srchi: *const u8,
-        srcdim: size_t,
+        srcdim: usize,
         base: *const u8,
-        dstdim: size_t,
+        dstdim: usize,
     ) -> i32 {
         if check_range(self, srclo, srchi, srcdim, base, dstdim) < 0 {
             return -1;
@@ -696,7 +673,7 @@ impl CMap {
         0
     }
 
-    pub(crate) unsafe fn add_cidchar(&mut self, src: *const u8, srcdim: size_t, dst: CID) -> i32 {
+    pub(crate) unsafe fn add_cidchar(&mut self, src: *const u8, srcdim: usize, dst: CID) -> i32 {
         self.add_cidrange(src, src, srcdim, dst)
     }
 
@@ -704,7 +681,7 @@ impl CMap {
         &mut self,
         srclo: *const u8,
         srchi: *const u8,
-        srcdim: size_t,
+        srcdim: usize,
         mut base: CID,
     ) -> i32 {
         /* base not used here */
@@ -714,7 +691,7 @@ impl CMap {
             srchi,
             srcdim,
             &mut base as *mut CID as *const u8,
-            2 as size_t,
+            2,
         ) < 0
         {
             /* FIXME */
@@ -727,9 +704,9 @@ impl CMap {
         if locate_tbl(&mut cur, srclo, srcdim as i32) < 0 {
             return -1;
         }
-        let mut v = 0 as size_t;
+        let mut v = 0_usize;
         for i in 0..srcdim.wrapping_sub(1) {
-            v = (v << 8).wrapping_add(*srclo.offset(i as isize) as size_t);
+            v = (v << 8).wrapping_add(*srclo.offset(i as isize) as usize);
         }
         *self.reverseMap.offset(base as isize) = v as i32;
         for c in (*srclo.offset(srcdim.wrapping_sub(1) as isize) as u64)
@@ -741,7 +718,7 @@ impl CMap {
                 }
             } else {
                 (*cur.offset(c as isize)).flag = 0 | 1 << 0;
-                (*cur.offset(c as isize)).len = 2 as size_t;
+                (*cur.offset(c as isize)).len = 2;
                 (*cur.offset(c as isize)).code = get_mem(self, 2);
                 *(*cur.offset(c as isize)).code.offset(0) = (base as i32 >> 8) as u8;
                 *(*cur.offset(c as isize)).code.offset(1) = (base as i32 & 0xff) as u8;
@@ -819,46 +796,39 @@ unsafe fn locate_tbl(cur: *mut *mut mapDef, code: *const u8, dim: i32) -> i32 {
  * Substring of length bytesconsumed bytes of input string is interpreted as
  * a `single' character by CMap_decode().
  */
-unsafe fn bytes_consumed(cmap: &CMap, instr: &[u8]) -> size_t {
+unsafe fn bytes_consumed(cmap: &CMap, instr: &[u8]) -> usize {
     let inbytes = instr.len();
-    let mut i = 0 as size_t;
-    let mut longest: size_t = 0 as size_t;
+    let mut i = 0;
+    let mut longest = 0_usize;
     let mut bytesconsumed;
-    while i < cmap.codespace.num as _ {
-        let csr: *mut rangeDef = cmap.codespace.ranges.offset(i as isize);
+    while i < cmap.codespace.len() {
+        let csr = &cmap.codespace[i];
         let mut pos = 0;
-        while pos
-            < (if (*csr).dim < inbytes {
-                (*csr).dim
-            } else {
-                inbytes
-            })
-        {
-            if instr[pos as usize] as i32 > *(*csr).codeHi.offset(pos as isize) as i32
-                || (instr[pos as usize] as i32) < *(*csr).codeLo.offset(pos as isize) as i32
+        while pos < (if csr.dim < inbytes { csr.dim } else { inbytes }) {
+            if instr[pos as usize] as i32 > *csr.codeHi.offset(pos as isize) as i32
+                || (instr[pos as usize] as i32) < *csr.codeLo.offset(pos as isize) as i32
             {
                 break;
             }
             pos = pos.wrapping_add(1)
         }
-        if pos == (*csr).dim {
+        if pos == csr.dim {
             /* part of instr is totally valid in this codespace. */
-            return (*csr).dim;
+            return csr.dim;
         }
         if pos > longest {
             longest = pos
         }
         i += 1;
     }
-    if i == cmap.codespace.num as _ {
+    if i == cmap.codespace.len() {
         /* No matching at all */
         bytesconsumed = cmap.profile.minBytesIn
     } else {
         bytesconsumed = cmap.profile.maxBytesIn;
-        for i in 0..cmap.codespace.num as u64 {
-            let csr_0: *mut rangeDef = cmap.codespace.ranges.offset(i as isize);
-            if (*csr_0).dim > longest && (*csr_0).dim < bytesconsumed {
-                bytesconsumed = (*csr_0).dim
+        for csr_0 in &cmap.codespace {
+            if csr_0.dim > longest && csr_0.dim < bytesconsumed {
+                bytesconsumed = csr_0.dim
             }
         }
     }
@@ -868,9 +838,9 @@ unsafe fn check_range(
     cmap: &mut CMap,
     srclo: *const u8,
     srchi: *const u8,
-    srcdim: size_t,
+    srcdim: usize,
     dst: *const u8,
-    dstdim: size_t,
+    dstdim: usize,
 ) -> i32 {
     if srcdim < 1
         || dstdim < 1
@@ -916,7 +886,7 @@ pub(crate) unsafe fn CMap_cache_init() {
     cmap.set_type(0);
     cmap.set_wmode(0);
     cmap.set_CIDSysInfo(&CSI_IDENTITY);
-    cmap.add_codespacerange(range_min.as_ptr(), range_max.as_ptr(), 2 as size_t);
+    cmap.add_codespacerange(range_min.as_ptr(), range_max.as_ptr(), 2);
 
     __cache.push(Box::new(CMap::new()));
     let cmap = &mut *__cache[1];
@@ -924,7 +894,7 @@ pub(crate) unsafe fn CMap_cache_init() {
     cmap.set_type(0);
     cmap.set_wmode(1);
     cmap.set_CIDSysInfo(&CSI_IDENTITY);
-    cmap.add_codespacerange(range_min.as_ptr(), range_max.as_ptr(), 2 as size_t);
+    cmap.add_codespacerange(range_min.as_ptr(), range_max.as_ptr(), 2);
 }
 
 pub(crate) unsafe fn CMap_cache_get(id: i32) -> *mut CMap {

@@ -30,8 +30,6 @@
 use crate::FromBEByteSlice;
 use libc::{memcpy, memset, rand};
 
-use crate::bridge::size_t;
-
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct ARC4_CONTEXT {
@@ -283,9 +281,9 @@ pub(crate) unsafe fn ARC4_set_key(ctx: *mut ARC4_CONTEXT, keylen: u32, key: *con
 
 pub(crate) unsafe fn AES_ecb_encrypt(
     key: *const u8,
-    key_len: size_t,
+    key_len: usize,
     plain: *const u8,
-    plain_len: size_t,
+    plain_len: usize,
 ) -> Vec<u8> {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,
@@ -331,11 +329,11 @@ pub(crate) unsafe fn AES_ecb_encrypt(
 
 pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
     key: *const u8,
-    key_len: size_t,
+    key_len: usize,
     iv: *const u8,
     padding: i32,
     plain: *const u8,
-    plain_len: size_t,
+    plain_len: usize,
 ) -> Vec<u8> {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,

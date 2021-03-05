@@ -34,7 +34,7 @@ use crate::warn;
 use super::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_set_usecmap};
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
-use crate::bridge::{size_t, ttstub_input_get_size, InFile};
+use crate::bridge::{ttstub_input_get_size, InFile};
 use libc::{free, memmove, strstr};
 
 use super::dpx_cid::CIDSysInfo;
@@ -52,12 +52,12 @@ pub(crate) struct ifreader {
     pub(crate) cursor: *const u8,
     pub(crate) endptr: *const u8,
     pub(crate) buf: *mut u8,
-    pub(crate) max: size_t,
+    pub(crate) max: usize,
     pub(crate) handle: InFile,
-    pub(crate) unread: size_t,
+    pub(crate) unread: usize,
 }
 impl ifreader {
-    unsafe fn new(handle: InFile, size: size_t, bufsize: size_t) -> Self {
+    unsafe fn new(handle: InFile, size: usize, bufsize: usize) -> Self {
         let buf = new((bufsize.wrapping_add(1) as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
         let reader = Self {
@@ -79,9 +79,9 @@ impl Drop for ifreader {
         }
     }
 }
-unsafe fn ifreader_read(reader: &mut ifreader, size: size_t) -> size_t {
-    let mut bytesread: size_t = 0 as size_t;
-    let bytesrem = (reader.endptr as size_t).wrapping_sub(reader.cursor as size_t);
+unsafe fn ifreader_read(reader: &mut ifreader, size: usize) -> usize {
+    let mut bytesread = 0;
+    let bytesrem = (reader.endptr as usize).wrapping_sub(reader.cursor as usize);
     if size > reader.max {
         if __verbose != 0 {
             info!("\nExtending buffer ({} bytes)...\n", size);
@@ -114,7 +114,7 @@ unsafe fn ifreader_read(reader: &mut ifreader, size: size_t) -> size_t {
             .expect("Reading file failed.");
         reader.cursor = reader.buf;
         reader.endptr = reader.buf.offset((bytesrem + bytesread) as isize);
-        reader.unread = (reader.unread as u64).wrapping_sub(bytesread as _) as size_t as size_t;
+        reader.unread = (reader.unread as u64).wrapping_sub(bytesread as _) as usize;
         if __verbose != 0 {
             info!(
                 "Reading more {} bytes ({} bytes remains in buffer)...\n",
@@ -161,7 +161,7 @@ unsafe fn get_coderange(
 unsafe fn do_codespacerange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
         let (codeLo, codeHi, dim) = get_coderange(input, 127)?;
-        cmap.add_codespacerange(codeLo.as_ptr(), codeHi.as_ptr(), dim as size_t);
+        cmap.add_codespacerange(codeLo.as_ptr(), codeHi.as_ptr(), dim);
     }
     check_next_token(input, "endcodespacerange")
 }
@@ -183,12 +183,7 @@ unsafe fn handle_codearray(
         match pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
             PstObj::String(data) => {
                 let data = data.as_bytes();
-                cmap.add_bfchar(
-                    codeLo.as_ptr(),
-                    dim as size_t,
-                    data.as_ptr(),
-                    data.len() as size_t,
-                );
+                cmap.add_bfchar(codeLo.as_ptr(), dim as usize, data.as_ptr(), data.len());
             }
             PstObj::Name(_) => {
                 panic!("{}: Mapping to charName not supported.", "CMap_parse:");
@@ -203,18 +198,13 @@ unsafe fn handle_codearray(
 }
 unsafe fn do_notdefrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
-        if ifreader_read(input, (127 * 3) as size_t) == 0 {
+        if ifreader_read(input, 127 * 3) == 0 {
             return Err(());
         }
         let (codeLo, codeHi, dim) = get_coderange(input, 127)?;
         if let PstObj::Integer(dstCID) = pst_get_token(&mut input.cursor, input.endptr).ok_or(())? {
             if dstCID >= 0 && dstCID <= 65535 {
-                cmap.add_notdefrange(
-                    codeLo.as_ptr(),
-                    codeHi.as_ptr(),
-                    dim as size_t,
-                    dstCID as CID,
-                );
+                cmap.add_notdefrange(codeLo.as_ptr(), codeHi.as_ptr(), dim, dstCID as CID);
             }
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
@@ -224,7 +214,7 @@ unsafe fn do_notdefrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> R
 }
 unsafe fn do_bfrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
-        if ifreader_read(input, (127 * 3) as size_t) == 0 {
+        if ifreader_read(input, 127 * 3) == 0 {
             return Err(());
         }
         let (mut codeLo, codeHi, srcdim) = get_coderange(input, 127)?;
@@ -234,9 +224,9 @@ unsafe fn do_bfrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Resul
                 cmap.add_bfrange(
                     codeLo.as_ptr(),
                     codeHi.as_ptr(),
-                    srcdim as size_t,
+                    srcdim as usize,
                     data.as_ptr(),
-                    data.len() as size_t,
+                    data.len(),
                 );
             }
             PstObj::Mark => {
@@ -256,7 +246,7 @@ unsafe fn do_bfrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Resul
 }
 unsafe fn do_cidrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
-        if ifreader_read(input, (127 * 3) as size_t) == 0 {
+        if ifreader_read(input, 127 * 3) == 0 {
             return Err(());
         }
         let (codeLo, codeHi, dim) = get_coderange(input, 127)?;
@@ -265,7 +255,7 @@ unsafe fn do_cidrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Resu
                 cmap.add_cidrange(
                     codeLo.as_ptr(),
                     codeHi.as_ptr(),
-                    dim as size_t,
+                    dim as usize,
                     dstCID as CID,
                 );
             }
@@ -277,7 +267,7 @@ unsafe fn do_cidrange(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Resu
 }
 unsafe fn do_notdefchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
-        if ifreader_read(input, (127 * 2) as size_t) == 0 {
+        if ifreader_read(input, 127 * 2) == 0 {
             return Err(());
         }
         let tok1 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
@@ -285,7 +275,7 @@ unsafe fn do_notdefchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Re
         if let (PstObj::String(data), PstObj::Integer(dstCID)) = (tok1, tok2) {
             if dstCID >= 0 && dstCID <= 65535 {
                 let data = data.as_bytes();
-                cmap.add_notdefchar(data.as_ptr(), data.len() as size_t, dstCID as CID);
+                cmap.add_notdefchar(data.as_ptr(), data.len(), dstCID as CID);
             }
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
@@ -295,7 +285,7 @@ unsafe fn do_notdefchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Re
 }
 unsafe fn do_bfchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
-        if ifreader_read(input, (127 * 2) as size_t) == 0 {
+        if ifreader_read(input, 127 * 2) == 0 {
             return Err(());
         }
         let tok1 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
@@ -305,12 +295,7 @@ unsafe fn do_bfchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result
             (PstObj::String(tok1), PstObj::String(tok2)) => {
                 let data1 = tok1.as_bytes();
                 let data2 = tok2.as_bytes();
-                cmap.add_bfchar(
-                    data1.as_ptr(),
-                    data1.len() as size_t,
-                    data2.as_ptr(),
-                    data2.len() as size_t,
-                );
+                cmap.add_bfchar(data1.as_ptr(), data1.len(), data2.as_ptr(), data2.len());
             }
             (_, PstObj::Name(_)) => panic!("{}: Mapping to charName not supported.", "CMap_parse:"),
             _ => warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:"),
@@ -320,7 +305,7 @@ unsafe fn do_bfchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result
 }
 unsafe fn do_cidchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Result<(), ()> {
     for _ in 0..count {
-        if ifreader_read(input, (127 * 2) as size_t) == 0 {
+        if ifreader_read(input, 127 * 2) == 0 {
             return Err(());
         }
         let tok1 = pst_get_token(&mut input.cursor, input.endptr).ok_or(())?;
@@ -328,7 +313,7 @@ unsafe fn do_cidchar(cmap: &mut CMap, input: &mut ifreader, count: i32) -> Resul
         if let (PstObj::String(data), PstObj::Integer(dstCID)) = (tok1, tok2) {
             if dstCID >= 0 && dstCID <= 65535 {
                 let data = data.as_bytes();
-                cmap.add_cidchar(data.as_ptr(), data.len() as size_t, dstCID as CID);
+                cmap.add_cidchar(data.as_ptr(), data.len(), dstCID as CID);
             }
         } else {
             warn!("{}: Invalid CMap mapping record. (ignored)", "CMap_parse:");
@@ -344,7 +329,7 @@ unsafe fn do_cidsysteminfo(cmap: &mut CMap, input: &mut ifreader) -> i32 {
     };
     let mut simpledict: i32 = 0;
     let mut error: i32 = 0;
-    ifreader_read(input, (127 * 2) as size_t);
+    ifreader_read(input, 127 * 2);
     loop
     /*
      * Assuming /CIDSystemInfo 3 dict dup begin .... end def
@@ -472,9 +457,9 @@ pub(crate) unsafe fn CMap_parse(cmap: &mut CMap, mut handle: InFile) -> Result<i
     let mut status: i32 = 0;
     let mut tmpint: i32 = -1;
     let size = ttstub_input_get_size(&mut handle);
-    let mut input = ifreader::new(handle, size, (4096 - 1) as size_t);
+    let mut input = ifreader::new(handle, size, 4096 - 1);
     while status >= 0 {
-        ifreader_read(&mut input, (4096 / 2) as size_t);
+        ifreader_read(&mut input, 4096 / 2);
         match pst_get_token(&mut input.cursor, input.endptr) {
             None => break,
             Some(tok1) => match tok1 {

@@ -27,7 +27,7 @@
 )]
 
 use crate::bridge::DisplayExt;
-use crate::bridge::{size_t, ttstub_input_get_size, InFile, TTInputFormat};
+use crate::bridge::{ttstub_input_get_size, InFile, TTInputFormat};
 use crate::info;
 use std::io::Read;
 use std::ptr;
@@ -519,7 +519,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                     let len =
                         agl_sput_UTF16BE(&enc_vec[code as usize], &mut p, endptr, &mut fail_count);
                     if len >= 1 && fail_count == 0 {
-                        cmap.add_bfchar(c8.as_ptr(), 1, wbuf.as_mut_ptr().offset(1), len as size_t);
+                        cmap.add_bfchar(c8.as_ptr(), 1, wbuf.as_mut_ptr().offset(1), len as usize);
                         all_predef &= (!agln.is_null() && (*agln).is_predef != 0) as i32
                     }
                 }
