@@ -29,7 +29,6 @@ use crate::{info, warn};
 use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
-use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_mem::new;
 use libc::{free, memcmp, memcpy, memset};
 
@@ -897,24 +896,24 @@ pub(crate) unsafe fn CMap_cache_init() {
     cmap.add_codespacerange(range_min.as_ptr(), range_max.as_ptr(), 2);
 }
 
-pub(crate) unsafe fn CMap_cache_get(id: i32) -> *mut CMap {
-    if id < 0 || id >= __cache.len() as i32 {
-        panic!("Invalid CMap ID {}", id);
+pub(crate) unsafe fn CMap_cache_get(id: Option<usize>) -> *mut CMap {
+    match id {
+        Some(id) if id < __cache.len() => &mut *__cache[id],
+        _ => panic!("Invalid CMap ID {:?}", id),
     }
-    &mut *__cache[id as usize]
 }
 
-pub(crate) unsafe fn CMap_cache_find(cmap_name: &str) -> i32 {
+pub(crate) unsafe fn CMap_cache_find(cmap_name: &str) -> Option<usize> {
     for (id, cmap) in __cache.iter_mut().enumerate() {
         /* CMapName may be undefined when processing usecmap. */
         let name = (**cmap).get_name();
         if !name.is_empty() && cmap_name == name {
-            return id as i32;
+            return Some(id);
         }
     }
     if let Some(handle) = InFile::open(cmap_name, TTInputFormat::CMAP, 0) {
-        if CMap_parse_check_sig(&mut &handle) < 0 {
-            return -1;
+        if CMap::parse_check_sig(&mut &handle).is_err() {
+            return None;
         }
         if __verbose != 0 {
             info!("(CMap:{}", cmap_name);
@@ -922,20 +921,20 @@ pub(crate) unsafe fn CMap_cache_find(cmap_name: &str) -> i32 {
 
         let id = (*__cache).len();
 
-        __cache.push(Box::new(CMap::new()));
-        if CMap_parse(&mut *__cache[id], handle).is_err() {
-            panic!("{}: Parsing CMap file failed.", "CMap");
-        }
+        let cmap =
+            CMap::parse(handle).unwrap_or_else(|| panic!("{}: Parsing CMap file failed.", "CMap"));
+        __cache.push(Box::new(cmap));
+
         if __verbose != 0 {
             info!(")");
         }
-        id as i32
+        Some(id)
     } else {
-        -1
+        None
     }
 }
 
-pub(crate) unsafe fn CMap_cache_add(cmap: Box<CMap>) -> i32 {
+pub(crate) unsafe fn CMap_cache_add(cmap: Box<CMap>) -> usize {
     if !cmap.is_valid() {
         panic!("{}: Invalid CMap.", "CMap");
     }
@@ -948,7 +947,7 @@ pub(crate) unsafe fn CMap_cache_add(cmap: Box<CMap>) -> i32 {
     }
 
     __cache.push(cmap);
-    __cache.len() as i32 - 1
+    __cache.len()
 }
 /* Limits */
 /*

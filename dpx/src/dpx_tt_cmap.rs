@@ -1157,7 +1157,7 @@ pub(crate) unsafe fn otf_create_ToUnicode_stream(
     font_name: &str,
     ttc_index: i32,
     used_chars: &[u8],
-    cmap_id: i32,
+    cmap_id: Option<usize>,
 ) -> *mut pdf_obj {
     let mut cmap_obj = None;
     let mut ttcmap: *mut tt_cmap = ptr::null_mut();
@@ -1210,11 +1210,12 @@ pub(crate) unsafe fn otf_create_ToUnicode_stream(
     if cmap_type != 1 {
         code_to_cid_cmap = ptr::null_mut()
     }
-    let cmap_add_id = CMap_cache_find(&format!("{},{:03}-UCS32-Add", font_name, ttc_index,));
-    let cmap_add = if cmap_add_id < 0 {
-        ptr::null_mut()
+    let cmap_add = if let Some(cmap_add_id) =
+        CMap_cache_find(&format!("{},{:03}-UCS32-Add", font_name, ttc_index))
+    {
+        CMap_cache_get(Some(cmap_add_id))
     } else {
-        CMap_cache_get(cmap_add_id)
+        ptr::null_mut()
     };
     CMap_set_silent(1); /* many warnings without this... */
     for i in 0..(::std::mem::size_of::<[cmap_plat_enc_rec; 5]>() as u64)
@@ -1261,9 +1262,10 @@ unsafe fn load_base_CMap(
     gsub_vert: *mut otl_gsub,
     gsub_list: *mut otl_gsub,
     ttcmap: *mut tt_cmap,
-) -> i32 {
-    let mut cmap_id = CMap_cache_find(cmap_name);
-    if cmap_id < 0 {
+) -> Option<usize> {
+    if let Some(cmap_id) = CMap_cache_find(cmap_name) {
+        Some(cmap_id)
+    } else {
         let mut cmap = CMap::new();
         cmap.set_name(cmap_name);
         cmap.set_type(1);
@@ -1294,9 +1296,8 @@ unsafe fn load_base_CMap(
                 tounicode_add,
             );
         }
-        cmap_id = CMap_cache_add(Box::new(cmap))
+        Some(CMap_cache_add(Box::new(cmap)))
     }
-    cmap_id
 }
 /* TrueType cmap table */
 /* or version, only for Mac */
@@ -1312,7 +1313,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     ttc_index: i32,
     otl_tags: &str,
     wmode: i32,
-) -> i32 {
+) -> Option<usize> {
     /* Additional ToUnicode mappings required by OTL GSUB substitusion */
     let mut tounicode_add: *mut CMap = ptr::null_mut();
     let offset;
@@ -1326,10 +1327,10 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     };
     let mut GIDToCIDMap: *mut u8 = ptr::null_mut();
     if map_name.is_empty() {
-        return -1;
+        return None;
     }
     if ttc_index > 999 || ttc_index < 0 {
-        return -1;
+        return None;
         /* Sorry for this... */
     }
     let mut handle = dpx_open_truetype_file(map_name);
@@ -1339,7 +1340,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     let mut sfont = if handle.is_none() {
         let handle = dpx_open_dfont_file(map_name);
         if handle.is_none() {
-            return -1;
+            return None;
         }
         dfont_open(handle.unwrap(), ttc_index).expect(&format!(
             "Could not open OpenType/TrueType/dfont font file \"{}\"",
@@ -1383,9 +1384,9 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
          */
 
         let tounicode_add_name = format!("{},{:03}-UCS32-Add", map_name, ttc_index);
-        let tounicode_add_id = CMap_cache_find(&tounicode_add_name); /* Unicode 2.0 or later */
-        if tounicode_add_id >= 0 {
-            tounicode_add = CMap_cache_get(tounicode_add_id)
+        if let Some(tounicode_add_id) = CMap_cache_find(&tounicode_add_name) {
+            /* Unicode 2.0 or later */
+            tounicode_add = CMap_cache_get(Some(tounicode_add_id))
         } else {
             let mut cmap = CMap::new();
             cmap.set_name(&tounicode_add_name);
@@ -1394,7 +1395,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
             cmap.add_codespacerange(srange_min.as_ptr(), srange_max.as_ptr(), 2);
             cmap.set_CIDSysInfo(&CSI_UNICODE);
             cmap.add_bfchar(srange_min.as_mut_ptr(), 2, srange_max.as_mut_ptr(), 2);
-            tounicode_add = CMap_cache_get(CMap_cache_add(Box::new(cmap)));
+            tounicode_add = CMap_cache_get(Some(CMap_cache_add(Box::new(cmap))));
         }
     } else {
         cmap_name = base_name;
@@ -1416,13 +1417,12 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
             },
         );
     }
-    let cmap_id = CMap_cache_find(&cmap_name);
-    if cmap_id >= 0 {
+    if let Some(cmap_id) = CMap_cache_find(&cmap_name) {
         free(GIDToCIDMap as *mut libc::c_void);
         if verbose > 0 {
             info!("otf_cmap>> Found at cmap_id={}.\n", cmap_id);
         }
-        return cmap_id;
+        return Some(cmap_id);
     }
     let mut ttcmap = tt_cmap_read(&mut sfont, 3_u16, 10_u16);
     if ttcmap.is_null() {
@@ -1471,7 +1471,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         gsub_list,
         ttcmap,
     );
-    if cmap_id < 0 {
+    if cmap_id.is_none() {
         panic!("Failed to read OpenType/TrueType cmap table.");
     }
     if !gsub_vert.is_null() {

@@ -1219,7 +1219,7 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);
 }
 
-unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 {
+unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> Option<usize> {
     const range_min: [u8; 4] = [0; 4];
     const range_max: [u8; 4] = [0x7f, 0xff, 0xff, 0xff];
     let cmap_name = if wmode != 0 {
@@ -1227,9 +1227,8 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
     } else {
         format!("{}-UCS4-H", font_name)
     };
-    let cmap_id = CMap_cache_find(&cmap_name);
-    if cmap_id >= 0 {
-        return cmap_id;
+    if let Some(cmap_id) = CMap_cache_find(&cmap_name) {
+        return Some(cmap_id);
     }
     let mut cmap = CMap::new();
     cmap.set_name(&cmap_name);
@@ -1263,18 +1262,22 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
             }
         }
     }
-    CMap_cache_add(Box::new(cmap))
+    Some(CMap_cache_add(Box::new(cmap)))
 }
 
-pub(crate) unsafe fn t1_load_UnicodeCMap(font_name: &str, otl_tags: &str, wmode: i32) -> i32 {
+pub(crate) unsafe fn t1_load_UnicodeCMap(
+    font_name: &str,
+    otl_tags: &str,
+    wmode: i32,
+) -> Option<usize> {
     let handle = dpx_open_type1_file(font_name);
     if handle.is_none() {
-        return -1;
+        return None;
     }
     let handle = handle.unwrap();
     let cffont = t1_load_font(&mut (&mut [])[..], 1, handle);
     let cmap_id = load_base_CMap(&font_name, wmode, &*cffont);
-    if cmap_id < 0 {
+    if cmap_id.is_none() {
         panic!(
             "Failed to create Unicode charmap for font \"{}\".",
             font_name

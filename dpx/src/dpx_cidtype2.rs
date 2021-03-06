@@ -215,7 +215,7 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
     },
 ];
 unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
-    let mut cmap_id: i32 = -1;
+    let mut cmap_id = None;
     if select < 0 || select > 9 {
         panic!("Character set unknown.");
     }
@@ -225,11 +225,13 @@ unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
     for append in known_encodings[select as usize].pdfnames {
         let cmap_name = format!("{}-{}-{}", reg, ord, append);
         cmap_id = CMap_cache_find(&cmap_name);
-        if cmap_id >= 0 {
+        if cmap_id.is_some() {
             break;
         }
     }
-    if cmap_id < 0 {
+    if cmap_id.is_some() {
+        CMap_cache_get(cmap_id)
+    } else {
         warn!(
             "Could not find CID-to-Code mapping for \"{}-{}\".",
             reg, ord,
@@ -241,7 +243,6 @@ unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
         warn!("Please check if this file exists.");
         panic!("Cannot continue...");
     }
-    CMap_cache_get(cmap_id)
 }
 /*
  * CIDFont glyph metrics:

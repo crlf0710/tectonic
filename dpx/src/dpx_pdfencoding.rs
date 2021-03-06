@@ -35,7 +35,6 @@ use std::ptr;
 use super::dpx_agl::{agl_lookup_list, agl_sput_UTF16BE};
 use super::dpx_cid::CSI_UNICODE;
 use super::dpx_cmap::CMap;
-use super::dpx_cmap_read::{CMap_parse, CMap_parse_check_sig};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use crate::dpx_pdfobj::{
@@ -562,13 +561,10 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
         return None;
     }
     if let Some(handle) = InFile::open(ident, TTInputFormat::CMAP, 0) {
-        if CMap_parse_check_sig(&mut &handle) < 0 {
+        if CMap::parse_check_sig(&mut &handle).is_err() {
             return None;
         }
-        let mut cmap = CMap::new();
-        if CMap_parse(&mut cmap, handle).is_err() {
-            warn!("Reading CMap file \"{}\" failed.", ident)
-        } else {
+        if let Some(mut cmap) = CMap::parse(handle) {
             if verbose != 0 {
                 info!("(CMap:{})", ident);
             }
@@ -576,6 +572,8 @@ pub(crate) unsafe fn pdf_load_ToUnicode_stream(ident: &str) -> Option<pdf_stream
             if stream.is_none() {
                 warn!("Failed to creat ToUnicode CMap stream for \"{}\".", ident)
             }
+        } else {
+            warn!("Reading CMap file \"{}\" failed.", ident);
         }
         stream
     } else {

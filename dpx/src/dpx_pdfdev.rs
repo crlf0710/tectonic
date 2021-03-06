@@ -912,7 +912,7 @@ unsafe fn handle_multibyte_string(font: &dev_font, string: &mut &[u8], ctype: i3
      * TODO: A character decomposed to multiple characters.
      */
     if ctype != -1 && font.enc_id >= 0 {
-        let cmap = CMap_cache_get(font.enc_id);
+        let cmap = CMap_cache_get(Some(font.enc_id as usize));
         let mut inbuf_0 = p;
         let (_, outbuf_0) = CMap_decode(&*cmap, &mut inbuf_0, &mut sbuf0[..]);
         if inbuf_0.len() != 0 {

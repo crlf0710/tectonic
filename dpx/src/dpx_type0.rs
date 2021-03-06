@@ -54,7 +54,7 @@ pub(crate) struct Type0Font {
     pub(crate) descendant: *mut CIDFont,
     pub(crate) flags: i32,
     pub(crate) wmode: i32,
-    pub(crate) cmap_id: i32,
+    pub(crate) cmap_id: Option<usize>,
     pub(crate) indirect: *mut pdf_obj,
     pub(crate) fontdict: *mut pdf_obj,
     pub(crate) descriptor: *mut pdf_obj,
@@ -84,7 +84,7 @@ impl Type0Font {
             used_chars: ptr::null_mut(),
             descendant: ptr::null_mut(),
             wmode: -1,
-            cmap_id: -1,
+            cmap_id: None,
             flags: 0,
         }
     }
@@ -272,11 +272,11 @@ pub(crate) unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
 
 pub(crate) unsafe fn Type0Font_cache_find(
     map_name: &str,
-    cmap_id: i32,
+    cmap_id: Option<usize>,
     fmap_opt: &mut fontmap_opt,
 ) -> i32 {
     let pdf_ver = pdf_get_version() as i32;
-    if map_name.is_empty() || cmap_id < 0 || pdf_ver < 2 {
+    if map_name.is_empty() || cmap_id.is_none() || pdf_ver < 2 {
         return -1;
     }
     /*

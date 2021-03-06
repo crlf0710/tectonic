@@ -490,7 +490,7 @@ pub(crate) unsafe fn pdf_font_findresource(
 ) -> i32 {
     let mut font_id;
     let mut encoding_id: i32 = -1;
-    let mut cmap_id: i32 = -1;
+    let mut cmap_id = None;
     /*
      * Get appropriate info from map file. (PK fonts at two different
      * point sizes would be looked up twice unecessarily.)
@@ -501,7 +501,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                 if !mrec.enc_name.ends_with(".enc") || mrec.enc_name.ends_with(".cmap") {
                     let enc_name = &mrec.enc_name;
                     cmap_id = CMap_cache_find(&enc_name);
-                    if cmap_id >= 0 {
+                    if cmap_id.is_some() {
                         let cmap = CMap_cache_get(cmap_id);
                         let cmap_type = (*cmap).get_type();
                         let minbytes = CMap_get_profile(&*cmap, 0);
@@ -535,46 +535,48 @@ pub(crate) unsafe fn pdf_font_findresource(
                             mrec.opt.index,
                             &mrec.opt.otl_tags,
                             if mrec.opt.flags & 1 << 2 != 0 { 1 } else { 0 },
-                        );
-                        if cmap_id < 0 {
-                            cmap_id = t1_load_UnicodeCMap(
+                        )
+                        .or_else(|| {
+                            t1_load_UnicodeCMap(
                                 &mrec.font_name,
                                 &mrec.opt.otl_tags,
                                 if mrec.opt.flags & 1 << 2 != 0 { 1 } else { 0 },
                             )
-                        }
-                        if cmap_id < 0 {
+                        });
+                        if cmap_id.is_none() {
                             panic!("Failed to read UCS2/UCS4 TrueType cmap...");
                         }
                     }
                 }
-                if cmap_id < 0 {
+                if cmap_id.is_none() {
                     encoding_id = pdf_encoding_findresource(&mrec.enc_name);
                     if encoding_id < 0 {
                         panic!("Could not find encoding file \"{}\".", mrec.enc_name);
                     }
                 }
             }
-            if cmap_id >= 0 {
+            if let Some(id) = cmap_id {
                 /*
                  * Composite Font
                  */
                 let mut found: i32 = 0;
-                let type0_id = Type0Font_cache_find(&mrec.font_name, cmap_id, &mut mrec.opt);
+                let type0_id = Type0Font_cache_find(&mrec.font_name, Some(id), &mut mrec.opt);
                 if type0_id < 0 {
                     return -1;
                 }
                 font_id = 0;
                 while font_id < font_cache.len() as i32 {
                     let font = &mut font_cache[font_id as usize];
-                    if font.subtype == 4 && font.font_id == type0_id && font.encoding_id == cmap_id
+                    if font.subtype == 4
+                        && font.font_id == type0_id
+                        && font.encoding_id == id as i32
                     {
                         found = 1;
                         if __verbose != 0 {
                             info!(
                                 "\npdf_font>> Type0 font \"{}\" (cmap_id={}) found at font_id={}.\n",
                                 mrec.font_name,
-                                cmap_id,
+                                id,
                                 font_id,
                             );
                         }
@@ -590,7 +592,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                     let font = &mut font_cache[font_id as usize];
                     font.font_id = type0_id;
                     font.subtype = 4;
-                    font.encoding_id = cmap_id;
+                    font.encoding_id = id as i32;
                     if __verbose != 0 {
                         info!("\npdf_font>> Type0 font \"{}\"", mrec.font_name);
                         info!(" cmap_id=<{},{}>", mrec.enc_name, font.encoding_id);

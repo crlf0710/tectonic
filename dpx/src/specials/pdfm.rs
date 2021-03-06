@@ -84,7 +84,7 @@ impl spc_pdf_ {
             lowest_level: 255,
             resourcemap: HashMap::new(),
             cd: tounicode {
-                cmap_id: -1,
+                cmap_id: None,
                 unescape_backslash: 0,
                 taintkeys: ptr::null_mut(),
             },
@@ -95,7 +95,7 @@ impl spc_pdf_ {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct tounicode {
-    pub(crate) cmap_id: i32,
+    pub(crate) cmap_id: Option<usize>,
     pub(crate) unescape_backslash: i32,
     pub(crate) taintkeys: *mut pdf_obj,
     /* An array of PDF names. */
@@ -406,7 +406,7 @@ unsafe fn modstrings(kp: &pdf_name, vp: &mut pdf_obj, cd: &mut tounicode) -> i32
     let mut r: i32 = 0;
     match &mut vp.data {
         Object::String(vp) => {
-            if cd.cmap_id >= 0 && !cd.taintkeys.is_null() {
+            if cd.cmap_id.is_some() && !cd.taintkeys.is_null() {
                 let cmap: *mut CMap = CMap_cache_get(cd.cmap_id);
                 if needreencode(kp, vp, cd) != 0 {
                     r = reencodestring(cmap, vp)
@@ -443,7 +443,7 @@ pub(crate) trait ParsePdfDictU {
 impl ParsePdfDictU for &[u8] {
     fn parse_pdf_dict_with_tounicode(&mut self, cd: &mut tounicode) -> Option<pdf_dict> {
         /* disable this test for XDV files, as we do UTF8 reencoding with no cmap */
-        if unsafe { is_xdv == 0 && cd.cmap_id < 0 } {
+        if unsafe { is_xdv == 0 && cd.cmap_id.is_none() } {
             return self.parse_pdf_dict(ptr::null_mut());
         }
         /* :( */
@@ -1427,7 +1427,7 @@ unsafe fn spc_handler_pdfm_mapfile(spe: &mut SpcEnv, args: &mut SpcArg) -> Resul
 unsafe fn spc_handler_pdfm_tounicode(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     let sd = &mut _PDF_STAT;
     /* First clear */
-    sd.cd.cmap_id = -1;
+    sd.cd.cmap_id = None;
     sd.cd.unescape_backslash = 0;
     args.cur.skip_white();
     if args.cur.is_empty() {
@@ -1441,14 +1441,14 @@ unsafe fn spc_handler_pdfm_tounicode(spe: &mut SpcEnv, args: &mut SpcArg) -> Res
      */
     if let Some(cmap_name) = args.cur.parse_ident() {
         sd.cd.cmap_id = CMap_cache_find(&cmap_name);
-        if sd.cd.cmap_id < 0 {
+        if sd.cd.cmap_id.is_none() {
             spc_warn!(spe, "Failed to load ToUnicode mapping: {}", cmap_name);
             return ERR;
         }
         /* Shift-JIS like encoding may contain backslash in 2nd byte.
          * WARNING: This will add nasty extension to PDF parser.
          */
-        if sd.cd.cmap_id >= 0 {
+        if sd.cd.cmap_id.is_some() {
             if cmap_name.contains("RKSJ")
                 || cmap_name.contains("B5")
                 || cmap_name.contains("GBK")
