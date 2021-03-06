@@ -30,7 +30,7 @@ use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_mem::new;
-use libc::{free, memcmp, memset};
+use libc::{free, memcmp};
 
 use bridge::{InFile, TTInputFormat};
 
@@ -85,7 +85,7 @@ pub(crate) struct CMap {
     pub(crate) mapData: Box<mapData>,
     pub(crate) flags: i32,
     pub(crate) profile: C2RustUnnamed,
-    pub(crate) reverseMap: *mut i32,
+    pub(crate) reverseMap: Box<[i32]>,
 }
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -132,13 +132,6 @@ impl CMap {
             minBytesOut: 2,
             maxBytesOut: 2,
         };
-        let reverse_map =
-            new((65536_u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as u32) as *mut i32;
-        memset(
-            reverse_map as *mut libc::c_void,
-            0,
-            (65536usize).wrapping_mul(::std::mem::size_of::<i32>()),
-        );
 
         Self {
             profile,
@@ -151,7 +144,7 @@ impl CMap {
             codespace: Vec::with_capacity(10),
             mapTbl: ptr::null_mut(),
             mapData: Default::default(),
-            reverseMap: reverse_map,
+            reverseMap: vec![0; 65536].into_boxed_slice(),
         }
     }
 }
@@ -162,7 +155,6 @@ impl Drop for CMap {
             if !self.mapTbl.is_null() {
                 mapDef_release(self.mapTbl);
             }
-            free(self.reverseMap as *mut libc::c_void);
         }
     }
 }
@@ -361,11 +353,7 @@ pub(crate) unsafe fn CMap_decode<'a>(
 }
 
 pub(crate) unsafe fn CMap_reverse_decode(cmap: &CMap, cid: CID) -> i32 {
-    let ch: i32 = if !cmap.reverseMap.is_null() {
-        *cmap.reverseMap.offset(cid as isize)
-    } else {
-        -1
-    };
+    let ch = cmap.reverseMap[cid as usize];
     if ch == 0 {
         if let Some(useCMap) = cmap.useCMap.as_ref() {
             return CMap_reverse_decode(useCMap, cid);
@@ -695,7 +683,7 @@ impl CMap {
         for i in 0..srcdim.wrapping_sub(1) {
             v = (v << 8).wrapping_add(*srclo.offset(i as isize) as usize);
         }
-        *self.reverseMap.offset(base as isize) = v as i32;
+        self.reverseMap[base as usize] = v as i32;
         for c in (*srclo.offset(srcdim.wrapping_sub(1) as isize) as u64)
             ..=*srchi.offset(srcdim.wrapping_sub(1) as isize) as u64
         {
@@ -710,7 +698,7 @@ impl CMap {
                 (*cur.offset(c as isize)).flag = 0 | 1 << 0;
                 (*cur.offset(c as isize)).len = code.len();
                 (*cur.offset(c as isize)).code = code.as_mut_ptr();
-                *self.reverseMap.offset(base as isize) = (v << 8).wrapping_add(c as _) as i32
+                self.reverseMap[base as usize] = (v << 8).wrapping_add(c as _) as i32
             }
             if base as i32 >= 65535 {
                 warn!("CID number too large.");
@@ -829,10 +817,9 @@ unsafe fn check_range(
         || memcmp(
             srclo as *const libc::c_void,
             srchi as *const libc::c_void,
-            srcdim.wrapping_sub(1) as _,
+            (srcdim - 1) as _,
         ) != 0
-        || *srclo.offset(srcdim.wrapping_sub(1) as isize) as i32
-            > *srchi.offset(srcdim.wrapping_sub(1) as isize) as i32
+        || *srclo.add(srcdim - 1) as i32 > *srchi.add(srcdim - 1) as i32
     {
         warn!("Invalid CMap mapping entry. (ignored)");
         return -1;

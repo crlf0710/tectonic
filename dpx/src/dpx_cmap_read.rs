@@ -126,6 +126,7 @@ unsafe fn ifreader_read(reader: &mut ifreader, size: usize) -> usize {
     *reader.buf.offset(len) = 0_u8;
     bytesread.wrapping_add(bytesrem)
 }
+
 unsafe fn check_next_token(input: &mut ifreader, key: &str) -> Option<()> {
     if ifreader_read(input, key.len() as _) == 0 {
         return None;
@@ -322,8 +323,7 @@ unsafe fn do_cidsysteminfo(cmap: &mut CMap, input: &mut ifreader) -> Option<()> 
         ordering: "".into(),
         supplement: -1,
     };
-    let mut simpledict: i32 = 0;
-    let mut error: i32 = 0;
+    let mut simpledict = false;
     ifreader_read(input, 127 * 2);
     loop
     /*
@@ -334,23 +334,24 @@ unsafe fn do_cidsysteminfo(cmap: &mut CMap, input: &mut ifreader) -> Option<()> 
         match pst_get_token(&mut input.cursor, input.endptr) {
             None => break,
             Some(PstObj::Mark) => {
-                simpledict = 1;
+                simpledict = true;
                 break;
             }
             Some(PstObj::Unknown(tok1)) if tok1.starts_with(b"begin") => {
-                simpledict = 0;
+                simpledict = false;
                 break;
             }
             _ => {}
         }
     }
+    let mut error: i32 = 0;
     while error == 0 {
         match pst_get_token(&mut input.cursor, input.endptr) {
             None => break,
             Some(tok1) => match tok1 {
-                PstObj::Unknown(data) if (data.starts_with(b">>") && simpledict != 0) => break,
+                PstObj::Unknown(data) if (data.starts_with(b">>") && simpledict) => break,
 
-                PstObj::Unknown(data) if (data.starts_with(b"end") && simpledict == 0) => break,
+                PstObj::Unknown(data) if (data.starts_with(b"end") && !simpledict) => break,
                 _ => {
                     let mut tok2 = None;
                     match tok1 {
@@ -362,7 +363,7 @@ unsafe fn do_cidsysteminfo(cmap: &mut CMap, input: &mut ifreader) -> Option<()> 
                         {
                             let tok2 = tok2.take().unwrap();
                             if let PstObj::String(data) = tok2 {
-                                if !(simpledict == 0 && check_next_token(input, "def").is_none()) {
+                                if simpledict || check_next_token(input, "def").is_some() {
                                     csi.registry = data.into()
                                 } else {
                                     error = -1;
@@ -379,7 +380,7 @@ unsafe fn do_cidsysteminfo(cmap: &mut CMap, input: &mut ifreader) -> Option<()> 
                         {
                             let tok2 = tok2.take().unwrap();
                             if let PstObj::String(data) = tok2 {
-                                if !(simpledict == 0 && check_next_token(input, "def").is_none()) {
+                                if simpledict || check_next_token(input, "def").is_some() {
                                     csi.ordering = data.into();
                                 } else {
                                     error = -1;
@@ -396,7 +397,7 @@ unsafe fn do_cidsysteminfo(cmap: &mut CMap, input: &mut ifreader) -> Option<()> 
                         {
                             let tok2 = tok2.take().unwrap();
                             if let PstObj::Integer(data) = tok2 {
-                                if !(simpledict == 0 && check_next_token(input, "def").is_none()) {
+                                if simpledict || check_next_token(input, "def").is_some() {
                                     csi.supplement = data;
                                 } else {
                                     error = -1;

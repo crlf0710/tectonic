@@ -143,12 +143,12 @@ pub(crate) fn is_delim(c: &u8) -> bool {
     b"()/<>[]{}%".contains(c)
 }
 
-pub(crate) unsafe fn skip_white_spaces(s: &mut *const u8, endptr: *const u8) {
-    while *s < endptr {
-        if !((**s).is_ascii_whitespace() || **s as i32 == '\u{0}' as i32) {
+pub(crate) unsafe fn skip_white_spaces(s: &mut &[u8]) {
+    while !s.is_empty() {
+        if !(s[0].is_ascii_whitespace() || s[0] == 0) {
             break;
         }
-        *s = (*s).offset(1)
+        *s = &s[1..];
     }
 }
 
