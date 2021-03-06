@@ -30,7 +30,7 @@ use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
 use super::dpx_mem::new;
-use libc::{free, memcmp, memcpy, memset};
+use libc::{free, memcmp, memset};
 
 use bridge::{InFile, TTInputFormat};
 
@@ -51,13 +51,24 @@ pub(crate) struct mapDef {
     pub(crate) code: *mut u8,
     pub(crate) next: *mut mapDef,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct mapData {
-    pub(crate) data: *mut u8,
-    pub(crate) prev: *mut mapData,
-    pub(crate) pos: i32,
+    pub(crate) data: Box<[u8]>,
+    pub(crate) prev: Option<Box<mapData>>,
+    pub(crate) pos: usize,
 }
+
+impl Default for mapData {
+    fn default() -> Self {
+        Self {
+            prev: None,
+            pos: 0,
+            data: vec![0_u8; 4096].into_boxed_slice(),
+        }
+    }
+}
+
 /* quasi-hack to get the primary input */
 /* CID, Code... MEM_ALLOC_SIZE bytes  */
 /* Previous mapData data segment      */
@@ -71,7 +82,7 @@ pub(crate) struct CMap {
     pub(crate) useCMap: *mut CMap,
     pub(crate) codespace: Vec<rangeDef>,
     pub(crate) mapTbl: *mut mapDef,
-    pub(crate) mapData: *mut mapData,
+    pub(crate) mapData: Box<mapData>,
     pub(crate) flags: i32,
     pub(crate) profile: C2RustUnnamed,
     pub(crate) reverseMap: *mut i32,
@@ -121,12 +132,6 @@ impl CMap {
             minBytesOut: 2,
             maxBytesOut: 2,
         };
-        let map_data = Box::into_raw(Box::new(mapData {
-            prev: ptr::null_mut(),
-            pos: 0,
-            data: new((4096_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-                as *mut u8,
-        }));
         let reverse_map =
             new((65536_u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as u32) as *mut i32;
         memset(
@@ -145,7 +150,7 @@ impl CMap {
             flags: 0,
             codespace: Vec::with_capacity(10),
             mapTbl: ptr::null_mut(),
-            mapData: map_data,
+            mapData: Default::default(),
             reverseMap: reverse_map,
         }
     }
@@ -156,13 +161,6 @@ impl Drop for CMap {
         unsafe {
             if !self.mapTbl.is_null() {
                 mapDef_release(self.mapTbl);
-            }
-            let mut map: *mut mapData = self.mapData;
-            while !map.is_null() {
-                let prev: *mut mapData = (*map).prev;
-                free((*map).data as *mut libc::c_void);
-                free(map as *mut libc::c_void);
-                map = prev
             }
             free(self.reverseMap as *mut libc::c_void);
         }
@@ -518,25 +516,17 @@ impl CMap {
             self.profile.maxBytesIn = dim
         }
 
-        let num = self.codespace.len();
-        let codeHi = get_mem(self, dim as i32);
-        let codeLo = get_mem(self, dim as i32);
+        let codeHi = get_mem(self, dim);
+        codeHi.copy_from_slice(std::slice::from_raw_parts(codehi, dim));
+        let codeHi = codeHi.as_mut_ptr();
+        let codeLo = get_mem(self, dim);
+        codeLo.copy_from_slice(std::slice::from_raw_parts(codelo, dim));
+        let codeLo = codeLo.as_mut_ptr();
         self.codespace.push(rangeDef {
             dim,
             codeHi,
             codeLo,
         });
-        let csr = &self.codespace[num];
-        memcpy(
-            csr.codeHi as *mut libc::c_void,
-            codehi as *const libc::c_void,
-            dim as _,
-        );
-        memcpy(
-            csr.codeLo as *mut libc::c_void,
-            codelo as *const libc::c_void,
-            dim as _,
-        );
         0
     }
 
@@ -584,11 +574,12 @@ impl CMap {
                     warn!("Trying to redefine already defined code mapping. (ignored)");
                 }
             } else {
+                let code = get_mem(self, 2);
+                code[0] = (dst as i32 >> 8) as u8;
+                code[1] = (dst as i32 & 0xff) as u8;
                 (*cur.offset(c as isize)).flag = 0 | 1 << 3;
-                (*cur.offset(c as isize)).code = get_mem(self, 2);
-                (*cur.offset(c as isize)).len = 2;
-                *(*cur.offset(c as isize)).code.offset(0) = (dst as i32 >> 8) as u8;
-                *(*cur.offset(c as isize)).code.offset(1) = (dst as i32 & 0xff) as u8
+                (*cur.offset(c as isize)).code = code.as_mut_ptr();
+                (*cur.offset(c as isize)).len = code.len();
             }
             /* Do not do dst++ for notdefrange  */
         }
@@ -633,16 +624,6 @@ impl CMap {
              * but succeeding maps superceded preceding maps.
              * (reported and patched by Luo Jie on 2007/12/2)
              */
-            if (if (*cur.offset(c as isize)).flag & 0xf != 0 {
-                1
-            } else {
-                0
-            }) == 0
-                || (*cur.offset(c as isize)).len < dstdim
-            {
-                (*cur.offset(c as isize)).flag = 0 | 1 << 2;
-                (*cur.offset(c as isize)).code = get_mem(self, dstdim as i32)
-            }
             /*
              * We assume restriction to code ranges also applied here.
              * Addition <00FF> + 1 is undefined.
@@ -651,12 +632,19 @@ impl CMap {
              *
              *  Should be treated as <0100> in Acrobat's "ToUnicode" CMap.
              */
+            if (if (*cur.offset(c as isize)).flag & 0xf != 0 {
+                1
+            } else {
+                0
+            }) == 0
+                || (*cur.offset(c as isize)).len < dstdim
+            {
+                (*cur.offset(c as isize)).flag = 0 | 1 << 2;
+                (*cur.offset(c as isize)).code = get_mem(self, dstdim).as_mut_ptr();
+            }
             (*cur.offset(c as isize)).len = dstdim;
-            memcpy(
-                (*cur.offset(c as isize)).code as *mut libc::c_void,
-                base as *const libc::c_void,
-                dstdim as _,
-            );
+            std::slice::from_raw_parts_mut((*cur.offset(c as isize)).code, dstdim)
+                .copy_from_slice(std::slice::from_raw_parts(base, dstdim));
             let mut last_byte = c - *srclo.offset(srcdim.wrapping_sub(1) as isize) as i32
                 + *base.offset(dstdim.wrapping_sub(1) as isize) as i32;
             *(*cur.offset(c as isize))
@@ -716,11 +704,12 @@ impl CMap {
                     warn!("Trying to redefine already defined CID mapping. (ignored)");
                 }
             } else {
+                let code = get_mem(self, 2);
+                code[0] = (base as i32 >> 8) as u8;
+                code[1] = (base as i32 & 0xff) as u8;
                 (*cur.offset(c as isize)).flag = 0 | 1 << 0;
-                (*cur.offset(c as isize)).len = 2;
-                (*cur.offset(c as isize)).code = get_mem(self, 2);
-                *(*cur.offset(c as isize)).code.offset(0) = (base as i32 >> 8) as u8;
-                *(*cur.offset(c as isize)).code.offset(1) = (base as i32 & 0xff) as u8;
+                (*cur.offset(c as isize)).len = code.len();
+                (*cur.offset(c as isize)).code = code.as_mut_ptr();
                 *self.reverseMap.offset(base as isize) = (v << 8).wrapping_add(c as _) as i32
             }
             if base as i32 >= 65535 {
@@ -750,22 +739,15 @@ unsafe fn mapDef_new() -> *mut mapDef {
     }
     t
 }
-unsafe fn get_mem(cmap: &mut CMap, size: i32) -> *mut u8 {
-    assert!(!cmap.mapData.is_null() && size >= 0);
-    let mut map = cmap.mapData;
-    if (*map).pos + size >= 4096 {
-        let prev: *mut mapData = map;
-        map = new((1_u64).wrapping_mul(::std::mem::size_of::<mapData>() as u64) as u32)
-            as *mut mapData;
-        (*map).data =
-            new((4096_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-        (*map).prev = prev;
-        (*map).pos = 0;
-        cmap.mapData = map
+unsafe fn get_mem(cmap: &mut CMap, size: usize) -> &mut [u8] {
+    if cmap.mapData.pos + size >= 4096 {
+        let prev = std::mem::take(&mut cmap.mapData);
+        cmap.mapData.prev = Some(prev);
     }
-    let p = (*map).data.offset((*map).pos as isize);
-    (*map).pos += size;
-    p
+    let map = &mut cmap.mapData;
+    let pos = map.pos;
+    map.pos += size;
+    &mut map.data[pos..pos + size]
 }
 unsafe fn locate_tbl(cur: *mut *mut mapDef, code: *const u8, dim: i32) -> i32 {
     assert!(!cur.is_null() && !(*cur).is_null());
