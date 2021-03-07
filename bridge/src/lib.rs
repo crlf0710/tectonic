@@ -16,7 +16,6 @@ use std::io::{prelude::*, Result};
 use std::ptr::NonNull;
 
 pub type size_t = usize;
-pub type ssize_t = isize;
 
 type rust_output_handle_t = *mut libc::c_void;
 pub type rust_input_handle_t = *mut libc::c_void;
@@ -153,9 +152,9 @@ impl Seek for InFile {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         use libc::{SEEK_CUR, SEEK_END, SEEK_SET};
         let (offset, whence) = match pos {
-            SeekFrom::Start(o) => (o as ssize_t, SEEK_SET),
-            SeekFrom::Current(o) => (o as ssize_t, SEEK_CUR),
-            SeekFrom::End(o) => (o as ssize_t, SEEK_END),
+            SeekFrom::Start(o) => (o as isize, SEEK_SET),
+            SeekFrom::Current(o) => (o as isize, SEEK_CUR),
+            SeekFrom::End(o) => (o as isize, SEEK_END),
         };
         unsafe { Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64) }
     }
@@ -165,9 +164,9 @@ impl Seek for &InFile {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         use libc::{SEEK_CUR, SEEK_END, SEEK_SET};
         let (offset, whence) = match pos {
-            SeekFrom::Start(o) => (o as ssize_t, SEEK_SET),
-            SeekFrom::Current(o) => (o as ssize_t, SEEK_CUR),
-            SeekFrom::End(o) => (o as ssize_t, SEEK_END),
+            SeekFrom::Start(o) => (o as isize, SEEK_SET),
+            SeekFrom::Current(o) => (o as isize, SEEK_CUR),
+            SeekFrom::End(o) => (o as isize, SEEK_END),
         };
         unsafe { Ok(ttstub_input_seek(self.0.as_ptr(), offset, whence) as u64) }
     }
@@ -181,14 +180,14 @@ pub struct tt_bridge_api_t {
     pub issue_error: Option<unsafe fn(_: *mut libc::c_void, _: *const i8) -> ()>,
     pub get_file_md5: Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: *mut i8) -> i32>,
     pub get_data_md5:
-        Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: size_t, _: *mut i8) -> i32>,
+        Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: usize, _: *mut i8) -> i32>,
     pub output_open:
         Option<unsafe fn(_: *mut libc::c_void, _: *const i8, _: i32) -> rust_output_handle_t>,
     pub output_open_stdout: Option<unsafe fn(_: *mut libc::c_void) -> rust_output_handle_t>,
     pub output_putc:
         Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t, _: i32) -> i32>,
     pub output_write: Option<
-        unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t, _: *const i8, _: size_t) -> size_t,
+        unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t, _: *const i8, _: usize) -> usize,
     >,
     pub output_flush: Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
     pub output_close: Option<unsafe fn(_: *mut libc::c_void, _: rust_output_handle_t) -> i32>,
@@ -201,22 +200,22 @@ pub struct tt_bridge_api_t {
         ) -> rust_input_handle_t,
     >,
     pub input_open_primary: Option<unsafe fn(_: *mut libc::c_void) -> rust_input_handle_t>,
-    pub input_get_size: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> size_t>,
+    pub input_get_size: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> usize>,
     pub input_seek: Option<
         unsafe fn(
             _: *mut libc::c_void,
             _: rust_input_handle_t,
-            _: ssize_t,
+            _: isize,
             _: i32,
             _: *mut i32,
-        ) -> size_t,
+        ) -> usize,
     >,
     pub input_read: Option<
         unsafe fn(
             _: *mut libc::c_void,
             _: rust_input_handle_t,
             _: *mut i8,
-            _: size_t,
+            _: usize,
         ) -> Option<usize>,
     >,
     pub input_close: Option<unsafe fn(_: *mut libc::c_void, _: rust_input_handle_t) -> i32>,
@@ -350,8 +349,8 @@ pub unsafe fn ttstub_output_putc(handle: &mut OutputHandleWrapper, mut c: i32) -
 pub(crate) unsafe fn ttstub_output_write(
     mut handle: rust_output_handle_t,
     mut data: *const i8,
-    mut len: size_t,
-) -> size_t {
+    mut len: usize,
+) -> usize {
     (*tectonic_global_bridge)
         .output_write
         .expect("non-null function pointer")(
@@ -373,7 +372,7 @@ pub unsafe fn ttstub_output_close(mut handle: OutputHandleWrapper) -> i32 {
     )
 }
 
-pub fn ttstub_input_get_size<R: Seek>(handle: &mut R) -> size_t {
+pub fn ttstub_input_get_size<R: Seek>(handle: &mut R) -> usize {
     fn stream_len<R: Seek>(handle: &mut R) -> Result<u64> {
         let old_pos = stream_position(handle)?;
         let len = handle.seek(SeekFrom::End(0))?;
@@ -395,9 +394,9 @@ pub fn ttstub_input_get_size<R: Seek>(handle: &mut R) -> size_t {
 
 pub(crate) unsafe fn ttstub_input_seek(
     mut handle: rust_input_handle_t,
-    mut offset: ssize_t,
+    mut offset: isize,
     mut whence: i32,
-) -> size_t {
+) -> usize {
     let mut internal_error: i32 = 0i32;
     let mut rv: size_t = (*tectonic_global_bridge)
         .input_seek
@@ -418,7 +417,7 @@ pub(crate) unsafe fn ttstub_input_seek(
 pub unsafe fn ttstub_input_read_rust_style(
     mut handle: rust_input_handle_t,
     mut data: *mut i8,
-    mut len: size_t,
+    mut len: usize,
 ) -> Option<usize> {
     (*tectonic_global_bridge)
         .input_read

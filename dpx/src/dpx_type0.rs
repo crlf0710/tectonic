@@ -34,7 +34,7 @@ use super::dpx_cid::{
     CIDFont_get_parent_id, CIDFont_get_resource, CIDFont_get_subtype, CIDFont_is_ACCFont,
     CIDFont_is_UCSFont,
 };
-use super::dpx_cmap::{CMap_cache_get, CMap_get_CIDSysInfo, CMap_get_wmode, CMap_is_Identity};
+use super::dpx_cmap::CMap_cache_get;
 use super::dpx_mem::new;
 use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
@@ -54,7 +54,7 @@ pub(crate) struct Type0Font {
     pub(crate) descendant: *mut CIDFont,
     pub(crate) flags: i32,
     pub(crate) wmode: i32,
-    pub(crate) cmap_id: i32,
+    pub(crate) cmap_id: Option<usize>,
     pub(crate) indirect: *mut pdf_obj,
     pub(crate) fontdict: *mut pdf_obj,
     pub(crate) descriptor: *mut pdf_obj,
@@ -84,7 +84,7 @@ impl Type0Font {
             used_chars: ptr::null_mut(),
             descendant: ptr::null_mut(),
             wmode: -1,
-            cmap_id: -1,
+            cmap_id: None,
             flags: 0,
         }
     }
@@ -272,11 +272,11 @@ pub(crate) unsafe fn Type0Font_cache_get(id: i32) -> *mut Type0Font {
 
 pub(crate) unsafe fn Type0Font_cache_find(
     map_name: &str,
-    cmap_id: i32,
+    cmap_id: Option<usize>,
     fmap_opt: &mut fontmap_opt,
 ) -> i32 {
     let pdf_ver = pdf_get_version() as i32;
-    if map_name.is_empty() || cmap_id < 0 || pdf_ver < 2 {
+    if map_name.is_empty() || cmap_id.is_none() || pdf_ver < 2 {
         return -1;
     }
     /*
@@ -287,10 +287,10 @@ pub(crate) unsafe fn Type0Font_cache_find(
      * Adobe-Japan2) must be splited into multiple CID-keyed fonts.
      */
     let cmap = CMap_cache_get(cmap_id);
-    let csi = if CMap_is_Identity(&*cmap) as i32 != 0 {
+    let csi = if (*cmap).is_identity() as i32 != 0 {
         None
     } else {
-        CMap_get_CIDSysInfo(cmap).as_ref().cloned()
+        (*cmap).get_CIDSysInfo().cloned()
     };
     let cid_id = CIDFont_cache_find(map_name, csi, fmap_opt);
     if cid_id < 0 {
@@ -302,7 +302,7 @@ pub(crate) unsafe fn Type0Font_cache_find(
      * Type 0 font. Otherwise, there already exists parent Type 0 font and
      * then we find him and return his ID. We must check against their WMode.
      */
-    let wmode = CMap_get_wmode(&*cmap);
+    let wmode = (*cmap).get_wmode();
     /* Does CID-keyed font already have parent ? */
     let parent_id = CIDFont_get_parent_id(CIDFont_cache_get(cid_id), wmode); /* If so, we don't need new one. */
     if parent_id >= 0 {

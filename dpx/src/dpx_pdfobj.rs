@@ -47,7 +47,7 @@ use libc::{strlen, strtoul};
 
 use libz_sys as libz;
 
-use bridge::{size_t, InFile, OutputHandleWrapper};
+use bridge::{InFile, OutputHandleWrapper};
 
 pub(crate) const STREAM_COMPRESS: i32 = 1 << 0;
 pub(crate) const STREAM_USE_PREDICTOR: i32 = 1 << 1;
@@ -898,7 +898,7 @@ impl pdf_string {
         string.push(0);
         Self { string }
     }
-    pub(crate) unsafe fn new_from_ptr(ptr: *const libc::c_void, length: size_t) -> Self {
+    pub(crate) unsafe fn new_from_ptr(ptr: *const libc::c_void, length: usize) -> Self {
         if ptr.is_null() {
             Self::new(&[])
         } else {
@@ -936,9 +936,8 @@ impl pdf_string {
  * characters in an output string.
  */
 
-pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut Vec<u8>, s: *const u8, len: size_t) {
-    for i in 0..len {
-        let ch = *s.offset(i as isize);
+pub(crate) unsafe fn pdfobj_escape_str(buffer: &mut Vec<u8>, s: &[u8]) {
+    for &ch in s {
         /*
          * We always write three octal digits. Optimization only gives few Kb
          * smaller size for most documents when zlib compressed.
@@ -978,7 +977,7 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
         s = cipher.as_mut_ptr();
     } else {
         s = strn.string.as_ptr() as *const u8 as *mut u8;
-        len = strn.len() as size_t;
+        len = strn.len();
     }
     /*
      * Count all ASCII non-printable characters.
@@ -1014,7 +1013,10 @@ unsafe fn write_string(strn: &pdf_string, handle: &mut OutputHandleWrapper) {
          */
         let mut wbuf = Vec::new();
         for i in 0..len {
-            pdfobj_escape_str(&mut wbuf, &mut *s.offset(i as isize), 1 as size_t);
+            pdfobj_escape_str(
+                &mut wbuf,
+                std::slice::from_raw_parts(s.offset(i as isize), 1),
+            );
             pdf_out(handle, wbuf.as_slice());
             wbuf.clear();
         }

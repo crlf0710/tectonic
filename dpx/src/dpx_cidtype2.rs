@@ -54,8 +54,6 @@ use crate::dpx_pdfobj::{
 };
 use libc::free;
 
-use crate::bridge::size_t;
-
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
 use super::dpx_cmap::CMap;
@@ -217,7 +215,7 @@ static mut known_encodings: [C2RustUnnamed_3; 11] = [
     },
 ];
 unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
-    let mut cmap_id: i32 = -1;
+    let mut cmap_id = None;
     if select < 0 || select > 9 {
         panic!("Character set unknown.");
     }
@@ -227,11 +225,13 @@ unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
     for append in known_encodings[select as usize].pdfnames {
         let cmap_name = format!("{}-{}-{}", reg, ord, append);
         cmap_id = CMap_cache_find(&cmap_name);
-        if cmap_id >= 0 {
+        if cmap_id.is_some() {
             break;
         }
     }
-    if cmap_id < 0 {
+    if cmap_id.is_some() {
+        CMap_cache_get(cmap_id)
+    } else {
         warn!(
             "Could not find CID-to-Code mapping for \"{}-{}\".",
             reg, ord,
@@ -243,7 +243,6 @@ unsafe fn find_tocode_cmap(reg: &str, ord: &str, select: i32) -> *mut CMap {
         warn!("Please check if this file exists.");
         panic!("Cannot continue...");
     }
-    CMap_cache_get(cmap_id)
 }
 /*
  * CIDFont glyph metrics:
@@ -450,44 +449,32 @@ unsafe fn fix_CJK_symbols(code: u16) -> u16 {
 }
 unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
     let mut outbuf: [u8; 32] = [0; 32];
-    let mut inbytesleft: size_t = 2 as size_t;
-    let mut outbytesleft: size_t = 32 as size_t;
     if cmap.is_null() {
         return cid as i32;
     }
-    let mut inbuf = cid.to_be_bytes().as_ptr();
-    let mut q = outbuf.as_mut_ptr();
-    CMap_decode_char(
-        &*cmap,
-        &mut inbuf,
-        &mut inbytesleft,
-        &mut q,
-        &mut outbytesleft,
-    );
-    if inbytesleft != 0 {
+    let mut inbuf = &cid.to_be_bytes()[..2];
+    let q = CMap_decode_char(&*cmap, &mut inbuf, &mut outbuf[..]);
+    if inbuf.len() != 0 {
         return 0;
     } else {
-        if outbytesleft == 31 {
-            return outbuf[0] as i32;
-        } else {
-            if outbytesleft == 30 {
-                return (outbuf[0] as i32) << 8 | outbuf[1] as i32;
-            } else {
-                if outbytesleft == 28 {
-                    /* We assume the output encoding is UTF-16. */
-                    let hi: CID = u16::from_be_byte_slice(&outbuf[0..2]);
-                    let lo: CID = u16::from_be_byte_slice(&outbuf[2..4]);
-                    if hi as i32 >= 0xd800
-                        && hi as i32 <= 0xdbff
-                        && lo as i32 >= 0xdc00
-                        && lo as i32 <= 0xdfff
-                    {
-                        return (hi as i32 - 0xd800) * 0x400 + 0x10000 + lo as i32 - 0xdc00;
-                    } else {
-                        return (hi as i32) << 16 | lo as i32;
-                    }
+        match q.len() {
+            31 => return outbuf[0] as i32,
+            30 => return (outbuf[0] as i32) << 8 | outbuf[1] as i32,
+            28 => {
+                /* We assume the output encoding is UTF-16. */
+                let hi: CID = u16::from_be_byte_slice(&outbuf[0..2]);
+                let lo: CID = u16::from_be_byte_slice(&outbuf[2..4]);
+                if hi as i32 >= 0xd800
+                    && hi as i32 <= 0xdbff
+                    && lo as i32 >= 0xdc00
+                    && lo as i32 <= 0xdfff
+                {
+                    return (hi as i32 - 0xd800) * 0x400 + 0x10000 + lo as i32 - 0xdc00;
+                } else {
+                    return (hi as i32) << 16 | lo as i32;
                 }
             }
+            _ => {}
         }
     }
     0

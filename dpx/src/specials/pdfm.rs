@@ -40,7 +40,7 @@ use super::{
     spc_push_object, spc_resume_annot, spc_suspend_annot,
 };
 
-use crate::bridge::{size_t, InFile};
+use crate::bridge::InFile;
 use crate::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_dvipdfmx::is_xdv;
@@ -84,7 +84,7 @@ impl spc_pdf_ {
             lowest_level: 255,
             resourcemap: HashMap::new(),
             cd: tounicode {
-                cmap_id: -1,
+                cmap_id: None,
                 unescape_backslash: 0,
                 taintkeys: ptr::null_mut(),
             },
@@ -95,7 +95,7 @@ impl spc_pdf_ {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct tounicode {
-    pub(crate) cmap_id: i32,
+    pub(crate) cmap_id: Option<usize>,
     pub(crate) unescape_backslash: i32,
     pub(crate) taintkeys: *mut pdf_obj,
     /* An array of PDF names. */
@@ -326,24 +326,15 @@ unsafe fn reencodestring(cmap: *mut CMap, instring: *mut pdf_string) -> i32 {
     if cmap.is_null() || instring.is_null() {
         return 0;
     }
-    let slice = (*instring).to_bytes();
-    let mut inbufleft = slice.len() as size_t;
-    let mut inbufcur = slice.as_ptr() as *const u8;
+    let mut inbuf = (*instring).to_bytes();
     wbuf[0] = 0xfe_u8;
     wbuf[1] = 0xff_u8;
-    let mut obufcur = wbuf.as_mut_ptr().offset(2);
-    let mut obufleft = (4096 - 2) as size_t;
-    CMap_decode(
-        &*cmap,
-        &mut inbufcur,
-        &mut inbufleft,
-        &mut obufcur,
-        &mut obufleft,
-    );
-    if inbufleft > 0 {
+    let (_, obuf) = CMap_decode(&*cmap, &mut inbuf, &mut wbuf[2..]);
+    if inbuf.len() > 0 {
         return -1;
     }
-    (*instring).set(&wbuf[..(4096_usize - obufleft as usize)]);
+    let len = 4096 - obuf.len();
+    (*instring).set(&wbuf[..len]);
     0
 }
 unsafe fn maybe_reencode_utf8(instring: *mut pdf_string) -> std::result::Result<(), i32> {
@@ -415,7 +406,7 @@ unsafe fn modstrings(kp: &pdf_name, vp: &mut pdf_obj, cd: &mut tounicode) -> i32
     let mut r: i32 = 0;
     match &mut vp.data {
         Object::String(vp) => {
-            if cd.cmap_id >= 0 && !cd.taintkeys.is_null() {
+            if cd.cmap_id.is_some() && !cd.taintkeys.is_null() {
                 let cmap: *mut CMap = CMap_cache_get(cd.cmap_id);
                 if needreencode(kp, vp, cd) != 0 {
                     r = reencodestring(cmap, vp)
@@ -452,7 +443,7 @@ pub(crate) trait ParsePdfDictU {
 impl ParsePdfDictU for &[u8] {
     fn parse_pdf_dict_with_tounicode(&mut self, cd: &mut tounicode) -> Option<pdf_dict> {
         /* disable this test for XDV files, as we do UTF8 reencoding with no cmap */
-        if unsafe { is_xdv == 0 && cd.cmap_id < 0 } {
+        if unsafe { is_xdv == 0 && cd.cmap_id.is_none() } {
             return self.parse_pdf_dict(ptr::null_mut());
         }
         /* :( */
@@ -1436,7 +1427,7 @@ unsafe fn spc_handler_pdfm_mapfile(spe: &mut SpcEnv, args: &mut SpcArg) -> Resul
 unsafe fn spc_handler_pdfm_tounicode(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     let sd = &mut _PDF_STAT;
     /* First clear */
-    sd.cd.cmap_id = -1;
+    sd.cd.cmap_id = None;
     sd.cd.unescape_backslash = 0;
     args.cur.skip_white();
     if args.cur.is_empty() {
@@ -1450,14 +1441,14 @@ unsafe fn spc_handler_pdfm_tounicode(spe: &mut SpcEnv, args: &mut SpcArg) -> Res
      */
     if let Some(cmap_name) = args.cur.parse_ident() {
         sd.cd.cmap_id = CMap_cache_find(&cmap_name);
-        if sd.cd.cmap_id < 0 {
+        if sd.cd.cmap_id.is_none() {
             spc_warn!(spe, "Failed to load ToUnicode mapping: {}", cmap_name);
             return ERR;
         }
         /* Shift-JIS like encoding may contain backslash in 2nd byte.
          * WARNING: This will add nasty extension to PDF parser.
          */
-        if sd.cd.cmap_id >= 0 {
+        if sd.cd.cmap_id.is_some() {
             if cmap_name.contains("RKSJ")
                 || cmap_name.contains("B5")
                 || cmap_name.contains("GBK")

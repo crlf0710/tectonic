@@ -36,8 +36,6 @@ use libc::free;
 
 use std::io::{Read, Seek, SeekFrom};
 
-use crate::bridge::size_t;
-
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
@@ -158,7 +156,7 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
             *palette.offset((3 * i + 2) as isize) = bgrq[0];
         }
         let lookup =
-            pdf_string::new_from_ptr(palette as *const libc::c_void, (num_palette * 3) as size_t);
+            pdf_string::new_from_ptr(palette as *const libc::c_void, (num_palette * 3) as usize);
         free(palette as *mut libc::c_void);
         let mut colorspace = vec![];
         colorspace.push_obj("Indexed");

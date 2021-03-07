@@ -26,8 +26,6 @@
     non_upper_case_globals
 )]
 
-use crate::bridge::size_t;
-
 pub(crate) unsafe fn UC_is_valid(ucv: i32) -> bool {
     !(ucv < 0 || ucv as i64 > 0x10ffff || ucv as i64 >= 0xd800 && ucv as i64 <= 0xdfff)
 }
@@ -55,7 +53,7 @@ pub(crate) unsafe fn UC_UTF8_is_valid_string(slice: &[u8]) -> bool {
     std::str::from_utf8(slice).is_ok()
 }
 
-pub(crate) unsafe fn UC_UTF16BE_encode_char(ucv: i32, pp: &mut *mut u8, endptr: *mut u8) -> size_t {
+pub(crate) unsafe fn UC_UTF16BE_encode_char(ucv: i32, pp: &mut *mut u8, endptr: *mut u8) -> usize {
     if let Some(ucv) = std::char::from_u32(ucv as u32) {
         let mut b = [0; 2];
         let c16 = ucv.encode_utf16(&mut b);

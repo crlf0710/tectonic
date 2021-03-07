@@ -34,7 +34,7 @@ use super::dpx_mem::{new, renew};
 use super::dpx_numbers::GetFromFile;
 use libc::{free, memcpy, memmove, memset, strlen};
 
-use crate::bridge::{size_t, InFile};
+use crate::bridge::InFile;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
@@ -123,7 +123,7 @@ impl Pack for CffIndex {
             return 2;
         }
         let len = self.size();
-        let datalen = (self.offset[self.count as usize] - 1) as size_t;
+        let datalen = (self.offset[self.count as usize] - 1) as usize;
         if destlen < len {
             panic!("Not enough space available...");
         }
@@ -1077,7 +1077,7 @@ pub(crate) unsafe fn cff_pack_index(mut idx: *mut cff_index, mut dest: &mut [u8]
         return 2;
     }
     let len = cff_index_size(idx);
-    let datalen = (*(*idx).offset.offset((*idx).count as isize)).wrapping_sub(1_u32) as size_t;
+    let datalen = (*(*idx).offset.offset((*idx).count as isize)).wrapping_sub(1_u32) as usize;
     if destlen < len {
         panic!("Not enough space available...");
     }
@@ -1259,7 +1259,7 @@ pub(crate) unsafe fn cff_update_string(cff: &mut cff_font) {
 
 pub(crate) unsafe fn cff_add_string(cff: &mut cff_font, s: &str, unique: i32) -> s_SID {
     /* Setting unique == 1 eliminates redundant or predefined strings. */
-    let len: size_t = s.len() as _;
+    let len: usize = s.len() as _;
     if cff._string.is_none() {
         cff._string = Some(CffIndex::new(0));
     }

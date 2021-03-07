@@ -42,8 +42,6 @@ use md5::{Digest, Md5};
 use rand::prelude::*;
 use sha2::{Sha256, Sha384, Sha512};
 
-use crate::bridge::size_t;
-
 /* Encryption support
  *
  * Supported: 40-128 bit RC4, 128 bit AES, 256 bit AES
@@ -341,7 +339,7 @@ unsafe fn compute_hash_V5(
     for (K_item, hash_item) in K.iter_mut().zip(hash.iter()) {
         *K_item = *hash_item;
     }
-    let mut K_len = 32 as size_t;
+    let mut K_len = 32_usize;
     let mut nround = 1;
     loop
     /* Initial K count as nround 0. */
@@ -460,7 +458,7 @@ unsafe fn compute_owner_password_V5(p: &mut pdf_sec, oplain: *const i8) {
         iv.as_mut_ptr(),
         0,
         p.key.as_mut_ptr(),
-        p.key_size as size_t,
+        p.key_size as usize,
     );
     p.OE.copy_from_slice(&OE[..32]);
 }
@@ -492,7 +490,7 @@ unsafe fn compute_user_password_V5(p: &mut pdf_sec, uplain: *const i8) {
         iv.as_mut_ptr(),
         0,
         p.key.as_mut_ptr(),
-        p.key_size as size_t,
+        p.key_size as usize,
     );
     p.UE.copy_from_slice(&UE[..32]);
 }
@@ -693,7 +691,7 @@ pub(crate) unsafe fn pdf_encrypt_data(plain: &[u8]) -> Vec<u8> {
                     16
                 } else {
                     p.key_size + 5
-                }) as size_t,
+                }) as usize,
                 ptr::null(),
                 1,
                 plain.as_ptr(),
@@ -702,7 +700,7 @@ pub(crate) unsafe fn pdf_encrypt_data(plain: &[u8]) -> Vec<u8> {
         }
         5 => AES_cbc_encrypt_tectonic(
             p.key.as_mut_ptr(),
-            p.key_size as size_t,
+            p.key_size as usize,
             ptr::null(),
             1,
             plain.as_ptr(),
@@ -766,7 +764,7 @@ pub(crate) unsafe fn pdf_encrypt_obj() -> pdf_dict {
         perms[15] = 0_u8;
         let cipher = AES_ecb_encrypt(
             p.key.as_mut_ptr(),
-            p.key_size as size_t,
+            p.key_size as usize,
             perms.as_mut_ptr(),
             16,
         );

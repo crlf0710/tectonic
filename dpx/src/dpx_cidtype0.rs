@@ -53,10 +53,7 @@ use super::dpx_cid::{
     CIDFont_get_embedding, CIDFont_get_opt_index, CIDFont_get_parent_id, CIDFont_is_BaseFont,
 };
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
-use super::dpx_cmap::{
-    CMap, CMap_add_bfchar, CMap_add_cidchar, CMap_add_codespacerange, CMap_cache_add,
-    CMap_cache_find, CMap_set_CIDSysInfo, CMap_set_name, CMap_set_type, CMap_set_wmode,
-};
+use super::dpx_cmap::{CMap, CMap_cache_add, CMap_cache_find};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_cs_type2::cs_copy_charstring;
 use super::dpx_dpxfile::{dpx_open_opentype_file, dpx_open_truetype_file, dpx_open_type1_file};
@@ -80,8 +77,6 @@ use crate::dpx_truetype::sfnt_table_info;
 use libc::{free, memset};
 
 use std::io::{Read, Seek, SeekFrom};
-
-use crate::bridge::size_t;
 
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
@@ -1224,7 +1219,7 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
     CIDFont_type0_add_CIDSet(font, used_chars, last_cid);
 }
 
-unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 {
+unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> Option<usize> {
     const range_min: [u8; 4] = [0; 4];
     const range_max: [u8; 4] = [0x7f, 0xff, 0xff, 0xff];
     let cmap_name = if wmode != 0 {
@@ -1232,24 +1227,22 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
     } else {
         format!("{}-UCS4-H", font_name)
     };
-    let cmap_id = CMap_cache_find(&cmap_name);
-    if cmap_id >= 0 {
-        return cmap_id;
+    if let Some(cmap_id) = CMap_cache_find(&cmap_name) {
+        return Some(cmap_id);
     }
     let mut cmap = CMap::new();
-    CMap_set_name(&mut cmap, &cmap_name);
-    CMap_set_type(&mut cmap, 1);
-    CMap_set_wmode(&mut cmap, wmode);
-    CMap_add_codespacerange(&mut cmap, range_min.as_ptr(), range_max.as_ptr(), 4);
-    CMap_set_CIDSysInfo(&mut cmap, &mut CSI_IDENTITY);
+    cmap.set_name(&cmap_name);
+    cmap.set_type(1);
+    cmap.set_wmode(wmode);
+    cmap.add_codespacerange(&range_min[..4], &range_max[..4]);
+    cmap.set_CIDSysInfo(&CSI_IDENTITY);
     for gid in 1..cffont.num_glyphs as u16 {
         let sid = cff_charsets_lookup_inverse(cffont, gid);
         let glyph = cff_get_string(cffont, sid);
         if let (Some(name), None) = agl_chop_suffix(glyph.as_bytes()) {
             if agl_name_is_unicode(name.to_bytes()) {
                 let ucv = agl_name_convert_unicode(name.as_ptr());
-                let mut srcCode = ucv.to_be_bytes();
-                CMap_add_cidchar(&mut cmap, srcCode.as_mut_ptr(), 4, gid);
+                cmap.add_cidchar(&ucv.to_be_bytes()[..4], gid);
             } else {
                 let mut agln = agl_lookup_list(name.to_bytes());
                 if agln.is_null() {
@@ -1260,26 +1253,29 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> i32 
                         warn!("Glyph \"{}\" inaccessible (composite character)", glyph);
                     } else if (*agln).n_components == 1 {
                         let ucv = (*agln).unicodes[0];
-                        let mut srcCode = ucv.to_be_bytes();
-                        CMap_add_cidchar(&mut cmap, srcCode.as_mut_ptr(), 4, gid);
+                        cmap.add_cidchar(&ucv.to_be_bytes()[..4], gid);
                     }
                     agln = (*agln).alternate
                 }
             }
         }
     }
-    CMap_cache_add(Box::new(cmap))
+    Some(CMap_cache_add(Box::new(cmap)))
 }
 
-pub(crate) unsafe fn t1_load_UnicodeCMap(font_name: &str, otl_tags: &str, wmode: i32) -> i32 {
+pub(crate) unsafe fn t1_load_UnicodeCMap(
+    font_name: &str,
+    otl_tags: &str,
+    wmode: i32,
+) -> Option<usize> {
     let handle = dpx_open_type1_file(font_name);
     if handle.is_none() {
-        return -1;
+        return None;
     }
     let handle = handle.unwrap();
     let cffont = t1_load_font(&mut (&mut [])[..], 1, handle);
     let cmap_id = load_base_CMap(&font_name, wmode, &*cffont);
-    if cmap_id < 0 {
+    if cmap_id.is_none() {
         panic!(
             "Failed to create Unicode charmap for font \"{}\".",
             font_name
@@ -1306,11 +1302,11 @@ unsafe fn create_ToUnicode_stream(
         return None;
     }
     let mut cmap = CMap::new();
-    CMap_set_name(&mut cmap, &format!("{}-UTF16", font_name));
-    CMap_set_wmode(&mut cmap, 0);
-    CMap_set_type(&mut cmap, 2);
-    CMap_set_CIDSysInfo(&mut cmap, &CSI_UNICODE);
-    CMap_add_codespacerange(&mut cmap, range_min.as_ptr(), range_max.as_ptr(), 2);
+    cmap.set_name(&format!("{}-UTF16", font_name));
+    cmap.set_wmode(0);
+    cmap.set_type(2);
+    cmap.set_CIDSysInfo(&CSI_UNICODE);
+    cmap.add_codespacerange(&range_min[..2], &range_max[..2]);
     let mut total_fail_count = 0;
     let mut glyph_count = total_fail_count;
     //p = wbuf.as_mut_ptr();
@@ -1328,13 +1324,7 @@ unsafe fn create_ToUnicode_stream(
                     if len < 1 || fail_count != 0 {
                         total_fail_count += fail_count
                     } else {
-                        CMap_add_bfchar(
-                            &mut cmap,
-                            cid.to_be_bytes().as_ptr(),
-                            2,
-                            wbuf.as_mut_ptr().offset(2),
-                            len as size_t,
-                        );
+                        cmap.add_bfchar(&cid.to_be_bytes()[..2], &wbuf[2..2 + len as usize]);
                     }
                 }
                 glyph_count += 1
