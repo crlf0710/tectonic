@@ -189,10 +189,10 @@ impl CMap {
 
 pub(crate) unsafe fn CMap_get_profile(cmap: &CMap, type_0: i32) -> i32 {
     match type_0 {
-        0 => (*cmap).profile.minBytesIn as i32,
-        1 => (*cmap).profile.maxBytesIn as i32,
-        2 => (*cmap).profile.maxBytesOut as i32,
-        3 => (*cmap).profile.maxBytesOut as i32,
+        0 => cmap.profile.minBytesIn as i32,
+        1 => cmap.profile.maxBytesIn as i32,
+        2 => cmap.profile.maxBytesOut as i32,
+        3 => cmap.profile.maxBytesOut as i32,
         _ => {
             panic!("{}: Unrecognized profile type {}.", "CMap", type_0);
         }
@@ -235,7 +235,7 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
     inbuf: &mut &[u8],
     mut outbuf: &'a mut [u8],
 ) -> &'a mut [u8] {
-    let mut c: u8 = 0_u8;
+    let mut c = 0;
     let mut count: usize = 0;
     let mut save = *inbuf;
     let mut p = save;
@@ -266,24 +266,19 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
     assert!(!cmap.mapTbl.is_null());
     let mut t = cmap.mapTbl;
     while count < inbuf.len() {
-        c = p[0];
+        c = p[0] as usize;
         p = &p[1..];
         count += 1;
-        if (*t.offset(c as isize)).flag & 1 << 4 == 0 {
+        if (*t.add(c)).flag & 1 << 4 == 0 {
             break;
         }
-        t = (*t.offset(c as isize)).next
+        t = (*t.add(c)).next
     }
-    if (*t.offset(c as isize)).flag & 1 << 4 != 0 {
+    if (*t.add(c)).flag & 1 << 4 != 0 {
         /* need more bytes */
         panic!("{}: Premature end of input string.", "CMap");
     } else {
-        if if (*t.offset(c as isize)).flag & 0xf != 0 {
-            1
-        } else {
-            0
-        } == 0
-        {
+        if if (*t.add(c)).flag & 0xf != 0 { 1 } else { 0 } == 0 {
             if let Some(use_cmap) = cmap.useCMap.as_ref() {
                 return CMap_decode_char(use_cmap, inbuf, outbuf);
             } else {
@@ -304,7 +299,7 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
                 return handle_undefined(cmap, inbuf, outbuf);
             }
         } else {
-            match (*t.offset(c as isize)).flag & 0xf {
+            match (*t.add(c)).flag & 0xf {
                 8 => {
                     warn!("Character mapped to .notdef found.");
                 }
@@ -317,12 +312,9 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
                 }
             }
             /* continue */
-            let len = (*t.offset(c as isize)).len as usize;
+            let len = (*t.add(c)).len as usize;
             if outbuf.len() >= len {
-                outbuf[..len].copy_from_slice(std::slice::from_raw_parts(
-                    (*t.offset(c as isize)).code,
-                    len,
-                ));
+                outbuf[..len].copy_from_slice(std::slice::from_raw_parts((*t.add(c)).code, len));
             } else {
                 panic!("{}: Buffer overflow.", "CMap");
             }
@@ -539,12 +531,8 @@ impl CMap {
         }
         let srcdim = srclo.len();
         for c in srclo[srcdim - 1]..=srchi[srcdim - 1] {
-            if if (*cur.offset(c as isize)).flag & 0xf != 0 {
-                1
-            } else {
-                0
-            } != 0
-            {
+            let c = c as usize;
+            if if (*cur.add(c)).flag & 0xf != 0 { 1 } else { 0 } != 0 {
                 if __silent == 0 {
                     warn!("Trying to redefine already defined code mapping. (ignored)");
                 }
@@ -552,9 +540,9 @@ impl CMap {
                 let code = get_mem(&mut self.mapData, 2);
                 code[0] = (dst as i32 >> 8) as u8;
                 code[1] = (dst as i32 & 0xff) as u8;
-                (*cur.offset(c as isize)).flag = 0 | 1 << 3;
-                (*cur.offset(c as isize)).code = code.as_mut_ptr();
-                (*cur.offset(c as isize)).len = code.len();
+                (*cur.add(c)).flag = 0 | 1 << 3;
+                (*cur.add(c)).code = code.as_mut_ptr();
+                (*cur.add(c)).len = code.len();
             }
             /* Do not do dst++ for notdefrange  */
         }
@@ -594,27 +582,21 @@ impl CMap {
              *
              *  Should be treated as <0100> in Acrobat's "ToUnicode" CMap.
              */
-            if (if (*cur.offset(c as isize)).flag & 0xf != 0 {
-                1
-            } else {
-                0
-            }) == 0
-                || (*cur.offset(c as isize)).len < dstdim
+            let c = c as usize;
+            if (if (*cur.add(c)).flag & 0xf != 0 { 1 } else { 0 }) == 0
+                || (*cur.add(c)).len < dstdim
             {
-                (*cur.offset(c as isize)).flag = 0 | 1 << 2;
-                (*cur.offset(c as isize)).code = get_mem(&mut self.mapData, dstdim).as_mut_ptr();
+                (*cur.add(c)).flag = 0 | 1 << 2;
+                (*cur.add(c)).code = get_mem(&mut self.mapData, dstdim).as_mut_ptr();
             }
-            (*cur.offset(c as isize)).len = dstdim;
-            std::slice::from_raw_parts_mut((*cur.offset(c as isize)).code, dstdim)
-                .copy_from_slice(base);
+            (*cur.add(c)).len = dstdim;
+            std::slice::from_raw_parts_mut((*cur.add(c)).code, dstdim).copy_from_slice(base);
             let mut last_byte = (c as i32) - srclo[srcdim - 1] as i32 + base[dstdim - 1] as i32;
-            *(*cur.offset(c as isize))
-                .code
-                .offset(dstdim.wrapping_sub(1) as isize) = (last_byte & 0xff) as u8;
+            *(*cur.add(c)).code.offset(dstdim.wrapping_sub(1) as isize) = (last_byte & 0xff) as u8;
             let mut i = dstdim.wrapping_sub(2) as i32;
             while i >= 0 && last_byte > 255 {
-                last_byte = *(*cur.offset(c as isize)).code.offset(i as isize) as i32 + 1;
-                *(*cur.offset(c as isize)).code.offset(i as isize) = (last_byte & 0xff) as u8;
+                last_byte = *(*cur.add(c)).code.offset(i as isize) as i32 + 1;
+                *(*cur.add(c)).code.offset(i as isize) = (last_byte & 0xff) as u8;
                 i -= 1
             }
         }
@@ -698,8 +680,8 @@ unsafe fn get_mem(map: &mut Box<mapData>, size: usize) -> &mut [u8] {
 unsafe fn locate_tbl(cur: *mut *mut mapDef, code: &[u8]) -> i32 {
     assert!(!cur.is_null() && !(*cur).is_null());
     for i in 0..(code.len() - 1) {
-        let c = code[i] as i32;
-        if if (*(*cur).offset(c as isize)).flag & 0xf != 0 {
+        let c = code[i] as usize;
+        if if (*(*cur).add(c)).flag & 0xf != 0 {
             1
         } else {
             0
@@ -708,12 +690,12 @@ unsafe fn locate_tbl(cur: *mut *mut mapDef, code: &[u8]) -> i32 {
             warn!("Ambiguous CMap entry.");
             return -1;
         }
-        if (*(*cur).offset(c as isize)).next.is_null() {
+        if (*(*cur).add(c)).next.is_null() {
             /* create new node */
-            (*(*cur).offset(c as isize)).next = mapDef_new();
+            (*(*cur).add(c)).next = mapDef_new();
         }
-        (*(*cur).offset(c as isize)).flag |= 1 << 4;
-        *cur = (*(*cur).offset(c as isize)).next;
+        (*(*cur).add(c)).flag |= 1 << 4;
+        *cur = (*(*cur).add(c)).next;
     }
     0
 }
