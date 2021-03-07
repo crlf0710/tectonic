@@ -58,8 +58,8 @@ use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear,
 use crate::dpx_pdfdoc::{pdf_doc_mut, pdf_doc_set_bgcolor, PdfPageBoundary};
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_remove_dict, pdf_stream,
-    pdf_string, IntoObj, Object, STREAM_COMPRESS,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
+    Object, STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -974,7 +974,7 @@ unsafe fn spc_handler_pdfm_docview(spe: &mut SpcEnv, args: &mut SpcArg) -> Resul
         let pref_add = dict.get("ViewerPreferences");
         if let (Some(pref_old), Some(pref_add)) = (pref_old, pref_add) {
             (*pref_old).as_dict_mut().merge((*pref_add).as_dict());
-            pdf_remove_dict(&mut dict, "ViewerPreferences");
+            dict.remove("ViewerPreferences");
         }
         (*catalog).as_dict_mut().merge(&dict);
         Ok(())
@@ -1163,9 +1163,9 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                     let stream_dict = fstream.get_dict_mut();
                     if let Some(mut tmp) = args.cur.parse_pdf_dict(ptr::null_mut()) {
                         if tmp.has("Length") {
-                            pdf_remove_dict(&mut tmp, "Length");
+                            tmp.remove("Length");
                         } else if tmp.has("Filter") {
-                            pdf_remove_dict(&mut tmp, "Filter");
+                            tmp.remove("Filter");
                         }
                         stream_dict.merge(&tmp);
                     } else {

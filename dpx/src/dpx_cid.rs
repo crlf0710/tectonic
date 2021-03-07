@@ -42,8 +42,7 @@ use super::dpx_cidtype2::{
     CIDFont_type2_dofont, CIDFont_type2_open, CIDFont_type2_set_flags, CIDFont_type2_set_verbose,
 };
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_remove_dict, Object,
+    pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, Object,
 };
 use std::borrow::Cow;
 
@@ -570,10 +569,10 @@ unsafe fn CIDFont_base_open(
             };
             if cidoptflags & 1 << 1 != 0 {
                 if fontdict.has("W") {
-                    pdf_remove_dict(&mut fontdict, "W");
+                    fontdict.remove("W");
                 }
                 if fontdict.has("W2") {
-                    pdf_remove_dict(&mut fontdict, "W2");
+                    fontdict.remove("W2");
                 }
             }
             fontdict.set("Type", "Font");

@@ -1246,14 +1246,14 @@ impl pdf_dict {
             None => None,
         }
     }
-}
 
-pub(crate) unsafe fn pdf_remove_dict<K>(dict: &mut pdf_dict, name: K)
-where
-    K: AsRef<[u8]>,
-{
-    if let Some(existing_value) = dict.inner.shift_remove(name.as_ref()) {
-        pdf_release_obj(existing_value);
+    pub(crate) unsafe fn remove<K>(&mut self, name: K)
+    where
+        K: AsRef<[u8]>,
+    {
+        if let Some(existing_value) = self.inner.shift_remove(name.as_ref()) {
+            pdf_release_obj(existing_value);
+        }
     }
 }
 
@@ -2268,7 +2268,7 @@ pub(crate) unsafe fn pdf_concat_stream(dst: &mut pdf_stream, src: &mut pdf_strea
 unsafe fn pdf_stream_uncompress(src: &mut pdf_stream) -> Option<pdf_stream> {
     let mut dst = pdf_stream::new(0);
     dst.get_dict_mut().merge(src.get_dict());
-    pdf_remove_dict(dst.get_dict_mut(), "Length");
+    dst.get_dict_mut().remove("Length");
     pdf_concat_stream(&mut dst, src);
     Some(dst)
 }

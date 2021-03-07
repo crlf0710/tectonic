@@ -66,9 +66,9 @@ use super::dpx_pngimage::check_for_png;
 use crate::bridge::{InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_new_ref, pdf_obj,
-    pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_remove_dict, pdf_set_encrypt,
-    pdf_set_id, pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, IntoRef,
-    Object, PushObj, STREAM_COMPRESS,
+    pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_set_encrypt, pdf_set_id,
+    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, IntoRef, Object,
+    PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -444,11 +444,11 @@ impl PdfDoc {
                 if let Object::String(value) = &value.data {
                     if value.len() == 0 {
                         /* The hyperref package often uses emtpy strings. */
-                        pdf_remove_dict(docinfo.as_dict_mut(), key);
+                        docinfo.as_dict_mut().remove(key);
                     }
                 } else {
                     warn!("\"{}\" in DocInfo dictionary not string type.", key);
-                    pdf_remove_dict(docinfo.as_dict_mut(), key);
+                    docinfo.as_dict_mut().remove(key);
                     warn!("\"{}\" removed from DocInfo.", key);
                 }
             }
