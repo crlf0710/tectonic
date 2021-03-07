@@ -501,7 +501,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
     cmap.set_type(2);
     cmap.set_wmode(0);
     cmap.set_CIDSysInfo(&CSI_UNICODE);
-    cmap.add_codespacerange(range_min.as_ptr(), range_max.as_ptr(), 1);
+    cmap.add_codespacerange(&range_min[..1], &range_max[..1]);
     let mut all_predef = 1;
     for code in 0..=0xff {
         if !(!is_used.is_null() && *is_used.offset(code as isize) == 0) {
@@ -518,7 +518,7 @@ pub(crate) unsafe fn pdf_create_ToUnicode_CMap(
                     let len =
                         agl_sput_UTF16BE(&enc_vec[code as usize], &mut p, endptr, &mut fail_count);
                     if len >= 1 && fail_count == 0 {
-                        cmap.add_bfchar(c8.as_ptr(), 1, wbuf.as_mut_ptr().offset(1), len as usize);
+                        cmap.add_bfchar(&c8, &wbuf[1..1 + len as usize]);
                         all_predef &= (!agln.is_null() && (*agln).is_predef != 0) as i32
                     }
                 }

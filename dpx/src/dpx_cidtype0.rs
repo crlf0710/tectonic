@@ -1234,7 +1234,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> Opti
     cmap.set_name(&cmap_name);
     cmap.set_type(1);
     cmap.set_wmode(wmode);
-    cmap.add_codespacerange(range_min.as_ptr(), range_max.as_ptr(), 4);
+    cmap.add_codespacerange(&range_min[..4], &range_max[..4]);
     cmap.set_CIDSysInfo(&CSI_IDENTITY);
     for gid in 1..cffont.num_glyphs as u16 {
         let sid = cff_charsets_lookup_inverse(cffont, gid);
@@ -1242,8 +1242,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> Opti
         if let (Some(name), None) = agl_chop_suffix(glyph.as_bytes()) {
             if agl_name_is_unicode(name.to_bytes()) {
                 let ucv = agl_name_convert_unicode(name.as_ptr());
-                let mut srcCode = ucv.to_be_bytes();
-                cmap.add_cidchar(srcCode.as_mut_ptr(), 4, gid);
+                cmap.add_cidchar(&ucv.to_be_bytes()[..4], gid);
             } else {
                 let mut agln = agl_lookup_list(name.to_bytes());
                 if agln.is_null() {
@@ -1254,8 +1253,7 @@ unsafe fn load_base_CMap(font_name: &str, wmode: i32, cffont: &cff_font) -> Opti
                         warn!("Glyph \"{}\" inaccessible (composite character)", glyph);
                     } else if (*agln).n_components == 1 {
                         let ucv = (*agln).unicodes[0];
-                        let mut srcCode = ucv.to_be_bytes();
-                        cmap.add_cidchar(srcCode.as_mut_ptr(), 4, gid);
+                        cmap.add_cidchar(&ucv.to_be_bytes()[..4], gid);
                     }
                     agln = (*agln).alternate
                 }
@@ -1308,7 +1306,7 @@ unsafe fn create_ToUnicode_stream(
     cmap.set_wmode(0);
     cmap.set_type(2);
     cmap.set_CIDSysInfo(&CSI_UNICODE);
-    cmap.add_codespacerange(range_min.as_ptr(), range_max.as_ptr(), 2);
+    cmap.add_codespacerange(&range_min[..2], &range_max[..2]);
     let mut total_fail_count = 0;
     let mut glyph_count = total_fail_count;
     //p = wbuf.as_mut_ptr();
@@ -1326,12 +1324,7 @@ unsafe fn create_ToUnicode_stream(
                     if len < 1 || fail_count != 0 {
                         total_fail_count += fail_count
                     } else {
-                        cmap.add_bfchar(
-                            cid.to_be_bytes().as_ptr(),
-                            2,
-                            wbuf.as_mut_ptr().offset(2),
-                            len as usize,
-                        );
+                        cmap.add_bfchar(&cid.to_be_bytes()[..2], &wbuf[2..2 + len as usize]);
                     }
                 }
                 glyph_count += 1
