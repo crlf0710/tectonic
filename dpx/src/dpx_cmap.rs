@@ -29,8 +29,6 @@ use crate::{info, warn};
 use std::ptr;
 
 use super::dpx_cid::CSI_IDENTITY;
-use super::dpx_mem::new;
-use libc::free;
 
 use bridge::{InFile, TTInputFormat};
 
@@ -43,14 +41,25 @@ pub(crate) struct rangeDef {
     pub(crate) codeLo: *mut u8,
     pub(crate) codeHi: *mut u8,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct mapDef {
     pub(crate) flag: i32,
     pub(crate) len: usize,
     pub(crate) code: *mut u8,
-    pub(crate) next: *mut mapDef,
+    pub(crate) next: Option<Box<[mapDef]>>,
 }
+impl Default for mapDef {
+    fn default() -> Self {
+        Self {
+            flag: 0 | 0,
+            len: 0,
+            code: ptr::null_mut(),
+            next: None,
+        }
+    }
+}
+
 #[derive(Clone)]
 #[repr(C)]
 pub(crate) struct mapData {
@@ -80,7 +89,7 @@ pub(crate) struct CMap {
     pub(crate) CSI: Option<Box<CIDSysInfo>>,
     pub(crate) useCMap: Option<&'static mut CMap>,
     pub(crate) codespace: Vec<rangeDef>,
-    pub(crate) mapTbl: *mut mapDef,
+    pub(crate) mapTbl: Option<Box<[mapDef]>>,
     pub(crate) mapData: Box<mapData>,
     pub(crate) profile: C2RustUnnamed,
     pub(crate) reverseMap: Box<[i32]>,
@@ -139,19 +148,9 @@ impl CMap {
             useCMap: None,
             CSI: None,
             codespace: Vec::with_capacity(10),
-            mapTbl: ptr::null_mut(),
+            mapTbl: None,
             mapData: Default::default(),
             reverseMap: vec![0; 65536].into_boxed_slice(),
-        }
-    }
-}
-
-impl Drop for CMap {
-    fn drop(&mut self) {
-        unsafe {
-            if !self.mapTbl.is_null() {
-                mapDef_release(self.mapTbl);
-            }
         }
     }
 }
@@ -167,7 +166,7 @@ impl CMap {
             || self.type_0 < 0
             || self.type_0 > 3
             || self.codespace.len() < 1
-            || self.type_0 != 0 && self.mapTbl.is_null()
+            || self.type_0 != 0 && self.mapTbl.is_none()
         {
             return false;
         }
@@ -253,7 +252,7 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
         *inbuf = &inbuf[2..];
         return &mut outbuf[2..];
     } else {
-        if cmap.mapTbl.is_null() {
+        if cmap.mapTbl.is_none() {
             if let Some(useCMap) = cmap.useCMap.as_ref() {
                 return CMap_decode_char(useCMap, inbuf, outbuf);
             } else {
@@ -263,22 +262,21 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
             }
         }
     }
-    assert!(!cmap.mapTbl.is_null());
-    let mut t = cmap.mapTbl;
+    let mut t = cmap.mapTbl.as_deref().unwrap();
     while count < inbuf.len() {
         c = p[0] as usize;
         p = &p[1..];
         count += 1;
-        if (*t.add(c)).flag & 1 << 4 == 0 {
+        if t[c].flag & 1 << 4 == 0 {
             break;
         }
-        t = (*t.add(c)).next
+        t = t[c].next.as_deref().unwrap();
     }
-    if (*t.add(c)).flag & 1 << 4 != 0 {
+    if t[c].flag & 1 << 4 != 0 {
         /* need more bytes */
         panic!("{}: Premature end of input string.", "CMap");
     } else {
-        if if (*t.add(c)).flag & 0xf != 0 { 1 } else { 0 } == 0 {
+        if if t[c].flag & 0xf != 0 { 1 } else { 0 } == 0 {
             if let Some(use_cmap) = cmap.useCMap.as_ref() {
                 return CMap_decode_char(use_cmap, inbuf, outbuf);
             } else {
@@ -299,7 +297,7 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
                 return handle_undefined(cmap, inbuf, outbuf);
             }
         } else {
-            match (*t.add(c)).flag & 0xf {
+            match t[c].flag & 0xf {
                 8 => {
                     warn!("Character mapped to .notdef found.");
                 }
@@ -312,9 +310,9 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
                 }
             }
             /* continue */
-            let len = (*t.add(c)).len as usize;
+            let len = t[c].len as usize;
             if outbuf.len() >= len {
-                outbuf[..len].copy_from_slice(std::slice::from_raw_parts((*t.add(c)).code, len));
+                outbuf[..len].copy_from_slice(std::slice::from_raw_parts(t[c].code, len));
             } else {
                 panic!("{}: Buffer overflow.", "CMap");
             }
@@ -522,17 +520,19 @@ impl CMap {
         if check_range(self, srclo, srchi, &mut dst as *mut CID as *const u8, 2) < 0 {
             return -1;
         }
-        if self.mapTbl.is_null() {
-            self.mapTbl = mapDef_new()
+        if self.mapTbl.is_none() {
+            self.mapTbl = Some(mapDef_new());
         }
-        let mut cur = self.mapTbl;
-        if locate_tbl(&mut cur, srclo) < 0 {
+        let mut cur = self.mapTbl.as_deref_mut().unwrap();
+        let cur = if let Some(tbl) = locate_tbl(&mut cur, srclo) {
+            tbl
+        } else {
             return -1;
-        }
+        };
         let srcdim = srclo.len();
         for c in srclo[srcdim - 1]..=srchi[srcdim - 1] {
             let c = c as usize;
-            if if (*cur.add(c)).flag & 0xf != 0 { 1 } else { 0 } != 0 {
+            if if cur[c].flag & 0xf != 0 { 1 } else { 0 } != 0 {
                 if __silent == 0 {
                     warn!("Trying to redefine already defined code mapping. (ignored)");
                 }
@@ -540,9 +540,9 @@ impl CMap {
                 let code = get_mem(&mut self.mapData, 2);
                 code[0] = (dst as i32 >> 8) as u8;
                 code[1] = (dst as i32 & 0xff) as u8;
-                (*cur.add(c)).flag = 0 | 1 << 3;
-                (*cur.add(c)).code = code.as_mut_ptr();
-                (*cur.add(c)).len = code.len();
+                cur[c].flag = 0 | 1 << 3;
+                cur[c].code = code.as_mut_ptr();
+                cur[c].len = code.len();
             }
             /* Do not do dst++ for notdefrange  */
         }
@@ -560,13 +560,15 @@ impl CMap {
         if check_range(self, srclo, srchi, base.as_ptr(), dstdim) < 0 {
             return -1;
         }
-        if self.mapTbl.is_null() {
-            self.mapTbl = mapDef_new()
+        if self.mapTbl.is_none() {
+            self.mapTbl = Some(mapDef_new());
         }
-        let mut cur = self.mapTbl;
-        if locate_tbl(&mut cur, srclo) < 0 {
+        let mut cur = self.mapTbl.as_deref_mut().unwrap();
+        let cur = if let Some(tbl) = locate_tbl(&mut cur, srclo) {
+            tbl
+        } else {
             return -1;
-        }
+        };
         let srcdim = srclo.len();
         for c in srclo[srcdim - 1]..=srchi[srcdim - 1] {
             /* According to 5014.CIDFont_Spec.pdf (p.52),
@@ -583,20 +585,18 @@ impl CMap {
              *  Should be treated as <0100> in Acrobat's "ToUnicode" CMap.
              */
             let c = c as usize;
-            if (if (*cur.add(c)).flag & 0xf != 0 { 1 } else { 0 }) == 0
-                || (*cur.add(c)).len < dstdim
-            {
-                (*cur.add(c)).flag = 0 | 1 << 2;
-                (*cur.add(c)).code = get_mem(&mut self.mapData, dstdim).as_mut_ptr();
+            if (if cur[c].flag & 0xf != 0 { 1 } else { 0 }) == 0 || cur[c].len < dstdim {
+                cur[c].flag = 0 | 1 << 2;
+                cur[c].code = get_mem(&mut self.mapData, dstdim).as_mut_ptr();
             }
-            (*cur.add(c)).len = dstdim;
-            std::slice::from_raw_parts_mut((*cur.add(c)).code, dstdim).copy_from_slice(base);
+            cur[c].len = dstdim;
+            std::slice::from_raw_parts_mut(cur[c].code, dstdim).copy_from_slice(base);
             let mut last_byte = (c as i32) - srclo[srcdim - 1] as i32 + base[dstdim - 1] as i32;
-            *(*cur.add(c)).code.offset(dstdim.wrapping_sub(1) as isize) = (last_byte & 0xff) as u8;
+            *cur[c].code.offset(dstdim.wrapping_sub(1) as isize) = (last_byte & 0xff) as u8;
             let mut i = dstdim.wrapping_sub(2) as i32;
             while i >= 0 && last_byte > 255 {
-                last_byte = *(*cur.add(c)).code.offset(i as isize) as i32 + 1;
-                *(*cur.add(c)).code.offset(i as isize) = (last_byte & 0xff) as u8;
+                last_byte = *cur[c].code.offset(i as isize) as i32 + 1;
+                *cur[c].code.offset(i as isize) = (last_byte & 0xff) as u8;
                 i -= 1
             }
         }
@@ -613,13 +613,15 @@ impl CMap {
             /* FIXME */
             return -1;
         }
-        if self.mapTbl.is_null() {
-            self.mapTbl = mapDef_new()
+        if self.mapTbl.is_none() {
+            self.mapTbl = Some(mapDef_new());
         }
-        let mut cur = self.mapTbl;
-        if locate_tbl(&mut cur, srclo) < 0 {
+        let mut cur = self.mapTbl.as_deref_mut().unwrap();
+        let cur = if let Some(tbl) = locate_tbl(&mut cur, srclo) {
+            tbl
+        } else {
             return -1;
-        }
+        };
         let mut v = 0_usize;
         let srcdim = srclo.len();
         for i in 0..srcdim - 1 {
@@ -628,7 +630,7 @@ impl CMap {
         self.reverseMap[base as usize] = v as i32;
         for c in srclo[srcdim - 1]..=srchi[srcdim - 1] {
             let c = c as usize;
-            if (*cur.add(c)).flag != 0 {
+            if cur[c].flag != 0 {
                 if __silent == 0 {
                     warn!("Trying to redefine already defined CID mapping. (ignored)");
                 }
@@ -636,9 +638,9 @@ impl CMap {
                 let code = get_mem(&mut self.mapData, 2);
                 code[0] = (base as i32 >> 8) as u8;
                 code[1] = (base as i32 & 0xff) as u8;
-                (*cur.add(c)).flag = 0 | 1 << 0;
-                (*cur.add(c)).len = code.len();
-                (*cur.add(c)).code = code.as_mut_ptr();
+                cur[c].flag = 0 | 1 << 0;
+                cur[c].len = code.len();
+                cur[c].code = code.as_mut_ptr();
                 self.reverseMap[base as usize] = (v << 8).wrapping_add(c as _) as i32
             }
             if base as i32 >= 65535 {
@@ -649,24 +651,11 @@ impl CMap {
         0
     }
 }
-unsafe fn mapDef_release(t: *mut mapDef) {
-    assert!(!t.is_null());
-    for c in 0..256 {
-        if (*t.offset(c as isize)).flag & 1 << 4 != 0 {
-            mapDef_release((*t.offset(c as isize)).next);
-        }
-    }
-    free(t as *mut libc::c_void);
-}
-unsafe fn mapDef_new() -> *mut mapDef {
-    let t =
-        new((256_u64).wrapping_mul(::std::mem::size_of::<mapDef>() as u64) as u32) as *mut mapDef;
-    for c in 0..256 {
-        (*t.offset(c as isize)).flag = 0 | 0;
-        (*t.offset(c as isize)).code = ptr::null_mut();
-        (*t.offset(c as isize)).next = ptr::null_mut();
-    }
-    t
+
+unsafe fn mapDef_new() -> Box<[mapDef]> {
+    let mut t = Vec::<mapDef>::with_capacity(256);
+    t.resize_with(256, Default::default);
+    t.into_boxed_slice()
 }
 unsafe fn get_mem(map: &mut Box<mapData>, size: usize) -> &mut [u8] {
     if map.pos + size >= 4096 {
@@ -677,27 +666,21 @@ unsafe fn get_mem(map: &mut Box<mapData>, size: usize) -> &mut [u8] {
     map.pos += size;
     &mut map.data[pos..pos + size]
 }
-unsafe fn locate_tbl(cur: *mut *mut mapDef, code: &[u8]) -> i32 {
-    assert!(!cur.is_null() && !(*cur).is_null());
+unsafe fn locate_tbl<'a>(mut cur: &'a mut [mapDef], code: &[u8]) -> Option<&'a mut [mapDef]> {
     for i in 0..(code.len() - 1) {
         let c = code[i] as usize;
-        if if (*(*cur).add(c)).flag & 0xf != 0 {
-            1
-        } else {
-            0
-        } != 0
-        {
+        if if cur[c].flag & 0xf != 0 { 1 } else { 0 } != 0 {
             warn!("Ambiguous CMap entry.");
-            return -1;
+            return None;
         }
-        if (*(*cur).add(c)).next.is_null() {
+        if cur[c].next.is_none() {
             /* create new node */
-            (*(*cur).add(c)).next = mapDef_new();
+            cur[c].next = Some(mapDef_new());
         }
-        (*(*cur).add(c)).flag |= 1 << 4;
-        *cur = (*(*cur).add(c)).next;
+        cur[c].flag |= 1 << 4;
+        cur = cur[c].next.as_deref_mut().unwrap();
     }
-    0
+    Some(cur)
 }
 /* Private funcs. */
 /*
