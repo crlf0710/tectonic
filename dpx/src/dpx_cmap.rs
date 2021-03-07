@@ -504,10 +504,10 @@ impl CMap {
             self.profile.maxBytesIn = dim
         }
 
-        let codeHi = get_mem(self, dim);
+        let codeHi = get_mem(&mut self.mapData, dim);
         codeHi.copy_from_slice(&codehi);
         let codeHi = codeHi.as_mut_ptr();
-        let codeLo = get_mem(self, dim);
+        let codeLo = get_mem(&mut self.mapData, dim);
         codeLo.copy_from_slice(&codelo);
         let codeLo = codeLo.as_mut_ptr();
         self.codespace.push(rangeDef {
@@ -552,7 +552,7 @@ impl CMap {
                     warn!("Trying to redefine already defined code mapping. (ignored)");
                 }
             } else {
-                let code = get_mem(self, 2);
+                let code = get_mem(&mut self.mapData, 2);
                 code[0] = (dst as i32 >> 8) as u8;
                 code[1] = (dst as i32 & 0xff) as u8;
                 (*cur.offset(c as isize)).flag = 0 | 1 << 3;
@@ -605,7 +605,7 @@ impl CMap {
                 || (*cur.offset(c as isize)).len < dstdim
             {
                 (*cur.offset(c as isize)).flag = 0 | 1 << 2;
-                (*cur.offset(c as isize)).code = get_mem(self, dstdim).as_mut_ptr();
+                (*cur.offset(c as isize)).code = get_mem(&mut self.mapData, dstdim).as_mut_ptr();
             }
             (*cur.offset(c as isize)).len = dstdim;
             std::slice::from_raw_parts_mut((*cur.offset(c as isize)).code, dstdim)
@@ -654,7 +654,7 @@ impl CMap {
                     warn!("Trying to redefine already defined CID mapping. (ignored)");
                 }
             } else {
-                let code = get_mem(self, 2);
+                let code = get_mem(&mut self.mapData, 2);
                 code[0] = (base as i32 >> 8) as u8;
                 code[1] = (base as i32 & 0xff) as u8;
                 (*cur.add(c)).flag = 0 | 1 << 0;
@@ -689,12 +689,11 @@ unsafe fn mapDef_new() -> *mut mapDef {
     }
     t
 }
-unsafe fn get_mem(cmap: &mut CMap, size: usize) -> &mut [u8] {
-    if cmap.mapData.pos + size >= 4096 {
-        let prev = std::mem::take(&mut cmap.mapData);
-        cmap.mapData.prev = Some(prev);
+unsafe fn get_mem(map: &mut Box<mapData>, size: usize) -> &mut [u8] {
+    if map.pos + size >= 4096 {
+        let prev = std::mem::take(map);
+        map.prev = Some(prev);
     }
-    let map = &mut cmap.mapData;
     let pos = map.pos;
     map.pos += size;
     &mut map.data[pos..pos + size]
