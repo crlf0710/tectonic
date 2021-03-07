@@ -73,17 +73,15 @@ impl Default for mapData {
 /* CID, Code... MEM_ALLOC_SIZE bytes  */
 /* Previous mapData data segment      */
 /* Position of next free data segment */
-#[derive(Clone)]
 pub(crate) struct CMap {
     pub(crate) name: String,
     pub(crate) type_0: i32,
     pub(crate) wmode: i32,
     pub(crate) CSI: Option<Box<CIDSysInfo>>,
-    pub(crate) useCMap: *mut CMap,
+    pub(crate) useCMap: Option<&'static mut CMap>,
     pub(crate) codespace: Vec<rangeDef>,
     pub(crate) mapTbl: *mut mapDef,
     pub(crate) mapData: Box<mapData>,
-    pub(crate) flags: i32,
     pub(crate) profile: C2RustUnnamed,
     pub(crate) reverseMap: Box<[i32]>,
 }
@@ -138,9 +136,8 @@ impl CMap {
             name: String::new(),
             type_0: 1,
             wmode: 0,
-            useCMap: ptr::null_mut(),
+            useCMap: None,
             CSI: None,
-            flags: 0,
             codespace: Vec::with_capacity(10),
             mapTbl: ptr::null_mut(),
             mapData: Default::default(),
@@ -287,8 +284,8 @@ pub(crate) unsafe fn CMap_decode_char<'a>(
             0
         } == 0
         {
-            if !cmap.useCMap.is_null() {
-                return CMap_decode_char(&*cmap.useCMap, inbuf, outbuf);
+            if let Some(use_cmap) = cmap.useCMap.as_ref() {
+                return CMap_decode_char(use_cmap, inbuf, outbuf);
             } else {
                 /* no mapping available in this CMap */
                 warn!("No character mapping available.");
@@ -404,7 +401,7 @@ impl CMap {
  * Can have muliple entry ?
  */
 
-pub(crate) unsafe fn CMap_set_usecmap(cmap: &mut CMap, ucmap: &mut CMap) {
+pub(crate) unsafe fn CMap_set_usecmap(cmap: &mut CMap, ucmap: &'static mut CMap) {
     /* Maybe if (!ucmap) panic! is better for this. */
     if (cmap as *mut CMap) == (ucmap as *mut CMap) {
         panic!(
@@ -444,7 +441,7 @@ pub(crate) unsafe fn CMap_set_usecmap(cmap: &mut CMap, ucmap: &mut CMap) {
             from_raw_parts(csr.codeHi, csr.dim),
         );
     }
-    cmap.useCMap = ucmap;
+    cmap.useCMap = Some(ucmap);
 }
 /* Test the validity of character c. */
 unsafe fn CMap_match_codespace(cmap: *mut CMap, c: &[u8]) -> i32 {

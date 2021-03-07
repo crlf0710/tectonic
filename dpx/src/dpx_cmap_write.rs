@@ -271,7 +271,7 @@ pub(crate) unsafe fn CMap_create_stream(cmap: &mut CMap) -> Option<pdf_stream> {
     /* TODO:
      * Predefined CMaps need not to be embedded.
      */
-    if !cmap.useCMap.is_null() {
+    if cmap.useCMap.is_some() {
         panic!("UseCMap found (not supported yet)...");
     }
     let mut wbuf = Vec::<u8>::with_capacity(4096);
