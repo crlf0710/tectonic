@@ -40,8 +40,8 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_string, pdf_transfer_label,
-    IntoObj, IntoRef, Object, PushObj,
+    pdf_dict, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_string, pdf_transfer_label, IntoObj, IntoRef,
+    Object, PushObj,
 };
 use libc::free;
 
@@ -83,8 +83,12 @@ unsafe fn printable_key(key: &[u8]) -> String {
 #[inline]
 unsafe fn hval_free(hval: *mut libc::c_void) {
     let value = hval as *mut obj_data;
-    if !(*value).object.is_null() {
-        pdf_release_obj((*value).object);
+    if let Some(obj) = (*value).object.as_mut() {
+        if obj.id.0 == 0 {
+            crate::release!(obj);
+        } else {
+            crate::release2!(obj);
+        }
         (*value).object = ptr::null_mut()
     }
     free(value as *mut libc::c_void);
@@ -152,11 +156,11 @@ pub(crate) unsafe fn pdf_names_add_object(
         assert!(!(*value).object.is_null());
         if (*(*value).object).is_undefined() {
             pdf_transfer_label(object, &mut *(*value).object);
-            pdf_release_obj((*value).object);
+            crate::release!((*value).object);
             (*value).object = object
         } else {
             warn!("Object @{} already defined.", printable_key(key));
-            pdf_release_obj(object);
+            crate::release!(object);
             return ERR;
         }
     }
@@ -253,7 +257,7 @@ unsafe fn build_name_tree(nobjects: &mut [named_object], is_root: bool) -> pdf_d
                     names.push(pdf_link_obj(cur.value));
                 }
             }
-            pdf_release_obj(cur.value);
+            crate::release!(cur.value);
             cur.value = ptr::null_mut();
         }
         result.set("Names", names.into_obj());

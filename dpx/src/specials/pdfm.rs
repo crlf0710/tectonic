@@ -58,8 +58,8 @@ use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear,
 use crate::dpx_pdfdoc::{pdf_doc_mut, pdf_doc_set_bgcolor, PdfPageBoundary};
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
-    Object, STREAM_COMPRESS,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_stream, pdf_string, IntoObj, Object,
+    STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
@@ -155,12 +155,12 @@ unsafe fn spc_handler_pdfm__init(sd: &mut spc_pdf_) -> Result<()> {
 unsafe fn spc_handler_pdfm__clean(sd: &mut spc_pdf_) -> Result<()> {
     if !sd.annot_dict.is_null() {
         warn!("Unbalanced bann and eann found.");
-        pdf_release_obj(sd.annot_dict);
+        crate::release!(sd.annot_dict);
     }
     sd.lowest_level = 255;
     sd.annot_dict = ptr::null_mut();
     sd.resourcemap.clear();
-    pdf_release_obj(sd.cd.taintkeys);
+    crate::release!(sd.cd.taintkeys);
     sd.cd.taintkeys = ptr::null_mut();
     Ok(())
 }
@@ -314,7 +314,7 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> 
             error = ERR;
         }
     }
-    pdf_release_obj(obj2);
+    crate::release!(obj2);
     error
 }
 /* For pdf:tounicode support
@@ -507,7 +507,7 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
     if let Some(i) = ident {
         spc_flush_object(&i);
     }
-    pdf_release_obj(annot_dict);
+    crate::release!(annot_dict);
     Ok(())
 }
 /* NOTE: This can't have ident. See "Dvipdfm User's Manual". */
@@ -534,7 +534,7 @@ unsafe fn spc_handler_pdfm_eann(spe: &mut SpcEnv, _args: &mut SpcArg) -> Result<
         return ERR;
     }
     let error = spc_end_annot(spe);
-    pdf_release_obj(sd.annot_dict);
+    crate::release!(sd.annot_dict);
     sd.annot_dict = ptr::null_mut();
     error
 }
@@ -635,10 +635,10 @@ unsafe fn spc_handler_pdfm_outline(spe: &mut SpcEnv, args: &mut SpcArg) -> Resul
     args.cur.skip_white();
     let mut level = if let Some(tmp) = args.cur.parse_pdf_object(ptr::null_mut()) {
         if let Object::Number(level) = (*tmp).data {
-            pdf_release_obj(tmp);
+            crate::release!(tmp);
             level as i32
         } else {
-            pdf_release_obj(tmp);
+            crate::release!(tmp);
             spc_warn!(spe, "Expecting number for outline item depth.");
             return ERR;
         }
@@ -812,7 +812,7 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
                 pdf_ximage_findresource(std::str::from_utf8(string.to_bytes()).unwrap(), options);
             if xobj_id < 0 {
                 spc_warn!(spe, "Could not find image resource...");
-                pdf_release_obj(fspec);
+                crate::release!(fspec);
                 return ERR;
             }
             if ti.flags & 1 << 4 == 0 {
@@ -821,11 +821,11 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
             if let Some(i) = ident {
                 addresource(sd, &i, xobj_id);
             }
-            pdf_release_obj(fspec);
+            crate::release!(fspec);
             Ok(())
         } else {
             spc_warn!(spe, "Missing filename string for pdf:image.");
-            pdf_release_obj(fspec);
+            crate::release!(fspec);
             ERR
         }
     } else {
@@ -845,23 +845,23 @@ unsafe fn spc_handler_pdfm_dest(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<(
                         .ok();
                 } else {
                     spc_warn!(spe, "Destination not specified as an array object!");
-                    pdf_release_obj(name);
-                    pdf_release_obj(array);
+                    crate::release!(name);
+                    crate::release!(array);
                     return ERR;
                 }
             } else {
                 spc_warn!(spe, "No destination specified for pdf:dest.");
-                pdf_release_obj(name);
+                crate::release!(name);
                 return ERR;
             }
-            pdf_release_obj(name);
+            crate::release!(name);
             Ok(())
         } else {
             spc_warn!(
                 spe,
                 "PDF string expected for destination name but invalid type."
             );
-            pdf_release_obj(name);
+            crate::release!(name);
             ERR
         }
     } else {
@@ -881,8 +881,8 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
                         let size = array.len() as i32;
                         if size % 2 != 0 {
                             spc_warn!(spe, "Array size not multiple of 2 for pdf:names.");
-                            pdf_release_obj(category);
-                            pdf_release_obj(tmp);
+                            crate::release!(category);
+                            crate::release!(tmp);
                             return ERR;
                         }
                         for i in 0..(size / 2) as usize {
@@ -898,18 +898,18 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
                                     .is_err()
                                 {
                                     spc_warn!(spe, "Failed to add Name tree entry...");
-                                    pdf_release_obj(category);
-                                    pdf_release_obj(tmp);
+                                    crate::release!(category);
+                                    crate::release!(tmp);
                                     return ERR;
                                 }
                             } else {
                                 spc_warn!(spe, "Name tree key must be string.");
-                                pdf_release_obj(category);
-                                pdf_release_obj(tmp);
+                                crate::release!(category);
+                                crate::release!(tmp);
                                 return ERR;
                             }
                         }
-                        pdf_release_obj(tmp);
+                        crate::release!(tmp);
                     }
                     Object::String(string) => {
                         if let Some(value) = args.cur.parse_pdf_object(ptr::null_mut()) {
@@ -918,35 +918,35 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
                                 .is_err()
                             {
                                 spc_warn!(spe, "Failed to add Name tree entry...");
-                                pdf_release_obj(category);
-                                pdf_release_obj(tmp);
+                                crate::release!(category);
+                                crate::release!(tmp);
                                 return ERR;
                             }
-                            pdf_release_obj(tmp);
+                            crate::release!(tmp);
                         } else {
-                            pdf_release_obj(category);
-                            pdf_release_obj(tmp);
+                            crate::release!(category);
+                            crate::release!(tmp);
                             spc_warn!(spe, "PDF object expected but not found.");
                             return ERR;
                         }
                     }
                     _ => {
-                        pdf_release_obj(tmp);
-                        pdf_release_obj(category);
+                        crate::release!(tmp);
+                        crate::release!(category);
                         spc_warn!(spe, "Invalid object type for pdf:names.");
                         return ERR;
                     }
                 }
             } else {
                 spc_warn!(spe, "PDF object expected but not found.");
-                pdf_release_obj(category);
+                crate::release!(category);
                 return ERR;
             }
-            pdf_release_obj(category);
+            crate::release!(category);
             Ok(())
         } else {
             spc_warn!(spe, "PDF name expected but not found.");
-            pdf_release_obj(category);
+            crate::release!(category);
             ERR
         }
     } else {
@@ -1109,7 +1109,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                     1 => {
                         if instring.is_empty() {
                             spc_warn!(spe, "Missing filename for pdf:fstream.");
-                            pdf_release_obj(tmp);
+                            crate::release!(tmp);
                             return ERR;
                         }
                         let fullname: Option<String> = None; // TODO: check dead code
@@ -1128,12 +1128,12 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                                 fstream
                             } else {
                                 spc_warn!(spe, "Could not open file: {}", instring.display());
-                                pdf_release_obj(tmp);
+                                crate::release!(tmp);
                                 return ERR;
                             }
                         } else {
                             spc_warn!(spe, "File \"{}\" not found.", instring.display());
-                            pdf_release_obj(tmp);
+                            crate::release!(tmp);
                             return ERR;
                         }
                     }
@@ -1148,11 +1148,11 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                         fstream
                     }
                     _ => {
-                        pdf_release_obj(tmp);
+                        crate::release!(tmp);
                         return ERR;
                     }
                 };
-                pdf_release_obj(tmp);
+                crate::release!(tmp);
                 /*
                  * Optional dict.
                  *
@@ -1178,7 +1178,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 Ok(())
             } else {
                 spc_warn!(spe, "Invalid type of input string for pdf:(f)stream.");
-                pdf_release_obj(tmp);
+                crate::release!(tmp);
                 ERR
             }
         } else {

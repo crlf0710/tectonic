@@ -66,9 +66,9 @@ use super::dpx_pngimage::check_for_png;
 use crate::bridge::{InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
     pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_new_ref, pdf_obj,
-    pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_release_obj, pdf_set_encrypt, pdf_set_id,
-    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, IntoRef, Object,
-    PushObj, STREAM_COMPRESS,
+    pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_set_encrypt, pdf_set_id, pdf_set_info,
+    pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, IntoRef, Object, PushObj,
+    STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -333,7 +333,7 @@ impl PdfDoc {
                     .as_dict_mut()
                     .set("ViewerPreferences", pdf_ref_obj(self.root.viewerpref));
             }
-            pdf_release_obj(self.root.viewerpref);
+            crate::release!(self.root.viewerpref);
             self.root.viewerpref = ptr::null_mut()
         }
         if !self.root.pagelabels.is_null() {
@@ -348,11 +348,11 @@ impl PdfDoc {
                 /* What should I do? */
                 warn!("Could not modify PageLabels.");
             }
-            pdf_release_obj(self.root.pagelabels);
+            crate::release!(self.root.pagelabels);
             self.root.pagelabels = ptr::null_mut()
         }
         (*self.root.dict).as_dict_mut().set("Type", "Catalog");
-        pdf_release_obj(self.root.dict);
+        crate::release2!(self.root.dict);
         self.root.dict = ptr::null_mut();
     }
     /*
@@ -386,7 +386,7 @@ impl PdfDoc {
 
     pub(crate) unsafe fn set_bop_content(&mut self, content: &[u8]) {
         if !self.pages.bop.is_null() {
-            pdf_release_obj(self.pages.bop);
+            crate::release!(self.pages.bop);
             self.pages.bop = ptr::null_mut()
         }
         if !content.is_empty() {
@@ -399,7 +399,7 @@ impl PdfDoc {
 
     pub(crate) unsafe fn set_eop_content(&mut self, content: &[u8]) {
         if !self.pages.eop.is_null() {
-            pdf_release_obj(self.pages.eop);
+            crate::release!(self.pages.eop);
             self.pages.eop = ptr::null_mut()
         }
         if !content.is_empty() {
@@ -466,7 +466,7 @@ impl PdfDoc {
                 .as_dict_mut()
                 .set("CreationDate", pdf_string::new(now));
         }
-        pdf_release_obj(docinfo);
+        crate::release2!(docinfo);
         self.info = ptr::null_mut();
     }
     unsafe fn get_page_resources(&mut self, category: &str) -> *mut pdf_obj {
@@ -520,7 +520,7 @@ impl PdfDoc {
                     resource_name.display(),
                 );
                 warn!("Ignoring...");
-                pdf_release_obj(resource_ref);
+                crate::release!(resource_ref);
             } else {
                 (*resources).as_dict_mut().set(resource_name, resource_ref);
             }
@@ -588,16 +588,16 @@ unsafe fn doc_flush_page(p: *mut PdfDoc, page: &mut pdf_page, parent_ref: *mut p
         (*page.page_obj)
             .as_dict_mut()
             .set("Annots", pdf_ref_obj(page.annots));
-        pdf_release_obj(page.annots);
+        crate::release2!(page.annots);
     }
     if !page.beads.is_null() {
         (*page.page_obj)
             .as_dict_mut()
             .set("B", pdf_ref_obj(page.beads));
-        pdf_release_obj(page.beads);
+        crate::release!(page.beads);
     }
-    pdf_release_obj(page.page_obj);
-    pdf_release_obj(page.page_ref);
+    crate::release2!(page.page_obj);
+    crate::release!(page.page_ref);
     page.page_obj = ptr::null_mut();
     page.page_ref = ptr::null_mut();
     page.annots = ptr::null_mut();
@@ -651,7 +651,7 @@ unsafe fn build_page_tree(
                         pdf_link_obj(self_ref),
                     );
                     kids.push_obj(pdf_new_ref(subtree));
-                    pdf_release_obj(subtree);
+                    crate::release2!(subtree);
                 } else {
                     let page_0 = &mut *firstpage.offset(start as isize);
                     if page_0.page_ref.is_null() {
@@ -665,7 +665,7 @@ unsafe fn build_page_tree(
         _ => {}
     }
     self_0.as_dict_mut().set("Kids", kids);
-    pdf_release_obj(self_ref);
+    crate::release!(self_ref);
     self_0
 }
 impl PdfDoc {
@@ -690,26 +690,26 @@ impl PdfDoc {
             let page = self.get_page_entry(page_no);
             if !page.page_ref.is_null() {
                 warn!("Nonexistent page #{} refered.", page_no);
-                pdf_release_obj(page.page_ref);
+                crate::release!(page.page_ref);
                 page.page_ref = ptr::null_mut()
             }
             if !page.page_obj.is_null() {
                 warn!("Entry for a nonexistent page #{} created.", page_no);
-                pdf_release_obj(page.page_obj);
+                crate::release!(page.page_obj);
                 page.page_obj = ptr::null_mut()
             }
             if !page.annots.is_null() {
                 warn!("Annotation attached to a nonexistent page #{}.", page_no);
-                pdf_release_obj(page.annots);
+                crate::release!(page.annots);
                 page.annots = ptr::null_mut()
             }
             if !page.beads.is_null() {
                 warn!("Article beads attached to a nonexistent page #{}.", page_no);
-                pdf_release_obj(page.beads);
+                crate::release!(page.beads);
                 page.beads = ptr::null_mut()
             }
             if !page.resources.is_null() {
-                pdf_release_obj(page.resources);
+                crate::release!(page.resources);
                 page.resources = ptr::null_mut()
             }
         }
@@ -725,16 +725,16 @@ impl PdfDoc {
         (*self.root.pages)
             .as_dict_mut()
             .merge((*page_tree_root).as_dict());
-        pdf_release_obj(page_tree_root);
+        crate::release!(page_tree_root);
         /* They must be after build_page_tree() */
         if !self.pages.bop.is_null() {
             (*self.pages.bop).as_stream_mut().add_str("\n");
-            pdf_release_obj(self.pages.bop);
+            crate::release!(self.pages.bop);
             self.pages.bop = ptr::null_mut()
         }
         if !self.pages.eop.is_null() {
             (*self.pages.eop).as_stream_mut().add_str("\n");
-            pdf_release_obj(self.pages.eop);
+            crate::release!(self.pages.eop);
             self.pages.eop = ptr::null_mut()
         }
         /* Create media box at root node and let the other pages inherit it. */
@@ -747,7 +747,7 @@ impl PdfDoc {
         (*self.root.dict)
             .as_dict_mut()
             .set("Pages", pdf_ref_obj(self.root.pages));
-        pdf_release_obj(self.root.pages);
+        crate::release2!(self.root.pages);
         self.root.pages = ptr::null_mut();
         self.pages.entries = Vec::new();
         self.pages.num_entries = 0;
@@ -1052,7 +1052,7 @@ pub unsafe fn pdf_doc_get_page(
 
             let error_exit = move || -> Option<(DerefObj, Rect, TMatrix)> {
                 warn!("Error found in including PDF image.");
-                pdf_release_obj(resources);
+                crate::release!(resources);
                 None
             };
             let count = match DerefObj::new(page_tree.as_dict_mut().get_mut("Count")).as_deref() {
@@ -1064,7 +1064,7 @@ pub unsafe fn pdf_doc_get_page(
             };
             if page_no <= 0 || page_no > count {
                 warn!("Page {} does not exist.", page_no);
-                pdf_release_obj(resources);
+                crate::release!(resources);
                 return None;
             }
 
@@ -1102,7 +1102,7 @@ pub unsafe fn pdf_doc_get_page(
                 if let Some(tmp_0) =
                     pdf_deref_obj(page_tree.as_dict_mut().get_mut("Resources")).as_mut()
                 {
-                    pdf_release_obj(resources);
+                    crate::release!(resources);
                     resources = tmp_0
                 }
                 if let Some(mut kids) = DerefObj::new(page_tree.as_dict_mut().get_mut("Kids")) {
@@ -1174,7 +1174,7 @@ pub unsafe fn pdf_doc_get_page(
             if !resources_p.is_null() {
                 *resources_p = resources;
             } else {
-                pdf_release_obj(resources);
+                crate::release!(resources);
             }
             return Some((page_tree, bbox, matrix));
         } else {
@@ -1209,7 +1209,7 @@ impl PdfDoc {
 unsafe fn clean_bookmarks(mut item: *mut pdf_olitem) -> i32 {
     while !item.is_null() {
         let next = (*item).next;
-        pdf_release_obj((*item).dict);
+        crate::release!((*item).dict);
         if !(*item).first.is_null() {
             clean_bookmarks((*item).first);
         }
@@ -1256,7 +1256,7 @@ unsafe fn flush_bookmarks(
         } else {
             next_ref = ptr::null_mut()
         }
-        pdf_release_obj((*item).dict);
+        crate::release2!((*item).dict);
         (*item).dict = ptr::null_mut();
         prev_ref = this_ref;
         this_ref = next_ref;
@@ -1266,8 +1266,8 @@ unsafe fn flush_bookmarks(
     parent_dict
         .as_dict_mut()
         .set("Last", pdf_link_obj(prev_ref));
-    pdf_release_obj(prev_ref);
-    pdf_release_obj(node.dict);
+    crate::release!(prev_ref);
+    crate::release!(node.dict);
     node.dict = ptr::null_mut();
     retval
 }
@@ -1311,7 +1311,7 @@ impl PdfDoc {
             tcolor.push_obj(0_f64);
             let tcolor = tcolor.into_obj();
             (*(*item).dict).as_dict_mut().set("C", pdf_link_obj(tcolor));
-            pdf_release_obj(tcolor);
+            crate::release!(tcolor);
             (*(*item).dict).as_dict_mut().set("F", 1_f64);
             let mut action = pdf_dict::new();
             action.set("S", "JavaScript");
@@ -1324,7 +1324,7 @@ impl PdfDoc {
             );
             let action = action.into_obj();
             (*(*item).dict).as_dict_mut().set("A", pdf_link_obj(action));
-            pdf_release_obj(action);
+            crate::release!(action);
         }
         let first = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_olitem>() as u64) as u32)
             as *mut pdf_olitem;
@@ -1387,7 +1387,7 @@ impl PdfDoc {
             let count = flush_bookmarks(item, bm_root_ref, bm_root);
             bm_root.as_dict_mut().set("Count", count as f64);
             (*catalog).as_dict_mut().set("Outlines", bm_root_ref);
-            pdf_release_obj(bm_root);
+            crate::release2!(bm_root);
         }
         clean_bookmarks(item);
         self.outlines.first = ptr::null_mut();
@@ -1430,7 +1430,7 @@ impl PdfDoc {
             ::std::mem::transmute::<
                 Option<unsafe fn(_: *mut pdf_obj) -> ()>,
                 Option<unsafe fn(_: *mut libc::c_void) -> ()>,
-            >(Some(pdf_release_obj as unsafe fn(_: *mut pdf_obj) -> ())),
+            >(Some(ht_release_obj as unsafe fn(_: *mut pdf_obj) -> ())),
         );
     }
 
@@ -1649,7 +1649,7 @@ impl PdfDoc {
                     .as_dict_mut()
                     .set("Names", pdf_ref_obj(self.root.names));
             }
-            pdf_release_obj(self.root.names);
+            crate::release2!(self.root.names);
             self.root.names = ptr::null_mut()
         }
         self.names = Vec::new();
@@ -1821,7 +1821,7 @@ impl PdfDoc {
                         (*last).as_dict_mut().set("V", pdf_ref_obj(prev));
                         /* We must link first to last. */
                         if prev != first {
-                            pdf_release_obj(prev);
+                            crate::release!(prev);
                         }
                     }
                     /* Realize bead now. */
@@ -1849,7 +1849,7 @@ impl PdfDoc {
             (*last).as_dict_mut().set("N", pdf_ref_obj(first));
             (*first).as_dict_mut().set("V", pdf_ref_obj(last));
             if first != last {
-                pdf_release_obj(last);
+                crate::release!(last);
             }
             (*art_dict).as_dict_mut().set("F", pdf_ref_obj(first));
             /* If article_info is supplied, we override article->info. */
@@ -1859,13 +1859,13 @@ impl PdfDoc {
                 (*art_dict)
                     .as_dict_mut()
                     .set("I", pdf_ref_obj(article.info));
-                pdf_release_obj(article.info);
+                crate::release!(article.info);
                 article.info = ptr::null_mut()
                 /* We do not write as object reference. */
             }
-            pdf_release_obj(first);
+            crate::release!(first);
         } else {
-            pdf_release_obj(art_dict);
+            crate::release!(art_dict);
             art_dict = ptr::null_mut()
         }
         art_dict
@@ -1881,7 +1881,7 @@ impl PdfDoc {
                 (*self.root.threads)
                     .as_array_mut()
                     .push_obj(pdf_new_ref(art_dict));
-                pdf_release_obj(art_dict);
+                crate::release!(art_dict);
             }
         }
         self.articles = Vec::new();
@@ -1889,7 +1889,7 @@ impl PdfDoc {
             (*self.root.dict)
                 .as_dict_mut()
                 .set("Threads", pdf_ref_obj(self.root.threads));
-            pdf_release_obj(self.root.threads);
+            crate::release!(self.root.threads);
             self.root.threads = ptr::null_mut()
         };
     }
@@ -2059,7 +2059,7 @@ impl PdfDoc {
                 currentpage.content_refs[1] = pdf_ref_obj(currentpage.background);
                 (*currentpage.background).as_stream_mut().add_str("\n");
             }
-            pdf_release_obj(currentpage.background);
+            crate::release!(currentpage.background);
             currentpage.background = ptr::null_mut()
         } else {
             currentpage.content_refs[1] = ptr::null_mut()
@@ -2067,7 +2067,7 @@ impl PdfDoc {
         /* Content body of current page */
         currentpage.content_refs[2] = pdf_ref_obj(currentpage.contents);
         (*currentpage.contents).as_stream_mut().add_str("\n");
-        pdf_release_obj(currentpage.contents);
+        crate::release2!(currentpage.contents);
         currentpage.contents = ptr::null_mut();
         /*
          * Global EOP content stream.
@@ -2096,7 +2096,7 @@ impl PdfDoc {
             (*currentpage.page_obj)
                 .as_dict_mut()
                 .set("Resources", pdf_ref_obj(currentpage.resources));
-            pdf_release_obj(currentpage.resources);
+            crate::release2!(currentpage.resources);
             currentpage.resources = ptr::null_mut()
         }
         if manual_thumb_enabled != 0 {
@@ -2256,13 +2256,13 @@ pub(crate) unsafe fn pdf_doc_set_creator(creator: &[u8]) {
  * It fills in required fields.  The caller must initialize the stream.
  */
 unsafe fn pdf_doc_make_xform(
-    xform: *mut pdf_obj,
-    bbox: &mut Rect,
+    xform: &mut pdf_stream,
+    bbox: &Rect,
     matrix: Option<&TMatrix>,
     resources: *mut pdf_obj,
     attrib: *mut pdf_obj,
 ) {
-    let xform_dict = (*xform).as_stream_mut().get_dict_mut();
+    let xform_dict = xform.get_dict_mut();
     xform_dict.set("Type", "XObject");
     xform_dict.set("Subtype", "Form");
     xform_dict.set("FormType", 1_f64);
@@ -2357,15 +2357,15 @@ impl PdfDoc {
         (*(*form).resources).as_dict_mut().set("ProcSet", procset);
         let matrix = (*form).matrix.clone();
         pdf_doc_make_xform(
-            (*form).contents,
+            (*(*form).contents).as_stream_mut(),
             &mut (*form).cropbox,
             Some(&matrix),
             pdf_ref_obj((*form).resources),
             attrib,
         );
-        pdf_release_obj((*form).resources);
-        pdf_release_obj((*form).contents);
-        pdf_release_obj(attrib);
+        crate::release2!((*form).resources);
+        crate::release2!((*form).contents);
+        crate::release!(attrib);
         self.pending_forms = (*fnode).prev;
         pdf_dev_pop_gstate();
         pdf_dev_reset_fonts(1);
@@ -2411,7 +2411,7 @@ pub(crate) unsafe fn pdf_doc_break_annot() {
             annot_dict,
             (breaking_state.broken == 0) as i32,
         );
-        pdf_release_obj(annot_dict);
+        crate::release2!(annot_dict);
         breaking_state.broken = 1
     }
     reset_box();
@@ -2436,4 +2436,9 @@ pub(crate) unsafe fn pdf_doc_expand_box(rect: &Rect) {
     breaking_state.rect.max.x = breaking_state.rect.max.x.max(rect.max.x);
     breaking_state.rect.max.y = breaking_state.rect.max.y.max(rect.max.y);
     breaking_state.dirty = 1;
+}
+
+pub unsafe fn ht_release_obj(object: *mut pdf_obj) {
+    //dbg!("htrelease");
+    crate::dpx_pdfobj::pdf_release_obj(object);
 }

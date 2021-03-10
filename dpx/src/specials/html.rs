@@ -41,7 +41,7 @@ use crate::dpx_pdfdev::{graphics_mode, transform_info, transform_info_clear, TMa
 use crate::dpx_pdfdoc::pdf_doc_mut;
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_obj, pdf_release_obj, pdf_string, IntoObj, IntoRef, Object, PushObj,
+    pdf_dict, pdf_link_obj, pdf_obj, pdf_string, IntoObj, IntoRef, Object, PushObj,
 };
 use crate::spc_warn;
 use libc::{atof, free, strcpy};
@@ -212,7 +212,7 @@ unsafe fn spc_handler_html__clean(spe: *mut SpcEnv, dp: *mut libc::c_void) -> Re
         let spe = &*spe;
         spc_warn!(spe, "Unclosed html anchor found.");
     }
-    pdf_release_obj((*sd).link_dict);
+    crate::release!((*sd).link_dict);
     (*sd).pending_type = -1;
     (*sd).baseurl = ptr::null_mut();
     (*sd).link_dict = ptr::null_mut();
@@ -294,7 +294,7 @@ unsafe fn html_open_link(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
         (*(*sd).link_dict)
             .as_dict_mut()
             .set("A", pdf_link_obj(action));
-        pdf_release_obj(action);
+        crate::release!(action);
     }
     spc_begin_annot(spe, (*sd).link_dict).ok();
     (*sd).pending_type = 0;
@@ -358,7 +358,7 @@ unsafe fn spc_html__anchor_close(spe: &mut SpcEnv, mut sd: *mut spc_html_) -> Re
         0 => {
             if !(*sd).link_dict.is_null() {
                 spc_end_annot(spe).ok();
-                pdf_release_obj((*sd).link_dict);
+                crate::release!((*sd).link_dict);
                 (*sd).link_dict = ptr::null_mut();
                 (*sd).pending_type = -1
             } else {
@@ -585,7 +585,7 @@ unsafe fn spc_handler_html_default(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<
     let attr = pdf_dict::new().into_obj();
     let name = read_html_tag(&mut *attr, &mut type_0, &mut ap.cur);
     if name.is_err() {
-        pdf_release_obj(attr);
+        crate::release!(attr);
         return ERR;
     }
     let error = match name.unwrap().as_slice() {
@@ -615,7 +615,7 @@ unsafe fn spc_handler_html_default(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<
         }
         _ => Ok(()),
     };
-    pdf_release_obj(attr);
+    crate::release!(attr);
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];
     }

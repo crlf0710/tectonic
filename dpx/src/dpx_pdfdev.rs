@@ -27,6 +27,7 @@
 )]
 
 use crate::dpx_error::{Result, ERR};
+use crate::dpx_pdffont::FontType;
 
 use euclid::point2;
 
@@ -54,7 +55,7 @@ use super::dpx_pdffont::{
 use super::dpx_pdfximage::{
     pdf_ximage_get_reference, pdf_ximage_get_resname, pdf_ximage_scale_image,
 };
-use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_release_obj, pdfobj_escape_str};
+use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdfobj_escape_str};
 
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum MotionState {
@@ -193,7 +194,7 @@ impl Drop for dev_font {
     fn drop(&mut self) {
         unsafe {
             self.tex_name = String::new();
-            pdf_release_obj(self.resource);
+            crate::release!(self.resource);
             self.resource = ptr::null_mut();
             self.cff_charsets = ptr::null_mut();
         }
@@ -1267,8 +1268,8 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &str, ptsize: spt_t) -> i32 
         resource: ptr::null_mut(),
         used_chars: ptr::null_mut(),
         format: match pdf_get_font_subtype(font_id) {
-            2 => 2,
-            4 => 3,
+            FontType::Type3 => 2,
+            FontType::Type0 => 3,
             _ => 1,
         },
         wmode: pdf_get_font_wmode(font_id),

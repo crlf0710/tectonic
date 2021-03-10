@@ -888,7 +888,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
         Opcode::EoClip => error = pdf_dev_eoclip(),
         Opcode::GSave => {
             /* Graphics state operators: */
-            error = pdf_dev_gsave(); /* This does pdf_release_obj() */
+            error = pdf_dev_gsave();
             save_font();
         }
         Opcode::GRestore => {
@@ -1014,7 +1014,7 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
         Opcode::SetGray => {
             /* Not handled properly */
             let mut values = [0.; 1];
-            error = pop_get_numbers(values.as_mut()); /* This does pdf_release_obj() */
+            error = pop_get_numbers(values.as_mut());
             if error == 0 {
                 let color = PdfColor::from_gray(values[0]).unwrap();
                 pdf_dev_set_color(&color, 0, 0);
@@ -1065,7 +1065,6 @@ unsafe fn do_operator(token: &[u8], x_user: f64, y_user: f64) -> i32 {
                         cp.x = tmp;
                         /* Here, we need real PostScript CTM */
                         let mut matrix = matrix.unwrap_or_else(|| ps_dev_CTM());
-                        /* This does pdf_release_obj() */
                         pdf_dev_dtransform(&mut cp, Some(&mut matrix));
                         if STACK.push_checked(cp.x).is_ok() {
                             if STACK.push_checked(cp.y).is_err() {

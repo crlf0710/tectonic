@@ -34,8 +34,8 @@ use crate::warn;
 use super::dpx_pdfdoc::pdf_doc_get_page;
 use crate::dpx_pdfobj::{
     pdf_concat_stream, pdf_file_get_catalog, pdf_file_get_version, pdf_get_version,
-    pdf_import_object, pdf_obj, pdf_open, pdf_release_obj, pdf_stream, DerefObj, IntoObj, Object,
-    PushObj, STREAM_COMPRESS,
+    pdf_import_object, pdf_obj, pdf_open, pdf_stream, DerefObj, IntoObj, Object, PushObj,
+    STREAM_COMPRESS,
 };
 pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
@@ -74,7 +74,7 @@ pub(crate) unsafe fn pdf_include_page(
 
     let mut resources: *mut pdf_obj = ptr::null_mut();
     let error_silent = move || -> i32 {
-        pdf_release_obj(resources);
+        crate::release!(resources);
         -1
     };
     let error = || -> i32 {
@@ -177,7 +177,7 @@ pub(crate) unsafe fn pdf_include_page(
         }
         contents_dict.set("Matrix", matrix);
         contents_dict.set("Resources", pdf_import_object(resources));
-        pdf_release_obj(resources);
+        crate::release!(resources);
 
         ximage.set_form(&info, contents);
 

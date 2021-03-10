@@ -38,8 +38,7 @@ use super::dpx_cmap::CMap;
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_stream,
-    IntoObj, PushObj,
+    pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_stream, IntoObj, PushObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 
@@ -122,12 +121,16 @@ unsafe fn create_encoding_resource(
     };
 }
 unsafe fn pdf_flush_encoding(encoding: &mut pdf_encoding) {
-    if !encoding.resource.is_null() {
-        pdf_release_obj(encoding.resource);
+    if let Some(resource) = encoding.resource.as_mut() {
+        if resource.id.0 == 0 {
+            crate::release!(resource);
+        } else {
+            crate::release2!(resource);
+        }
         encoding.resource = ptr::null_mut()
     }
     if !encoding.tounicode.is_null() {
-        pdf_release_obj(encoding.tounicode);
+        crate::release2!(encoding.tounicode);
         encoding.tounicode = ptr::null_mut()
     };
 }
@@ -135,7 +138,7 @@ unsafe fn pdf_clean_encoding_struct(encoding: &mut pdf_encoding) {
     if !encoding.resource.is_null() {
         panic!("Object not flushed.");
     }
-    pdf_release_obj(encoding.tounicode);
+    crate::release!(encoding.tounicode);
     for code in 0..256 {
         encoding.glyphs[code as usize] = String::new();
     }

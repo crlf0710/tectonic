@@ -32,7 +32,7 @@ use std::ffi::CString;
 use std::ptr;
 
 use super::dpx_mem::{new, renew};
-use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj};
+use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_ref_obj};
 use crate::mfree;
 use libc::{free, strcpy, strlen};
 
@@ -114,8 +114,8 @@ unsafe fn pdf_init_resource(mut res: *mut pdf_res) {
 }
 unsafe fn pdf_flush_resource(mut res: *mut pdf_res) {
     if !res.is_null() {
-        pdf_release_obj((*res).reference);
-        pdf_release_obj((*res).object);
+        crate::release!((*res).reference);
+        crate::release!((*res).object);
         (*res).reference = ptr::null_mut();
         (*res).object = ptr::null_mut()
     };
@@ -125,8 +125,8 @@ unsafe fn pdf_clean_resource(mut res: *mut pdf_res) {
         if !(*res).reference.is_null() || !(*res).object.is_null() {
             warn!("Trying to release un-flushed object.");
         }
-        pdf_release_obj((*res).reference);
-        pdf_release_obj((*res).object);
+        crate::release!((*res).reference);
+        crate::release!((*res).object);
         (*res).ident = mfree((*res).ident as *mut libc::c_void) as *mut i8;
         (*res).category = -1;
         (*res).flags = 0
@@ -198,7 +198,7 @@ pub(crate) unsafe fn pdf_defineresource(
                 (*res).flags = flags;
                 if flags & 1 != 0 {
                     (*res).reference = pdf_ref_obj(object);
-                    pdf_release_obj(object);
+                    crate::release!(object);
                 } else {
                     (*res).object = object
                 }
@@ -228,7 +228,7 @@ pub(crate) unsafe fn pdf_defineresource(
         (*res).flags = flags;
         if flags & 1 != 0 {
             (*res).reference = pdf_ref_obj(object);
-            pdf_release_obj(object);
+            crate::release2!(object);
         } else {
             (*res).object = object
         }

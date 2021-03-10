@@ -230,3 +230,19 @@ pub use crate::dpx_pdfdraw::pdf_dev_transform;
 pub use crate::dpx_pdfobj::{pdf_file, pdf_obj, pdf_open};
 pub use crate::dpx_pdfobj::{pdf_files_close, pdf_files_init};
 pub use crate::dpx_pngimage::{check_for_png, png_get_bbox};
+
+#[macro_export]
+macro_rules! release(
+    ($($arg:tt)*) => {{
+        //dbg!("release");
+        $crate::dpx_pdfobj::pdf_release_obj($($arg)*);
+    }};
+);
+
+#[macro_export]
+macro_rules! release2(
+    ($($arg:tt)*) => {{
+        //dbg!("release");
+        $crate::dpx_pdfobj::pdf_release_obj2($($arg)*);
+    }};
+);

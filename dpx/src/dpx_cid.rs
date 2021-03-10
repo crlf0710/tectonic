@@ -41,9 +41,7 @@ use super::dpx_cidtype0::{
 use super::dpx_cidtype2::{
     CIDFont_type2_dofont, CIDFont_type2_open, CIDFont_type2_set_flags, CIDFont_type2_set_verbose,
 };
-use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj, Object,
-};
+use crate::dpx_pdfobj::{pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, Object};
 use std::borrow::Cow;
 
 #[derive(Clone)]
@@ -260,11 +258,11 @@ pub(crate) unsafe fn CIDFont_set_verbose(level: i32) {
 
 /* It does write PDF objects. */
 unsafe fn CIDFont_flush(font: &mut CIDFont) {
-    pdf_release_obj(font.indirect);
+    crate::release!(font.indirect);
     font.indirect = ptr::null_mut();
-    pdf_release_obj(font.fontdict);
+    crate::release2!(font.fontdict);
     font.fontdict = ptr::null_mut();
-    pdf_release_obj(font.descriptor);
+    crate::release2!(font.descriptor);
     font.descriptor = ptr::null_mut();
 }
 impl Drop for CIDFont {

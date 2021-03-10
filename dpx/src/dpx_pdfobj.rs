@@ -109,7 +109,7 @@ impl Drop for Array {
     fn drop(&mut self) {
         // TODO: check order
         while let Some(o) = self.pop() {
-            unsafe { pdf_release_obj(o) }
+            unsafe { crate::release!(o) }
         }
     }
 }
@@ -621,7 +621,7 @@ unsafe fn dump_trailer_dict() {
     pdf_out(handle, b"trailer\n");
     enc_mode = false;
     write_dict((*trailer_dict).as_dict(), handle);
-    pdf_release_obj(trailer_dict);
+    crate::release!(trailer_dict);
     pdf_out_char(handle, b'\n');
 }
 /*
@@ -661,7 +661,7 @@ unsafe fn dump_xref_stream() {
             .as_stream_mut()
             .add_slice(&buf[..(poslen.wrapping_add(3_u32) as usize)]);
     }
-    pdf_release_obj(xref_stream);
+    crate::release2!(xref_stream);
 }
 
 pub(crate) unsafe fn pdf_out_flush() {
@@ -1087,7 +1087,7 @@ impl Drop for pdf_array {
         let values = &mut self.values;
         for val in values.drain(..) {
             unsafe {
-                pdf_release_obj(val);
+                crate::release!(val);
             }
         }
     }
@@ -1143,7 +1143,7 @@ impl Drop for pdf_dict {
     fn drop(&mut self) {
         for (_k, v) in self.inner.drain(..) {
             unsafe {
-                pdf_release_obj(v);
+                crate::release!(v);
             }
         }
     }
@@ -1164,7 +1164,7 @@ impl pdf_dict {
         }
         /* If this key already exists, simply replace the value */
         if let Some(existing) = self.inner.insert(pdf_name::new(key.as_ref()), value) {
-            pdf_release_obj(existing);
+            crate::release!(existing);
             1
         } else {
             0
@@ -1252,7 +1252,7 @@ impl pdf_dict {
         K: AsRef<[u8]>,
     {
         if let Some(existing_value) = self.inner.shift_remove(name.as_ref()) {
-            pdf_release_obj(existing_value);
+            crate::release!(existing_value);
         }
     }
 }
@@ -1732,7 +1732,7 @@ impl Drop for pdf_stream {
     fn drop(&mut self) {
         let pdf_stream { dict, .. } = *self;
         unsafe {
-            pdf_release_obj(dict);
+            crate::release!(dict);
         }
     }
 }
@@ -2390,14 +2390,46 @@ pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
         }
         if object.refcount <= 0 {
             info!(
-                "\npdf_release_obj: object={:p}, refcount={}\n",
+                "\ncrate::release!: object={:p}, refcount={}\n",
                 object, object.refcount,
             );
             pdf_write_obj(
                 &mut object.data,
                 ttstub_output_open_stdout().as_mut().unwrap(),
             );
-            panic!("pdf_release_obj:  Called with invalid object.");
+            panic!("crate::release!:  Called with invalid object.");
+        }
+        object.refcount -= 1;
+        if object.refcount == 0 {
+            /*
+             * Nothing is using this object so it's okay to remove it.
+             * Nonzero "label" means object needs to be written before it's destroyed.
+             */
+            if object.label() != 0 {
+                //dbg!("write");
+                panic!(object.id);
+            }
+            /* This might help detect freeing already freed objects */
+            object.data = Object::Invalid;
+            let _ = Box::from_raw(object);
+        }
+    }
+}
+pub unsafe fn pdf_release_obj2(object: *mut pdf_obj) {
+    if let Some(object) = object.as_mut() {
+        if object.is_invalid() {
+            panic!("Invalid object");
+        }
+        if object.refcount <= 0 {
+            info!(
+                "\ncrate::release!: object={:p}, refcount={}\n",
+                object, object.refcount,
+            );
+            pdf_write_obj(
+                &mut object.data,
+                ttstub_output_open_stdout().as_mut().unwrap(),
+            );
+            panic!("crate::release!:  Called with invalid object.");
         }
         object.refcount -= 1;
         if object.refcount == 0 {
@@ -2409,6 +2441,8 @@ pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
                 let id = object.id;
                 let flags = object.flags;
                 output_pdf_obj(&mut object.data, id, flags);
+            } else {
+                panic!("Not labeled!!!");
             }
             /* This might help detect freeing already freed objects */
             object.data = Object::Invalid;
@@ -2416,6 +2450,7 @@ pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
         }
     }
 }
+
 /* PDF reading starts around here */
 /* As each lines may contain null-characters, so outptr here is NOT
  * null-terminated string. Returns -1 for when EOF is already reached, and -2
@@ -2605,7 +2640,7 @@ unsafe fn pdf_read_object(
     if !p.starts_with(b"endobj") {
         warn!("Didn\'t find \"endobj\".");
         if let Some(res) = result {
-            pdf_release_obj(res);
+            crate::release!(res);
         }
         None
     } else {
@@ -2618,7 +2653,7 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
     if let Some(objstm) = pdf_read_object(num, gen, pf, offset as i32, limit) {
         if let Object::Stream(stream) = &mut (*objstm).data {
             if let Some(tmp) = pdf_stream_uncompress(stream) {
-                pdf_release_obj(objstm);
+                crate::release!(objstm);
                 let objstm = tmp.into_obj();
                 let dict = (*objstm).as_stream().get_dict();
                 match &dict.get("Type").unwrap().data {
@@ -2679,7 +2714,7 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                 }
             }
         }
-        pdf_release_obj(objstm);
+        crate::release!(objstm);
     }
     warn!("Cannot parse object stream.");
     ptr::null_mut()
@@ -2785,14 +2820,14 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
     } {
         if let Some(pf) = (*obj).as_indirect().pf.as_mut() {
             let obj_id = (*obj).as_indirect().id;
-            pdf_release_obj(obj);
+            crate::release!(obj);
             obj = pdf_get_object(pf, obj_id)
         } else {
             let next_obj: *mut pdf_obj = (*obj).as_indirect().obj;
             if next_obj.is_null() {
                 panic!("Undefined object reference");
             }
-            pdf_release_obj(obj);
+            crate::release!(obj);
             obj = pdf_link_obj(next_obj)
         }
     }
@@ -2800,7 +2835,7 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
         panic!("Loop in object hierarchy detected. Broken PDF file?");
     }
     if !obj.is_null() && matches!((*obj).data, Object::Null) {
-        pdf_release_obj(obj);
+        crate::release!(obj);
         ptr::null_mut()
     } else {
         obj
@@ -2815,7 +2850,7 @@ impl DerefObj {
 }
 impl Drop for DerefObj {
     fn drop(&mut self) {
-        unsafe { pdf_release_obj(self.0.as_ptr()) }
+        unsafe { crate::release!(self.0.as_ptr()) }
     }
 }
 impl Clone for DerefObj {
@@ -3084,7 +3119,7 @@ unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut
     if let Some(xrefstm) = pdf_read_object(0_u32, 0_u16, pf, xref_pos, pf.file_size) {
         if let Object::Stream(stream) = &mut (*xrefstm).data {
             if let Some(tmp) = pdf_stream_uncompress(stream) {
-                pdf_release_obj(xrefstm);
+                crate::release!(xrefstm);
                 let mut xrefstm = tmp;
                 *trailer = pdf_link_obj(xrefstm.get_dict_obj());
                 if let Some(size_obj) = (**trailer).as_dict().get("Size") {
@@ -3177,11 +3212,11 @@ unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut
                 }
             }
         }
-        pdf_release_obj(xrefstm);
+        crate::release!(xrefstm);
     }
     warn!("Cannot parse cross-reference stream.");
     if !(*trailer).is_null() {
-        pdf_release_obj(*trailer);
+        crate::release!(*trailer);
         *trailer = ptr::null_mut()
     }
     0
@@ -3205,7 +3240,7 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
                         .unwrap_or(ptr::null_mut());
                     if trailer.is_null() {
                         warn!("Error while parsing PDF file.");
-                        pdf_release_obj(main_trailer);
+                        crate::release!(main_trailer);
                         return ptr::null_mut();
                     }
                     if main_trailer.is_null() {
@@ -3217,7 +3252,7 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
                             Object::Number(xrefstm)
                                 if parse_xref_stream(pf, xrefstm as i32, &mut new_trailer) != 0 =>
                             {
-                                pdf_release_obj(new_trailer);
+                                crate::release!(new_trailer);
                             }
                             _ => warn!("Skipping hybrid reference section."),
                         }
@@ -3229,8 +3264,8 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
                 } else {
                     if !(res == 0 && parse_xref_stream(pf, xref_pos, &mut trailer) != 0) {
                         warn!("Error while parsing PDF file.");
-                        pdf_release_obj(trailer);
-                        pdf_release_obj(main_trailer);
+                        crate::release!(trailer);
+                        crate::release!(main_trailer);
                         return ptr::null_mut();
                     }
                     /* cross-reference stream */
@@ -3243,14 +3278,14 @@ unsafe fn read_xref(pf: &mut pdf_file) -> *mut pdf_obj {
                         xref_pos = prev as i32;
                     } else {
                         warn!("Error while parsing PDF file.");
-                        pdf_release_obj(trailer);
-                        pdf_release_obj(main_trailer);
+                        crate::release!(trailer);
+                        crate::release!(main_trailer);
                         return ptr::null_mut();
                     }
                 } else {
                     xref_pos = 0
                 }
-                pdf_release_obj(trailer);
+                crate::release!(trailer);
             } else {
                 return main_trailer;
             }
@@ -3280,11 +3315,18 @@ impl Drop for pdf_file {
     fn drop(&mut self) {
         unsafe {
             for item in &mut self.xref_table {
-                pdf_release_obj(item.direct);
-                pdf_release_obj(item.indirect);
+                if let Some(direct) = item.direct.as_mut() {
+                    let id = direct.id;
+                    if id.0 == 0 {
+                        crate::release!(direct);
+                    } else {
+                        crate::release2!(direct);
+                    }
+                }
+                crate::release!(item.indirect);
             }
-            pdf_release_obj(self.trailer);
-            pdf_release_obj(self.catalog);
+            crate::release!(self.trailer);
+            crate::release!(self.catalog);
         }
     }
 }
@@ -3460,8 +3502,8 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
         let tmp = pdf_import_object(obj);
         let ref_0 = pdf_ref_obj(tmp);
         pf.xref_table[obj_num as usize].indirect = ref_0;
-        pdf_release_obj(tmp);
-        pdf_release_obj(obj);
+        crate::release2!(tmp);
+        crate::release!(obj);
         return pdf_link_obj(ref_0);
     };
 }
@@ -3490,7 +3532,7 @@ pub(crate) unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
             let mut imported = pdf_stream::new(0);
             let stream_dict = imported.get_dict_mut();
             stream_dict.merge((*tmp).as_dict());
-            pdf_release_obj(tmp);
+            crate::release!(tmp);
             imported.add_slice(&v.content);
             imported.into_obj()
         }

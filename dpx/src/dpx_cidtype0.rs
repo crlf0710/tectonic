@@ -70,8 +70,8 @@ use super::dpx_tt_table::{
 };
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars, Type0Font_set_ToUnicode};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_name, pdf_new_ref, pdf_ref_obj, pdf_release_obj, pdf_stream, pdf_string, IntoObj,
-    IntoRef, PushObj, STREAM_COMPRESS,
+    pdf_dict, pdf_name, pdf_new_ref, pdf_ref_obj, pdf_stream, pdf_string, IntoObj, IntoRef,
+    PushObj, STREAM_COMPRESS,
 };
 use crate::dpx_truetype::sfnt_table_info;
 use libc::{free, memset};
@@ -776,7 +776,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
                 (*fdselect).num_entries = ((*fdselect).num_entries as i32 + 1) as u16;
                 prev_fd = fd
             }
-            gid = gid.wrapping_add(1)
+            gid += 1;
         }
     }
     if gid as i32 != num_glyphs as i32 {
@@ -1611,7 +1611,7 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
     if !vparent.is_null() {
         Type0Font_set_ToUnicode(&mut *vparent, pdf_new_ref(&mut *tounicode).into_obj());
     }
-    pdf_release_obj(tounicode);
+    crate::release!(tounicode);
     cff_set_name(&mut cffont, &font.fontname);
     /* defaultWidthX, CapHeight, etc. */
     get_font_attr(font, &cffont);

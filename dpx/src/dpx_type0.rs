@@ -40,8 +40,8 @@ use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_release_obj,
-    pdf_stream, IntoObj, STREAM_COMPRESS,
+    pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_stream, IntoObj,
+    STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use libc::{free, memset};
@@ -221,9 +221,9 @@ unsafe fn Type0Font_dofont(font: &mut Type0Font) {
     };
 }
 unsafe fn Type0Font_flush(font: &mut Type0Font) {
-    pdf_release_obj(font.fontdict);
+    crate::release2!(font.fontdict);
     font.fontdict = ptr::null_mut();
-    pdf_release_obj(font.indirect);
+    crate::release!(font.indirect);
     font.indirect = ptr::null_mut();
     if !font.descriptor.is_null() {
         panic!("{}: FontDescriptor unexpected for Type0 font.", "Type0");

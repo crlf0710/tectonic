@@ -41,9 +41,7 @@ use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfdoc::PdfPageBoundary;
-use crate::dpx_pdfobj::{
-    check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, Object,
-};
+use crate::dpx_pdfobj::{check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, Object};
 use crate::shims::sprintf;
 
 use std::io::{Read, Seek, SeekFrom};
@@ -177,9 +175,9 @@ impl pdf_ximage {
 impl Drop for pdf_ximage {
     fn drop(&mut self) {
         unsafe {
-            pdf_release_obj(self.reference);
-            pdf_release_obj(self.resource);
-            pdf_release_obj(self.attr.dict);
+            crate::release!(self.reference);
+            crate::release!(self.resource);
+            crate::release!(self.attr.dict);
         }
     }
 }
@@ -480,7 +478,7 @@ impl pdf_ximage {
                     dict.merge((*self.attr.dict).as_dict());
                 }
                 self.reference = pdf_ref_obj(resource);
-                pdf_release_obj(resource);
+                crate::release2!(resource);
                 self.resource = ptr::null_mut();
             } else {
                 panic!("Image XObject must be of stream type.");
@@ -509,7 +507,7 @@ impl pdf_ximage {
         self.attr.bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
         self.attr.bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
         self.reference = pdf_ref_obj(resource);
-        pdf_release_obj(resource);
+        crate::release2!(resource);
         self.resource = ptr::null_mut();
     }
 }

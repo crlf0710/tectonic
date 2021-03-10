@@ -46,7 +46,7 @@ use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encodin
 use super::dpx_pdffont::{
     pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_flag,
     pdf_font_get_resource, pdf_font_get_uniqueTag, pdf_font_get_usedchars, pdf_font_get_verbose,
-    pdf_font_is_in_use, pdf_font_set_flags, pdf_font_set_subtype,
+    pdf_font_is_in_use, pdf_font_set_flags, pdf_font_set_subtype, FontType,
 };
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
@@ -150,7 +150,7 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
         warn!("If you find text is not encoded properly in the generated PDF file,");
         warn!("please specify appropriate \".enc\" file in your fontmap.");
     }
-    pdf_font_set_subtype(font, 1);
+    pdf_font_set_subtype(font, FontType::Type1c);
     let mut embedding = if pdf_font_get_flag(font, 1 << 0) != 0 {
         0
     } else {

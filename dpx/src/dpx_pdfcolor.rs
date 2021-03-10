@@ -24,8 +24,8 @@
 
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, pdf_stream, IntoObj,
-    IntoRef, PushObj, STREAM_COMPRESS,
+    pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_stream, IntoObj, IntoRef, PushObj,
+    STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{info, warn, FromBEByteSlice};
@@ -1116,8 +1116,8 @@ impl pdf_colorspace {
     }
 }
 unsafe fn pdf_clean_colorspace_struct(colorspace: &mut pdf_colorspace) {
-    pdf_release_obj(colorspace.resource);
-    pdf_release_obj(colorspace.reference);
+    crate::release!(colorspace.resource);
+    crate::release!(colorspace.reference);
     colorspace.resource = ptr::null_mut();
     colorspace.reference = ptr::null_mut();
     if let Some(cdata) = colorspace.cdata.as_ref() {
@@ -1132,8 +1132,8 @@ unsafe fn pdf_clean_colorspace_struct(colorspace: &mut pdf_colorspace) {
     colorspace.subtype = 0;
 }
 unsafe fn pdf_flush_colorspace(colorspace: &mut pdf_colorspace) {
-    pdf_release_obj(colorspace.resource);
-    pdf_release_obj(colorspace.reference);
+    crate::release!(colorspace.resource);
+    crate::release!(colorspace.reference);
     colorspace.resource = ptr::null_mut();
     colorspace.reference = ptr::null_mut();
 }
@@ -1178,7 +1178,7 @@ pub(crate) unsafe fn pdf_get_colorspace_reference(cspc_id: i32) -> *mut pdf_obj 
     let colorspace = &mut CSPC_CACHE[cspc_id as usize];
     if colorspace.reference.is_null() {
         colorspace.reference = pdf_ref_obj(colorspace.resource);
-        pdf_release_obj(colorspace.resource);
+        crate::release2!(colorspace.resource);
         colorspace.resource = ptr::null_mut()
     }
     pdf_link_obj(colorspace.reference)
@@ -1201,16 +1201,4 @@ impl Drop for pdf_colorspace {
 
 pub(crate) unsafe fn pdf_close_colors() {
     CSPC_CACHE = Vec::new();
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn is_valid() {
-        assert!(WHITE.is_valid());
-        assert!(pdf_color::rgb(0.5, 0.5, 0.5).unwrap().is_valid());
-        assert!(pdf_color::cmyk(0.3, 0.4, 0.5, 0.6).unwrap().is_valid());
-    }
 }
