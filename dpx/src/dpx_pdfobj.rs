@@ -2413,6 +2413,8 @@ pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
             object.data = Object::Invalid;
             let _ = Box::from_raw(object);
         }
+    } else {
+        //dbg!("already released");
     }
 }
 pub unsafe fn pdf_release_obj2(object: *mut pdf_obj) {
@@ -2448,6 +2450,8 @@ pub unsafe fn pdf_release_obj2(object: *mut pdf_obj) {
             object.data = Object::Invalid;
             let _ = Box::from_raw(object);
         }
+    } else {
+        //dbg!("already released");
     }
 }
 

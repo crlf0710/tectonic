@@ -65,10 +65,10 @@ use super::dpx_pdfximage::{
 use super::dpx_pngimage::check_for_png;
 use crate::bridge::{InFile, TTInputFormat};
 use crate::dpx_pdfobj::{
-    pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_link_obj, pdf_new_ref, pdf_obj,
-    pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_set_encrypt, pdf_set_id, pdf_set_info,
-    pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, IntoRef, Object, PushObj,
-    STREAM_COMPRESS,
+    pdf_deref_obj, pdf_dict, pdf_file, pdf_file_get_catalog, pdf_indirect, pdf_link_obj,
+    pdf_new_ref, pdf_obj, pdf_out_flush, pdf_out_init, pdf_ref_obj, pdf_set_encrypt, pdf_set_id,
+    pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, IntoRef, Object,
+    PushObj, STREAM_COMPRESS,
 };
 use libc::free;
 
@@ -415,7 +415,6 @@ impl PdfDoc {
         pdf_set_info(&mut *self.info);
     }
     unsafe fn close_docinfo(&mut self) {
-        let docinfo = &mut *self.info;
         /*
          * Excerpt from PDF Reference 4th ed., sec. 10.2.1.
          *
@@ -439,34 +438,31 @@ impl PdfDoc {
             "CreationDate",
             "ModDate",
         ];
+        let docinfo = (*self.info).as_dict_mut();
         for key in KEYS.iter() {
-            if let Some(value) = docinfo.as_dict().get(*key) {
+            if let Some(value) = docinfo.get(*key) {
                 if let Object::String(value) = &value.data {
                     if value.len() == 0 {
                         /* The hyperref package often uses emtpy strings. */
-                        docinfo.as_dict_mut().remove(key);
+                        docinfo.remove(key);
                     }
                 } else {
                     warn!("\"{}\" in DocInfo dictionary not string type.", key);
-                    docinfo.as_dict_mut().remove(key);
+                    docinfo.remove(key);
                     warn!("\"{}\" removed from DocInfo.", key);
                 }
             }
         }
-        if !docinfo.as_dict().has("Producer") {
+        if !docinfo.has("Producer") {
             let banner = b"xdvipdfmx (0.1)";
-            docinfo
-                .as_dict_mut()
-                .set("Producer", pdf_string::new(banner));
+            docinfo.set("Producer", pdf_string::new(banner));
         }
-        if !docinfo.as_dict().has("CreationDate") {
+        if !docinfo.has("CreationDate") {
             let now = asn_date();
 
-            docinfo
-                .as_dict_mut()
-                .set("CreationDate", pdf_string::new(now));
+            docinfo.set("CreationDate", pdf_string::new(now));
         }
-        crate::release2!(docinfo);
+        crate::release2!(self.info);
         self.info = ptr::null_mut();
     }
     unsafe fn get_page_resources(&mut self, category: &str) -> *mut pdf_obj {
@@ -585,16 +581,16 @@ unsafe fn doc_flush_page(p: *mut PdfDoc, page: &mut pdf_page, parent_ref: *mut p
         .as_dict_mut()
         .set("Contents", contents_array);
     if !page.annots.is_null() {
+        let pdf_obj { data, .. } = *Box::from_raw(page.annots);
+        page.annots = ptr::null_mut();
         (*page.page_obj)
             .as_dict_mut()
-            .set("Annots", pdf_ref_obj(page.annots));
-        crate::release2!(page.annots);
+            .set("Annots", data.into_ref());
     }
     if !page.beads.is_null() {
-        (*page.page_obj)
-            .as_dict_mut()
-            .set("B", pdf_ref_obj(page.beads));
-        crate::release!(page.beads);
+        let pdf_obj { data, .. } = *Box::from_raw(page.beads);
+        page.beads = ptr::null_mut();
+        (*page.page_obj).as_dict_mut().set("B", data.into_ref());
     }
     crate::release2!(page.page_obj);
     crate::release!(page.page_ref);
@@ -1209,7 +1205,7 @@ impl PdfDoc {
 unsafe fn clean_bookmarks(mut item: *mut pdf_olitem) -> i32 {
     while !item.is_null() {
         let next = (*item).next;
-        crate::release!((*item).dict);
+        assert!((*item).dict.is_null());
         if !(*item).first.is_null() {
             clean_bookmarks((*item).first);
         }
@@ -2093,11 +2089,11 @@ impl PdfDoc {
             (*currentpage.resources)
                 .as_dict_mut()
                 .set("ProcSet", procset);
+            let pdf_obj { data, .. } = *Box::from_raw(currentpage.resources);
+            currentpage.resources = ptr::null_mut();
             (*currentpage.page_obj)
                 .as_dict_mut()
-                .set("Resources", pdf_ref_obj(currentpage.resources));
-            crate::release2!(currentpage.resources);
-            currentpage.resources = ptr::null_mut()
+                .set("Resources", data.into_ref());
         }
         if manual_thumb_enabled != 0 {
             let thumb_filename = format!(
@@ -2259,7 +2255,7 @@ unsafe fn pdf_doc_make_xform(
     xform: &mut pdf_stream,
     bbox: &Rect,
     matrix: Option<&TMatrix>,
-    resources: *mut pdf_obj,
+    resources: pdf_indirect,
     attrib: *mut pdf_obj,
 ) {
     let xform_dict = xform.get_dict_mut();
@@ -2356,14 +2352,15 @@ impl PdfDoc {
         procset.push_obj("ImageI");
         (*(*form).resources).as_dict_mut().set("ProcSet", procset);
         let matrix = (*form).matrix.clone();
+        let pdf_obj { data, .. } = *Box::from_raw((*form).resources);
+        (*form).resources = ptr::null_mut();
         pdf_doc_make_xform(
             (*(*form).contents).as_stream_mut(),
             &mut (*form).cropbox,
             Some(&matrix),
-            pdf_ref_obj((*form).resources),
+            data.into_ref(),
             attrib,
         );
-        crate::release2!((*form).resources);
         crate::release2!((*form).contents);
         crate::release!(attrib);
         self.pending_forms = (*fnode).prev;

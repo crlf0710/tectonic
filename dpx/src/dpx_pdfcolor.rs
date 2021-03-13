@@ -24,8 +24,7 @@
 
 use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
-    pdf_get_version, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_stream, IntoObj, IntoRef, PushObj,
-    STREAM_COMPRESS,
+    pdf_get_version, pdf_link_obj, pdf_obj, pdf_stream, IntoObj, IntoRef, PushObj, STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
 use crate::{info, warn, FromBEByteSlice};
@@ -1177,8 +1176,8 @@ unsafe fn pdf_colorspace_defineresource(
 pub(crate) unsafe fn pdf_get_colorspace_reference(cspc_id: i32) -> *mut pdf_obj {
     let colorspace = &mut CSPC_CACHE[cspc_id as usize];
     if colorspace.reference.is_null() {
-        colorspace.reference = pdf_ref_obj(colorspace.resource);
-        crate::release2!(colorspace.resource);
+        let pdf_obj { data, .. } = *Box::from_raw(colorspace.resource);
+        colorspace.reference = data.into_ref().into_obj();
         colorspace.resource = ptr::null_mut()
     }
     pdf_link_obj(colorspace.reference)
