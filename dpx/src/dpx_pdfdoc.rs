@@ -114,7 +114,7 @@ pub(crate) struct pdf_olitem {
     pub(crate) parent: *mut pdf_olitem,
     pub(crate) next: *mut pdf_olitem,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct pdf_page {
     pub(crate) page_obj: *mut pdf_obj,
@@ -124,8 +124,8 @@ pub(crate) struct pdf_page {
     pub(crate) ref_y: f64,
     pub(crate) cropbox: Rect,
     pub(crate) resources: *mut pdf_obj,
-    pub(crate) background: *mut pdf_obj,
-    pub(crate) contents: *mut pdf_obj,
+    pub(crate) background: Option<pdf_stream>,
+    pub(crate) contents: Option<pdf_stream>,
     pub(crate) content_refs: [*mut pdf_obj; 4],
     pub(crate) annots: *mut pdf_obj,
     pub(crate) beads: *mut pdf_obj,
@@ -368,8 +368,8 @@ impl PdfDoc {
             page_ref: ptr::null_mut(),
             flags: 0,
             resources: ptr::null_mut(),
-            background: ptr::null_mut(),
-            contents: ptr::null_mut(),
+            background: None,
+            contents: None,
             content_refs: [ptr::null_mut(); 4],
             annots: ptr::null_mut(),
             beads: ptr::null_mut(),
@@ -2016,8 +2016,8 @@ impl PdfDoc {
             currentpage.page_obj = pdf_dict::new().into_obj();
             currentpage.page_ref = pdf_new_ref(&mut *currentpage.page_obj).into_obj();
         }
-        currentpage.background = ptr::null_mut();
-        currentpage.contents = pdf_stream::new(STREAM_COMPRESS).into_obj();
+        currentpage.background = None;
+        currentpage.contents = Some(pdf_stream::new(STREAM_COMPRESS));
         currentpage.resources = pdf_dict::new().into_obj();
         currentpage.annots = ptr::null_mut();
         currentpage.beads = ptr::null_mut();
@@ -2050,21 +2050,18 @@ impl PdfDoc {
         /*
          * Current page background content stream.
          */
-        if !currentpage.background.is_null() {
-            if (*currentpage.background).as_stream().len() > 0 {
-                currentpage.content_refs[1] = pdf_ref_obj(currentpage.background);
-                (*currentpage.background).as_stream_mut().add_str("\n");
+        if let Some(mut background) = currentpage.background.take() {
+            if background.len() > 0 {
+                background.add_str("\n");
+                currentpage.content_refs[1] = background.into_ref().into_obj();
             }
-            crate::release!(currentpage.background);
-            currentpage.background = ptr::null_mut()
         } else {
             currentpage.content_refs[1] = ptr::null_mut()
         }
         /* Content body of current page */
-        currentpage.content_refs[2] = pdf_ref_obj(currentpage.contents);
-        (*currentpage.contents).as_stream_mut().add_str("\n");
-        crate::release2!(currentpage.contents);
-        currentpage.contents = ptr::null_mut();
+        let mut contents = currentpage.contents.take().unwrap();
+        contents.add_str("\n");
+        currentpage.content_refs[2] = contents.into_ref().into_obj();
         /*
          * Global EOP content stream.
          */
@@ -2133,11 +2130,11 @@ impl PdfDoc {
         }
         let r = pdf_doc_mut().get_mediabox(pdf_doc().current_page_number());
         let currentpage = &mut self.pages.entries[self.pages.num_entries];
-        if currentpage.background.is_null() {
-            currentpage.background = pdf_stream::new(STREAM_COMPRESS).into_obj()
+        if currentpage.background.is_none() {
+            currentpage.background = Some(pdf_stream::new(STREAM_COMPRESS));
         }
-        let saved_content = currentpage.contents;
-        currentpage.contents = currentpage.background;
+        let saved_content = currentpage.contents.take();
+        currentpage.contents = currentpage.background.take();
         pdf_dev_gsave();
         pdf_dev_set_color(&bgcolor, 0x20, 0);
         pdf_dev_rectfill(&r);
@@ -2165,7 +2162,7 @@ impl PdfDoc {
                 .add_slice(&buffer);
         } else {
             let currentpage = &mut self.pages.entries[self.pages.num_entries];
-            (*currentpage.contents).as_stream_mut().add_slice(&buffer);
+            currentpage.contents.as_mut().unwrap().add_slice(&buffer);
         };
     }
 
