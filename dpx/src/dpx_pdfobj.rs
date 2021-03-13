@@ -491,7 +491,7 @@ static mut output_stream: *mut pdf_stream = ptr::null_mut();
 static mut enc_mode: bool = false;
 static mut doc_enc_mode: bool = false;
 static mut trailer_dict: *mut pdf_obj = ptr::null_mut();
-static mut xref_stream: *mut pdf_obj = ptr::null_mut();
+static mut xref_stream: Option<pdf_stream> = None;
 static mut verbose: i32 = 0;
 static mut compression_level: i8 = 9_i8;
 static mut compression_use_predictor: i8 = 1_i8;
@@ -553,13 +553,12 @@ unsafe fn add_xref_entry(label: usize, typ: u8, id: ObjectId) {
 pub(crate) unsafe fn pdf_out_init(filename: &str, do_encryption: bool, enable_object_stream: bool) {
     output_xref = vec![];
     pdf_max_ind_objects = 0;
-    add_xref_entry(0, 0_u8, (0_u32, 0xffff_u16));
+    add_xref_entry(0, 0, (0, 0xffff));
     next_label = 1;
     if pdf_version >= 5_u32 {
         if enable_object_stream {
-            xref_stream = pdf_stream::new(STREAM_COMPRESS).into_obj();
-            (*xref_stream).flags |= OBJ_NO_ENCRYPT;
-            trailer_dict = (*xref_stream).as_stream_mut().get_dict_obj();
+            xref_stream = Some(pdf_stream::new(STREAM_COMPRESS));
+            trailer_dict = xref_stream.as_mut().unwrap().get_dict_obj();
             (*trailer_dict).as_dict_mut().set("Type", "XRef");
             do_objstm = true;
         } else {
@@ -567,7 +566,7 @@ pub(crate) unsafe fn pdf_out_init(filename: &str, do_encryption: bool, enable_ob
             do_objstm = false;
         }
     } else {
-        xref_stream = ptr::null_mut();
+        xref_stream = None;
         trailer_dict = pdf_dict::new().into_obj();
         do_objstm = false;
     }
@@ -628,17 +627,17 @@ unsafe fn dump_trailer_dict() {
  * output a PDF 1.5 cross-reference stream;
  * contributed by Matthias Franz (March 21, 2007)
  */
-unsafe fn dump_xref_stream() {
+unsafe fn dump_xref_stream(mut stream: pdf_stream, id: ObjectId) {
     let mut buf: [u8; 7] = [0; 7];
     /* determine the necessary size of the offset field */
     let mut pos = startxref; /* maximal offset value */
-    let mut poslen = 1_u32; /* type                */
+    let mut poslen = 1; /* type                */
     loop {
         pos >>= 8; /* offset (big-endian) */
-        if !(pos != 0) {
+        if pos == 0 {
             break; /* generation          */
         }
-        poslen = poslen.wrapping_add(1)
+        poslen += 1;
     }
     let mut w = vec![];
     w.push_obj(1_f64);
@@ -646,22 +645,22 @@ unsafe fn dump_xref_stream() {
     w.push_obj(2_f64);
     (*trailer_dict).as_dict_mut().set("W", w);
     /* We need the xref entry for the xref stream right now */
-    add_xref_entry(next_label - 1, 1_u8, (startxref, 0_u16));
+    add_xref_entry(next_label - 1, 1, (startxref, 0));
     for i in 0..next_label {
         buf[0] = output_xref[i].typ;
         pos = output_xref[i].id.0;
         for j in (0..poslen).rev() {
-            buf[(1 + j) as usize] = pos as u8;
+            buf[1 + j] = pos as u8;
             pos >>= 8;
         }
         let f3 = output_xref[i].id.1;
-        buf[poslen.wrapping_add(1_u32) as usize] = (f3 as i32 >> 8) as u8;
-        buf[poslen.wrapping_add(2_u32) as usize] = f3 as u8;
-        (*xref_stream)
-            .as_stream_mut()
-            .add_slice(&buf[..(poslen.wrapping_add(3_u32) as usize)]);
+        buf[poslen + 1] = (f3 as i32 >> 8) as u8;
+        buf[poslen + 2] = f3 as u8;
+        stream.add_slice(&buf[..poslen + 3]);
     }
-    crate::release2!(xref_stream);
+    if let Some(handle) = pdf_output_handle.as_mut() {
+        pdf_flush_obj(&mut stream.into(), id, false, handle);
+    }
 }
 
 pub(crate) unsafe fn pdf_out_flush() {
@@ -675,14 +674,16 @@ pub(crate) unsafe fn pdf_out_flush() {
          * for the xref stream dictionary (= trailer).
          * Labelling it in pdf_out_init (with 1)  does not work (why?).
          */
-        if !xref_stream.is_null() {
-            pdf_label_obj(&mut *xref_stream);
-        }
+        let xref_stream_id = if xref_stream.is_some() {
+            pdf_next_label()
+        } else {
+            (0, 0)
+        };
         /* Record where this xref is for trailer */
         startxref = pdf_output_file_position as u32;
         (*trailer_dict).as_dict_mut().set("Size", next_label as f64);
-        if !xref_stream.is_null() {
-            dump_xref_stream();
+        if let Some(stream) = xref_stream.take() {
+            dump_xref_stream(stream, xref_stream_id);
         } else {
             dump_xref_table();
             dump_trailer_dict();
@@ -2322,7 +2323,7 @@ unsafe fn pdf_add_objstm(
     let pos = data[0] as usize;
     data[2 * pos] = label as i32;
     data[2 * pos + 1] = len as i32;
-    add_xref_entry(label as usize, 2_u8, (id.0, (pos - 1) as u16));
+    add_xref_entry(label as usize, 2, (id.0, (pos - 1) as u16));
     /* redirect output into objstm */
     output_stream = objstm as *mut _;
     enc_mode = false;
