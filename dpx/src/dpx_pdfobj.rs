@@ -2601,6 +2601,15 @@ unsafe fn next_object_offset(pf: *mut pdf_file, obj_num: u32) -> i32 {
     next
 }
 
+fn checklabel(pf: &pdf_file, obj_id: ObjectId) -> bool {
+    let (obj_num, obj_gen) = obj_id;
+    obj_num > 0
+        && obj_num < pf.xref_table.len() as u32
+        && (pf.xref_table[obj_num as usize].typ as i32 == 1
+            && pf.xref_table[obj_num as usize].id.1 as i32 == obj_gen as i32
+            || pf.xref_table[obj_num as usize].typ as i32 == 2 && obj_gen == 0)
+}
+
 unsafe fn pdf_read_object(
     obj_num: u32,
     obj_gen: u16,
@@ -2728,14 +2737,10 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
  * null object, as required by the PDF spec. This is important to parse
  * several cross-reference sections.
  */
+
 unsafe fn pdf_get_object(pf: &mut pdf_file, obj_id: ObjectId) -> *mut pdf_obj {
     let (obj_num, obj_gen) = obj_id;
-    if !(obj_num > 0
-        && obj_num < pf.xref_table.len() as u32
-        && (pf.xref_table[obj_num as usize].typ as i32 == 1
-            && pf.xref_table[obj_num as usize].id.1 as i32 == obj_gen as i32
-            || pf.xref_table[obj_num as usize].typ as i32 == 2 && obj_gen == 0))
-    {
+    if !checklabel(pf, obj_id) {
         warn!(
             "Trying to read nonexistent or deleted object: {} {}",
             obj_num, obj_gen,
@@ -3480,13 +3485,9 @@ static mut loop_marker: pdf_obj = pdf_obj {
 };
 unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
     let pf = &mut *(*object).as_indirect().pf;
-    let (obj_num, obj_gen) = (*object).as_indirect().id;
-    if !(obj_num > 0
-        && obj_num < pf.xref_table.len() as u32
-        && (pf.xref_table[obj_num as usize].typ as i32 == 1
-            && pf.xref_table[obj_num as usize].id.1 as i32 == obj_gen as i32
-            || pf.xref_table[obj_num as usize].typ as i32 == 2 && obj_gen == 0))
-    {
+    let id = (*object).as_indirect().id;
+    let (obj_num, obj_gen) = id;
+    if !checklabel(pf, id) {
         warn!("Can\'t resolve object: {} {}", obj_num, obj_gen as i32);
         return Object::Null.into_obj();
     }

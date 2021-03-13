@@ -251,7 +251,7 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     let (xdensity, ydensity) = jpeg_get_density(&mut j_info);
     info.xdensity = xdensity;
     info.ydensity = ydensity;
-    ximage.set_image(&info, stream.into_obj());
+    ximage.set_image(&info, stream.into());
     JPEG_info_clear(&mut j_info);
     0
 }

@@ -354,7 +354,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             info.num_components,
         );
     }
-    ximage.set_image(&info, stream.into_obj());
+    ximage.set_image(&info, stream.into());
     0
 }
 /* Transparency */

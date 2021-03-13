@@ -107,7 +107,7 @@ pub(crate) unsafe fn pdf_include_page(
         /*
          * Handle page content stream.
          */
-        let content_new = if let Some(mut contents) = contents {
+        let contents = if let Some(mut contents) = contents {
             /* TODO: better don't include anything if the page is empty */
             match &mut contents.data {
                 Object::Stream(_) => {
@@ -156,12 +156,14 @@ pub(crate) unsafe fn pdf_include_page(
              */
             pdf_stream::new(0).into_obj()
         };
-        let contents = content_new;
 
+        let pdf_obj {
+            data: mut contents, ..
+        } = *Box::from_raw(contents);
         /*
          * Add entries to contents stream dictionary.
          */
-        let contents_dict = (*contents).as_stream_mut().get_dict_mut();
+        let contents_dict = contents.as_stream_mut().get_dict_mut();
         contents_dict.set("Type", "XObject");
         contents_dict.set("Subtype", "Form");
         contents_dict.set("FormType", 1_f64);

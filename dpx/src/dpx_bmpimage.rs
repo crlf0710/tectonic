@@ -239,7 +239,7 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
             info.num_components,
         );
     }
-    ximage.set_image(&info, stream.into_obj());
+    ximage.set_image(&info, stream.into());
     Ok(())
 }
 
