@@ -68,15 +68,22 @@ const ZEROVEC: Vec<pdf_res> = Vec::new();
 static mut resources: [Vec<pdf_res>; 9] = [ZEROVEC; 9];
 
 impl pdf_res {
-    fn new() -> Self {
-        Self {
-            ident: String::new(),
-            category: -1,
-            flags: 0,
+    unsafe fn new(ident: String, cat_id: i32, flags: i32, object: *mut pdf_obj) -> Self {
+        let mut res = Self {
+            ident,
+            category: cat_id,
+            flags: flags,
             cdata: ptr::null_mut(),
             object: ptr::null_mut(),
             reference: ptr::null_mut(),
+        };
+        if flags & 1 != 0 {
+            res.reference = pdf_ref_obj(object);
+            crate::release2!(object);
+        } else {
+            res.object = object
         }
+        res
     }
 }
 
@@ -127,35 +134,23 @@ pub(crate) unsafe fn pdf_defineresource(
                 "Resource {} (category: {}) already defined...",
                 resname, category,
             );
-            crate::release!(res.reference);
-            res.reference = ptr::null_mut();
-            crate::release!(res.object);
-            res.object = ptr::null_mut();
-            res.flags = flags;
-            if flags & 1 != 0 {
-                res.reference = pdf_ref_obj(object);
-                crate::release!(object);
-            } else {
-                res.object = object
-            }
+            let ident = std::mem::replace(&mut res.ident, String::new());
+            *res = pdf_res::new(ident, res.category, flags, object);
             return cat_id << 16 | (res_id as i32);
         }
     }
 
     let res_id = rc.len();
-    let mut res = pdf_res::new();
-    if !resname.is_empty() {
-        res.ident = resname.to_string();
-    }
-    res.category = cat_id;
-    res.flags = flags;
-    if flags & 1 != 0 {
-        res.reference = pdf_ref_obj(object);
-        crate::release2!(object);
-    } else {
-        res.object = object
-    }
-    rc.push(res);
+    rc.push(pdf_res::new(
+        if !resname.is_empty() {
+            resname.to_string()
+        } else {
+            String::new()
+        },
+        cat_id,
+        flags,
+        object,
+    ));
 
     cat_id << 16 | (res_id as i32)
 }
