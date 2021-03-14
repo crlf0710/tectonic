@@ -188,7 +188,14 @@ impl Object {
     }
     pub(crate) unsafe fn as_indirect(&self) -> &pdf_indirect {
         if let Self::Indirect(v) = self {
-            &v
+            v
+        } else {
+            panic!("invalid pdfobj::as_indirect");
+        }
+    }
+    pub(crate) unsafe fn as_indirect_mut(&mut self) -> &mut pdf_indirect {
+        if let Self::Indirect(v) = self {
+            v
         } else {
             panic!("invalid pdfobj::as_indirect");
         }
@@ -2579,7 +2586,7 @@ fn checklabel(pf: &pdf_file, obj_id: ObjectId) -> bool {
 unsafe fn pdf_read_object(
     obj_num: u32,
     obj_gen: u16,
-    pf: *mut pdf_file,
+    pf: &mut pdf_file,
     offset: i32,
     limit: i32,
 ) -> Option<*mut pdf_obj> {
@@ -2588,8 +2595,8 @@ unsafe fn pdf_read_object(
         return None;
     }
     let mut buffer = vec![0u8; length + 1];
-    (*pf).handle.seek(SeekFrom::Start(offset as u64)).unwrap();
-    (*pf).handle.read_exact(&mut buffer[..length]).unwrap();
+    pf.handle.seek(SeekFrom::Start(offset as u64)).unwrap();
+    pf.handle.read_exact(&mut buffer[..length]).unwrap();
     let p = buffer.as_slice();
     /* Check for obj_num and obj_gen */
     let mut q = p; /* <== p */
@@ -2627,8 +2634,8 @@ unsafe fn pdf_read_object(
         result
     }
 }
-unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
-    let (offset, gen) = (*pf).xref_table[num as usize].id;
+unsafe fn read_objstm(pf: &mut pdf_file, num: u32) -> *mut pdf_obj {
+    let (offset, gen) = pf.xref_table[num as usize].id;
     let limit: i32 = next_object_offset(pf, num);
     if let Some(objstm) = pdf_read_object(num, gen, pf, offset as i32, limit) {
         if let Object::Stream(stream) = &mut (*objstm).data {
@@ -2666,17 +2673,17 @@ unsafe fn read_objstm(pf: *mut pdf_file, num: u32) -> *mut pdf_obj {
                                         let mut p = data.as_ptr() as *const i8;
                                         let endptr = p.offset(first as isize);
                                         let mut i = 2 * n;
-                                        let mut q: *mut i8 = ptr::null_mut();
                                         loop {
                                             if i == 0 {
                                                 /* Any garbage after last entry? */
                                                 skip_white(&mut p, endptr);
                                                 if p == endptr {
-                                                    (*pf).xref_table[num as usize].direct = objstm;
+                                                    pf.xref_table[num as usize].direct = objstm;
                                                     return objstm;
                                                 }
                                                 break;
                                             }
+                                            let mut q: *mut i8 = ptr::null_mut();
                                             header[0] = strtoul(p, &mut q, 10) as i32;
                                             header = &mut header[1..];
                                             if q == p as *mut i8 {
@@ -2790,16 +2797,21 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
     if !obj.is_null() {
         obj = pdf_link_obj(obj)
     }
-    while !obj.is_null() && (*obj).is_indirect() && {
+    while let Some(pdf_obj {
+        data: Object::Indirect(o),
+        ..
+    }) = obj.as_ref()
+    {
         count -= 1;
-        count != 0
-    } {
-        if let Some(pf) = (*obj).as_indirect().pf.as_mut() {
-            let obj_id = (*obj).as_indirect().id;
+        if count == 0 {
+            break;
+        }
+        if let Some(pf) = o.pf.as_mut() {
+            let obj_id = o.id;
             crate::release!(obj);
             obj = pdf_get_object(pf, obj_id)
         } else {
-            let next_obj: *mut pdf_obj = (*obj).as_indirect().obj;
+            let next_obj: *mut pdf_obj = o.obj;
             if next_obj.is_null() {
                 panic!("Undefined object reference");
             }
@@ -2810,7 +2822,10 @@ pub(crate) unsafe fn pdf_deref_obj(obj: Option<&mut pdf_obj>) -> *mut pdf_obj {
     if count == 0 {
         panic!("Loop in object hierarchy detected. Broken PDF file?");
     }
-    if !obj.is_null() && matches!((*obj).data, Object::Null) {
+    if let Some(pdf_obj {
+        data: Object::Null, ..
+    }) = obj.as_ref()
+    {
         crate::release!(obj);
         ptr::null_mut()
     } else {
@@ -3449,9 +3464,9 @@ static mut loop_marker: pdf_obj = pdf_obj {
     flags: 0,
     data: Object::Invalid,
 };
-unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
-    let pf = &mut *(*object).as_indirect().pf;
-    let id = (*object).as_indirect().id;
+unsafe fn pdf_import_indirect(object: &mut pdf_indirect) -> *mut pdf_obj {
+    let pf = &mut *object.pf;
+    let id = object.id;
     let (obj_num, obj_gen) = id;
     if !checklabel(pf, id) {
         warn!("Can\'t resolve object: {} {}", obj_num, obj_gen as i32);
@@ -3464,7 +3479,7 @@ unsafe fn pdf_import_indirect(object: *mut pdf_obj) -> *mut pdf_obj {
         }
         return pdf_link_obj(ref_0);
     } else {
-        let obj = pdf_get_object(&mut *pf, (obj_num, obj_gen));
+        let obj = pdf_get_object(pf, (obj_num, obj_gen));
         if obj.is_null() {
             warn!("Could not read object: {} {}", obj_num, obj_gen as i32);
             return ptr::null_mut();
@@ -3491,7 +3506,7 @@ pub(crate) unsafe fn pdf_import_object(object: *mut pdf_obj) -> *mut pdf_obj {
     match &mut (*object).data {
         Object::Indirect(v) => {
             if !v.pf.is_null() {
-                pdf_import_indirect(object)
+                pdf_import_indirect((*object).as_indirect_mut())
             } else {
                 pdf_link_obj(object)
             }

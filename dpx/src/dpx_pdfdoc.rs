@@ -505,7 +505,7 @@ impl PdfDoc {
         }
         let resources = self.get_page_resources(category);
         if let Some(duplicate) = (*resources).as_dict_mut().get_mut(resource_name) {
-            if (*duplicate)
+            if duplicate
                 .as_indirect()
                 .compare((*resource_ref).as_indirect())
             {
