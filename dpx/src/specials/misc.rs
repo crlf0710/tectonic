@@ -20,7 +20,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
-use crate::dpx_mfileio::tt_mfgets;
+use crate::dpx_mfileio::tt_mfreadln;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
 use crate::dpx_pdfdoc::PdfPageBoundary;
@@ -28,7 +28,6 @@ use crate::dpx_pdfparse::SkipWhite;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::spc_warn;
 use bridge::{InFile, TTInputFormat};
-use libc::strlen;
 use std::ptr;
 
 use super::{Result, ERR};
@@ -104,15 +103,16 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result
     if let Some(mut handle) = InFile::open(&filename, TTInputFormat::PICT, 0) {
         ti.flags |= 1 << 1 | 1 << 2;
         loop {
-            let mut p: *const i8 = tt_mfgets(buf.as_ptr() as *mut i8, 512, &mut handle);
-            if p.is_null() {
+            if let Ok(buf) = tt_mfreadln(512, &mut handle) {
+                let mut p = buf.as_slice();
+                if !(mps_scan_bbox(&mut p, &mut ti.bbox) >= 0) {
+                    continue;
+                }
+                ti.flags |= 1 << 0;
+                break;
+            } else {
                 break;
             }
-            if !(mps_scan_bbox(&mut p, p.offset(strlen(p) as isize), &mut ti.bbox) >= 0) {
-                continue;
-            }
-            ti.flags |= 1 << 0;
-            break;
         }
         let form_id = pdf_ximage_findresource(&filename, options);
         if form_id < 0 {

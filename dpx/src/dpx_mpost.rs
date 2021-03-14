@@ -35,7 +35,6 @@ use crate::bridge::DisplayExt;
 use std::ffi::CStr;
 use std::ptr;
 
-use crate::strstartswith;
 use crate::warn;
 
 use super::dpx_dvipdfmx::translate_origin;
@@ -60,10 +59,8 @@ use super::dpx_pdfparse::dump;
 use super::dpx_subfont::{lookup_sfd_record, sfd_load_record};
 use super::dpx_tfm::{tfm_exists, tfm_get_width, tfm_open, tfm_string_width};
 use crate::dpx_pdfobj::{pdf_dict, pdf_name, pdf_obj, pdf_set_number, Object};
-use crate::dpx_pdfparse::{
-    parse_number, pdfparse_skip_line, skip_white, ParseIdent, ParsePdfObj, SkipWhite,
-};
-use libc::{atof, free, strtod};
+use crate::dpx_pdfparse::{ParseIdent, ParseNumber, ParsePdfObj, SkipWhite};
+use libc::strtod;
 
 pub(crate) type __off_t = i64;
 pub(crate) type __off64_t = i64;
@@ -239,28 +236,25 @@ unsafe fn is_fontname(token: &[u8]) -> bool {
     }
 }
 
-pub(crate) unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: &mut Rect) -> i32 {
+pub(crate) unsafe fn mps_scan_bbox(pp: &mut &[u8], bbox: &mut Rect) -> i32 {
     let mut values: [f64; 4] = [0.; 4];
     /* skip_white() skips lines starting '%'... */
-    while *pp < endptr && libc::isspace(**pp as _) != 0 {
-        *pp = (*pp).offset(1)
+    while !pp.is_empty() && pp[0].is_ascii_whitespace() {
+        *pp = &pp[1..];
     }
     /* Scan for bounding box record */
-    while *pp < endptr && **pp as i32 == '%' as i32 {
-        if (*pp).offset(14) < endptr
-            && !strstartswith(*pp, b"%%BoundingBox:\x00" as *const u8 as *const i8).is_null()
-        {
-            *pp = (*pp).offset(14);
+    while !pp.is_empty() && pp[0] == b'%' {
+        if pp.starts_with(b"%%BoundingBox:") {
+            *pp = &pp[14..];
             let mut i = 0;
             while i < 4 {
-                skip_white(pp, endptr);
-                let number = parse_number(pp, endptr);
-                if number.is_null() {
+                pp.skip_white();
+                if let Some(number) = pp.parse_number() {
+                    values[i as usize] = number.to_str().unwrap().parse::<f64>().unwrap();
+                    i += 1;
+                } else {
                     break;
                 }
-                values[i as usize] = atof(number);
-                free(number as *mut libc::c_void);
-                i += 1
             }
             if i < 4 {
                 return -1;
@@ -281,9 +275,9 @@ pub(crate) unsafe fn mps_scan_bbox(pp: *mut *const i8, endptr: *const i8, bbox: 
                 return 0;
             }
         }
-        pdfparse_skip_line(pp, endptr);
-        while *pp < endptr && libc::isspace(**pp as _) != 0 {
-            *pp = (*pp).offset(1)
+        pp.skip_line();
+        while !pp.is_empty() && pp[0].is_ascii_whitespace() {
+            *pp = &pp[1..];
         }
     }
     -1

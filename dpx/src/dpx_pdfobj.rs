@@ -30,12 +30,12 @@ use crate::bridge::DisplayExt;
 use std::ffi::CString;
 use std::io::{Read, Seek, SeekFrom, Write};
 
+use crate::dpx_mfileio::tt_mfreadln;
 use crate::dpx_pdfparse::{ParseNumber, ParsePdfObj, SkipWhite};
 use crate::{info, warn};
 use std::ffi::CStr;
 use std::ptr;
 
-use super::dpx_mfileio::{tt_mfgets, work_buffer};
 use super::dpx_pdfdev::pdf_sprint_number;
 use super::dpx_pdfencrypt::{pdf_enc_set_generation, pdf_enc_set_label, pdf_encrypt_data};
 use super::dpx_pdfparse::skip_white;
@@ -2456,40 +2456,6 @@ pub unsafe fn pdf_release_obj2(object: *mut pdf_obj) {
     }
 }
 
-/* PDF reading starts around here */
-/* As each lines may contain null-characters, so outptr here is NOT
- * null-terminated string. Returns -1 for when EOF is already reached, and -2
- * if buffer has no enough space.
- */
-#[derive(Copy, Clone, Debug)]
-enum MfReadErr {
-    Eof,
-    NotEnoughSpace,
-}
-unsafe fn tt_mfreadln<R: Read + Seek>(size: usize, handle: &mut R) -> Result<Vec<u8>, MfReadErr> {
-    let mut c;
-    let mut buf = Vec::with_capacity(size + 1);
-    loop {
-        c = handle.read_byte();
-        if let Some(c) = c.filter(|&c| c != b'\n' && c != b'\r') {
-            if buf.len() >= size {
-                return Err(MfReadErr::NotEnoughSpace);
-            }
-            buf.push(c as u8);
-        } else {
-            break;
-        }
-    }
-    if c.is_none() && buf.is_empty() {
-        return Err(MfReadErr::Eof);
-    }
-    if c == Some(b'\r') {
-        if handle.read_byte().filter(|&c| c != b'\n').is_some() {
-            handle.seek(SeekFrom::Current(-1)).unwrap();
-        }
-    }
-    Ok(buf)
-}
 unsafe fn backup_line<R: Read + Seek>(handle: &mut R) -> i32 {
     let mut ch = None;
     /* Note: this code should work even if \r\n is eol. It could fail on a
@@ -2538,7 +2504,7 @@ unsafe fn find_xref<R: Read + Seek>(handle: &mut R, file_size: i32) -> i32 {
         return 0;
     }
     /* Skip rest of this line */
-    tt_mfgets(work_buffer.as_mut_ptr(), 1024, handle);
+    tt_mfreadln(1024, handle).ok();
     /* Next line of input file should contain actual xref location */
     match tt_mfreadln(1024, handle) {
         Err(_) => {

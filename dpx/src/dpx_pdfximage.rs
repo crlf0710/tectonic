@@ -29,14 +29,13 @@
 use euclid::point2;
 
 use crate::mfree;
-use crate::strstartswith;
 use crate::{info, warn};
 use std::ptr;
 
 use super::dpx_bmpimage::{bmp_include_image, check_for_bmp};
 use super::dpx_dpxfile::{dpx_delete_temp_file, keep_cache};
 use super::dpx_jpegimage::{check_for_jpeg, jpeg_include_image};
-use super::dpx_mfileio::{tt_mfgets, work_buffer};
+use super::dpx_mfileio::tt_mfreadln;
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
@@ -825,14 +824,10 @@ pub(crate) unsafe fn pdf_ximage_scale_image(id: i32, p: &transform_info) -> (Rec
 }*/
 unsafe fn check_for_ps<R: Read + Seek>(handle: &mut R) -> i32 {
     handle.seek(SeekFrom::Start(0)).unwrap();
-    tt_mfgets(work_buffer.as_mut_ptr(), 1024, handle);
-    if !strstartswith(
-        work_buffer.as_mut_ptr(),
-        b"%!\x00" as *const u8 as *const i8,
-    )
-    .is_null()
-    {
-        return 1;
+    if let Ok(buffer) = tt_mfreadln(1024, handle) {
+        if buffer.starts_with(b"%!") {
+            return 1;
+        }
     }
     0
 }
