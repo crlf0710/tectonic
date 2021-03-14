@@ -184,12 +184,12 @@ pub(crate) struct DocRoot {
 use super::dpx_dpxutil::ht_iter;
 
 use crate::dpx_pdfximage::{load_options, xform_info};
-#[derive(Copy, Clone)]
+
 #[repr(C)]
 pub(crate) struct BreakingState {
     pub(crate) dirty: i32,
     pub(crate) broken: i32,
-    pub(crate) annot_dict: *mut pdf_obj,
+    pub(crate) annot_dict: Option<pdf_dict>,
     pub(crate) rect: Rect,
 }
 
@@ -2370,7 +2370,7 @@ impl PdfDoc {
 static mut breaking_state: BreakingState = BreakingState {
     dirty: 0,
     broken: 0,
-    annot_dict: ptr::null_mut(),
+    annot_dict: None,
     rect: Rect::new(point2(0., 0.), point2(0., 0.)),
 };
 unsafe fn reset_box() {
@@ -2381,22 +2381,22 @@ unsafe fn reset_box() {
     breaking_state.dirty = 0;
 }
 
-pub(crate) unsafe fn pdf_doc_begin_annot(dict: *mut pdf_obj) {
-    breaking_state.annot_dict = dict;
+pub(crate) unsafe fn pdf_doc_begin_annot(dict: pdf_dict) {
+    breaking_state.annot_dict = Some(dict);
     breaking_state.broken = 0;
     reset_box();
 }
 
 pub(crate) unsafe fn pdf_doc_end_annot() {
     pdf_doc_break_annot();
-    breaking_state.annot_dict = ptr::null_mut();
+    breaking_state.annot_dict = None;
 }
 
 pub(crate) unsafe fn pdf_doc_break_annot() {
     if breaking_state.dirty != 0 {
         /* Copy dict */
         let mut annot_dict = pdf_dict::new();
-        annot_dict.merge((*breaking_state.annot_dict).as_dict());
+        annot_dict.merge(breaking_state.annot_dict.as_ref().unwrap());
         let annot_dict = annot_dict.into_obj();
         let p = pdf_doc_mut();
         p.add_annot(

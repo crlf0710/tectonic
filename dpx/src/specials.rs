@@ -67,7 +67,7 @@ use super::specials::dvips::{
     spc_dvips_at_begin_document, spc_dvips_at_begin_page, spc_dvips_at_end_document,
     spc_dvips_at_end_page, spc_dvips_check_special, spc_dvips_setup_handler,
 };
-use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, IntoObj};
+use crate::dpx_pdfobj::{pdf_dict, pdf_obj, pdf_ref_obj, IntoObj};
 use crate::shims::sprintf;
 
 #[derive(Copy, Clone, Default)]
@@ -110,7 +110,7 @@ pub(crate) unsafe fn spc_set_verbose(level: i32) {
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: *mut pdf_obj) -> Result<()> {
+pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: pdf_dict) -> Result<()> {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
     Ok(())

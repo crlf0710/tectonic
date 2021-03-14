@@ -54,7 +54,7 @@ use super::SpcHandler;
 #[repr(C)]
 pub(crate) struct spc_html_ {
     pub(crate) opts: C2RustUnnamed_0,
-    pub(crate) link_dict: *mut pdf_obj,
+    pub(crate) annotation_started: bool,
     pub(crate) baseurl: *mut i8,
     pub(crate) pending_type: i32,
 }
@@ -71,7 +71,7 @@ use crate::dpx_pdfdev::Point;
 
 static mut _HTML_STATE: spc_html_ = spc_html_ {
     opts: C2RustUnnamed_0 { extensions: 0 },
-    link_dict: ptr::null_mut(),
+    annotation_started: false,
     baseurl: ptr::null_mut(),
     pending_type: -1,
 };
@@ -199,7 +199,7 @@ unsafe fn read_html_tag(attr: &mut pdf_obj, type_0: &mut i32, pp: &mut &[u8]) ->
 
 unsafe fn spc_handler_html__init(dp: *mut libc::c_void) -> Result<()> {
     let mut sd: *mut spc_html_ = dp as *mut spc_html_;
-    (*sd).link_dict = ptr::null_mut();
+    (*sd).annotation_started = false;
     (*sd).baseurl = ptr::null_mut();
     (*sd).pending_type = -1;
     Ok(())
@@ -208,14 +208,13 @@ unsafe fn spc_handler_html__init(dp: *mut libc::c_void) -> Result<()> {
 unsafe fn spc_handler_html__clean(spe: *mut SpcEnv, dp: *mut libc::c_void) -> Result<()> {
     let mut sd: *mut spc_html_ = dp as *mut spc_html_;
     free((*sd).baseurl as *mut libc::c_void);
-    if (*sd).pending_type >= 0 || !(*sd).link_dict.is_null() {
+    if (*sd).pending_type >= 0 || (*sd).annotation_started {
         let spe = &*spe;
         spc_warn!(spe, "Unclosed html anchor found.");
     }
-    crate::release!((*sd).link_dict);
     (*sd).pending_type = -1;
     (*sd).baseurl = ptr::null_mut();
-    (*sd).link_dict = ptr::null_mut();
+    (*sd).annotation_started = false;
     Ok(())
 }
 
@@ -263,15 +262,16 @@ unsafe fn fqurl(baseurl: &[u8], name: &[u8]) -> Vec<u8> {
 
 unsafe fn html_open_link(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) -> Result<()> {
     assert!(!name.is_empty());
-    assert!((*sd).link_dict.is_null());
-    (*sd).link_dict = pdf_dict::new().into_obj();
-    (*(*sd).link_dict).as_dict_mut().set("Type", "Annot");
-    (*(*sd).link_dict).as_dict_mut().set("Subtype", "Link");
+    assert!(!(*sd).annotation_started);
+    (*sd).annotation_started = true;
+    let mut link_dict = pdf_dict::new();
+    link_dict.set("Type", "Annot");
+    link_dict.set("Subtype", "Link");
     let mut color = vec![];
     color.push_obj(0f64);
     color.push_obj(0f64);
     color.push_obj(1f64);
-    (*(*sd).link_dict).as_dict_mut().set("C", color);
+    link_dict.set("C", color);
     let url = fqurl(
         if (*sd).baseurl.is_null() {
             &[]
@@ -282,21 +282,17 @@ unsafe fn html_open_link(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) 
     );
     if url[0] == b'#' {
         /* url++; causes memory leak in free(url) */
-        (*(*sd).link_dict)
-            .as_dict_mut()
-            .set("Dest", pdf_string::new(&url[1..])); /* Otherwise must be bug */
+        link_dict.set("Dest", pdf_string::new(&url[1..])); /* Otherwise must be bug */
     } else {
         let mut action = pdf_dict::new();
         action.set("Type", "Action");
         action.set("S", "URI");
         action.set("URI", pdf_string::new(url));
         let action = action.into_obj();
-        (*(*sd).link_dict)
-            .as_dict_mut()
-            .set("A", pdf_link_obj(action));
+        link_dict.set("A", pdf_link_obj(action));
         crate::release!(action);
     }
-    spc_begin_annot(spe, (*sd).link_dict).ok();
+    spc_begin_annot(spe, link_dict).ok();
     (*sd).pending_type = 0;
     Ok(())
 }
@@ -326,7 +322,7 @@ unsafe fn spc_html__anchor_open(
     attr: &pdf_obj,
     sd: *mut spc_html_,
 ) -> Result<()> {
-    if (*sd).pending_type >= 0 || !(*sd).link_dict.is_null() {
+    if (*sd).pending_type >= 0 || (*sd).annotation_started {
         spc_warn!(spe, "Nested html anchors found!");
         return ERR;
     }
@@ -356,10 +352,9 @@ unsafe fn spc_html__anchor_close(spe: &mut SpcEnv, mut sd: *mut spc_html_) -> Re
     let mut error = Ok(());
     match (*sd).pending_type {
         0 => {
-            if !(*sd).link_dict.is_null() {
+            if (*sd).annotation_started {
                 spc_end_annot(spe).ok();
-                crate::release!((*sd).link_dict);
-                (*sd).link_dict = ptr::null_mut();
+                (*sd).annotation_started = false;
                 (*sd).pending_type = -1
             } else {
                 spc_warn!(spe, "Closing html anchor (link) without starting!");

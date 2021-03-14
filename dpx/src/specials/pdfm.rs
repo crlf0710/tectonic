@@ -70,7 +70,7 @@ use super::{SpcArg, SpcEnv};
 use super::SpcHandler;
 #[derive(Clone)]
 pub(crate) struct spc_pdf_ {
-    pub(crate) annot_dict: *mut pdf_obj,
+    pub(crate) annotation_started: bool,
     pub(crate) lowest_level: i32,
     pub(crate) resourcemap: HashMap<String, resource_map>,
     pub(crate) cd: tounicode,
@@ -80,7 +80,7 @@ pub(crate) struct spc_pdf_ {
 impl spc_pdf_ {
     pub(crate) fn new() -> Self {
         Self {
-            annot_dict: ptr::null_mut(),
+            annotation_started: false,
             lowest_level: 255,
             resourcemap: HashMap::new(),
             cd: tounicode {
@@ -142,7 +142,7 @@ unsafe fn spc_handler_pdfm__init(sd: &mut spc_pdf_) -> Result<()> {
         "Title", "Author", "Subject", "Keywords", "Creator", "Producer", "Contents", "Subj", "TU",
         "T", "TM",
     ];
-    sd.annot_dict = ptr::null_mut();
+    sd.annotation_started = false;
     sd.lowest_level = 255;
     sd.resourcemap.clear();
     let array: Vec<*mut pdf_obj> = DEFAULT_TAINTKEYS
@@ -153,12 +153,11 @@ unsafe fn spc_handler_pdfm__init(sd: &mut spc_pdf_) -> Result<()> {
     Ok(())
 }
 unsafe fn spc_handler_pdfm__clean(sd: &mut spc_pdf_) -> Result<()> {
-    if !sd.annot_dict.is_null() {
+    if sd.annotation_started {
         warn!("Unbalanced bann and eann found.");
-        crate::release!(sd.annot_dict);
     }
     sd.lowest_level = 255;
-    sd.annot_dict = ptr::null_mut();
+    sd.annotation_started = false;
     sd.resourcemap.clear();
     crate::release!(sd.cd.taintkeys);
     sd.cd.taintkeys = ptr::null_mut();
@@ -513,29 +512,28 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
 /* NOTE: This can't have ident. See "Dvipdfm User's Manual". */
 unsafe fn spc_handler_pdfm_bann(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     let sd = &mut _PDF_STAT;
-    if !sd.annot_dict.is_null() {
+    if sd.annotation_started {
         spc_warn!(spe, "Can\'t begin an annotation when one is pending.");
         return ERR;
     }
     args.cur.skip_white();
     if let Some(annot_dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
-        sd.annot_dict = annot_dict.into_obj();
+        sd.annotation_started = true;
+        spc_begin_annot(spe, annot_dict)
     } else {
-        sd.annot_dict = ptr::null_mut();
+        sd.annotation_started = false;
         spc_warn!(spe, "Ignoring annotation with invalid dictionary.");
         return ERR;
     }
-    spc_begin_annot(spe, sd.annot_dict)
 }
 unsafe fn spc_handler_pdfm_eann(spe: &mut SpcEnv, _args: &mut SpcArg) -> Result<()> {
     let sd = &mut _PDF_STAT;
-    if sd.annot_dict.is_null() {
+    if !sd.annotation_started {
         spc_warn!(spe, "Tried to end an annotation without starting one!");
         return ERR;
     }
     let error = spc_end_annot(spe);
-    crate::release!(sd.annot_dict);
-    sd.annot_dict = ptr::null_mut();
+    sd.annotation_started = false;
     error
 }
 /* Color:.... */
