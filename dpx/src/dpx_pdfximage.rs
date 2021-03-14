@@ -484,6 +484,9 @@ impl pdf_ximage {
             panic!("Image XObject must be of stream type.");
         }
     }
+    pub(crate) unsafe fn set_image1(&mut self, _image_info: &ximage_info, _resource: *mut pdf_obj) {
+        unreachable!()
+    }
 
     pub(crate) unsafe fn set_form(&mut self, form_info: &xform_info, resource: Object) {
         let info = form_info;
@@ -504,6 +507,29 @@ impl pdf_ximage {
         self.attr.bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
         self.attr.bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
         self.reference = resource.into_ref().into_obj();
+        self.resource = ptr::null_mut();
+    }
+    #[deprecated]
+    pub(crate) unsafe fn set_form1(&mut self, form_info: &xform_info, resource: *mut pdf_obj) {
+        let info = form_info;
+        self.subtype = PdfXObjectType::Form;
+        /* Image's attribute "bbox" here is affected by /Rotate entry of included
+         * PDF page.
+         */
+        let mut p1 = info.bbox.min;
+        pdf_dev_transform(&mut p1, Some(&info.matrix));
+        let mut p2 = point2(info.bbox.max.x, info.bbox.min.y);
+        pdf_dev_transform(&mut p2, Some(&info.matrix));
+        let mut p3 = info.bbox.max;
+        pdf_dev_transform(&mut p3, Some(&info.matrix));
+        let mut p4 = point2(info.bbox.min.x, info.bbox.max.y);
+        pdf_dev_transform(&mut p4, Some(&info.matrix));
+        self.attr.bbox.min.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
+        self.attr.bbox.min.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
+        self.attr.bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
+        self.attr.bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
+        self.reference = pdf_ref_obj(resource);
+        crate::release2!(resource);
         self.resource = ptr::null_mut();
     }
 }
@@ -532,7 +558,11 @@ pub(crate) enum XInfo {
 
 /* called from pdfdoc.c only for late binding */
 
-pub(crate) unsafe fn pdf_ximage_defineresource(ident: &str, info: XInfo, resource: Object) -> i32 {
+pub(crate) unsafe fn pdf_ximage_defineresource(
+    ident: &str,
+    info: XInfo,
+    resource: *mut pdf_obj,
+) -> i32 {
     let id = ximages.len();
     let mut I = pdf_ximage::new();
     if !ident.is_empty() {
@@ -540,7 +570,7 @@ pub(crate) unsafe fn pdf_ximage_defineresource(ident: &str, info: XInfo, resourc
     }
     match info {
         XInfo::Image(info) => {
-            I.set_image(&info, resource);
+            I.set_image1(&info, resource);
             sprintf(
                 I.res_name.as_mut_ptr(),
                 b"Im%d\x00" as *const u8 as *const i8,
@@ -548,7 +578,7 @@ pub(crate) unsafe fn pdf_ximage_defineresource(ident: &str, info: XInfo, resourc
             );
         }
         XInfo::Form(info) => {
-            I.set_form(&info, resource);
+            I.set_form1(&info, resource);
             sprintf(
                 I.res_name.as_mut_ptr(),
                 b"Fm%d\x00" as *const u8 as *const i8,

@@ -2318,7 +2318,7 @@ impl PdfDoc {
         let xobj_id = pdf_ximage_defineresource(
             ident,
             XInfo::Form(info),
-            pdf_new_ref(&mut *(*form).contents).into(),
+            pdf_new_ref(&mut *form.contents).into_obj(),
         );
         self.pending_forms = fnode;
         /*
