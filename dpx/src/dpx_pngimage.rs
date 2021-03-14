@@ -46,11 +46,8 @@ use bridge::InFile;
 
 use crate::dpx_pdfximage::{pdf_ximage, ximage_info};
 
-pub(crate) type png_byte = u8;
 pub(crate) type png_infopp = *mut *mut png_info;
 pub(crate) type png_const_charp = *const i8;
-pub(crate) type png_bytep = *mut png_byte;
-pub(crate) type png_uint_32 = libc::c_uint;
 
 pub unsafe fn check_for_png<R: Read + Seek>(handle: &mut R) -> i32 {
     let mut sigbytes: [u8; 8] = [0; 8];
@@ -130,7 +127,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             /* Ask libpng to convert down to 8-bpc. */
             warn!("{}: 16-bpc PNG requires PDF version 1.5.", "PNG");
             png_set_strip_16(png);
-            bpc = 8 as png_byte
+            bpc = 8;
         }
     } else if (bpc as i32) < 8 {
         /* Instruct libpng to scale each pixel color to a full byte while
@@ -140,7 +137,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
         } else {
             png_set_packing(png);
         }
-        bpc = 8 as png_byte
+        bpc = 8;
     }
     /* Ask libpng to gamma-correct.
      * It is wrong to assume screen gamma value 2.2 but...
@@ -158,14 +155,14 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     let trans_type = check_transparency(png, png_info);
     /* check_transparency() does not do updata_info() */
     png_read_update_info(png, png_info);
-    let mut rowbytes = png_get_rowbytes(png, png_info) as png_uint_32;
+    let mut rowbytes = png_get_rowbytes(png, png_info) as u32;
     /* Values listed below will not be modified in the remaining process. */
     let mut info = ximage_info::init();
     info.width = width as libc::c_int;
     info.height = height as libc::c_int;
     info.bits_per_component = bpc as libc::c_int;
-    let xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
-    let yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
+    let xppm = png_get_x_pixels_per_meter(png, png_info);
+    let yppm = png_get_y_pixels_per_meter(png, png_info);
     if xppm > 0 {
         info.xdensity = 72. / 0.0254 / xppm as f64
     }
@@ -175,8 +172,8 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = stream.get_dict_mut();
     let stream_data_ptr = new((rowbytes.wrapping_mul(height) as u64)
-        .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
-        as u32) as *mut png_byte;
+        .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
+        as *mut u8;
     read_image_data(png, stream_data_ptr, height, rowbytes);
     /* Non-NULL intent means there is valid sRGB chunk. */
     let intent = get_rendering_intent(png, png_info);
@@ -383,7 +380,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
 unsafe fn check_transparency(png: &mut png_struct, info: &mut png_info) -> libc::c_int {
     let mut trans_type;
     let mut trans_values = ptr::null_mut();
-    let mut trans: png_bytep = ptr::null_mut();
+    let mut trans: *mut u8 = ptr::null_mut();
     let mut num_trans: i32 = 0;
     let pdf_version = pdf_get_version();
     let color_type = png_get_color_type(png, info);
@@ -532,8 +529,8 @@ unsafe fn create_cspace_sRGB(png: &png_struct, info: &png_info) -> Option<Vec<*m
 unsafe fn create_cspace_ICCBased(png: &mut png_struct, png_info: &mut png_info) -> *mut pdf_obj {
     let mut name = ptr::null_mut();
     let mut compression_type: libc::c_int = 0;
-    let mut profile: png_bytep = ptr::null_mut();
-    let mut proflen: png_uint_32 = 0;
+    let mut profile: *mut u8 = ptr::null_mut();
+    let mut proflen: u32 = 0;
     if png_get_valid(png, png_info, 0x1000u32) == 0
         || png_get_iCCP(
             png,
@@ -613,7 +610,7 @@ unsafe fn create_cspace_CalRGB(
     } else {
         G = 2.2
     }
-    let cal_param = make_param_Cal(2 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
+    let cal_param = make_param_Cal(2, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
     let mut colorspace = vec![];
     colorspace.push_obj("CalRGB");
     colorspace.push_obj(cal_param);
@@ -661,14 +658,14 @@ unsafe fn create_cspace_CalGray(
     } else {
         G = 2.2f64
     } /* Yw = 1.0 */
-    let cal_param = make_param_Cal(0 as png_byte, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
+    let cal_param = make_param_Cal(0, G, xw, yw, xr, yr, xg, yg, xb, yb)?;
     let mut colorspace = vec![];
     colorspace.push_obj("CalGray");
     colorspace.push_obj(cal_param);
     Some(colorspace)
 }
 unsafe fn make_param_Cal(
-    color_type: png_byte,
+    color_type: u8,
     G: f64,
     xw: f64,
     yw: f64,
@@ -786,7 +783,7 @@ unsafe fn create_cspace_Indexed(
     }
     colorspace.push(base);
     colorspace.push_obj((num_plte - 1) as f64);
-    let mut data = Vec::<png_byte>::with_capacity((num_plte * 3) as usize);
+    let mut data = Vec::<u8>::with_capacity((num_plte * 3) as usize);
     for i in 0..num_plte {
         data.push((*plte.offset(i as isize)).red);
         data.push((*plte.offset(i as isize)).green);
@@ -807,7 +804,7 @@ unsafe fn create_ckey_mask(
     png: &png_struct_def,
     png_info: &mut png_info,
 ) -> Option<Vec<*mut pdf_obj>> {
-    let mut trans: png_bytep = ptr::null_mut();
+    let mut trans: *mut u8 = ptr::null_mut();
     let mut num_trans: libc::c_int = 0;
     let mut colors = ptr::null_mut();
     if png_get_valid(png, png_info, 0x10) == 0
@@ -871,11 +868,11 @@ unsafe fn create_ckey_mask(
 unsafe fn create_soft_mask(
     png: &mut png_struct_def,
     info: &mut png_info,
-    image_data_ptr: png_bytep,
-    width: png_uint_32,
-    height: png_uint_32,
+    image_data_ptr: *mut u8,
+    width: u32,
+    height: u32,
 ) -> Option<pdf_stream> {
-    let mut trans: png_bytep = ptr::null_mut();
+    let mut trans: *mut u8 = ptr::null_mut();
     let mut num_trans: i32 = 0;
     if png_get_valid(png, info, 0x10u32) == 0
         || png_get_tRNS(
@@ -894,9 +891,9 @@ unsafe fn create_soft_mask(
     }
     let mut smask = pdf_stream::new(STREAM_COMPRESS);
     let dict = smask.get_dict_mut();
-    let smask_data_ptr = new((width.wrapping_mul(height) as u64)
-        .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
-        as *mut png_byte;
+    let smask_data_ptr = new(
+        (width.wrapping_mul(height) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
+    ) as *mut u8;
     dict.set("Type", "XObject");
     dict.set("Subtype", "Image");
     dict.set("Width", width as f64);
@@ -904,12 +901,12 @@ unsafe fn create_soft_mask(
     dict.set("ColorSpace", "DeviceGray");
     dict.set("BitsPerComponent", 8_f64);
     for i in 0..width.wrapping_mul(height) {
-        let idx: png_byte = *image_data_ptr.offset(i as isize);
+        let idx: u8 = *image_data_ptr.offset(i as isize);
         *smask_data_ptr.offset(i as isize) = (if (idx as i32) < num_trans {
             *trans.offset(idx as isize) as i32
         } else {
             0xff
-        }) as png_byte;
+        }) as u8;
     }
     smask.add(
         smask_data_ptr as *mut i8 as *const libc::c_void,
@@ -922,10 +919,10 @@ unsafe fn create_soft_mask(
 unsafe fn strip_soft_mask(
     png: &png_struct,
     png_info: &png_info,
-    image_data_ptr: *mut png_byte,
-    rowbytes_ptr: *mut png_uint_32,
-    width: png_uint_32,
-    height: png_uint_32,
+    image_data_ptr: *mut u8,
+    rowbytes_ptr: *mut u32,
+    width: u32,
+    height: u32,
 ) -> Option<pdf_stream> {
     let color_type = png_get_color_type(png, png_info);
     let bpc = png_get_bit_depth(png, png_info);
@@ -933,7 +930,7 @@ unsafe fn strip_soft_mask(
         let bps: libc::c_int = if bpc as libc::c_int == 8 { 4 } else { 8 };
         if *rowbytes_ptr as u64
             != ((bps as libc::c_uint).wrapping_mul(width) as u64)
-                .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
+                .wrapping_mul(::std::mem::size_of::<u8>() as u64)
         {
             /* Something wrong */
             warn!("{}: Inconsistent rowbytes value.", "PNG");
@@ -943,7 +940,7 @@ unsafe fn strip_soft_mask(
         let bps_0: i32 = if bpc as i32 == 8 { 2 } else { 4 };
         if *rowbytes_ptr as u64
             != ((bps_0 as u32).wrapping_mul(width) as u64)
-                .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
+                .wrapping_mul(::std::mem::size_of::<u8>() as u64)
         {
             /* Something wrong */
             warn!("{}: Inconsistent rowbytes value.", "PNG");
@@ -961,8 +958,8 @@ unsafe fn strip_soft_mask(
     let smask_data_ptr = new((((bpc as i32 / 8) as u32)
         .wrapping_mul(width)
         .wrapping_mul(height) as u64)
-        .wrapping_mul(::std::mem::size_of::<png_byte>() as u64) as u32)
-        as *mut png_byte;
+        .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
+        as *mut u8;
     match color_type as i32 {
         6 => {
             if bpc as i32 == 8 {
@@ -978,8 +975,8 @@ unsafe fn strip_soft_mask(
                         .offset((4_u32).wrapping_mul(i).wrapping_add(3_u32) as isize);
                 }
                 *rowbytes_ptr = ((3_u32).wrapping_mul(width) as u64)
-                    .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
-                    as png_uint_32
+                    .wrapping_mul(::std::mem::size_of::<u8>() as u64)
+                    as u32
             } else {
                 for i in 0..width.wrapping_mul(height) {
                     libc::memmove(
@@ -996,8 +993,8 @@ unsafe fn strip_soft_mask(
                             .offset((8_u32).wrapping_mul(i).wrapping_add(7_u32) as isize);
                 }
                 *rowbytes_ptr = ((6_u32).wrapping_mul(width) as u64)
-                    .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
-                    as png_uint_32
+                    .wrapping_mul(::std::mem::size_of::<u8>() as u64)
+                    as u32
             }
         }
         4 => {
@@ -1008,9 +1005,8 @@ unsafe fn strip_soft_mask(
                     *smask_data_ptr.offset(i as isize) = *image_data_ptr
                         .offset((2_u32).wrapping_mul(i).wrapping_add(1_u32) as isize);
                 }
-                *rowbytes_ptr = (width as u64)
-                    .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
-                    as png_uint_32
+                *rowbytes_ptr =
+                    (width as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
             } else {
                 for i in 0..width.wrapping_mul(height) {
                     *image_data_ptr.offset((2_u32).wrapping_mul(i) as isize) =
@@ -1025,8 +1021,8 @@ unsafe fn strip_soft_mask(
                             .offset((4_u32).wrapping_mul(i).wrapping_add(3_u32) as isize);
                 }
                 *rowbytes_ptr = ((2_u32).wrapping_mul(width) as u64)
-                    .wrapping_mul(::std::mem::size_of::<png_byte>() as u64)
-                    as png_uint_32
+                    .wrapping_mul(::std::mem::size_of::<u8>() as u64)
+                    as u32
             }
         }
         _ => {
@@ -1045,14 +1041,9 @@ unsafe fn strip_soft_mask(
     Some(smask)
 }
 /* Read image body */
-unsafe fn read_image_data(
-    png: &mut png_struct,
-    dest_ptr: png_bytep,
-    height: png_uint_32,
-    rowbytes: png_uint_32,
-) {
-    let rows_p = new((height as u64).wrapping_mul(::std::mem::size_of::<png_bytep>() as u64) as u32)
-        as *mut png_bytep;
+unsafe fn read_image_data(png: &mut png_struct, dest_ptr: *mut u8, height: u32, rowbytes: u32) {
+    let rows_p = new((height as u64).wrapping_mul(::std::mem::size_of::<*mut u8>() as u64) as u32)
+        as *mut *mut u8;
     for i in 0..height {
         *rows_p.offset(i as isize) = dest_ptr.offset(rowbytes.wrapping_mul(i) as isize);
     }
@@ -1095,8 +1086,8 @@ pub unsafe fn png_get_bbox(handle: &InFile) -> Result<(u32, u32, f64, f64), ()> 
     png_read_info(png, png_info);
     let width = png_get_image_width(png, png_info);
     let height = png_get_image_height(png, png_info);
-    let xppm: png_uint_32 = png_get_x_pixels_per_meter(png, png_info);
-    let yppm: png_uint_32 = png_get_y_pixels_per_meter(png, png_info);
+    let xppm: u32 = png_get_x_pixels_per_meter(png, png_info);
+    let yppm: u32 = png_get_y_pixels_per_meter(png, png_info);
     let xdensity = if xppm != 0 {
         72. / 0.0254 / xppm as f64
     } else {
