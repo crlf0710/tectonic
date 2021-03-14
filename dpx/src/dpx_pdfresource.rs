@@ -29,7 +29,7 @@
 use crate::warn;
 use std::ptr;
 
-use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_ref_obj};
+use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_ref_obj, IntoObj, IntoRef, Object};
 
 #[derive(Clone)]
 #[repr(C)]
@@ -68,7 +68,7 @@ const ZEROVEC: Vec<pdf_res> = Vec::new();
 static mut resources: [Vec<pdf_res>; 9] = [ZEROVEC; 9];
 
 impl pdf_res {
-    unsafe fn new(ident: String, cat_id: i32, flags: i32, object: *mut pdf_obj) -> Self {
+    unsafe fn new(ident: String, cat_id: i32, flags: i32, object: Object) -> Self {
         let mut res = Self {
             ident,
             category: cat_id,
@@ -78,10 +78,9 @@ impl pdf_res {
             reference: ptr::null_mut(),
         };
         if flags & 1 != 0 {
-            res.reference = pdf_ref_obj(object);
-            crate::release2!(object);
+            res.reference = object.into_ref().into_obj();
         } else {
-            res.object = object
+            res.object = object.into_obj();
         }
         res
     }
@@ -121,10 +120,9 @@ unsafe fn get_category(category: &str) -> Option<i32> {
 pub(crate) unsafe fn pdf_defineresource(
     category: &str,
     resname: &str,
-    object: *mut pdf_obj,
+    object: Object,
     flags: i32,
 ) -> i32 {
-    assert!(!object.is_null());
     let cat_id =
         get_category(category).unwrap_or_else(|| panic!("Unknown resource category: {}", category));
     let rc = &mut resources[cat_id as usize];
@@ -155,17 +153,17 @@ pub(crate) unsafe fn pdf_defineresource(
     cat_id << 16 | (res_id as i32)
 }
 
-pub(crate) unsafe fn pdf_findresource(category: &str, resname: &str) -> i32 {
+pub(crate) unsafe fn pdf_findresource(category: &str, resname: &str) -> Option<i32> {
     let cat_id =
         get_category(category).unwrap_or_else(|| panic!("Unknown resource category: {}", category));
     let rc = &mut resources[cat_id as usize];
     for res_id in 0..rc.len() {
         let res = &mut rc[res_id];
         if resname == res.ident {
-            return cat_id << 16 | (res_id as i32);
+            return Some(cat_id << 16 | (res_id as i32));
         }
     }
-    -1
+    None
 }
 
 pub(crate) unsafe fn pdf_get_resource_reference(rc_id: i32) -> *mut pdf_obj {

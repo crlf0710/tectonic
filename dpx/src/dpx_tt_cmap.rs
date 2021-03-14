@@ -56,7 +56,7 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_post::{tt_get_glyphname, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_read_maxp_table;
 use super::dpx_unicode::UC_UTF16BE_encode_char;
-use crate::dpx_pdfobj::{pdf_obj, pdf_stream, IntoObj};
+use crate::dpx_pdfobj::{pdf_obj, pdf_stream};
 use crate::dpx_truetype::sfnt_table_info;
 use crate::mfree;
 use libc::{free, memset};
@@ -1137,10 +1137,8 @@ pub(crate) unsafe fn otf_create_ToUnicode_stream(
      */
     let normalized_font_name = font_name.replace("/", "-");
     let cmap_name = format!("{},{:03}-UTF16", normalized_font_name, ttc_index);
-    let res_id = pdf_findresource("CMap", &cmap_name);
-    if res_id >= 0 {
-        let cmap_ref = pdf_get_resource_reference(res_id);
-        return cmap_ref;
+    if let Some(res_id) = pdf_findresource("CMap", &cmap_name) {
+        return pdf_get_resource_reference(res_id);
     }
     if verbose > 0 {
         info!("\n");
@@ -1214,13 +1212,12 @@ pub(crate) unsafe fn otf_create_ToUnicode_stream(
     }
     tt_cmap_release(ttcmap);
     CMap_set_silent(0);
-    let cmap_ref = if let Some(cmap_obj) = cmap_obj {
-        let res_id = pdf_defineresource("CMap", &cmap_name, cmap_obj.into_obj(), 1);
+    if let Some(cmap_obj) = cmap_obj {
+        let res_id = pdf_defineresource("CMap", &cmap_name, cmap_obj.into(), 1);
         pdf_get_resource_reference(res_id)
     } else {
         ptr::null_mut()
-    };
-    cmap_ref
+    }
 }
 unsafe fn load_base_CMap(
     cmap_name: &str,

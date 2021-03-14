@@ -488,21 +488,17 @@ unsafe fn create_dummy_CMap() -> pdf_stream {
 }
 unsafe fn pdf_read_ToUnicode_file(cmap_name: &str) -> *mut pdf_obj {
     assert!(!cmap_name.is_empty());
-    let mut res_id = pdf_findresource("CMap", cmap_name);
-    if res_id < 0 {
-        let stream = if cmap_name == "Adobe-Identity-UCS2" {
+    if let Some(res_id) = pdf_findresource("CMap", cmap_name).or_else(|| {
+        (if cmap_name == "Adobe-Identity-UCS2" {
             Some(create_dummy_CMap())
         } else {
             pdf_load_ToUnicode_stream(cmap_name)
-        };
-        if let Some(stream) = stream {
-            res_id = pdf_defineresource("CMap", cmap_name, stream.into_obj(), 1)
-        }
-    }
-    if res_id < 0 {
-        ptr::null_mut()
-    } else {
+        })
+        .map(|stream| pdf_defineresource("CMap", cmap_name, stream.into(), 1))
+    }) {
         pdf_get_resource_reference(res_id)
+    } else {
+        ptr::null_mut()
     }
 }
 /* !WITHOUT_COMPAT */
