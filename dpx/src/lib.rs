@@ -95,14 +95,6 @@ unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
 }
 
 #[inline]
-unsafe fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
-    if !s1.is_null() && !s2.is_null() {
-        return libc::strcmp(s1, s2) == 0;
-    }
-    false
-}
-
-#[inline]
 unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {
     libc::free(ptr);
     std::ptr::null_mut()
