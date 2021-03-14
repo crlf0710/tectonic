@@ -135,7 +135,6 @@ impl Drop for pdf_encoding {
                 crate::release2!(self.tounicode);
                 self.tounicode = ptr::null_mut()
             }
-            crate::release!(self.tounicode);
             for code in 0..256 {
                 self.glyphs[code as usize] = String::new();
             }

@@ -194,20 +194,6 @@ pub(crate) unsafe fn parse_number(start: *mut *const i8, end: *const i8) -> *mut
     number
 }
 
-pub(crate) unsafe fn parse_unsigned(start: *mut *const i8, end: *const i8) -> *mut i8 {
-    skip_white(start, end);
-    let mut p = *start;
-    while p < end {
-        if !(*p as u8).is_ascii_digit() {
-            break;
-        }
-        p = p.offset(1)
-    }
-    let number = parsed_string(*start, p);
-    *start = p;
-    number
-}
-
 pub(crate) trait ParseNumber {
     fn parse_number(&mut self) -> Option<CString>;
     fn parse_unsigned(&mut self) -> Option<CString>;
@@ -797,14 +783,14 @@ impl ParsePdfObj for &[u8] {
     }
     fn parse_pdf_null(&mut self) -> Option<()> {
         self.skip_white();
-        if (*self).len() < 4 {
+        if self.len() < 4 {
             warn!("Not a null object.");
             return None;
-        } else if (*self).len() > 4 && !istokensep(&self[4]) {
+        } else if self.len() > 4 && !istokensep(&self[4]) {
             warn!("Not a null object.");
             return None;
         } else if self.starts_with(b"null") {
-            *self = &(*self)[4..];
+            *self = &self[4..];
             return Some(());
         } else {
             warn!("Not a null object.");
@@ -814,13 +800,13 @@ impl ParsePdfObj for &[u8] {
     fn parse_pdf_boolean(&mut self) -> Option<bool> {
         self.skip_white();
         if self.starts_with(b"true") {
-            if (*self).len() == 4 || istokensep(&self[4]) {
-                *self = &(*self)[4..];
+            if self.len() == 4 || istokensep(&self[4]) {
+                *self = &self[4..];
                 return Some(true);
             }
         } else if self.starts_with(b"false") {
-            if (*self).len() == 5 || istokensep(&self[5]) {
-                *self = &(*self)[5..];
+            if self.len() == 5 || istokensep(&self[5]) {
+                *self = &self[5..];
                 return Some(false);
             }
         }
@@ -856,7 +842,7 @@ impl ParsePdfObj for &[u8] {
             warn!("Could not find a name object.");
             return None;
         }
-        *self = &(*self)[1..];
+        *self = &self[1..];
         while !self.is_empty() && !istokensep(&self[0]) {
             let ch = unsafe { pn_getc(self) };
             if ch < 0 || ch > 0xff {
