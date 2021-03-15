@@ -184,12 +184,10 @@ pub(crate) struct cff_dict_entry {
     pub(crate) values: Box<[f64]>,
     /* values                                  */
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct cff_dict {
-    pub(crate) max: i32,
-    pub(crate) count: i32,
-    pub(crate) entries: *mut cff_dict_entry,
+    pub(crate) entries: Vec<cff_dict_entry>,
 }
 /* Encoding, Charset and FDSelect */
 #[derive(Copy, Clone)]

@@ -27,10 +27,8 @@
 )]
 
 use super::dpx_cff::{cff_add_string, cff_get_string};
-use super::dpx_mem::{new, renew};
 use crate::shims::sprintf;
 use crate::warn;
-use libc::free;
 
 pub(crate) type s_SID = u16;
 
@@ -88,24 +86,13 @@ impl Operator {
 }
 
 pub(crate) unsafe fn cff_new_dict() -> *mut cff_dict {
-    let dict =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<cff_dict>() as u64) as u32) as *mut cff_dict;
-    (*dict).max = 16;
-    (*dict).count = 0;
-    (*dict).entries = new(((*dict).max as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
-        as u32) as *mut cff_dict_entry;
-    dict
+    Box::into_raw(Box::new(cff_dict {
+        entries: Vec::with_capacity(16),
+    }))
 }
 
 pub(crate) unsafe fn cff_release_dict(dict: &mut cff_dict) {
-    if !dict.entries.is_null() {
-        for i in 0..dict.count {
-            (*dict.entries.offset(i as isize)).values = Vec::new().into_boxed_slice();
-        }
-        free(dict.entries as *mut libc::c_void);
-    }
-    free(dict as *mut cff_dict as *mut libc::c_void);
+    let _ = Box::from_raw(dict);
 }
 
 const CFF_DICT_STACK_LIMIT: usize = 64;
@@ -298,16 +285,6 @@ unsafe fn add_dict(dict: &mut cff_dict, data: &mut &[u8]) -> Result<(), CffError
         this dict instead of treat it as parsing error. */
         return Ok(());
     }
-    if dict.count >= dict.max {
-        dict.max += 16;
-        dict.entries = renew(
-            dict.entries as *mut libc::c_void,
-            (dict.max as u32 as u64).wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
-                as u32,
-        ) as *mut cff_dict_entry
-    }
-    (*dict.entries.offset(dict.count as isize)).id = id;
-    (*dict.entries.offset(dict.count as isize)).key = dict_operator[id as usize].opname;
     if argtype == CFF_TYPE_NUMBER
         || argtype == CFF_TYPE_BOOLEAN
         || argtype == CFF_TYPE_SID
@@ -318,14 +295,18 @@ unsafe fn add_dict(dict: &mut cff_dict, data: &mut &[u8]) -> Result<(), CffError
             return Err(CffError::StackUnderflow);
         }
         stack_top -= 1;
-        (*dict.entries.offset(dict.count as isize)).values =
-            vec![arg_stack[stack_top as usize]].into_boxed_slice();
-        dict.count += 1
+        dict.entries.push(cff_dict_entry {
+            id,
+            key: dict_operator[id as usize].opname,
+            values: vec![arg_stack[stack_top as usize]].into_boxed_slice(),
+        });
     } else if stack_top > 0 {
-        (*dict.entries.offset(dict.count as isize)).values =
-            Vec::from(&arg_stack[..stack_top as usize]).into_boxed_slice();
+        dict.entries.push(cff_dict_entry {
+            id,
+            key: dict_operator[id as usize].opname,
+            values: Vec::from(&arg_stack[..stack_top as usize]).into_boxed_slice(),
+        });
         stack_top = 0;
-        dict.count += 1
     }
     *data = &data[1..];
     Ok(())
@@ -505,15 +486,15 @@ unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
 impl cff_dict {
     pub(crate) unsafe fn pack(&self, dest: &mut [u8]) -> usize {
         let mut len = 0_usize;
-        for i in 0..self.count as isize {
-            if (*self.entries.offset(i)).key == "ROS" {
-                len += put_dict_entry(&*self.entries.offset(i), dest);
+        for e in &self.entries {
+            if e.key == "ROS" {
+                len += put_dict_entry(&e, dest);
                 break;
             }
         }
-        for i in 0..self.count as isize {
-            if (*self.entries.offset(i)).key != "ROS" {
-                len += put_dict_entry(&*self.entries.offset(i), &mut dest[len..])
+        for e in &self.entries {
+            if e.key != "ROS" {
+                len += put_dict_entry(&e, &mut dest[len..])
             }
         }
         len
@@ -533,47 +514,36 @@ impl cff_dict {
         if id == CFF_LAST_DICT_OP as i32 {
             panic!("{}: Unknown CFF DICT operator.", "CFF");
         }
-        for i in 0..self.count {
-            if (*self.entries.offset(i as isize)).id == id {
-                if (*self.entries.offset(i as isize)).values.len() != count as usize {
+        for e in &self.entries {
+            if e.id == id {
+                if e.values.len() != count as usize {
                     panic!("{}: Inconsistent DICT argument number.", "CFF");
                 }
                 return;
             }
         }
-        if self.count + 1 >= self.max {
-            self.max += 8;
-            self.entries = renew(
-                self.entries as *mut libc::c_void,
-                (self.max as u32 as u64)
-                    .wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
-                    as u32,
-            ) as *mut cff_dict_entry
-        }
-        (*self.entries.offset(self.count as isize)).id = id;
-        (*self.entries.offset(self.count as isize)).key = dict_operator[id as usize].opname;
-        if count > 0 {
-            (*self.entries.offset(self.count as isize)).values =
-                vec![0.; count as usize].into_boxed_slice();
-        } else {
-            (*self.entries.offset(self.count as isize)).values = Vec::new().into_boxed_slice();
-        }
-        self.count += 1;
+        self.entries.push(cff_dict_entry {
+            id,
+            key: dict_operator[id as usize].opname,
+            values: if count > 0 {
+                vec![0.; count as usize].into_boxed_slice()
+            } else {
+                Vec::new().into_boxed_slice()
+            },
+        });
     }
 
     pub(crate) unsafe fn remove(&mut self, key: &str) {
-        for i in 0..self.count {
-            if key == (*self.entries.offset(i as isize)).key {
-                (*self.entries.offset(i as isize)).values = Vec::new().into_boxed_slice();
+        for e in &mut self.entries {
+            if key == e.key {
+                e.values = Vec::new().into_boxed_slice();
             }
         }
     }
 
     pub(crate) unsafe fn contains_key(&self, key: &str) -> bool {
-        for i in 0..self.count {
-            if key == (*self.entries.offset(i as isize)).key
-                && !(*self.entries.offset(i as isize)).values.is_empty()
-            {
+        for e in &self.entries {
+            if key == e.key && !e.values.is_empty() {
                 return true;
             }
         }
@@ -581,66 +551,47 @@ impl cff_dict {
     }
 
     pub(crate) unsafe fn get(&self, key: &str, idx: i32) -> f64 {
-        let mut value: f64 = 0.0f64;
         assert!(!key.is_empty());
-        let mut i = 0;
-        while i < self.count {
-            if key == (*self.entries.offset(i as isize)).key {
-                if (*self.entries.offset(i as isize)).values.len() > idx as usize {
-                    value = (*self.entries.offset(i as isize)).values[idx as usize]
+        for e in &self.entries {
+            if key == e.key {
+                if e.values.len() > idx as usize {
+                    return e.values[idx as usize];
                 } else {
                     panic!("{}: Invalid index number.", "CFF");
                 }
-                break;
-            } else {
-                i += 1
             }
         }
-        if i == self.count {
-            panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
-        }
-        value
+        panic!("{}: DICT entry \"{}\" not found.", "CFF", key)
     }
 
     pub(crate) unsafe fn set(&mut self, key: &str, idx: i32, value: f64) {
         assert!(!key.is_empty());
-        let mut i = 0;
-        while i < self.count {
-            if key == (*self.entries.offset(i as isize)).key {
-                if (*self.entries.offset(i as isize)).values.len() > idx as usize {
-                    (*self.entries.offset(i as isize)).values[idx as usize] = value
+        for e in &mut self.entries {
+            if key == e.key {
+                if e.values.len() > idx as usize {
+                    e.values[idx as usize] = value
                 } else {
                     panic!("{}: Invalid index number.", "CFF");
                 }
-                break;
-            } else {
-                i += 1
+                return;
             }
         }
-        if i == self.count {
-            panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
-        };
+        panic!("{}: DICT entry \"{}\" not found.", "CFF", key);
     }
 
     /* decode/encode DICT */
     pub(crate) unsafe fn update(&mut self, cff: &mut cff_font) {
-        for i in 0..self.count {
-            if !(*self.entries.offset(i as isize)).values.is_empty() {
-                let id = (*self.entries.offset(i as isize)).id;
+        for e in &mut self.entries {
+            if !e.values.is_empty() {
+                let id = e.id;
                 if dict_operator[id as usize].argtype == CFF_TYPE_SID {
-                    let s =
-                        cff_get_string(cff, (*self.entries.offset(i as isize)).values[0] as s_SID);
-                    (*self.entries.offset(i as isize)).values[0] =
-                        cff_add_string(cff, &s, 1) as f64;
+                    let s = cff_get_string(cff, e.values[0] as s_SID);
+                    e.values[0] = cff_add_string(cff, &s, 1) as f64;
                 } else if dict_operator[id as usize].argtype == CFF_TYPE_ROS {
-                    let s =
-                        cff_get_string(cff, (*self.entries.offset(i as isize)).values[0] as s_SID);
-                    (*self.entries.offset(i as isize)).values[0] =
-                        cff_add_string(cff, &s, 1) as f64;
-                    let s =
-                        cff_get_string(cff, (*self.entries.offset(i as isize)).values[1] as s_SID);
-                    (*self.entries.offset(i as isize)).values[1] =
-                        cff_add_string(cff, &s, 1) as f64;
+                    let s = cff_get_string(cff, e.values[0] as s_SID);
+                    e.values[0] = cff_add_string(cff, &s, 1) as f64;
+                    let s = cff_get_string(cff, e.values[1] as s_SID);
+                    e.values[1] = cff_add_string(cff, &s, 1) as f64;
                 }
             }
         }
