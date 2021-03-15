@@ -367,7 +367,7 @@ fn pack_integer(dest: &mut [u8], value: i32) -> usize {
         dest[0..2].copy_from_slice(&value.to_be_bytes());
         2
     } else if value >= -1131 && value <= -108 {
-        let value = (0xfb00 - (value as u32) - 108) as u16;
+        let value = (0xfb00u32.wrapping_sub(value as u32).wrapping_sub(108)) as u16;
         dest[0..2].copy_from_slice(&value.to_be_bytes());
         2
     } else if value >= -32768 && value <= 32767 {
