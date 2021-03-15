@@ -26,14 +26,11 @@
     non_upper_case_globals
 )]
 
-use std::ptr;
-
 use super::dpx_cff::{cff_add_string, cff_get_string};
 use super::dpx_mem::{new, renew};
-use crate::mfree;
 use crate::shims::sprintf;
 use crate::warn;
-use libc::{free, memset};
+use libc::free;
 
 pub(crate) type s_SID = u16;
 
@@ -104,7 +101,7 @@ pub(crate) unsafe fn cff_new_dict() -> *mut cff_dict {
 pub(crate) unsafe fn cff_release_dict(dict: &mut cff_dict) {
     if !dict.entries.is_null() {
         for i in 0..dict.count {
-            free((*dict.entries.offset(i as isize)).values as *mut libc::c_void);
+            (*dict.entries.offset(i as isize)).values = Vec::new().into_boxed_slice();
         }
         free(dict.entries as *mut libc::c_void);
     }
@@ -321,23 +318,13 @@ unsafe fn add_dict(dict: &mut cff_dict, data: &mut &[u8]) -> Result<(), CffError
             return Err(CffError::StackUnderflow);
         }
         stack_top -= 1;
-        (*dict.entries.offset(dict.count as isize)).count = 1;
         (*dict.entries.offset(dict.count as isize)).values =
-            new((1_u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32) as *mut f64;
-        *(*dict.entries.offset(dict.count as isize)).values.offset(0) =
-            arg_stack[stack_top as usize];
+            vec![arg_stack[stack_top as usize]].into_boxed_slice();
         dict.count += 1
     } else if stack_top > 0 {
-        (*dict.entries.offset(dict.count as isize)).count = stack_top;
-        (*dict.entries.offset(dict.count as isize)).values = new((stack_top as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<f64>() as u64)
-            as u32) as *mut f64;
-        while stack_top > 0 {
-            stack_top -= 1;
-            *(*dict.entries.offset(dict.count as isize))
-                .values
-                .offset(stack_top as isize) = arg_stack[stack_top as usize]
-        }
+        (*dict.entries.offset(dict.count as isize)).values =
+            Vec::from(&arg_stack[..stack_top as usize]).into_boxed_slice();
+        stack_top = 0;
         dict.count += 1
     }
     *data = &data[1..];
@@ -488,7 +475,7 @@ unsafe fn cff_dict_put_number(value: f64, dest: &mut [u8], type_0: i32) -> usize
 }
 unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
     let mut len = 0;
-    if de.count > 0 {
+    if !de.values.is_empty() {
         let id = de.id;
         let type_0 = if dict_operator[id as usize].argtype == CFF_TYPE_OFFSET
             || dict_operator[id as usize].argtype == CFF_TYPE_SZOFF
@@ -497,8 +484,8 @@ unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
         } else {
             CFF_TYPE_NUMBER
         };
-        for i in 0..de.count {
-            len += cff_dict_put_number(*de.values.offset(i as isize), &mut dest[len..], type_0);
+        for &val in &*de.values {
+            len += cff_dict_put_number(val, &mut dest[len..], type_0);
         }
         if id >= 0 && id < CFF_LAST_DICT_OP1 as i32 {
             dest[len] = id as u8;
@@ -548,7 +535,7 @@ impl cff_dict {
         }
         for i in 0..self.count {
             if (*self.entries.offset(i as isize)).id == id {
-                if (*self.entries.offset(i as isize)).count != count {
+                if (*self.entries.offset(i as isize)).values.len() != count as usize {
                     panic!("{}: Inconsistent DICT argument number.", "CFF");
                 }
                 return;
@@ -565,18 +552,11 @@ impl cff_dict {
         }
         (*self.entries.offset(self.count as isize)).id = id;
         (*self.entries.offset(self.count as isize)).key = dict_operator[id as usize].opname;
-        (*self.entries.offset(self.count as isize)).count = count;
         if count > 0 {
             (*self.entries.offset(self.count as isize)).values =
-                new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32)
-                    as *mut f64;
-            memset(
-                (*self.entries.offset(self.count as isize)).values as *mut libc::c_void,
-                0,
-                (::std::mem::size_of::<f64>()).wrapping_mul(count as _),
-            );
+                vec![0.; count as usize].into_boxed_slice();
         } else {
-            (*self.entries.offset(self.count as isize)).values = ptr::null_mut()
+            (*self.entries.offset(self.count as isize)).values = Vec::new().into_boxed_slice();
         }
         self.count += 1;
     }
@@ -584,10 +564,7 @@ impl cff_dict {
     pub(crate) unsafe fn remove(&mut self, key: &str) {
         for i in 0..self.count {
             if key == (*self.entries.offset(i as isize)).key {
-                (*self.entries.offset(i as isize)).count = 0;
-                (*self.entries.offset(i as isize)).values =
-                    mfree((*self.entries.offset(i as isize)).values as *mut libc::c_void)
-                        as *mut f64
+                (*self.entries.offset(i as isize)).values = Vec::new().into_boxed_slice();
             }
         }
     }
@@ -595,7 +572,7 @@ impl cff_dict {
     pub(crate) unsafe fn contains_key(&self, key: &str) -> bool {
         for i in 0..self.count {
             if key == (*self.entries.offset(i as isize)).key
-                && (*self.entries.offset(i as isize)).count > 0
+                && !(*self.entries.offset(i as isize)).values.is_empty()
             {
                 return true;
             }
@@ -609,10 +586,8 @@ impl cff_dict {
         let mut i = 0;
         while i < self.count {
             if key == (*self.entries.offset(i as isize)).key {
-                if (*self.entries.offset(i as isize)).count > idx {
-                    value = *(*self.entries.offset(i as isize))
-                        .values
-                        .offset(idx as isize)
+                if (*self.entries.offset(i as isize)).values.len() > idx as usize {
+                    value = (*self.entries.offset(i as isize)).values[idx as usize]
                 } else {
                     panic!("{}: Invalid index number.", "CFF");
                 }
@@ -632,10 +607,8 @@ impl cff_dict {
         let mut i = 0;
         while i < self.count {
             if key == (*self.entries.offset(i as isize)).key {
-                if (*self.entries.offset(i as isize)).count > idx {
-                    *(*self.entries.offset(i as isize))
-                        .values
-                        .offset(idx as isize) = value
+                if (*self.entries.offset(i as isize)).values.len() > idx as usize {
+                    (*self.entries.offset(i as isize)).values[idx as usize] = value
                 } else {
                     panic!("{}: Invalid index number.", "CFF");
                 }
@@ -652,27 +625,21 @@ impl cff_dict {
     /* decode/encode DICT */
     pub(crate) unsafe fn update(&mut self, cff: &mut cff_font) {
         for i in 0..self.count {
-            if (*self.entries.offset(i as isize)).count > 0 {
+            if !(*self.entries.offset(i as isize)).values.is_empty() {
                 let id = (*self.entries.offset(i as isize)).id;
                 if dict_operator[id as usize].argtype == CFF_TYPE_SID {
-                    let s = cff_get_string(
-                        cff,
-                        *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
-                    );
-                    *(*self.entries.offset(i as isize)).values.offset(0) =
+                    let s =
+                        cff_get_string(cff, (*self.entries.offset(i as isize)).values[0] as s_SID);
+                    (*self.entries.offset(i as isize)).values[0] =
                         cff_add_string(cff, &s, 1) as f64;
                 } else if dict_operator[id as usize].argtype == CFF_TYPE_ROS {
-                    let s = cff_get_string(
-                        cff,
-                        *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
-                    );
-                    *(*self.entries.offset(i as isize)).values.offset(0) =
+                    let s =
+                        cff_get_string(cff, (*self.entries.offset(i as isize)).values[0] as s_SID);
+                    (*self.entries.offset(i as isize)).values[0] =
                         cff_add_string(cff, &s, 1) as f64;
-                    let s = cff_get_string(
-                        cff,
-                        *(*self.entries.offset(i as isize)).values.offset(1) as s_SID,
-                    );
-                    *(*self.entries.offset(i as isize)).values.offset(1) =
+                    let s =
+                        cff_get_string(cff, (*self.entries.offset(i as isize)).values[1] as s_SID);
+                    (*self.entries.offset(i as isize)).values[1] =
                         cff_add_string(cff, &s, 1) as f64;
                 }
             }

@@ -181,8 +181,7 @@ pub(crate) struct cff_header {
 pub(crate) struct cff_dict_entry {
     pub(crate) id: i32,
     pub(crate) key: &'static str,
-    pub(crate) count: i32,
-    pub(crate) values: *mut f64,
+    pub(crate) values: Box<[f64]>,
     /* values                                  */
 }
 #[derive(Copy, Clone)]
