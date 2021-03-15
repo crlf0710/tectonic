@@ -184,7 +184,7 @@ pub(crate) struct cff_dict_entry {
     pub(crate) values: Box<[f64]>,
     /* values                                  */
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 #[repr(C)]
 pub(crate) struct cff_dict {
     pub(crate) entries: Vec<cff_dict_entry>,
@@ -281,7 +281,7 @@ pub(crate) struct cff_font {
     pub(crate) gsubr_offset: l_offset,
     pub(crate) num_glyphs: u16,
     pub(crate) num_fds: u8,
-//    pub(crate) _string: Option<Box<CffIndex>>,
+    pub(crate) _string: Option<Box<CffIndex>>,
     pub(crate) handle: Option<Rc<InFile>>,
     pub(crate) filter: i32,
     pub(crate) index: i32,
@@ -706,7 +706,9 @@ pub(crate) unsafe fn cff_open(
         filter: 0,
         flag: 0,
         name: ptr::null_mut(),
-        topdict: cff_dict { entries: Vec::new() },
+        topdict: cff_dict {
+            entries: Vec::new(),
+        },
         gsubr: ptr::null_mut(),
         encoding: ptr::null_mut(),
         charsets: ptr::null_mut(),
@@ -773,9 +775,7 @@ pub(crate) unsafe fn cff_open(
         .offset_from(data) as usize;
     cff.topdict = cff_dict_unpack(std::slice::from_raw_parts(data, size));
     cff_release_index(idx);
-    if cff.topdict.contains_key("CharstringType")
-        && cff.topdict.get("CharstringType", 0) != 2.
-    {
+    if cff.topdict.contains_key("CharstringType") && cff.topdict.get("CharstringType", 0) != 2. {
         warn!("Only Type 2 Charstrings supported...");
         return None;
     }
@@ -2169,7 +2169,8 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                 handle
                     .read_exact(data.as_mut_slice())
                     .expect("reading file failed");
-                *cff.private.offset(i as isize) = Box::into_raw(Box::new(cff_dict_unpack(data.as_slice())));
+                *cff.private.offset(i as isize) =
+                    Box::into_raw(Box::new(cff_dict_unpack(data.as_slice())));
                 len += size
             } else {
                 *cff.private.offset(i as isize) = ptr::null_mut()

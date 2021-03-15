@@ -794,7 +794,9 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         info!("]");
     }
     /* Now we can update the String Index */
-    cffont.topdict.update(&mut cffont);
+    let mut topdict = std::mem::take(&mut cffont.topdict);
+    topdict.update(&mut cffont);
+    let _ = std::mem::replace(&mut cffont.topdict, topdict);
     (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     add_metrics(font, &cffont, enc_slice, widths, num_glyphs as i32);

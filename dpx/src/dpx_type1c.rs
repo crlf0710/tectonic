@@ -637,7 +637,9 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      * FIXME:
      *  Update String INDEX to delete unused strings.
      */
-    cffont.topdict.update(&mut cffont);
+    let mut topdict = std::mem::take(&mut cffont.topdict);
+    topdict.update(&mut cffont);
+    let _ = std::mem::replace(&mut cffont.topdict, topdict);
     if !(*cffont.private.offset(0)).is_null() {
         (**cffont.private.offset(0)).update(&mut cffont);
     }

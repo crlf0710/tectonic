@@ -1059,7 +1059,9 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
     /* cff_release_charsets(cffont->charsets); */
     cffont.charsets = charset; /* FIXME: Skip XXXXXX+ */
     cffont.topdict.add("CIDCount", 1);
-    cffont.topdict.set("CIDCount", 0, (last_cid as i32 + 1) as f64);
+    cffont
+        .topdict
+        .set("CIDCount", 0, (last_cid as i32 + 1) as f64);
     cffont.fdarray = new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
         as *mut *mut cff_dict;
     *cffont.fdarray.offset(0) = Box::into_raw(Box::new(cff_dict::new()));
@@ -1174,13 +1176,19 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
     }
     cff_add_string(&mut cffont, "Adobe", 1);
     cff_add_string(&mut cffont, "Identity", 1);
-    cffont.topdict.update(&mut cffont);
+    let mut topdict = std::mem::take(&mut cffont.topdict);
+    topdict.update(&mut cffont);
+    let _ = std::mem::replace(&mut cffont.topdict, topdict);
     (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     /* CFF code need to be rewrote... */
     cffont.topdict.add("ROS", 3);
-    cffont.topdict.set("ROS", 0, cff_get_sid(&cffont, "Adobe") as f64);
-    cffont.topdict.set("ROS", 1, cff_get_sid(&cffont, "Identity") as f64);
+    cffont
+        .topdict
+        .set("ROS", 0, cff_get_sid(&cffont, "Adobe") as f64);
+    cffont
+        .topdict
+        .set("ROS", 1, cff_get_sid(&cffont, "Identity") as f64);
     cffont.topdict.set("ROS", 2, 0.);
     let destlen = write_fontfile(font, &mut cffont);
     /*
@@ -1675,7 +1683,9 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
     cff_release_charsets(cffont.charsets);
     cffont.charsets = charset;
     cffont.topdict.add("CIDCount", 1);
-    cffont.topdict.set("CIDCount", 0, (last_cid as i32 + 1) as f64);
+    cffont
+        .topdict
+        .set("CIDCount", 0, (last_cid as i32 + 1) as f64);
     cffont.fdarray = new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
         as *mut *mut cff_dict;
     *cffont.fdarray.offset(0) = Box::into_raw(Box::new(cff_dict::new()));
@@ -1774,13 +1784,19 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
     free(CIDToGIDMap as *mut libc::c_void);
     cff_add_string(&mut cffont, "Adobe", 1);
     cff_add_string(&mut cffont, "Identity", 1);
-    cffont.topdict.update(&mut cffont);
+    let mut topdict = std::mem::take(&mut cffont.topdict);
+    topdict.update(&mut cffont);
+    let _ = std::mem::replace(&mut cffont.topdict, topdict);
     (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     /* CFF code need to be rewrote... */
     cffont.topdict.add("ROS", 3);
-    cffont.topdict.set("ROS", 0, cff_get_sid(&cffont, "Adobe") as f64);
-    cffont.topdict.set("ROS", 1, cff_get_sid(&cffont, "Identity") as f64);
+    cffont
+        .topdict
+        .set("ROS", 0, cff_get_sid(&cffont, "Adobe") as f64);
+    cffont
+        .topdict
+        .set("ROS", 1, cff_get_sid(&cffont, "Identity") as f64);
     cffont.topdict.set("ROS", 2, 0.);
     cffont.num_glyphs = num_glyphs as u16;
     write_fontfile(font, &mut cffont);
