@@ -392,28 +392,24 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /*
      * Information from OpenType table is rough estimate. Replace with accurate value.
      */
-    if !(*cffont.private.offset(0)).is_null() && (**cffont.private.offset(0)).contains_key("StdVW")
-    {
-        let stemv = (**cffont.private.offset(0)).get("StdVW", 0);
-        let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
-        descriptor.set("StemV", stemv);
+    match cffont.private[0].as_ref() {
+        Some(dict) if dict.contains_key("StdVW") => {
+            let stemv = dict.get("StdVW", 0);
+            let descriptor = (*pdf_font_get_descriptor(font)).as_dict_mut();
+            descriptor.set("StemV", stemv);
+        }
+        _ => {}
     }
     /*
      * Widths
      */
-    let default_width = if !(*cffont.private.offset(0)).is_null()
-        && (**cffont.private.offset(0)).contains_key("defaultWidthX")
-    {
-        (**cffont.private.offset(0)).get("defaultWidthX", 0)
-    } else {
-        0.
+    let default_width = match cffont.private[0].as_ref() {
+        Some(dict) if dict.contains_key("defaultWidthX") => dict.get("defaultWidthX", 0),
+        _ => 0.,
     };
-    let nominal_width = if !(*cffont.private.offset(0)).is_null()
-        && (**cffont.private.offset(0)).contains_key("nominalWidthX")
-    {
-        (**cffont.private.offset(0)).get("nominalWidthX", 0)
-    } else {
-        0.
+    let nominal_width = match cffont.private[0].as_ref() {
+        Some(dict) if dict.contains_key("nominalWidthX") => dict.get("nominalWidthX", 0),
+        _ => 0.,
     };
     let data = new((65536_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
     /* First we add .notdef glyph.
@@ -640,9 +636,11 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     let mut topdict = std::mem::take(&mut cffont.topdict);
     topdict.update(&mut cffont);
     let _ = std::mem::replace(&mut cffont.topdict, topdict);
-    if !(*cffont.private.offset(0)).is_null() {
-        (**cffont.private.offset(0)).update(&mut cffont);
+    let mut private = cffont.private[0].take();
+    if let Some(dict) = private.as_mut() {
+        dict.update(&mut cffont);
     }
+    cffont.private[0] = private;
     cff_update_string(&mut cffont);
     /*
      * Calculate sizes of Top DICT and Private DICT.
@@ -661,9 +659,9 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     }
     topdict.offset[1] = (cffont.topdict.pack(&mut work_buffer[..]) + 1) as l_offset;
     let mut private_size = 0;
-    if !(*cffont.private.offset(0)).is_null() {
-        (**cffont.private.offset(0)).remove("Subrs");
-        private_size = (**cffont.private.offset(0)).pack(&mut work_buffer[..])
+    if let Some(dict) = cffont.private[0].as_mut() {
+        dict.remove("Subrs");
+        private_size = dict.pack(&mut work_buffer[..])
     }
     /*
      * Estimate total size of fontfile.
@@ -719,9 +717,10 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     cff_release_index(charstrings);
     /* Private */
     cffont.topdict.set("Private", 1, offset as f64);
-    if !(*cffont.private.offset(0)).is_null() && private_size > 0 {
-        private_size =
-            (**cffont.private.offset(0)).pack(&mut stream_data[offset..offset + private_size])
+    if let Some(dict) = cffont.private[0].as_mut() {
+        if private_size > 0 {
+            private_size = dict.pack(&mut stream_data[offset..offset + private_size]);
+        }
     }
     cffont.topdict.set("Private", 0, private_size as f64);
     offset += private_size as usize;

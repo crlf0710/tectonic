@@ -2415,7 +2415,7 @@ pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
              */
             if object.label() != 0 {
                 //dbg!("write");
-                panic!(object.id);
+                panic!("{:?}", object.id);
             }
             /* This might help detect freeing already freed objects */
             object.data = Object::Invalid;

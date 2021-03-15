@@ -93,10 +93,6 @@ impl cff_dict {
     }
 }
 
-pub(crate) unsafe fn cff_release_dict(dict: &mut cff_dict) {
-    let _ = Box::from_raw(dict);
-}
-
 const CFF_DICT_STACK_LIMIT: usize = 64;
 static mut stack_top: i32 = 0;
 static mut arg_stack: [f64; CFF_DICT_STACK_LIMIT] = [0.; CFF_DICT_STACK_LIMIT];

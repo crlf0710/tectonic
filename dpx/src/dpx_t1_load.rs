@@ -1262,13 +1262,14 @@ unsafe fn parse_part2(
                             warn!("{} values expected but only {} read.", 0, -1);
                             ()
                         })?;
-                    (**font.private.offset(0)).add(&key, argn as i32);
+                    let private = font.private[0].as_mut().unwrap();
+                    private.add(&key, argn as i32);
                     loop {
                         if argn == 0 {
                             break;
                         }
                         argn -= 1;
-                        (**font.private.offset(0)).set(
+                        private.set(
                             &key,
                             argn as i32,
                             if argn == 0 {
@@ -1287,15 +1288,17 @@ unsafe fn parse_part2(
                      */
                     parse_nvalue(start, end, argv.as_mut_ptr(), 1)
                         .and_then(|a| check_size(a, 1))?;
-                    (**font.private.offset(0)).add(&key, 1);
-                    (**font.private.offset(0)).set(&key, 0, argv[0]);
+                    let private = font.private[0].as_mut().unwrap();
+                    private.add(&key, 1);
+                    private.set(&key, 0, argv[0]);
                 }
                 "ForceBold" => {
                     parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
                         .and_then(|a| check_size(a, 1))?;
                     if argv[0] != 0. {
-                        (**font.private.offset(0)).add(&key, 1);
-                        (**font.private.offset(0)).set(&key, 0, 1.);
+                        let private = font.private[0].as_mut().unwrap();
+                        private.add(&key, 1);
+                        private.set(&key, 0, 1.);
                     }
                 }
                 /*
@@ -1423,9 +1426,10 @@ unsafe fn parse_part1(
                 "IsFixedPitch" => {
                     parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
                         .and_then(|a| check_size(a, 1))?;
-                    if argv[0] != 0.0f64 {
-                        (**font.private.offset(0)).add(&key, 1);
-                        (**font.private.offset(0)).set(&key, 0, 1.);
+                    if argv[0] != 0. {
+                        let private = font.private[0].as_mut().unwrap();
+                        private.add(&key, 1);
+                        private.set(&key, 0, 1.);
                     }
                 }
                 _ => {}
@@ -1564,9 +1568,8 @@ impl cff_font {
             charsets: ptr::null_mut(),
             fdselect: ptr::null_mut(),
             cstrings: ptr::null_mut(),
-            fdarray: 0 as *mut *mut cff_dict,
-            private: new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
-                as *mut *mut cff_dict,
+            fdarray: Vec::new(),
+            private: vec![Some(cff_dict::new())],
             subrs: new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_index>() as u64) as u32)
                 as *mut *mut cff_index,
             offset: 0 as l_offset,
@@ -1576,7 +1579,6 @@ impl cff_font {
             _string: Some(CffIndex::new(0)),
             is_notdef_notzero: 0,
         };
-        *cff.private.offset(0) = Box::into_raw(Box::new(cff_dict::new()));
         *cff.subrs.offset(0) = ptr::null_mut();
         cff
     }

@@ -128,7 +128,7 @@ pub(crate) unsafe fn pdf_font_open_type1(font: &mut pdf_font) -> i32 {
     }
     0
 }
-unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
+unsafe fn get_font_attr(font: &mut pdf_font, cffont: &mut cff_font) {
     let italicangle;
     let mut flags: i32 = 0;
     const L_c: [&str; 4] = ["H", "P", "Pi", "Rho"];
@@ -154,8 +154,9 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
         ascent = 690.0f64;
         descent = -190.0f64
     }
-    let stemv = if (**cffont.private.offset(0)).contains_key("StdVW") {
-        (**cffont.private.offset(0)).get("StdVW", 0)
+    let private = cffont.private[0].as_ref().unwrap();
+    let stemv = if private.contains_key("StdVW") {
+        private.get("StdVW", 0)
     } else {
         /*
          * We may use the following values for StemV:
@@ -248,25 +249,22 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
             break;
         }
     }
+    let private = cffont.private[0].as_mut().unwrap();
     if defaultwidth != 0.0f64 {
-        (**cffont.private.offset(0)).add("defaultWidthX", 1);
-        (**cffont.private.offset(0)).set("defaultWidthX", 0, defaultwidth);
+        private.add("defaultWidthX", 1);
+        private.set("defaultWidthX", 0, defaultwidth);
     }
     if nominalwidth != 0.0f64 {
-        (**cffont.private.offset(0)).add("nominalWidthX", 1);
-        (**cffont.private.offset(0)).set("nominalWidthX", 0, nominalwidth);
+        private.add("nominalWidthX", 1);
+        private.set("nominalWidthX", 0, nominalwidth);
     }
-    if (**cffont.private.offset(0)).contains_key("ForceBold")
-        && (**cffont.private.offset(0)).get("ForceBold", 0) != 0.
-    {
+    if private.contains_key("ForceBold") && private.get("ForceBold", 0) != 0. {
         flags |= 1 << 18
     }
-    if (**cffont.private.offset(0)).contains_key("IsFixedPitch")
-        && (**cffont.private.offset(0)).get("IsFixedPitch", 0) != 0.
-    {
+    if private.contains_key("IsFixedPitch") && private.get("IsFixedPitch", 0) != 0. {
         flags |= 1 << 0
     }
-    let fontname = &*(&*font).fontname;
+    let fontname = &*font.fontname;
     if !fontname.contains("Sans") {
         flags |= 1 << 1
     }
@@ -409,7 +407,7 @@ unsafe fn write_fontfile(
     if !cffont.topdict.contains_key("Encoding") {
         cffont.topdict.add("Encoding", 1);
     }
-    let mut private_size = (**cffont.private.offset(0)).pack(&mut wbuf[..]);
+    let mut private_size = cffont.private[0].as_mut().unwrap().pack(&mut wbuf[..]);
     /* Private dict is required (but may have size 0) */
     if !cffont.topdict.contains_key("Private") {
         cffont.topdict.add("Private", 2);
@@ -473,11 +471,12 @@ unsafe fn write_fontfile(
         &mut stream_data[offset..offset + charstring_len],
     );
     /* Private */
-    if !(*cffont.private.offset(0)).is_null() && private_size > 0 {
-        private_size =
-            (**cffont.private.offset(0)).pack(&mut stream_data[offset..offset + private_size]);
-        cffont.topdict.set("Private", 1, offset as f64);
-        cffont.topdict.set("Private", 0, private_size as f64);
+    if let Some(dict) = cffont.private[0].as_mut() {
+        if private_size > 0 {
+            private_size = dict.pack(&mut stream_data[offset..offset + private_size]);
+            cffont.topdict.set("Private", 1, offset as f64);
+            cffont.topdict.set("Private", 0, private_size as f64);
+        }
     }
     offset += private_size;
     /* Finally Top DICT */
@@ -538,14 +537,15 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     };
     cff_set_name(&mut cffont, &fullname);
     /* defaultWidthX, CapHeight, etc. */
-    get_font_attr(font, &cffont);
-    let defaultwidth = if (**cffont.private.offset(0)).contains_key("defaultWidthX") {
-        (**cffont.private.offset(0)).get("defaultWidthX", 0)
+    get_font_attr(font, &mut cffont);
+    let private = cffont.private[0].as_ref().unwrap();
+    let defaultwidth = if private.contains_key("defaultWidthX") {
+        private.get("defaultWidthX", 0)
     } else {
         0.
     };
-    let nominalwidth = if (**cffont.private.offset(0)).contains_key("nominalWidthX") {
-        (**cffont.private.offset(0)).get("nominalWidthX", 0)
+    let nominalwidth = if private.contains_key("nominalWidthX") {
+        private.get("nominalWidthX", 0)
     } else {
         0.
     };
@@ -797,7 +797,9 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     let mut topdict = std::mem::take(&mut cffont.topdict);
     topdict.update(&mut cffont);
     let _ = std::mem::replace(&mut cffont.topdict, topdict);
-    (**cffont.private.offset(0)).update(&mut cffont);
+    let mut private = cffont.private[0].take();
+    private.as_mut().unwrap().update(&mut cffont);
+    cffont.private[0] = private;
     cff_update_string(&mut cffont);
     add_metrics(font, &cffont, enc_slice, widths, num_glyphs as i32);
     offset = write_fontfile(font, &mut cffont, &pdfcharset);

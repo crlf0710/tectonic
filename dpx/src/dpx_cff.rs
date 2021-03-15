@@ -29,7 +29,7 @@
 use crate::warn;
 use std::rc::Rc;
 
-use super::dpx_cff_dict::{cff_dict_unpack, cff_release_dict};
+use super::dpx_cff_dict::cff_dict_unpack;
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::GetFromFile;
 use libc::{free, memcpy, memmove, memset, strlen};
@@ -274,8 +274,8 @@ pub(crate) struct cff_font {
     pub(crate) charsets: *mut cff_charsets,
     pub(crate) fdselect: *mut cff_fdselect,
     pub(crate) cstrings: *mut cff_index,
-    pub(crate) fdarray: *mut *mut cff_dict,
-    pub(crate) private: *mut *mut cff_dict,
+    pub(crate) fdarray: Vec<Option<cff_dict>>,
+    pub(crate) private: Vec<Option<cff_dict>>,
     pub(crate) subrs: *mut *mut cff_index,
     pub(crate) offset: l_offset,
     pub(crate) gsubr_offset: l_offset,
@@ -714,8 +714,8 @@ pub(crate) unsafe fn cff_open(
         charsets: ptr::null_mut(),
         fdselect: ptr::null_mut(),
         cstrings: ptr::null_mut(),
-        fdarray: 0 as *mut *mut cff_dict,
-        private: 0 as *mut *mut cff_dict,
+        fdarray: Vec::new(),
+        private: Vec::new(),
         subrs: 0 as *mut *mut cff_index,
         num_glyphs: 0,
         num_fds: 0,
@@ -855,22 +855,6 @@ impl Drop for cff_font {
             }
             if !self.cstrings.is_null() {
                 cff_release_index(self.cstrings);
-            }
-            if !self.fdarray.is_null() {
-                for i in 0..self.num_fds {
-                    if !(*self.fdarray.offset(i as isize)).is_null() {
-                        cff_release_dict(&mut **self.fdarray.offset(i as isize));
-                    }
-                }
-                free(self.fdarray as *mut libc::c_void);
-            }
-            if !self.private.is_null() {
-                for i in 0..self.num_fds {
-                    if !(*self.private.offset(i as isize)).is_null() {
-                        cff_release_dict(&mut **self.private.offset(i as isize));
-                    }
-                }
-                free(self.private as *mut libc::c_void);
             }
             if !self.subrs.is_null() {
                 for i in 0..self.num_fds {
@@ -2011,10 +1995,10 @@ pub(crate) unsafe fn cff_fdselect_lookup(cff: &cff_font, gid: u16) -> u8 {
 
 pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
     let mut len: i32 = 0;
-    if cff.flag & 1 << 0 != 0 && cff.fdarray.is_null() {
+    if cff.flag & 1 << 0 != 0 && cff.fdarray.is_empty() {
         cff_read_fdarray(cff);
     }
-    if cff.private.is_null() {
+    if cff.private.is_empty() {
         cff_read_private(cff);
     }
     if cff.gsubr.is_null() {
@@ -2031,38 +2015,38 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
         as *mut *mut cff_index;
     if cff.flag & 1 << 0 != 0 {
         for i in 0..cff.num_fds as i32 {
-            if (*cff.private.offset(i as isize)).is_null()
-                || !(**cff.private.offset(i as isize)).contains_key("Subrs")
-            {
-                *cff.subrs.offset(i as isize) = ptr::null_mut();
-            } else {
-                let offset = (**cff.fdarray.offset(i as isize)).get("Private", 1) as i32;
-                let offset =
-                    (offset as f64 + (**cff.private.offset(i as isize)).get("Subrs", 0)) as i32;
+            match cff.private[i as usize].as_ref() {
+                Some(private) if private.contains_key("Subrs") => {
+                    let offset = cff.fdarray[i as usize].as_ref().unwrap().get("Private", 1) as i32;
+                    let offset = (offset as f64 + private.get("Subrs", 0)) as i32;
+                    cff.handle
+                        .as_ref()
+                        .unwrap()
+                        .as_ref()
+                        .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+                        .unwrap();
+                    *cff.subrs.offset(i as isize) = cff_get_index(cff);
+                    len += cff_index_size(*cff.subrs.offset(i as isize)) as i32;
+                }
+                _ => *cff.subrs.offset(i as isize) = ptr::null_mut(),
+            }
+        }
+    } else {
+        match cff.private[0].as_ref() {
+            Some(private) if private.contains_key("Subrs") => {
+                let offset = cff.topdict.get("Private", 1) as i32;
+                let offset = (offset as f64 + private.get("Subrs", 0)) as i32;
                 cff.handle
                     .as_ref()
                     .unwrap()
                     .as_ref()
                     .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                     .unwrap();
-                *cff.subrs.offset(i as isize) = cff_get_index(cff);
-                len += cff_index_size(*cff.subrs.offset(i as isize)) as i32
+                *cff.subrs.offset(0) = cff_get_index(cff);
+                len += cff_index_size(*cff.subrs.offset(0)) as i32;
             }
+            _ => *cff.subrs.offset(0) = ptr::null_mut(),
         }
-    } else if (*cff.private.offset(0)).is_null() || !(**cff.private.offset(0)).contains_key("Subrs")
-    {
-        *cff.subrs.offset(0) = ptr::null_mut();
-    } else {
-        let offset = cff.topdict.get("Private", 1) as i32;
-        let offset = (offset as f64 + (**cff.private.offset(0)).get("Subrs", 0)) as i32;
-        cff.handle
-            .as_ref()
-            .unwrap()
-            .as_ref()
-            .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
-            .unwrap();
-        *cff.subrs.offset(0) = cff_get_index(cff);
-        len += cff_index_size(*cff.subrs.offset(0)) as i32
     }
     len
 }
@@ -2081,9 +2065,7 @@ pub(crate) unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
         .unwrap();
     let idx = cff_get_index(cff);
     cff.num_fds = (*idx).count as u8;
-    cff.fdarray = new(((*idx).count as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
-        as *mut *mut cff_dict;
+    cff.fdarray = Vec::with_capacity((*idx).count as usize);
     for i in 0..(*idx).count as i32 {
         let data = (*idx)
             .data
@@ -2093,9 +2075,9 @@ pub(crate) unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
             .wrapping_sub(*(*idx).offset.offset(i as isize)) as i32;
         if size > 0 {
             let data = std::slice::from_raw_parts(data, size as usize);
-            *cff.fdarray.offset(i as isize) = Box::into_raw(Box::new(cff_dict_unpack(data)));
+            cff.fdarray.push(Some(cff_dict_unpack(data)));
         } else {
-            *cff.fdarray.offset(i as isize) = ptr::null_mut();
+            cff.fdarray.push(None);
         }
     }
     let len = cff_index_size(idx) as i32;
@@ -2146,41 +2128,38 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
     let mut len: i32 = 0;
     let mut size: i32 = 0;
     if cff.flag & 1 << 0 != 0 {
-        if cff.fdarray.is_null() {
+        if cff.fdarray.is_empty() {
             cff_read_fdarray(cff);
         }
-        cff.private = new((cff.num_fds as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64)
-            as u32) as *mut *mut cff_dict;
+        cff.private = Vec::with_capacity(cff.num_fds as usize);
         for i in 0..cff.num_fds as i32 {
-            if !(*cff.fdarray.offset(i as isize)).is_null()
-                && (**cff.fdarray.offset(i as isize)).contains_key("Private")
-                && {
-                    size = (**cff.fdarray.offset(i as isize)).get("Private", 0) as i32;
-                    size > 0
+            match cff.fdarray[i as usize].as_ref() {
+                Some(fdarray)
+                    if fdarray.contains_key("Private") && {
+                        size = fdarray.get("Private", 0) as i32;
+                        size > 0
+                    } =>
+                {
+                    let offset = fdarray.get("Private", 1) as i32;
+                    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
+                    handle
+                        .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
+                        .unwrap();
+                    let mut data = vec![0; size as usize];
+                    handle
+                        .read_exact(data.as_mut_slice())
+                        .expect("reading file failed");
+                    cff.private.push(Some(cff_dict_unpack(data.as_slice())));
+                    len += size;
                 }
-            {
-                let offset = (**cff.fdarray.offset(i as isize)).get("Private", 1) as i32;
-                let handle = &mut cff.handle.as_ref().unwrap().as_ref();
-                handle
-                    .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
-                    .unwrap();
-                let mut data = vec![0; size as usize];
-                handle
-                    .read_exact(data.as_mut_slice())
-                    .expect("reading file failed");
-                *cff.private.offset(i as isize) =
-                    Box::into_raw(Box::new(cff_dict_unpack(data.as_slice())));
-                len += size
-            } else {
-                *cff.private.offset(i as isize) = ptr::null_mut()
+                _ => cff.private.push(None),
             }
         }
     } else {
         cff.num_fds = 1 as u8;
-        cff.private =
-            new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
-                as *mut *mut cff_dict;
+        cff.private = Vec::with_capacity(1);
+        new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
+            as *mut *mut cff_dict;
         if cff.topdict.contains_key("Private") && {
             size = cff.topdict.get("Private", 0) as i32;
             size > 0
@@ -2194,11 +2173,11 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             handle
                 .read_exact(data.as_mut_slice())
                 .expect("reading file failed");
-            *cff.private.offset(0) = Box::into_raw(Box::new(cff_dict_unpack(data.as_slice())));
+            cff.private.push(Some(cff_dict_unpack(data.as_slice())));
             len += size
         } else {
-            *cff.private.offset(0) = ptr::null_mut();
-            len = 0
+            cff.private.push(None);
+            len = 0;
         }
     }
     len
