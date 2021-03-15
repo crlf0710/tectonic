@@ -690,14 +690,14 @@ unsafe fn handle_CIDFont(
         *GIDToCIDMap = ptr::null_mut();
         return 0;
     }
-    if !(*cffont.topdict).contains_key("ROS") {
+    if !cffont.topdict.contains_key("ROS") {
         panic!("No CIDSystemInfo???");
     } else {
-        let reg = (*cffont.topdict).get("ROS", 0) as u16;
-        let ord = (*cffont.topdict).get("ROS", 1) as u16;
+        let reg = cffont.topdict.get("ROS", 0) as u16;
+        let ord = cffont.topdict.get("ROS", 1) as u16;
         (*csi).registry = cff_get_string(&cffont, reg).into();
         (*csi).ordering = cff_get_string(&cffont, ord).into();
-        (*csi).supplement = (*cffont.topdict).get("ROS", 2) as i32
+        (*csi).supplement = cffont.topdict.get("ROS", 2) as i32
     }
     cff_read_charsets(&mut cffont);
     let charset = cffont.charsets;

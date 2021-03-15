@@ -973,9 +973,9 @@ unsafe fn dvi_locate_native_font(
          */
         warn!("skipping PFB sanity check -- needs Tectonic I/O update");
         let cffont = t1_load_font(&mut enc_vec[..], 0, handle);
-        if (*cffont.topdict).contains_key("FontBBox") {
-            font.ascent = (*cffont.topdict).get("FontBBox", 3) as i32;
-            font.descent = (*cffont.topdict).get("FontBBox", 1) as i32
+        if cffont.topdict.contains_key("FontBBox") {
+            font.ascent = cffont.topdict.get("FontBBox", 3) as i32;
+            font.descent = cffont.topdict.get("FontBBox", 1) as i32
         } else {
             font.ascent = 690;
             font.descent = -190

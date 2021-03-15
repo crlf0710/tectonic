@@ -186,8 +186,8 @@ unsafe fn add_SimpleMetrics(
      * to the default scaling of 1000:1, not relative to the scaling
      * given by the font matrix.
      */
-    let scaling = if (*cffont.topdict).contains_key("FontMatrix") {
-        1000 as f64 * (*cffont.topdict).get("FontMatrix", 0)
+    let scaling = if cffont.topdict.contains_key("FontMatrix") {
+        1000 as f64 * cffont.topdict.get("FontMatrix", 0)
     } else {
         1.
     };
@@ -361,7 +361,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /*
      * Charastrings.
      */
-    let offset = (*cffont.topdict).get("CharStrings", 0) as u64;
+    let offset = cffont.topdict.get("CharStrings", 0) as u64;
     cffont
         .handle
         .as_ref()
@@ -637,7 +637,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      * FIXME:
      *  Update String INDEX to delete unused strings.
      */
-    (*cffont.topdict).update(&mut cffont);
+    cffont.topdict.update(&mut cffont);
     if !(*cffont.private.offset(0)).is_null() {
         (**cffont.private.offset(0)).update(&mut cffont);
     }
@@ -649,15 +649,15 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      */
     let mut topdict = CffIndex::new(1);
 
-    (*cffont.topdict).remove("UniqueID");
-    (*cffont.topdict).remove("XUID");
+    cffont.topdict.remove("UniqueID");
+    cffont.topdict.remove("XUID");
     /*
      * Force existence of Encoding.
      */
-    if !(*cffont.topdict).contains_key("Encoding") {
-        (*cffont.topdict).add("Encoding", 1); /* no Subrs */
+    if !cffont.topdict.contains_key("Encoding") {
+        cffont.topdict.add("Encoding", 1); /* no Subrs */
     }
-    topdict.offset[1] = ((*cffont.topdict).pack(&mut work_buffer[..]) + 1) as l_offset;
+    topdict.offset[1] = (cffont.topdict.pack(&mut work_buffer[..]) + 1) as l_offset;
     let mut private_size = 0;
     if !(*cffont.private.offset(0)).is_null() {
         (**cffont.private.offset(0)).remove("Subrs");
@@ -703,29 +703,29 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* Global Subrs */
     offset += cff_pack_index(cffont.gsubr, &mut stream_data[offset..]);
     /* Encoding */
-    (*cffont.topdict).set("Encoding", 0, offset as f64);
+    cffont.topdict.set("Encoding", 0, offset as f64);
     offset += cff_pack_encoding(&cffont, &mut stream_data[offset..]);
     /* charset */
-    (*cffont.topdict).set("charset", 0, offset as f64);
+    cffont.topdict.set("charset", 0, offset as f64);
     offset += cff_pack_charsets(&cffont, &mut stream_data[offset..]);
     /* CharStrings */
-    (*cffont.topdict).set("CharStrings", 0, offset as f64);
+    cffont.topdict.set("CharStrings", 0, offset as f64);
     offset += cff_pack_index(
         charstrings,
         &mut stream_data[offset..offset + charstring_len as usize],
     );
     cff_release_index(charstrings);
     /* Private */
-    (*cffont.topdict).set("Private", 1, offset as f64);
+    cffont.topdict.set("Private", 1, offset as f64);
     if !(*cffont.private.offset(0)).is_null() && private_size > 0 {
         private_size =
             (**cffont.private.offset(0)).pack(&mut stream_data[offset..offset + private_size])
     }
-    (*cffont.topdict).set("Private", 0, private_size as f64);
+    cffont.topdict.set("Private", 0, private_size as f64);
     offset += private_size as usize;
     /* Finally Top DICT */
     topdict.data = vec![0; (topdict.offset[topdict.count as usize]) as usize - 1];
-    (*cffont.topdict).pack(&mut topdict.data[..]);
+    cffont.topdict.pack(&mut topdict.data[..]);
     let len = topdict.size();
     topdict.pack(&mut stream_data[topdict_offset..topdict_offset + len]);
 

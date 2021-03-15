@@ -32,7 +32,6 @@ use std::ptr;
 
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string, CffIndex};
 use super::dpx_cff::{cff_new_index, cff_set_name};
-use super::dpx_cff_dict::cff_new_dict;
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
 use crate::bridge::InFile;
@@ -1363,26 +1362,26 @@ unsafe fn parse_part1(
                     parse_nvalue(start, end, argv.as_mut_ptr(), 1)
                         .and_then(|a| check_size(a, 1))?;
                     if argv[0] != 0.0f64 {
-                        (*font.topdict).add(&key, 1);
-                        (*font.topdict).set(&key, 0, argv[0]);
+                        font.topdict.add(&key, 1);
+                        font.topdict.set(&key, 0, argv[0]);
                     }
                 }
                 "UnderLinePosition" | "UnderLineThickness" => {
                     parse_nvalue(start, end, argv.as_mut_ptr(), 1)
                         .and_then(|a| check_size(a, 1))?;
-                    (*font.topdict).add(&key, 1);
-                    (*font.topdict).set(&key, 0, argv[0]);
+                    font.topdict.add(&key, 1);
+                    font.topdict.set(&key, 0, argv[0]);
                 }
                 "FontBBox" => {
                     let mut argn = parse_nvalue(start, end, argv.as_mut_ptr(), 4)
                         .and_then(|a| check_size(a, 4))?;
-                    (*font.topdict).add(&key, 4);
+                    font.topdict.add(&key, 4);
                     loop {
                         if argn == 0 {
                             break;
                         }
                         argn -= 1;
-                        (*font.topdict).set(&key, argn as i32, argv[argn]);
+                        font.topdict.set(&key, argn as i32, argv[argn]);
                     }
                 }
                 "FontMatrix" => {
@@ -1395,13 +1394,13 @@ unsafe fn parse_part1(
                         || argv[4] != 0.
                         || argv[5] != 0.
                     {
-                        (*font.topdict).add(&key, 6);
+                        font.topdict.add(&key, 6);
                         loop {
                             if argn == 0 {
                                 break;
                             }
                             argn -= 1;
-                            (*font.topdict).set(&key, argn as i32, argv[argn]);
+                            font.topdict.set(&key, argn as i32, argv[argn]);
                         }
                     }
                 }
@@ -1410,7 +1409,7 @@ unsafe fn parse_part1(
                      * FontInfo
                      */
                     let strval = parse_svalue(start, end)?;
-                    (*font.topdict).add(&key, 1);
+                    font.topdict.add(&key, 1);
                     let mut sid = cff_get_sid(&font, &strval) as s_SID;
                     if sid as i32 == 65535 {
                         sid = cff_add_string(font, &strval, 0)
@@ -1419,7 +1418,7 @@ unsafe fn parse_part1(
                      * We don't care about duplicate strings here since
                      * later a subset font of this font will be generated.
                      */
-                    (*font.topdict).set(&key, 0, sid as f64); /* No Global Subr */
+                    font.topdict.set(&key, 0, sid as f64); /* No Global Subr */
                 }
                 "IsFixedPitch" => {
                     parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
@@ -1558,7 +1557,7 @@ impl cff_font {
                 offsize: 4 as c_offsize,
             },
             name: cff_new_index(1),
-            topdict: cff_new_dict(),
+            topdict: cff_dict::new(),
             string: None,
             gsubr: cff_new_index(0),
             encoding: ptr::null_mut(),
@@ -1577,7 +1576,7 @@ impl cff_font {
             _string: Some(CffIndex::new(0)),
             is_notdef_notzero: 0,
         };
-        *cff.private.offset(0) = cff_new_dict();
+        *cff.private.offset(0) = Box::into_raw(Box::new(cff_dict::new()));
         *cff.subrs.offset(0) = ptr::null_mut();
         cff
     }

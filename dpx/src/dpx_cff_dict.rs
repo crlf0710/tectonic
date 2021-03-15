@@ -85,10 +85,12 @@ impl Operator {
     }
 }
 
-pub(crate) unsafe fn cff_new_dict() -> *mut cff_dict {
-    Box::into_raw(Box::new(cff_dict {
-        entries: Vec::with_capacity(16),
-    }))
+impl cff_dict {
+    pub(crate) fn new() -> Self {
+        Self {
+            entries: Vec::with_capacity(16),
+        }
+    }
 }
 
 pub(crate) unsafe fn cff_release_dict(dict: &mut cff_dict) {
@@ -319,7 +321,7 @@ don't treat this as underflow (e.g. StemSnapV in TemporaLGCUni-Italic.otf) */
  *  ROS    : three numbers, SID, SID, and a number
  */
 
-pub(crate) unsafe fn cff_dict_unpack(mut data: &[u8]) -> *mut cff_dict {
+pub(crate) unsafe fn cff_dict_unpack(mut data: &[u8]) -> cff_dict {
     fn expect<T>(res: Result<T, CffError>) -> T {
         match res {
             Ok(res) => res,
@@ -328,11 +330,11 @@ pub(crate) unsafe fn cff_dict_unpack(mut data: &[u8]) -> *mut cff_dict {
     }
 
     stack_top = 0;
-    let dict = cff_new_dict();
+    let mut dict = cff_dict::new();
     while !data.is_empty() {
         if (data[0] as i32) < 22 {
             /* operator */
-            expect(add_dict(&mut *dict, &mut data));
+            expect(add_dict(&mut dict, &mut data));
         } else if data[0] as i32 == 30 {
             /* real - First byte of a sequence (variable) */
             if stack_top < CFF_DICT_STACK_LIMIT as i32 {

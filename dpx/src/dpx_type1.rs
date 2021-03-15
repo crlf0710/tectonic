@@ -144,11 +144,11 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
     let mut capheight;
     let mut ascent;
     let mut descent;
-    if (*cffont.topdict).contains_key("FontBBox") {
+    if cffont.topdict.contains_key("FontBBox") {
         /* Default values */
-        ascent = (*cffont.topdict).get("FontBBox", 3);
+        ascent = cffont.topdict.get("FontBBox", 3);
         capheight = ascent;
-        descent = (*cffont.topdict).get("FontBBox", 1)
+        descent = cffont.topdict.get("FontBBox", 1)
     } else {
         capheight = 680.0f64;
         ascent = 690.0f64;
@@ -168,8 +168,8 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &cff_font) {
          */
         88.
     };
-    if (*cffont.topdict).contains_key("ItalicAngle") {
-        italicangle = (*cffont.topdict).get("ItalicAngle", 0);
+    if cffont.topdict.contains_key("ItalicAngle") {
+        italicangle = cffont.topdict.get("ItalicAngle", 0);
         if italicangle != 0. {
             flags |= 1 << 6
         }
@@ -299,21 +299,21 @@ unsafe fn add_metrics(
      * charstrings, to prevent Acrobat 4 from greeking text as
      * much as possible.
      */
-    if !(*cffont.topdict).contains_key("FontBBox") {
+    if !cffont.topdict.contains_key("FontBBox") {
         panic!("No FontBBox?");
     }
     /* The widhts array in the font dictionary must be given relative
      * to the default scaling of 1000:1, not relative to the scaling
      * given by the font matrix.
      */
-    let scaling = if (*cffont.topdict).contains_key("FontMatrix") {
-        1000. * (*cffont.topdict).get("FontMatrix", 0)
+    let scaling = if cffont.topdict.contains_key("FontMatrix") {
+        1000. * cffont.topdict.get("FontMatrix", 0)
     } else {
         1.
     };
     let mut tmp_array = vec![];
     for i in 0..4 {
-        let val = (*cffont.topdict).get("FontBBox", i);
+        let val = cffont.topdict.get("FontBBox", i);
         tmp_array.push_obj((val / 1. + 0.5).floor() * 1.);
     }
     (*descriptor).as_dict_mut().set("FontBBox", tmp_array);
@@ -400,21 +400,21 @@ unsafe fn write_fontfile(
     /*
      * Force existence of Encoding.
      */
-    if !(*cffont.topdict).contains_key("CharStrings") {
-        (*cffont.topdict).add("CharStrings", 1);
+    if !cffont.topdict.contains_key("CharStrings") {
+        cffont.topdict.add("CharStrings", 1);
     }
-    if !(*cffont.topdict).contains_key("charset") {
-        (*cffont.topdict).add("charset", 1);
+    if !cffont.topdict.contains_key("charset") {
+        cffont.topdict.add("charset", 1);
     }
-    if !(*cffont.topdict).contains_key("Encoding") {
-        (*cffont.topdict).add("Encoding", 1);
+    if !cffont.topdict.contains_key("Encoding") {
+        cffont.topdict.add("Encoding", 1);
     }
     let mut private_size = (**cffont.private.offset(0)).pack(&mut wbuf[..]);
     /* Private dict is required (but may have size 0) */
-    if !(*cffont.topdict).contains_key("Private") {
-        (*cffont.topdict).add("Private", 2);
+    if !cffont.topdict.contains_key("Private") {
+        cffont.topdict.add("Private", 2);
     }
-    topdict.offset[1] = ((*cffont.topdict).pack(&mut wbuf[..]) + 1) as l_offset;
+    topdict.offset[1] = (cffont.topdict.pack(&mut wbuf[..]) + 1) as l_offset;
     /*
      * Estimate total size of fontfile.
      */
@@ -461,13 +461,13 @@ unsafe fn write_fontfile(
     /* TODO: don't write Encoding entry if the font is always used
      * with PDF Encoding information. Applies to type1c.c as well.
      */
-    (*cffont.topdict).set("Encoding", 0, offset as f64);
+    cffont.topdict.set("Encoding", 0, offset as f64);
     offset += cff_pack_encoding(cffont, &mut stream_data[offset..]);
     /* charset */
-    (*cffont.topdict).set("charset", 0, offset as f64);
+    cffont.topdict.set("charset", 0, offset as f64);
     offset += cff_pack_charsets(cffont, &mut stream_data[offset..]);
     /* CharStrings */
-    (*cffont.topdict).set("CharStrings", 0, offset as f64);
+    cffont.topdict.set("CharStrings", 0, offset as f64);
     offset += cff_pack_index(
         cffont.cstrings,
         &mut stream_data[offset..offset + charstring_len],
@@ -476,13 +476,13 @@ unsafe fn write_fontfile(
     if !(*cffont.private.offset(0)).is_null() && private_size > 0 {
         private_size =
             (**cffont.private.offset(0)).pack(&mut stream_data[offset..offset + private_size]);
-        (*cffont.topdict).set("Private", 1, offset as f64);
-        (*cffont.topdict).set("Private", 0, private_size as f64);
+        cffont.topdict.set("Private", 1, offset as f64);
+        cffont.topdict.set("Private", 0, private_size as f64);
     }
     offset += private_size;
     /* Finally Top DICT */
     topdict.data = vec![0; (topdict.offset[topdict.count as usize]) as usize - 1];
-    (*cffont.topdict).pack(&mut topdict.data[..]);
+    cffont.topdict.pack(&mut topdict.data[..]);
     let len = topdict.size();
     topdict.pack(&mut stream_data[topdict_offset..topdict_offset + len]);
     /* Copyright and Trademark Notice ommited. */
@@ -794,7 +794,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         info!("]");
     }
     /* Now we can update the String Index */
-    (*cffont.topdict).update(&mut cffont);
+    cffont.topdict.update(&mut cffont);
     (**cffont.private.offset(0)).update(&mut cffont);
     cff_update_string(&mut cffont);
     add_metrics(font, &cffont, enc_slice, widths, num_glyphs as i32);
