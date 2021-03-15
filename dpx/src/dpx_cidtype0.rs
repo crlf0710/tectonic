@@ -39,8 +39,8 @@ use super::dpx_agl::{
     agl_sput_UTF16BE,
 };
 use super::dpx_cff::{
-    cff_add_string, cff_charsets_lookup_inverse, cff_get_index_header, cff_get_name, cff_get_sid,
-    cff_get_string, cff_glyph_lookup, cff_index_size, cff_new_index, cff_open, cff_pack_charsets,
+    cff_add_string, cff_charsets_lookup_inverse, cff_get_index_header, cff_get_sid, cff_get_string,
+    cff_glyph_lookup, cff_index_size, cff_new_index, cff_open, cff_pack_charsets,
     cff_pack_fdselect, cff_pack_index, cff_put_header, cff_read_charsets, cff_read_fdselect,
     cff_read_subrs, cff_release_index, cff_set_name, cff_update_string,
 };
@@ -433,7 +433,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     /* Header */
     offset += cff_put_header(cffont, &mut dest[offset..offset + 4]);
     /* Name */
-    offset += cff_pack_index(cffont.name, &mut dest[offset..]);
+    offset += cffont.name.pack(&mut dest[offset..]);
     /* Top DICT */
     let topdict_offset = offset;
     offset += topdict.size();
@@ -444,7 +444,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
         .unwrap()
         .pack(&mut dest[offset..]);
     /* Global Subrs */
-    offset += cff_pack_index(cffont.gsubr, &mut dest[offset..]);
+    offset += cff_pack_index(&mut *cffont.gsubr, &mut dest[offset..]);
     /* charset */
     cffont.topdict.set("charset", 0, offset as f64);
     offset += cff_pack_charsets(cffont, &mut dest[offset..]);
@@ -454,7 +454,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     /* CharStrings */
     cffont.topdict.set("CharStrings", 0, offset as f64); /* Charstrings cosumes huge memory */
     offset += cff_pack_index(
-        cffont.cstrings,
+        &mut *cffont.cstrings,
         &mut dest[offset..offset + cff_index_size(cffont.cstrings)],
     );
     cff_release_index(cffont.cstrings);
@@ -919,13 +919,7 @@ pub(crate) unsafe fn CIDFont_type0_open(
             }
         }
     }
-    let shortname = cff_get_name(&*cffont);
-    if shortname.is_null() {
-        panic!("No valid FontName found.");
-    }
-
-    let mut fontname = CStr::from_ptr(shortname).to_str().unwrap().to_owned();
-    free(shortname as *mut libc::c_void);
+    let mut fontname = cffont.name.get_name(cffont.index);
     if is_cid_font != 0 {
         if opt.embed != 0 && opt.style != 0 {
             warn!("Embedding disabled due to style option for {}.", name);

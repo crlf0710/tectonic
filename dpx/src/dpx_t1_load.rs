@@ -1551,7 +1551,7 @@ impl cff_font {
         let cff = cff_font {
             handle: None,
             filter: 0,
-            fontname: ptr::null_mut(),
+            fontname: String::new(),
             index: 0,
             flag: 1 << 1,
             header: crate::dpx_cff::cff_header {
@@ -1560,7 +1560,7 @@ impl cff_font {
                 hdr_size: 4 as u8,
                 offsize: 4 as c_offsize,
             },
-            name: cff_new_index(1),
+            name: CffIndex::new(1),
             topdict: cff_dict::new(),
             string: None,
             gsubr: cff_new_index(0),

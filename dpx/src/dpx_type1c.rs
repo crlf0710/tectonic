@@ -28,14 +28,13 @@
 
 use super::dpx_sfnt::{sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
 use crate::{info, warn};
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cff::{
     cff_add_string, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
-    cff_get_index_header, cff_get_name, cff_get_sid, cff_get_string, cff_index_size, cff_new_index,
-    cff_open, cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header,
-    cff_read_charsets, cff_read_encoding, cff_read_private, cff_read_subrs, cff_release_charsets,
+    cff_get_index_header, cff_get_sid, cff_get_string, cff_index_size, cff_new_index, cff_open,
+    cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header, cff_read_charsets,
+    cff_read_encoding, cff_read_private, cff_read_subrs, cff_release_charsets,
     cff_release_encoding, cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
 };
 use super::dpx_cs_type2::cs_copy_charstring;
@@ -114,7 +113,7 @@ use super::dpx_cs_type2::cs_ginfo;
 /* Font info. from OpenType tables */
 
 pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
-    let ident = &*(&*font).ident;
+    let ident = &*font.ident;
     let encoding_id = pdf_font_get_encoding(font);
     let handle = dpx_open_opentype_file(ident);
     if handle.is_none() {
@@ -134,12 +133,8 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
     if cffont.flag & 1 << 0 != 0 {
         return -1;
     }
-    let fontname = cff_get_name(&cffont);
-    if fontname.is_null() {
-        panic!("No valid FontName found in CFF/OpenType font.");
-    }
-    let fontname = CStr::from_ptr(fontname).to_str().unwrap().to_owned();
-    (&mut *font).fontname = fontname.clone();
+    let fontname = cffont.name.get_name(cffont.index);
+    font.fontname = fontname.clone();
     /*
      * Font like AdobePiStd does not have meaningful built-in encoding.
      * Some software generate CFF/OpenType font with incorrect encoding.
@@ -690,7 +685,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* Header */
     offset += cff_put_header(&cffont, &mut stream_data[offset..]);
     /* Name */
-    offset += cff_pack_index(cffont.name, &mut stream_data[offset..]);
+    offset += cffont.name.pack(&mut stream_data[offset..]);
     /* Top DICT */
     let topdict_offset = offset;
     offset += topdict.size();
@@ -701,7 +696,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         .unwrap()
         .pack(&mut stream_data[offset..]);
     /* Global Subrs */
-    offset += cff_pack_index(cffont.gsubr, &mut stream_data[offset..]);
+    offset += cff_pack_index(&mut *cffont.gsubr, &mut stream_data[offset..]);
     /* Encoding */
     cffont.topdict.set("Encoding", 0, offset as f64);
     offset += cff_pack_encoding(&cffont, &mut stream_data[offset..]);
@@ -711,7 +706,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* CharStrings */
     cffont.topdict.set("CharStrings", 0, offset as f64);
     offset += cff_pack_index(
-        charstrings,
+        &mut *charstrings,
         &mut stream_data[offset..offset + charstring_len as usize],
     );
     cff_release_index(charstrings);

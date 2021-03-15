@@ -418,7 +418,7 @@ unsafe fn write_fontfile(
      */
     let charstring_len = cff_index_size(cffont.cstrings); /* header size */
     let mut stream_data_len = 4_usize;
-    stream_data_len += cff_index_size(cffont.name);
+    stream_data_len += cffont.name.size();
     stream_data_len += topdict.size();
     stream_data_len += cffont.string.as_deref_mut().unwrap().size();
     stream_data_len += cff_index_size(cffont.gsubr);
@@ -443,7 +443,7 @@ unsafe fn write_fontfile(
     /* Header */
     offset += cff_put_header(cffont, &mut stream_data[offset..]);
     /* Name */
-    offset += cff_pack_index(cffont.name, &mut stream_data[offset..]);
+    offset += cffont.name.pack(&mut stream_data[offset..]);
     /* Top DICT */
     let topdict_offset = offset;
     offset += topdict.size();
@@ -454,7 +454,7 @@ unsafe fn write_fontfile(
         .unwrap()
         .pack(&mut stream_data[offset..]);
     /* Global Subrs */
-    offset += cff_pack_index(cffont.gsubr, &mut stream_data[offset..]);
+    offset += cff_pack_index(&mut *cffont.gsubr, &mut stream_data[offset..]);
     /* Encoding */
     /* TODO: don't write Encoding entry if the font is always used
      * with PDF Encoding information. Applies to type1c.c as well.
@@ -467,7 +467,7 @@ unsafe fn write_fontfile(
     /* CharStrings */
     cffont.topdict.set("CharStrings", 0, offset as f64);
     offset += cff_pack_index(
-        cffont.cstrings,
+        &mut *cffont.cstrings,
         &mut stream_data[offset..offset + charstring_len],
     );
     /* Private */
