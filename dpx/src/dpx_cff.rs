@@ -260,7 +260,7 @@ pub(crate) struct cff_font {
     pub(crate) encoding: *mut cff_encoding,
     pub(crate) charsets: *mut cff_charsets,
     pub(crate) fdselect: *mut cff_fdselect,
-    pub(crate) cstrings: *mut cff_index,
+    pub(crate) cstrings: Option<Box<CffIndex>>,
     pub(crate) fdarray: Vec<Option<cff_dict>>,
     pub(crate) private: Vec<Option<cff_dict>>,
     pub(crate) subrs: Vec<Option<Box<CffIndex>>>,
@@ -792,7 +792,7 @@ pub(crate) unsafe fn cff_open(
         encoding: ptr::null_mut(),
         charsets: ptr::null_mut(),
         fdselect: ptr::null_mut(),
-        cstrings: ptr::null_mut(),
+        cstrings: None,
         fdarray: Vec::new(),
         private: Vec::new(),
         subrs: Vec::new(),
@@ -819,9 +819,6 @@ impl Drop for cff_font {
             }
             if !self.fdselect.is_null() {
                 cff_release_fdselect(self.fdselect);
-            }
-            if !self.cstrings.is_null() {
-                cff_release_index(self.cstrings);
             }
         }
     }

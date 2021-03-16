@@ -139,7 +139,6 @@ pub(crate) struct loaded_font {
 
 use super::dpx_cff::cff_font;
 
-use super::dpx_cff::cff_index;
 use super::dpx_tt_table::tt_longMetrics;
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -1535,7 +1534,7 @@ unsafe fn do_glyphs(do_actual_text: i32) {
             let mut ascent: f64 = font.ascent as f64;
             let mut descent: f64 = font.descent as f64;
             if !font.cffont.is_null() {
-                let cstrings: *mut cff_index = (*font.cffont).cstrings;
+                let cstrings = (*font.cffont).cstrings.as_ref().unwrap();
                 let mut gm = t1_ginfo::new();
                 /* If .notdef is not the 1st glyph in CharStrings, glyph_id given by
                 FreeType should be increased by 1 */
@@ -1543,12 +1542,8 @@ unsafe fn do_glyphs(do_actual_text: i32) {
                     glyph_id += 1;
                 }
                 t1char_get_metrics(
-                    (*cstrings)
-                        .data
-                        .offset(*(*cstrings).offset.offset(glyph_id as isize) as isize)
-                        .offset(-1),
-                    (*(*cstrings).offset.offset((glyph_id + 1) as isize))
-                        .wrapping_sub(*(*cstrings).offset.offset(glyph_id as isize))
+                    cstrings.data[cstrings.offset[glyph_id as usize] as usize - 1..].as_ptr(),
+                    (cstrings.offset[(glyph_id + 1) as usize] - cstrings.offset[glyph_id as usize])
                         as i32,
                     &(*font.cffont).subrs[0],
                     &mut gm,

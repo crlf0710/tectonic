@@ -40,9 +40,9 @@ use super::dpx_agl::{
 };
 use super::dpx_cff::{
     cff_add_string, cff_charsets_lookup_inverse, cff_get_index_header, cff_get_sid, cff_get_string,
-    cff_glyph_lookup, cff_index_size, cff_new_index, cff_open, cff_pack_charsets,
-    cff_pack_fdselect, cff_pack_index, cff_put_header, cff_read_charsets, cff_read_fdselect,
-    cff_read_subrs, cff_release_index, cff_set_name, cff_update_string,
+    cff_glyph_lookup, cff_open, cff_pack_charsets, cff_pack_fdselect, cff_put_header,
+    cff_read_charsets, cff_read_fdselect, cff_read_subrs, cff_release_index, cff_set_name,
+    cff_update_string,
 };
 use super::dpx_cff::{
     cff_charsets_lookup, cff_fdselect_lookup, cff_read_fdarray, cff_read_private,
@@ -423,7 +423,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     destlen += cffont.gsubr.as_mut().unwrap().size();
     destlen += (*cffont.charsets).num_entries as usize * 2 + 1;
     destlen += (*cffont.fdselect).num_entries as usize * 3 + 5;
-    destlen += cff_index_size(cffont.cstrings);
+    destlen += cffont.cstrings.as_mut().unwrap().size();
     destlen += fdarray.size();
     destlen = destlen + private.offset[private.count as usize] as usize - 1;
 
@@ -453,12 +453,13 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     offset += cff_pack_fdselect(cffont, &mut dest[offset..]);
     /* CharStrings */
     cffont.topdict.set("CharStrings", 0, offset as f64); /* Charstrings cosumes huge memory */
-    offset += cff_pack_index(
-        &mut *cffont.cstrings,
-        &mut dest[offset..offset + cff_index_size(cffont.cstrings)],
-    );
-    cff_release_index(cffont.cstrings);
-    cffont.cstrings = ptr::null_mut();
+    let cstrings_size = cffont.cstrings.as_mut().unwrap().size();
+    offset += cffont
+        .cstrings
+        .as_mut()
+        .unwrap()
+        .pack(&mut dest[offset..offset + cstrings_size]);
+    cffont.cstrings = None;
     /* FDArray and Private */
     cffont.topdict.set("FDArray", 0, offset as f64);
     let fdarray_offset = offset;
@@ -711,9 +712,9 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
         .wrapping_mul(::std::mem::size_of::<cff_range3>() as u64)
         as u32) as *mut cff_range3;
     /* New CharStrings INDEX */
-    let charstrings = cff_new_index((num_glyphs as i32 + 1) as u16);
+    let charstrings = CffIndex::new((num_glyphs as i32 + 1) as u16);
     let mut max_len = 2 * 65536;
-    (*charstrings).data =
+    charstrings.data =
         new((max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
     let mut charstring_len = 0;
@@ -736,12 +737,12 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
             }
             if charstring_len + 65536 >= max_len {
                 max_len = charstring_len + 2 * 65536;
-                (*charstrings).data = renew(
-                    (*charstrings).data as *mut libc::c_void,
+                charstrings.data = renew(
+                    charstrings.data as *mut libc::c_void,
                     (max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
                 ) as *mut u8
             }
-            *(*charstrings).offset.offset(gid as isize) = (charstring_len + 1) as l_offset;
+            charstrings.offset[gid as usize] = (charstring_len + 1) as l_offset;
             let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
             handle
                 .seek(SeekFrom::Start(
@@ -752,7 +753,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
             handle.read(slice).unwrap();
             let fd = cff_fdselect_lookup(&cffont, gid_org) as i32;
             charstring_len += cs_copy_charstring(
-                (*charstrings).data.offset(charstring_len as isize),
+                charstrings.data[charstring_len as usize..].as_mut_ptr(),
                 max_len - charstring_len,
                 data,
                 size,
@@ -792,10 +793,10 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
     free(data as *mut libc::c_void);
     cff_release_index(idx);
     free(CIDToGIDMap as *mut libc::c_void);
-    *(*charstrings).offset.offset(num_glyphs as isize) = (charstring_len + 1) as l_offset;
-    (*charstrings).count = num_glyphs;
+    charstrings.offset[num_glyphs as usize] = (charstring_len + 1) as l_offset;
+    charstrings.count = num_glyphs;
     cffont.num_glyphs = num_glyphs;
-    cffont.cstrings = charstrings;
+    cffont.cstrings = Some(charstrings);
     /* discard old one, set new data */
     cff_release_charsets(cffont.charsets);
     cffont.charsets = charset;
@@ -1102,9 +1103,9 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
         panic!("No valid charstring data found.");
     }
     /* New CharStrings INDEX */
-    let charstrings = cff_new_index((num_glyphs as i32 + 1) as u16);
+    let charstrings = CffIndex::new((num_glyphs as i32 + 1) as u16);
     let mut max_len = 2 * 65536;
-    (*charstrings).data =
+    charstrings.data =
         new((max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
     let mut charstring_len = 0;
@@ -1119,12 +1120,12 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
             }
             if charstring_len + 65536 >= max_len {
                 max_len = charstring_len + 2 * 65536;
-                (*charstrings).data = renew(
-                    (*charstrings).data as *mut libc::c_void,
+                charstrings.data = renew(
+                    charstrings.data as *mut libc::c_void,
                     (max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
                 ) as *mut u8
             }
-            *(*charstrings).offset.offset(gid as isize) = (charstring_len + 1) as l_offset;
+            charstrings.offset[gid as usize] = (charstring_len + 1) as l_offset;
             let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
             handle
                 .seek(SeekFrom::Start(
@@ -1134,7 +1135,7 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
             let slice = std::slice::from_raw_parts_mut(data, size as usize);
             handle.read(slice).unwrap();
             charstring_len += cs_copy_charstring(
-                (*charstrings).data.offset(charstring_len as isize),
+                charstrings.data[charstring_len as usize..].as_mut_ptr(),
                 max_len - charstring_len,
                 data,
                 size,
@@ -1152,10 +1153,10 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
     }
     free(data as *mut libc::c_void);
     cff_release_index(idx);
-    *(*charstrings).offset.offset(num_glyphs as isize) = (charstring_len + 1) as l_offset;
-    (*charstrings).count = num_glyphs;
+    charstrings.offset[num_glyphs as usize] = (charstring_len + 1) as l_offset;
+    charstrings.count = num_glyphs;
     cffont.num_glyphs = num_glyphs;
-    cffont.cstrings = charstrings;
+    cffont.cstrings = Some(charstrings);
     /* no Global subr */
     cffont.gsubr = Some(CffIndex::new(0));
     if !cffont.subrs.is_empty() {
@@ -1399,15 +1400,12 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
      * Use "space", "H", "p", and "b" for various values.
      * Those characters should not "seac". (no accent)
      */
+    let cff_cstrings = cffont.cstrings.as_ref().unwrap();
     let gid = cff_glyph_lookup(cffont, "space") as i32;
-    if gid >= 0 && gid < (*cffont.cstrings).count as i32 {
+    if gid >= 0 && gid < cff_cstrings.count as i32 {
         t1char_get_metrics(
-            (*cffont.cstrings)
-                .data
-                .offset(*(*cffont.cstrings).offset.offset(gid as isize) as isize)
-                .offset(-1),
-            (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
-                .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize)) as i32,
+            cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
+            (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize]) as i32,
             &cffont.subrs[0],
             &mut gm,
         );
@@ -1415,14 +1413,10 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
     }
     for i in &L_c {
         let gid = cff_glyph_lookup(cffont, *i) as i32;
-        if gid >= 0 && gid < (*cffont.cstrings).count as i32 {
+        if gid >= 0 && gid < cff_cstrings.count as i32 {
             t1char_get_metrics(
-                (*cffont.cstrings)
-                    .data
-                    .offset(*(*cffont.cstrings).offset.offset(gid as isize) as isize)
-                    .offset(-1),
-                (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
-                    .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize))
+                cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
+                (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize])
                     as i32,
                 &cffont.subrs[0],
                 &mut gm,
@@ -1433,14 +1427,10 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
     }
     for i in &L_d {
         let gid = cff_glyph_lookup(cffont, *i) as i32;
-        if gid >= 0 && gid < (*cffont.cstrings).count as i32 {
+        if gid >= 0 && gid < cff_cstrings.count as i32 {
             t1char_get_metrics(
-                (*cffont.cstrings)
-                    .data
-                    .offset(*(*cffont.cstrings).offset.offset(gid as isize) as isize)
-                    .offset(-1),
-                (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
-                    .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize))
+                cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
+                (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize])
                     as i32,
                 &cffont.subrs[0],
                 &mut gm,
@@ -1451,14 +1441,10 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
     }
     for i in &L_a {
         let gid = cff_glyph_lookup(cffont, *i) as i32;
-        if gid >= 0 && gid < (*cffont.cstrings).count as i32 {
+        if gid >= 0 && gid < cff_cstrings.count as i32 {
             t1char_get_metrics(
-                (*cffont.cstrings)
-                    .data
-                    .offset(*(*cffont.cstrings).offset.offset(gid as isize) as isize)
-                    .offset(-1),
-                (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
-                    .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize))
+                cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
+                (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize])
                     as i32,
                 &cffont.subrs[0],
                 &mut gm,
@@ -1714,38 +1700,32 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
         (::std::mem::size_of::<i32>()).wrapping_mul(1001),
     );
     let mut offset = 0;
-    let cstring = cff_new_index(num_glyphs as u16);
-    (*cstring).data = ptr::null_mut();
-    *(*cstring).offset.offset(0) = 1 as l_offset;
+    let cstring = CffIndex::new(num_glyphs as u16);
+    cstring.data = Vec::new();
+    cstring.offset[0] = 1 as l_offset;
     gid = 0 as u16;
+    let cff_cstrings = cffont.cstrings.as_ref().unwrap();
     for cid in 0..=last_cid as u16 {
         if !(*used_chars.offset((cid as i32 / 8) as isize) as i32 & 1 << 7 - cid as i32 % 8 == 0) {
             if offset + 65536 >= max {
                 max += 65536 * 2;
-                (*cstring).data = renew(
-                    (*cstring).data as *mut libc::c_void,
+                cstring.data = renew(
+                    cstring.data as *mut libc::c_void,
                     (max as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
                 ) as *mut u8
             }
             offset += t1char_convert_charstring(
-                (*cstring)
-                    .data
-                    .offset(*(*cstring).offset.offset(gid as isize) as isize)
-                    .offset(-1),
+                cstring.data[cstring.offset[gid as usize] as usize - 1..].as_mut_ptr(),
                 65536,
-                (*cffont.cstrings)
-                    .data
-                    .offset(*(*cffont.cstrings).offset.offset(cid as isize) as isize)
-                    .offset(-1),
-                (*(*cffont.cstrings).offset.offset((cid as i32 + 1) as isize))
-                    .wrapping_sub(*(*cffont.cstrings).offset.offset(cid as isize))
+                cff_cstrings.data[cff_cstrings.offset[cid as usize] as usize - 1..].as_ptr(),
+                (cff_cstrings.offset[(cid as i32 + 1) as usize] - cff_cstrings.offset[cid as usize])
                     as i32,
                 &cffont.subrs[0],
                 defaultwidth,
                 nominalwidth,
                 &mut gm,
             );
-            *(*cstring).offset.offset((gid as i32 + 1) as isize) = (offset + 1) as l_offset;
+            cstring.offset[(gid as i32 + 1) as usize] = (offset + 1) as l_offset;
             if gm.use_seac != 0 {
                 panic!("This font using the \"seac\" command for accented characters...");
             }
@@ -1756,17 +1736,16 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
             gid = gid.wrapping_add(1)
         }
     }
-    cff_release_index(cffont.cstrings);
-    cffont.cstrings = cstring;
+    cffont.cstrings = Some(cstring);
     let mut max_count = 0;
-    let mut dw = -1;
+    let mut dw = None;
     for i in 0..=1000 {
-        if w_stat[i as usize] > max_count {
-            dw = i;
-            max_count = w_stat[i as usize]
+        if w_stat[i] > max_count {
+            dw = Some(i);
+            max_count = w_stat[i]
         }
     }
-    if dw >= 0 {
+    if let Some(dw) = dw {
         add_metrics(font, &cffont, CIDToGIDMap, widths, dw as f64, last_cid);
     } else {
         add_metrics(font, &cffont, CIDToGIDMap, widths, defaultwidth, last_cid);

@@ -30,8 +30,8 @@ use crate::bridge::DisplayExt;
 use crate::warn;
 use std::ptr;
 
+use super::dpx_cff::cff_set_name;
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string, CffIndex};
-use super::dpx_cff::{cff_new_index, cff_set_name};
 use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
 use crate::bridge::InFile;
@@ -1027,7 +1027,6 @@ unsafe fn parse_charstrings(
     lenIV: i32,
     mode: i32,
 ) -> Result<(), ()> {
-    let charstrings;
     let mut max_size;
     /* /CharStrings n dict dup begin
      * /GlyphName n-bytes RD -n-binary-bytes- ND
@@ -1038,17 +1037,17 @@ unsafe fn parse_charstrings(
     let tok = pst_get_token(start, end).unwrap(); /* .notdef must be at gid = 0 in CFF */
     match tok {
         PstObj::Integer(count) if (count >= 0 && count < 65000) => {
-            if mode != 1 {
-                charstrings = cff_new_index(count as u16);
+            font.cstrings = if mode != 1 {
+                let mut charstrings = CffIndex::new(count as u16);
                 max_size = 65536;
-                (*charstrings).data = new((max_size as u32 as u64)
+                charstrings.data = new((max_size as u32 as u64)
                     .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                    as u32) as *mut u8
+                    as u32) as *mut u8;
+                Some(charstrings)
             } else {
-                charstrings = ptr::null_mut();
-                max_size = 0
-            }
-            font.cstrings = charstrings;
+                max_size = 0;
+                None
+            };
             font.charsets =
                 new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
                     as *mut cff_charsets;
@@ -1117,11 +1116,12 @@ unsafe fn parse_charstrings(
                         if (*start).offset(len as isize).offset(1) >= end {
                             return Err(());
                         }
+                        let charstrings = font.cstrings.as_mut().unwrap();
                         if mode != 1 {
                             if offset + len >= max_size {
                                 max_size += if len > 65536 { len } else { 65536 };
-                                (*charstrings).data = renew(
-                                    (*charstrings).data as *mut libc::c_void,
+                                charstrings.data = renew(
+                                    charstrings.data as *mut libc::c_void,
                                     (max_size as u32 as u64)
                                         .wrapping_mul(::std::mem::size_of::<u8>() as u64)
                                         as u32,
@@ -1130,28 +1130,23 @@ unsafe fn parse_charstrings(
                             if gid == 0 {
                                 if lenIV >= 0 {
                                     memmove(
-                                        (*charstrings)
-                                            .data
-                                            .offset(len as isize)
-                                            .offset(-(lenIV as isize))
+                                        charstrings.data[(len - lenIV) as usize..].as_mut_ptr()
                                             as *mut libc::c_void,
-                                        (*charstrings).data as *const libc::c_void,
+                                        charstrings.data.as_ptr() as *const libc::c_void,
                                         offset as _,
                                     );
                                     for j in 1..=i {
-                                        *(*charstrings).offset.offset(j as isize) +=
-                                            (len - lenIV) as l_offset;
+                                        charstrings.offset[j as usize] += (len - lenIV) as l_offset;
                                     }
                                 } else {
                                     memmove(
-                                        (*charstrings).data.offset(len as isize)
+                                        charstrings.data[len as usize..].as_mut_ptr()
                                             as *mut libc::c_void,
-                                        (*charstrings).data as *const libc::c_void,
+                                        charstrings.data.as_ptr() as *const libc::c_void,
                                         offset as _,
                                     );
                                     for j in 1..=i {
-                                        *(*charstrings).offset.offset(j as isize) +=
-                                            len as l_offset;
+                                        charstrings.offset[j as usize] += len as l_offset;
                                     }
                                 }
                             }
@@ -1160,11 +1155,10 @@ unsafe fn parse_charstrings(
                         if mode != 1 {
                             if lenIV >= 0 {
                                 let offs: i32 = if gid != 0 { offset } else { 0 };
-                                *(*charstrings).offset.offset(gid as isize) =
-                                    (offs + 1) as l_offset;
+                                charstrings.offset[gid as usize] = (offs + 1) as l_offset;
                                 t1_decrypt(
                                     4330_u16,
-                                    (*charstrings).data.offset(offs as isize),
+                                    charstrings.data[offs as usize..].as_mut_ptr(),
                                     *start,
                                     lenIV,
                                     len,
@@ -1172,18 +1166,16 @@ unsafe fn parse_charstrings(
                                 offset += len - lenIV
                             } else {
                                 if gid == 0 {
-                                    *(*charstrings).offset.offset(gid as isize) = 1 as l_offset;
+                                    charstrings.offset[gid as usize] = 1 as l_offset;
                                     memcpy(
-                                        &mut *(*charstrings).data.offset(0) as *mut u8
-                                            as *mut libc::c_void,
+                                        charstrings.data[0..].as_mut_ptr() as *mut libc::c_void,
                                         *start as *const libc::c_void,
                                         len as _,
                                     );
                                 } else {
-                                    *(*charstrings).offset.offset(gid as isize) =
-                                        (offset + 1) as l_offset;
+                                    charstrings.offset[gid as usize] = (offset + 1) as l_offset;
                                     memcpy(
-                                        &mut *(*charstrings).data.offset(offset as isize) as *mut u8
+                                        charstrings.data[offset as usize..].as_mut_ptr()
                                             as *mut libc::c_void,
                                         *start as *const libc::c_void,
                                         len as _,
@@ -1209,7 +1201,7 @@ unsafe fn parse_charstrings(
                 }
             }
             if mode != 1 {
-                *(*charstrings).offset.offset(count as isize) = (offset + 1) as l_offset
+                font.cstrings.as_mut().unwrap().offset[count as usize] = (offset + 1) as l_offset;
             }
             font.num_glyphs = count as u16;
         }
@@ -1559,7 +1551,7 @@ impl cff_font {
             encoding: ptr::null_mut(),
             charsets: ptr::null_mut(),
             fdselect: ptr::null_mut(),
-            cstrings: ptr::null_mut(),
+            cstrings: None,
             fdarray: Vec::new(),
             private: vec![Some(cff_dict::new())],
             subrs: vec![None],

@@ -31,10 +31,10 @@ use crate::{info, warn};
 
 use super::dpx_cff::{
     cff_add_string, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
-    cff_get_index_header, cff_get_sid, cff_get_string, cff_index_size, cff_new_index, cff_open,
-    cff_pack_charsets, cff_pack_encoding, cff_pack_index, cff_put_header, cff_read_charsets,
-    cff_read_encoding, cff_read_private, cff_read_subrs, cff_release_charsets,
-    cff_release_encoding, cff_release_index, cff_set_name, cff_update_string, CffIndex, Pack,
+    cff_get_index_header, cff_get_sid, cff_get_string, cff_open, cff_pack_charsets,
+    cff_pack_encoding, cff_put_header, cff_read_charsets, cff_read_encoding, cff_read_private,
+    cff_read_subrs, cff_release_charsets, cff_release_encoding, cff_release_index, cff_set_name,
+    cff_update_string, CffIndex, Pack,
 };
 use super::dpx_cs_type2::cs_copy_charstring;
 use super::dpx_dpxfile::dpx_open_opentype_file;
@@ -377,9 +377,9 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         panic!("No valid charstring data found.");
     }
     /* New CharStrings INDEX */
-    let charstrings = cff_new_index(257 as u16); /* 256 + 1 for ".notdef" glyph */
+    let mut charstrings = CffIndex::new(257 as u16); /* 256 + 1 for ".notdef" glyph */
     let mut max_len = 2 * 65536;
-    (*charstrings).data =
+    charstrings.data =
         new((max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
             as *mut u8;
     let mut charstring_len = 0;
@@ -416,7 +416,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     if size > 65536 {
         panic!("Charstring too long: gid={}, {} bytes", 0, size);
     }
-    *(*charstrings).offset.offset(0) = (charstring_len + 1) as l_offset;
+    charstrings.offset[0] = (charstring_len + 1) as l_offset;
     let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
     handle
         .seek(SeekFrom::Start(
@@ -426,7 +426,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     let slice = std::slice::from_raw_parts_mut(data, size as usize);
     handle.read(slice).unwrap();
     charstring_len += cs_copy_charstring(
-        (*charstrings).data.offset(charstring_len as isize),
+        charstrings.data[charstring_len as usize..].as_mut_ptr(),
         max_len - charstring_len,
         data,
         size,
@@ -504,14 +504,13 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                     }
                     if charstring_len + 65536 >= max_len {
                         max_len = charstring_len + 2 * 65536;
-                        (*charstrings).data = renew(
-                            (*charstrings).data as *mut libc::c_void,
+                        charstrings.data = renew(
+                            charstrings.data as *mut libc::c_void,
                             (max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64)
                                 as u32,
                         ) as *mut u8
                     }
-                    *(*charstrings).offset.offset(num_glyphs as isize) =
-                        (charstring_len + 1) as l_offset;
+                    charstrings.offset[num_glyphs as usize] = (charstring_len + 1) as l_offset;
                     let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
                     handle
                         .seek(SeekFrom::Start(
@@ -521,7 +520,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                     let slice = std::slice::from_raw_parts_mut(data, size as usize);
                     handle.read(slice).unwrap();
                     charstring_len += cs_copy_charstring(
-                        (*charstrings).data.offset(charstring_len as isize),
+                        charstrings.data[charstring_len as usize..].as_mut_ptr(),
                         max_len - charstring_len,
                         data,
                         size,
@@ -591,9 +590,9 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         /* The above while() loop stopped at unused char or code == 256. */
     }
     cff_release_index(cs_idx);
-    *(*charstrings).offset.offset(num_glyphs as isize) = (charstring_len + 1) as l_offset;
-    (*charstrings).count = num_glyphs;
-    charstring_len = cff_index_size(charstrings) as i32;
+    charstrings.offset[num_glyphs as usize] = (charstring_len + 1) as l_offset;
+    charstrings.count = num_glyphs;
+    charstring_len = charstrings.size() as i32;
     cffont.num_glyphs = num_glyphs;
     /*
      * Discard old one, set new data.
@@ -702,11 +701,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     offset += cff_pack_charsets(&cffont, &mut stream_data[offset..]);
     /* CharStrings */
     cffont.topdict.set("CharStrings", 0, offset as f64);
-    offset += cff_pack_index(
-        &mut *charstrings,
-        &mut stream_data[offset..offset + charstring_len as usize],
-    );
-    cff_release_index(charstrings);
+    offset += charstrings.pack(&mut stream_data[offset..offset + charstring_len as usize]);
     /* Private */
     cffont.topdict.set("Private", 1, offset as f64);
     if let Some(dict) = cffont.private[0].as_mut() {
