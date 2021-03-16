@@ -32,7 +32,7 @@ use std::rc::Rc;
 use super::dpx_cff_dict::{cff_dict, cff_dict_unpack};
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::GetFromFile;
-use libc::{free, memmove, memset};
+use libc::{free, memset};
 
 use crate::bridge::InFile;
 use std::io::{Read, Seek, SeekFrom};
@@ -49,21 +49,11 @@ pub(crate) type l_offset = u32;
 /* 1, 2, 3, or 4-byte offset */
 pub(crate) type s_SID = u16;
 /* 2-byte string identifier  */
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct cff_index {
-    pub(crate) count: u16,
-    pub(crate) offsize: c_offsize,
-    pub(crate) offset: *mut l_offset,
-    pub(crate) data: *mut u8,
-    /* Object data                       */
-}
 
 pub(crate) trait Pack {
     fn pack(&mut self, dest: &mut [u8]) -> usize;
 }
 
-/// Rewrittened cff_index
 #[derive(Clone)]
 pub(crate) struct CffIndex {
     pub(crate) count: u16, // ??
@@ -855,41 +845,36 @@ pub(crate) unsafe fn cff_put_header(cff: &cff_font, dest: &mut [u8]) -> usize {
 }
 /* Only read header part but not body */
 
-pub(crate) unsafe fn cff_get_index_header(cff: &cff_font) -> *mut cff_index {
-    let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
-        as *mut cff_index;
-    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
+pub(crate) unsafe fn cff_get_index_header<R: Read + Seek>(handle: &mut R) -> Option<Box<CffIndex>> {
     let count = u16::get(handle);
-    (*idx).count = count;
     if count as i32 > 0 {
-        (*idx).offsize = u8::get(handle);
-        if ((*idx).offsize as i32) < 1 || (*idx).offsize as i32 > 4 {
+        let offsize = u8::get(handle);
+        if (offsize as i32) < 1 || offsize as i32 > 4 {
             panic!("invalid offsize data");
         }
-        (*idx).offset = new(((count as i32 + 1) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<l_offset>() as u64)
-            as u32) as *mut l_offset;
-        for i in 0..count {
-            *(*idx).offset.offset(i as isize) = get_unsigned(handle, (*idx).offsize as i32);
+        let mut offset = Vec::with_capacity((count + 1) as _);
+        for _ in 0..count {
+            offset.push(get_unsigned(handle, offsize as i32));
         }
         if count as i32 == 0xffff {
             let n = handle.seek(SeekFrom::Current(0)).unwrap();
-            handle
-                .seek(SeekFrom::Start(n + (*idx).offsize as u64))
-                .unwrap();
+            handle.seek(SeekFrom::Start(n + offsize as u64)).unwrap();
+            offset.push(0); //
         } else {
-            *(*idx).offset.offset(count as isize) = get_unsigned(handle, (*idx).offsize as i32)
+            offset.push(get_unsigned(handle, offsize as i32));
         }
-        if *(*idx).offset.offset(0) != 1_u32 {
+        if offset[0] != 1 {
             panic!("cff_get_index(): invalid index data");
         }
-        (*idx).data = ptr::null_mut()
+        Some(Box::new(CffIndex {
+            count,
+            offsize,
+            offset,
+            data: Vec::new(),
+        }))
     } else {
-        (*idx).offsize = 0 as c_offsize;
-        (*idx).offset = ptr::null_mut();
-        (*idx).data = ptr::null_mut()
+        None
     }
-    idx
 }
 
 impl CffIndex {
@@ -927,168 +912,6 @@ impl CffIndex {
             None
         }
     }
-}
-
-pub(crate) unsafe fn cff_get_index(cff: &cff_font) -> *mut cff_index {
-    let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
-        as *mut cff_index;
-    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
-    let count = u16::get(handle);
-    (*idx).count = count;
-    if count as i32 > 0 {
-        (*idx).offsize = u8::get(handle);
-        if ((*idx).offsize as i32) < 1 || (*idx).offsize as i32 > 4 {
-            panic!("invalid offsize data");
-        }
-        (*idx).offset = new(((count as i32 + 1) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<l_offset>() as u64)
-            as u32) as *mut l_offset;
-        for i in 0..count + 1 {
-            *(*idx).offset.offset(i as isize) = get_unsigned(handle, (*idx).offsize as i32);
-        }
-        if *(*idx).offset.offset(0) != 1_u32 {
-            panic!("Invalid CFF Index offset data");
-        }
-        let mut length =
-            (*(*idx).offset.offset(count as isize)).wrapping_sub(*(*idx).offset.offset(0)) as i32;
-        (*idx).data =
-            new((length as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-                as *mut u8;
-        let mut offset = 0;
-        while length > 0 {
-            let slice = std::slice::from_raw_parts_mut(
-                ((*idx).data).offset(offset as isize),
-                length as usize,
-            );
-            let nb_read = handle.read(slice).unwrap() as i32;
-            offset += nb_read;
-            length -= nb_read
-        }
-    } else {
-        (*idx).offsize = 0 as c_offsize;
-        (*idx).offset = ptr::null_mut();
-        (*idx).data = ptr::null_mut()
-    }
-    idx
-}
-
-pub(crate) unsafe fn cff_pack_index(idx: &mut cff_index, mut dest: &mut [u8]) -> usize {
-    let destlen = dest.len();
-    if (idx.count as i32) < 1 {
-        if destlen < 2 {
-            panic!("Not enough space available...");
-        }
-        memset(dest.as_mut_ptr() as *mut libc::c_void, 0, 2);
-        return 2;
-    }
-    let len = cff_index_size(idx);
-    let datalen = (*idx.offset.offset(idx.count as isize)).wrapping_sub(1_u32) as usize;
-    if destlen < len {
-        panic!("Not enough space available...");
-    }
-    dest[0] = (idx.count as i32 >> 8 & 0xff) as u8;
-    dest = &mut dest[1..];
-    dest[0] = (idx.count as i32 & 0xff) as u8;
-    dest = &mut dest[1..];
-    if datalen < 0xff {
-        idx.offsize = 1;
-        dest[0] = 1 as u8;
-        dest = &mut dest[1..];
-        for i in 0..=idx.count as i32 {
-            dest[0] = (*idx.offset.offset(i as isize) & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-        }
-    } else if datalen < 0xffff {
-        idx.offsize = 2;
-        dest[0] = 2;
-        dest = &mut dest[1..];
-        for i in 0..=idx.count as i32 {
-            dest[0] = (*idx.offset.offset(i as isize) >> 8 & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-            dest[0] = (*idx.offset.offset(i as isize) & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-        }
-    } else if datalen < 0xffffff {
-        idx.offsize = 3;
-        dest[0] = 3;
-        dest = &mut dest[1..];
-        for i in 0..=idx.count as i32 {
-            dest[0] = (*idx.offset.offset(i as isize) >> 16 & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-            dest[0] = (*idx.offset.offset(i as isize) >> 8 & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-            dest[0] = (*idx.offset.offset(i as isize) & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-        }
-    } else {
-        idx.offsize = 4;
-        dest[0] = 4;
-        dest = &mut dest[1..];
-        for i in 0..=idx.count as i32 {
-            dest[0] = (*idx.offset.offset(i as isize) >> 24 & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-            dest[0] = (*idx.offset.offset(i as isize) >> 16 & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-            dest[0] = (*idx.offset.offset(i as isize) >> 8 & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-            dest[0] = (*idx.offset.offset(i as isize) & 0xff_u32) as u8;
-            dest = &mut dest[1..];
-        }
-    }
-    memmove(
-        dest.as_mut_ptr() as *mut libc::c_void,
-        idx.data as *const libc::c_void,
-        (*idx.offset.offset(idx.count as isize)).wrapping_sub(1) as _,
-    );
-    len
-}
-
-pub(crate) unsafe fn cff_index_size(mut idx: *mut cff_index) -> usize {
-    if (*idx).count as i32 > 0 {
-        let datalen = (*(*idx).offset.offset((*idx).count as isize)).wrapping_sub(1_u32);
-        if (datalen as u64) < 0xff {
-            (*idx).offsize = 1 as c_offsize
-        } else if (datalen as u64) < 0xffff {
-            (*idx).offsize = 2 as c_offsize
-        } else if (datalen as u64) < 0xffffff {
-            (*idx).offsize = 3 as c_offsize
-        } else {
-            (*idx).offsize = 4 as c_offsize
-        }
-        ((3 + (*idx).offsize as i32 * ((*idx).count as i32 + 1)) as u32).wrapping_add(datalen)
-            as usize
-    } else {
-        2
-    }
-}
-
-pub(crate) unsafe fn cff_new_index(count: u16) -> *mut cff_index {
-    let idx = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_index>() as u64) as u32)
-        as *mut cff_index;
-    (*idx).count = count;
-    (*idx).offsize = 0;
-    if count as i32 > 0 {
-        (*idx).offset = new(((count as i32 + 1) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<l_offset>() as u64)
-            as u32) as *mut l_offset;
-        *(*idx).offset.offset(0) = 1;
-    } else {
-        (*idx).offset = ptr::null_mut()
-    }
-    (*idx).data = ptr::null_mut();
-    idx
-}
-
-pub(crate) unsafe fn cff_release_index(idx: *mut cff_index) {
-    if !idx.is_null() {
-        if !(*idx).data.is_null() {
-            free((*idx).data as *mut libc::c_void);
-        }
-        if !(*idx).offset.is_null() {
-            free((*idx).offset as *mut libc::c_void);
-        }
-        free(idx as *mut libc::c_void);
-    };
 }
 /* Strings */
 
@@ -1981,31 +1804,24 @@ pub(crate) unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
     }
     /* must exist */
     let offset = cff.topdict.get("FDArray", 0) as i32;
-    cff.handle
-        .as_ref()
-        .unwrap()
-        .as_ref()
+    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
+    handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
-    let idx = cff_get_index(cff);
-    cff.num_fds = (*idx).count as u8;
-    cff.fdarray = Vec::with_capacity((*idx).count as usize);
-    for i in 0..(*idx).count as i32 {
-        let data = (*idx)
-            .data
-            .offset(*(*idx).offset.offset(i as isize) as isize)
-            .offset(-1);
-        let size = (*(*idx).offset.offset((i as i32 + 1) as isize))
-            .wrapping_sub(*(*idx).offset.offset(i as isize)) as i32;
+    let mut idx = CffIndex::get(handle).unwrap();
+    cff.num_fds = idx.count as u8;
+    cff.fdarray = Vec::with_capacity(idx.count as usize);
+    for i in 0..idx.count as i32 {
+        let data = &idx.data[idx.offset[i as usize] as usize - 1..];
+        let size = (idx.offset[(i as usize + 1) as usize] - idx.offset[i as usize]) as i32;
         if size > 0 {
-            let data = std::slice::from_raw_parts(data, size as usize);
-            cff.fdarray.push(Some(cff_dict_unpack(data)));
+            cff.fdarray
+                .push(Some(cff_dict_unpack(&data[..size as usize])));
         } else {
             cff.fdarray.push(None);
         }
     }
-    let len = cff_index_size(idx) as i32;
-    cff_release_index(idx);
+    let len = idx.size() as i32;
     len
 }
 /* Flag */

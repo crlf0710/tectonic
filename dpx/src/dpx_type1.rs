@@ -33,7 +33,7 @@ use super::dpx_cff::{
     cff_add_string, cff_get_seac_sid, cff_glyph_lookup_str, cff_pack_charsets, cff_pack_encoding,
     cff_put_header, cff_release_charsets, cff_set_name, cff_update_string, CffIndex, Pack,
 };
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::new;
 use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encoding};
 use super::dpx_pdffont::{
     pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_resource,
@@ -647,7 +647,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
             mfree((*cffont.encoding).supp as *mut libc::c_void) as *mut cff_map
     }
     let cff_cstrings = cffont.cstrings.as_ref().unwrap();
-    let widths = Vec::<f64>::with_capacity(cff_cstrings.count as usize);
+    let mut widths = Vec::<f64>::with_capacity(cff_cstrings.count as usize);
     /* No more strings will be added. The Type 1 seac operator may add another
      * glyph but the glyph name of those glyphs are contained in standard
      * string. The String Index will not be modified after here. BUT: We
@@ -658,7 +658,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     let mut gm = t1_ginfo::new();
     let mut dstlen_max = 0;
     let mut offset = dstlen_max;
-    let cstring = CffIndex::new(cff_cstrings.count);
+    let mut cstring = CffIndex::new(cff_cstrings.count);
     cstring.data = Vec::new();
     cstring.offset[0] = 1 as l_offset;
     /* The num_glyphs increases if "seac" operators are used. */
@@ -666,10 +666,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     while (gid_0 as i32) < num_glyphs as i32 {
         if offset + 65536 >= dstlen_max {
             dstlen_max += 65536 * 2;
-            cstring.data = renew(
-                cstring.data as *mut libc::c_void,
-                (dstlen_max as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
-            ) as *mut u8
+            cstring.data.resize(dstlen_max as _, 0);
         }
         let gid_orig = *GIDMap.offset(gid_0 as isize);
         let dstptr = cstring.data[cstring.offset[gid_0 as usize] as usize - 1..].as_mut_ptr();

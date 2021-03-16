@@ -1040,9 +1040,7 @@ unsafe fn parse_charstrings(
             font.cstrings = if mode != 1 {
                 let mut charstrings = CffIndex::new(count as u16);
                 max_size = 65536;
-                charstrings.data = new((max_size as u32 as u64)
-                    .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                    as u32) as *mut u8;
+                charstrings.data = vec![0; max_size as _];
                 Some(charstrings)
             } else {
                 max_size = 0;
@@ -1120,12 +1118,7 @@ unsafe fn parse_charstrings(
                         if mode != 1 {
                             if offset + len >= max_size {
                                 max_size += if len > 65536 { len } else { 65536 };
-                                charstrings.data = renew(
-                                    charstrings.data as *mut libc::c_void,
-                                    (max_size as u32 as u64)
-                                        .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                                        as u32,
-                                ) as *mut u8
+                                charstrings.data.resize(max_size as _, 0);
                             }
                             if gid == 0 {
                                 if lenIV >= 0 {

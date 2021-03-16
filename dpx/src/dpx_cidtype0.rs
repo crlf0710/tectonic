@@ -41,8 +41,7 @@ use super::dpx_agl::{
 use super::dpx_cff::{
     cff_add_string, cff_charsets_lookup_inverse, cff_get_index_header, cff_get_sid, cff_get_string,
     cff_glyph_lookup, cff_open, cff_pack_charsets, cff_pack_fdselect, cff_put_header,
-    cff_read_charsets, cff_read_fdselect, cff_read_subrs, cff_release_index, cff_set_name,
-    cff_update_string,
+    cff_read_charsets, cff_read_fdselect, cff_read_subrs, cff_set_name, cff_update_string,
 };
 use super::dpx_cff::{
     cff_charsets_lookup, cff_fdselect_lookup, cff_read_fdarray, cff_read_private,
@@ -56,7 +55,7 @@ use super::dpx_cmap::{CMap, CMap_cache_add, CMap_cache_find};
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_cs_type2::cs_copy_charstring;
 use super::dpx_dpxfile::{dpx_open_opentype_file, dpx_open_truetype_file, dpx_open_type1_file};
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::new;
 use super::dpx_mfileio::work_buffer_u8 as work_buffer;
 use super::dpx_pdffont::pdf_font_make_uniqueTag;
 use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
@@ -675,26 +674,15 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
     cff_read_private(&mut cffont);
     cff_read_subrs(&mut cffont);
     let offset = cffont.topdict.get("CharStrings", 0) as u64;
-    cffont
-        .handle
-        .as_ref()
-        .unwrap()
-        .as_ref()
+    let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
+    handle
         .seek(SeekFrom::Start((*cffont).offset as u64 + offset))
         .unwrap();
-    let idx = cff_get_index_header(&cffont);
+    let idx =
+        cff_get_index_header(handle).unwrap_or_else(|| panic!("No valid charstring data found."));
     /* offset is now absolute offset ... bad */
-    let offset = cffont
-        .handle
-        .as_ref()
-        .unwrap()
-        .as_ref()
-        .seek(SeekFrom::Current(0))
-        .unwrap();
-    let cs_count = (*idx).count;
-    if (cs_count as i32) < 2 {
-        panic!("No valid charstring data found.");
-    }
+    let offset = handle.seek(SeekFrom::Current(0)).unwrap();
+    let cs_count = idx.count;
     /* New Charsets data */
     let charset = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
         as *mut cff_charsets;
@@ -712,11 +700,9 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
         .wrapping_mul(::std::mem::size_of::<cff_range3>() as u64)
         as u32) as *mut cff_range3;
     /* New CharStrings INDEX */
-    let charstrings = CffIndex::new((num_glyphs as i32 + 1) as u16);
+    let mut charstrings = CffIndex::new((num_glyphs as i32 + 1) as u16);
     let mut max_len = 2 * 65536;
-    charstrings.data =
-        new((max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
+    charstrings.data = vec![0; max_len];
     let mut charstring_len = 0;
     /*
      * TODO: Re-assign FD number.
@@ -729,24 +715,20 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
             let gid_org = ((*CIDToGIDMap.offset((2 * cid) as isize) as i32) << 8
                 | *CIDToGIDMap.offset((2 * cid + 1) as isize) as i32)
                 as u16;
-            let size = (*(*idx).offset.offset((gid_org as i32 + 1) as isize))
-                .wrapping_sub(*(*idx).offset.offset(gid_org as isize))
-                as i32;
+            let size =
+                (idx.offset[(gid_org as i32 + 1) as usize] - idx.offset[gid_org as usize]) as i32;
             if size > 65536 {
                 panic!("Charstring too long: gid={}", gid_org);
             }
             if charstring_len + 65536 >= max_len {
                 max_len = charstring_len + 2 * 65536;
-                charstrings.data = renew(
-                    charstrings.data as *mut libc::c_void,
-                    (max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
-                ) as *mut u8
+                charstrings.data.resize(max_len, 0);
             }
             charstrings.offset[gid as usize] = (charstring_len + 1) as l_offset;
             let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
             handle
                 .seek(SeekFrom::Start(
-                    offset as u64 + *(*idx).offset.offset(gid_org as isize) as u64 - 1,
+                    offset as u64 + idx.offset[gid_org as usize] as u64 - 1,
                 ))
                 .unwrap();
             let slice = std::slice::from_raw_parts_mut(data, size as usize);
@@ -754,7 +736,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
             let fd = cff_fdselect_lookup(&cffont, gid_org) as i32;
             charstring_len += cs_copy_charstring(
                 charstrings.data[charstring_len as usize..].as_mut_ptr(),
-                max_len - charstring_len,
+                (max_len - charstring_len) as i32,
                 data,
                 size,
                 &cffont.gsubr,
@@ -762,7 +744,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
                 0 as f64,
                 0 as f64,
                 ptr::null_mut(),
-            );
+            ) as usize;
             if cid > 0 && gid_org as i32 > 0 {
                 *(*charset)
                     .data
@@ -791,7 +773,6 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
         panic!("Unexpeced error: ?????");
     }
     free(data as *mut libc::c_void);
-    cff_release_index(idx);
     free(CIDToGIDMap as *mut libc::c_void);
     charstrings.offset[num_glyphs as usize] = (charstring_len + 1) as l_offset;
     charstrings.count = num_glyphs;
@@ -1083,60 +1064,43 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
     cffont.topdict.remove("Encoding");
     /* */
     let offset = cffont.topdict.get("CharStrings", 0) as i32;
-    cffont
-        .handle
-        .as_ref()
-        .unwrap()
-        .as_ref()
+    let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
+    handle
         .seek(SeekFrom::Start(cffont.offset as u64 + offset as u64))
         .unwrap();
-    let idx = cff_get_index_header(&cffont);
+    let idx =
+        cff_get_index_header(handle).unwrap_or_else(|| panic!("No valid charstring data found."));
     /* offset is now absolute offset ... bad */
-    let offset = cffont
-        .handle
-        .as_ref()
-        .unwrap()
-        .as_ref()
-        .seek(SeekFrom::Current(0))
-        .unwrap();
-    if ((*idx).count as i32) < 2 {
-        panic!("No valid charstring data found.");
-    }
+    let offset = handle.seek(SeekFrom::Current(0)).unwrap();
     /* New CharStrings INDEX */
-    let charstrings = CffIndex::new((num_glyphs as i32 + 1) as u16);
+    let mut charstrings = CffIndex::new((num_glyphs as i32 + 1) as u16);
     let mut max_len = 2 * 65536;
-    charstrings.data =
-        new((max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
+    charstrings.data = vec![0; max_len];
     let mut charstring_len = 0;
     gid = 0 as u16;
     let data = new((65536_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
     for cid in 0..=last_cid as i32 {
         if !(*used_chars.offset((cid / 8) as isize) as i32 & 1 << 7 - cid % 8 == 0) {
-            let size = (*(*idx).offset.offset((cid + 1) as isize))
-                .wrapping_sub(*(*idx).offset.offset(cid as isize)) as i32;
+            let size = (idx.offset[(cid + 1) as usize] - idx.offset[cid as usize]) as i32;
             if size > 65536 {
                 panic!("Charstring too long: gid={}", cid);
             }
             if charstring_len + 65536 >= max_len {
                 max_len = charstring_len + 2 * 65536;
-                charstrings.data = renew(
-                    charstrings.data as *mut libc::c_void,
-                    (max_len as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
-                ) as *mut u8
+                charstrings.data.resize(max_len, 0);
             }
             charstrings.offset[gid as usize] = (charstring_len + 1) as l_offset;
             let handle = &mut cffont.handle.as_ref().unwrap().as_ref();
             handle
                 .seek(SeekFrom::Start(
-                    offset as u64 + *(*idx).offset.offset(cid as isize) as u64 - 1,
+                    offset as u64 + idx.offset[cid as usize] as u64 - 1,
                 ))
                 .unwrap();
             let slice = std::slice::from_raw_parts_mut(data, size as usize);
             handle.read(slice).unwrap();
             charstring_len += cs_copy_charstring(
                 charstrings.data[charstring_len as usize..].as_mut_ptr(),
-                max_len - charstring_len,
+                (max_len - charstring_len) as i32,
                 data,
                 size,
                 &cffont.gsubr,
@@ -1144,7 +1108,7 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
                 default_width,
                 nominal_width,
                 ptr::null_mut(),
-            );
+            ) as usize;
             gid = gid.wrapping_add(1)
         }
     }
@@ -1152,7 +1116,6 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
         panic!("Unexpeced error: ?????");
     }
     free(data as *mut libc::c_void);
-    cff_release_index(idx);
     charstrings.offset[num_glyphs as usize] = (charstring_len + 1) as l_offset;
     charstrings.count = num_glyphs;
     cffont.num_glyphs = num_glyphs;
@@ -1689,7 +1652,6 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
     cffont.topdict.add("CharStrings", 1);
     cffont.topdict.set("CharStrings", 0, 0.);
     let mut gm = t1_ginfo::new();
-    let mut max: i32 = 0;
     let mut w_stat: [i32; 1001] = [0; 1001];
     let widths =
         new((num_glyphs as u32 as u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32)
@@ -1700,19 +1662,17 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
         (::std::mem::size_of::<i32>()).wrapping_mul(1001),
     );
     let mut offset = 0;
-    let cstring = CffIndex::new(num_glyphs as u16);
+    let mut cstring = CffIndex::new(num_glyphs as u16);
     cstring.data = Vec::new();
     cstring.offset[0] = 1 as l_offset;
     gid = 0 as u16;
     let cff_cstrings = cffont.cstrings.as_ref().unwrap();
+    let mut max = 0;
     for cid in 0..=last_cid as u16 {
         if !(*used_chars.offset((cid as i32 / 8) as isize) as i32 & 1 << 7 - cid as i32 % 8 == 0) {
             if offset + 65536 >= max {
                 max += 65536 * 2;
-                cstring.data = renew(
-                    cstring.data as *mut libc::c_void,
-                    (max as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32,
-                ) as *mut u8
+                cstring.data.resize(max, 0);
             }
             offset += t1char_convert_charstring(
                 cstring.data[cstring.offset[gid as usize] as usize - 1..].as_mut_ptr(),
@@ -1724,7 +1684,7 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
                 defaultwidth,
                 nominalwidth,
                 &mut gm,
-            );
+            ) as usize;
             cstring.offset[(gid as i32 + 1) as usize] = (offset + 1) as l_offset;
             if gm.use_seac != 0 {
                 panic!("This font using the \"seac\" command for accented characters...");
