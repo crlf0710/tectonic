@@ -256,14 +256,14 @@ pub(crate) struct cff_font {
     pub(crate) name: Box<CffIndex>,
     pub(crate) topdict: cff_dict,
     pub(crate) string: Option<Box<CffIndex>>,
-    pub(crate) gsubr: *mut cff_index,
+    pub(crate) gsubr: Option<Box<CffIndex>>,
     pub(crate) encoding: *mut cff_encoding,
     pub(crate) charsets: *mut cff_charsets,
     pub(crate) fdselect: *mut cff_fdselect,
     pub(crate) cstrings: *mut cff_index,
     pub(crate) fdarray: Vec<Option<cff_dict>>,
     pub(crate) private: Vec<Option<cff_dict>>,
-    pub(crate) subrs: *mut *mut cff_index,
+    pub(crate) subrs: Vec<Option<Box<CffIndex>>>,
     pub(crate) offset: l_offset,
     pub(crate) gsubr_offset: l_offset,
     pub(crate) num_glyphs: u16,
@@ -788,14 +788,14 @@ pub(crate) unsafe fn cff_open(
         flag,
         name,
         topdict,
-        gsubr: ptr::null_mut(),
+        gsubr: None,
         encoding: ptr::null_mut(),
         charsets: ptr::null_mut(),
         fdselect: ptr::null_mut(),
         cstrings: ptr::null_mut(),
         fdarray: Vec::new(),
         private: Vec::new(),
-        subrs: 0 as *mut *mut cff_index,
+        subrs: Vec::new(),
         num_glyphs,
         num_fds: 0,
         string,
@@ -811,9 +811,6 @@ pub(crate) unsafe fn cff_open(
 impl Drop for cff_font {
     fn drop(&mut self) {
         unsafe {
-            if !self.gsubr.is_null() {
-                cff_release_index(self.gsubr);
-            }
             if !self.encoding.is_null() {
                 cff_release_encoding(self.encoding);
             }
@@ -825,14 +822,6 @@ impl Drop for cff_font {
             }
             if !self.cstrings.is_null() {
                 cff_release_index(self.cstrings);
-            }
-            if !self.subrs.is_null() {
-                for i in 0..self.num_fds {
-                    if !(*self.subrs.offset(i as isize)).is_null() {
-                        cff_release_index(*self.subrs.offset(i as isize));
-                    }
-                }
-                free(self.subrs as *mut libc::c_void);
             }
         }
     }
@@ -1945,34 +1934,30 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
     if cff.private.is_empty() {
         cff_read_private(cff);
     }
-    if cff.gsubr.is_null() {
+    if cff.gsubr.is_none() {
         cff.handle
             .as_ref()
             .unwrap()
             .as_ref()
             .seek(SeekFrom::Start(cff.offset as u64 + cff.gsubr_offset as u64))
             .unwrap();
-        cff.gsubr = cff_get_index(cff)
+        cff.gsubr = CffIndex::get(&mut cff.handle.as_ref().unwrap().as_ref());
     }
-    cff.subrs = new((cff.num_fds as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<*mut cff_index>() as u64) as u32)
-        as *mut *mut cff_index;
+    cff.subrs = Vec::with_capacity(cff.num_fds as usize);
     if cff.flag & 1 << 0 != 0 {
-        for i in 0..cff.num_fds as i32 {
-            match cff.private[i as usize].as_ref() {
+        for i in 0..cff.num_fds as usize {
+            match cff.private[i].as_ref() {
                 Some(private) if private.contains_key("Subrs") => {
-                    let offset = cff.fdarray[i as usize].as_ref().unwrap().get("Private", 1) as i32;
+                    let offset = cff.fdarray[i].as_ref().unwrap().get("Private", 1) as i32;
                     let offset = (offset as f64 + private.get("Subrs", 0)) as i32;
-                    cff.handle
-                        .as_ref()
-                        .unwrap()
-                        .as_ref()
+                    let handle = &mut cff.handle.as_ref().unwrap().as_ref();
+                    handle
                         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                         .unwrap();
-                    *cff.subrs.offset(i as isize) = cff_get_index(cff);
-                    len += cff_index_size(*cff.subrs.offset(i as isize)) as i32;
+                    cff.subrs.push(CffIndex::get(handle));
+                    len += cff.subrs[i].as_mut().unwrap().size() as i32;
                 }
-                _ => *cff.subrs.offset(i as isize) = ptr::null_mut(),
+                _ => cff.subrs.push(None),
             }
         }
     } else {
@@ -1980,16 +1965,14 @@ pub(crate) unsafe fn cff_read_subrs(cff: &mut cff_font) -> i32 {
             Some(private) if private.contains_key("Subrs") => {
                 let offset = cff.topdict.get("Private", 1) as i32;
                 let offset = (offset as f64 + private.get("Subrs", 0)) as i32;
-                cff.handle
-                    .as_ref()
-                    .unwrap()
-                    .as_ref()
+                let handle = &mut cff.handle.as_ref().unwrap().as_ref();
+                handle
                     .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
                     .unwrap();
-                *cff.subrs.offset(0) = cff_get_index(cff);
-                len += cff_index_size(*cff.subrs.offset(0)) as i32;
+                cff.subrs.push(CffIndex::get(handle));
+                len += cff.subrs[0].as_mut().unwrap().size() as i32;
             }
-            _ => *cff.subrs.offset(0) = ptr::null_mut(),
+            _ => cff.subrs.push(None),
         }
     }
     len

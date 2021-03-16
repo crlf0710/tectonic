@@ -420,7 +420,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     destlen += cff_set_name(cffont, &(*font).fontname) as usize;
     destlen += topdict.size();
     destlen += cffont.string.as_mut().unwrap().size();
-    destlen += cff_index_size(cffont.gsubr);
+    destlen += cffont.gsubr.as_mut().unwrap().size();
     destlen += (*cffont.charsets).num_entries as usize * 2 + 1;
     destlen += (*cffont.fdselect).num_entries as usize * 3 + 5;
     destlen += cff_index_size(cffont.cstrings);
@@ -444,7 +444,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
         .unwrap()
         .pack(&mut dest[offset..]);
     /* Global Subrs */
-    offset += cff_pack_index(&mut *cffont.gsubr, &mut dest[offset..]);
+    offset += cffont.gsubr.as_mut().unwrap().pack(&mut dest[offset..]);
     /* charset */
     cffont.topdict.set("charset", 0, offset as f64);
     offset += cff_pack_charsets(cffont, &mut dest[offset..]);
@@ -756,8 +756,8 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
                 max_len - charstring_len,
                 data,
                 size,
-                (*cffont).gsubr,
-                *(*cffont).subrs.offset(fd as isize),
+                &cffont.gsubr,
+                &cffont.subrs[fd as usize],
                 0 as f64,
                 0 as f64,
                 ptr::null_mut(),
@@ -802,14 +802,10 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
     cff_release_fdselect(cffont.fdselect);
     cffont.fdselect = fdselect;
     /* no Global subr */
-    if !(*cffont).gsubr.is_null() {
-        cff_release_index(cffont.gsubr);
-    }
-    cffont.gsubr = cff_new_index(0 as u16);
-    for fd in 0..cffont.num_fds as i32 {
-        if !cffont.subrs.is_null() && !(*cffont.subrs.offset(fd as isize)).is_null() {
-            cff_release_index(*cffont.subrs.offset(fd as isize));
-            *cffont.subrs.offset(fd as isize) = ptr::null_mut()
+    cffont.gsubr = Some(CffIndex::new(0));
+    for fd in 0..cffont.num_fds as usize {
+        if cffont.subrs.len() > fd {
+            cffont.subrs[fd] = None;
         }
         if !cffont.private.is_empty() {
             if let Some(private) = cffont.private[fd as usize].as_mut() {
@@ -1142,8 +1138,8 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
                 max_len - charstring_len,
                 data,
                 size,
-                cffont.gsubr,
-                *cffont.subrs.offset(0),
+                &cffont.gsubr,
+                &cffont.subrs[0],
                 default_width,
                 nominal_width,
                 ptr::null_mut(),
@@ -1161,13 +1157,9 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
     cffont.num_glyphs = num_glyphs;
     cffont.cstrings = charstrings;
     /* no Global subr */
-    if !cffont.gsubr.is_null() {
-        cff_release_index(cffont.gsubr);
-    }
-    cffont.gsubr = cff_new_index(0 as u16);
-    if !cffont.subrs.is_null() && !(*cffont.subrs.offset(0)).is_null() {
-        cff_release_index(*cffont.subrs.offset(0));
-        *cffont.subrs.offset(0) = ptr::null_mut()
+    cffont.gsubr = Some(CffIndex::new(0));
+    if !cffont.subrs.is_empty() {
+        cffont.subrs[0] = None;
     }
     if !cffont.private.is_empty() {
         if let Some(private) = cffont.private[0].as_mut() {
@@ -1416,7 +1408,7 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
                 .offset(-1),
             (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
                 .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize)) as i32,
-            *cffont.subrs.offset(0),
+            &cffont.subrs[0],
             &mut gm,
         );
         defaultwidth = gm.wx
@@ -1432,7 +1424,7 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
                 (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
                     .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize))
                     as i32,
-                *cffont.subrs.offset(0),
+                &cffont.subrs[0],
                 &mut gm,
             );
             capheight = gm.bbox.ury;
@@ -1450,7 +1442,7 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
                 (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
                     .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize))
                     as i32,
-                *cffont.subrs.offset(0),
+                &cffont.subrs[0],
                 &mut gm,
             );
             descent = gm.bbox.lly;
@@ -1468,7 +1460,7 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
                 (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
                     .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize))
                     as i32,
-                *cffont.subrs.offset(0),
+                &cffont.subrs[0],
                 &mut gm,
             );
             ascent = gm.bbox.ury;
@@ -1748,7 +1740,7 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
                 (*(*cffont.cstrings).offset.offset((cid as i32 + 1) as isize))
                     .wrapping_sub(*(*cffont.cstrings).offset.offset(cid as isize))
                     as i32,
-                *cffont.subrs.offset(0),
+                &cffont.subrs[0],
                 defaultwidth,
                 nominalwidth,
                 &mut gm,
@@ -1780,8 +1772,7 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
         add_metrics(font, &cffont, CIDToGIDMap, widths, defaultwidth, last_cid);
     }
     free(widths as *mut libc::c_void);
-    cff_release_index(*cffont.subrs.offset(0));
-    *cffont.subrs.offset(0) = ptr::null_mut();
+    cffont.subrs[0] = None;
     free(CIDToGIDMap as *mut libc::c_void);
     cff_add_string(&mut cffont, "Adobe", 1);
     cff_add_string(&mut cffont, "Identity", 1);

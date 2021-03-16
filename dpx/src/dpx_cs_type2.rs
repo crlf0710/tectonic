@@ -31,7 +31,7 @@ use libc::memmove;
 
 use std::ptr;
 
-use super::dpx_cff::cff_index;
+use crate::dpx_cff::CffIndex;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct cs_ginfo {
@@ -702,14 +702,19 @@ unsafe fn get_fixed(data: &mut *const u8, endptr: *const u8) {
  * subr_idx: CFF INDEX data that contains subroutines.
  * id:       biased subroutine number.
  */
-unsafe fn get_subr(subr: &mut *const u8, len: *mut i32, subr_idx: *const cff_index, mut id: i32) {
-    if subr_idx.is_null() {
+unsafe fn get_subr(
+    subr: &mut *const u8,
+    len: *mut i32,
+    subr_idx: &Option<Box<CffIndex>>,
+    mut id: i32,
+) {
+    let subr_idx = subr_idx.as_ref().unwrap_or_else(|| {
         panic!(
             "{}: Subroutine called but no subroutine found.",
             "Type2 Charstring Parser",
-        );
-    }
-    let count = (*subr_idx).count;
+        )
+    });
+    let count = subr_idx.count;
     /* Adding bias number */
     if (count as i32) < 1240 {
         id += 107
@@ -724,12 +729,8 @@ unsafe fn get_subr(subr: &mut *const u8, len: *mut i32, subr_idx: *const cff_ind
             "Type2 Charstring Parser", id, count,
         );
     }
-    *len = (*(*subr_idx).offset.offset((id + 1) as isize))
-        .wrapping_sub(*(*subr_idx).offset.offset(id as isize)) as i32;
-    *subr = (*subr_idx)
-        .data
-        .offset(*(*subr_idx).offset.offset(id as isize) as isize)
-        .offset(-1);
+    *len = (subr_idx.offset[(id + 1) as usize] - subr_idx.offset[id as usize]) as i32;
+    *subr = subr_idx.data[subr_idx.offset[id as usize] as usize - 1..].as_ptr();
 }
 /*
  * NOTE:
@@ -742,8 +743,8 @@ unsafe fn do_charstring(
     limit: *mut u8,
     data: &mut *const u8,
     endptr: *const u8,
-    gsubr_idx: *const cff_index,
-    subr_idx: *const cff_index,
+    gsubr_idx: &Option<Box<CffIndex>>,
+    subr_idx: &Option<Box<CffIndex>>,
 ) {
     let mut len: i32 = 0;
     if nest > 10 {
@@ -842,8 +843,8 @@ pub(crate) unsafe fn cs_copy_charstring(
     dstlen: i32,
     mut src: *const u8,
     srclen: i32,
-    gsubr: *const cff_index,
-    subr: *const cff_index,
+    gsubr: &Option<Box<CffIndex>>,
+    subr: &Option<Box<CffIndex>>,
     default_width: f64,
     nominal_width: f64,
     mut ginfo: *mut cs_ginfo,

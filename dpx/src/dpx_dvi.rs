@@ -1550,7 +1550,7 @@ unsafe fn do_glyphs(do_actual_text: i32) {
                     (*(*cstrings).offset.offset((glyph_id + 1) as isize))
                         .wrapping_sub(*(*cstrings).offset.offset(glyph_id as isize))
                         as i32,
-                    *(*font.cffont).subrs.offset(0),
+                    &(*font.cffont).subrs[0],
                     &mut gm,
                 );
                 advance = (if font.layout_dir == 0 { gm.wx } else { gm.wy }) as u32;

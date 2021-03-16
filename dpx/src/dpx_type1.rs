@@ -49,7 +49,6 @@ use crate::dpx_pdfobj::{pdf_stream, pdf_string, IntoRef, PushObj, STREAM_COMPRES
 use bridge::{InFile, TTInputFormat};
 use libc::free;
 
-use super::dpx_cff::cff_index;
 /* quasi-hack to get the primary input */
 /* CFF Data Types */
 /* SID SID number */
@@ -190,7 +189,7 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &mut cff_font) {
                 .offset(-1),
             (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
                 .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize)) as i32,
-            *cffont.subrs.offset(0),
+            &cffont.subrs[0],
             &mut gm,
         );
         defaultwidth = gm.wx
@@ -206,7 +205,7 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &mut cff_font) {
                 (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
                     .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize))
                     as i32,
-                *cffont.subrs.offset(0),
+                &cffont.subrs[0],
                 &mut gm,
             );
             capheight = gm.bbox.ury;
@@ -224,7 +223,7 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &mut cff_font) {
                 (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
                     .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize))
                     as i32,
-                *cffont.subrs.offset(0),
+                &cffont.subrs[0],
                 &mut gm,
             );
             descent = gm.bbox.lly;
@@ -242,7 +241,7 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &mut cff_font) {
                 (*(*cffont.cstrings).offset.offset((gid + 1) as isize))
                     .wrapping_sub(*(*cffont.cstrings).offset.offset(gid as isize))
                     as i32,
-                *cffont.subrs.offset(0),
+                &cffont.subrs[0],
                 &mut gm,
             );
             ascent = gm.bbox.ury;
@@ -421,7 +420,7 @@ unsafe fn write_fontfile(
     stream_data_len += cffont.name.size();
     stream_data_len += topdict.size();
     stream_data_len += cffont.string.as_mut().unwrap().size();
-    stream_data_len += cff_index_size(cffont.gsubr);
+    stream_data_len += cffont.gsubr.as_mut().unwrap().size();
     /* We are using format 1 for Encoding and format 0 for charset.
      * TODO: Should implement cff_xxx_size().
      */
@@ -454,7 +453,11 @@ unsafe fn write_fontfile(
         .unwrap()
         .pack(&mut stream_data[offset..]);
     /* Global Subrs */
-    offset += cff_pack_index(&mut *cffont.gsubr, &mut stream_data[offset..]);
+    offset += cffont
+        .gsubr
+        .as_mut()
+        .unwrap()
+        .pack(&mut stream_data[offset..]);
     /* Encoding */
     /* TODO: don't write Encoding entry if the font is always used
      * with PDF Encoding information. Applies to type1c.c as well.
@@ -707,7 +710,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
             65536,
             srcptr,
             srclen,
-            *cffont.subrs.offset(0),
+            &cffont.subrs[0],
             defaultwidth,
             nominalwidth,
             &mut gm,
@@ -783,9 +786,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         gid_0 += 1;
     }
     (*cstring).count = num_glyphs;
-    cff_release_index(*cffont.subrs.offset(0));
-    *cffont.subrs.offset(0) = ptr::null_mut();
-    cffont.subrs = mfree(cffont.subrs as *mut libc::c_void) as *mut *mut cff_index;
+    cffont.subrs = Vec::new();
     cff_release_index(cffont.cstrings);
     cffont.cstrings = cstring;
     cff_release_charsets(cffont.charsets);

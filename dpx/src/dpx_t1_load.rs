@@ -51,8 +51,6 @@ pub(crate) type l_offset = u32;
 pub(crate) type s_SID = u16;
 /* 2-byte string identifier  */
 
-use super::dpx_cff::cff_index;
-
 use super::dpx_cff_dict::cff_dict;
 /* Encoding, Charset and FDSelect */
 use super::dpx_cff::cff_charsets;
@@ -876,7 +874,7 @@ unsafe fn parse_subrs(
         }
     };
     if count == 0 {
-        *font.subrs.offset(0) = ptr::null_mut();
+        font.subrs[0] = None;
         return Ok(());
     }
     match pst_get_token(start, end) {
@@ -996,26 +994,20 @@ unsafe fn parse_subrs(
         }
     }
     if mode != 1 {
-        if (*font.subrs.offset(0)).is_null() {
-            let ref mut fresh17 = *font.subrs.offset(0);
-            *fresh17 = cff_new_index(count as u16);
-            let subrs = *fresh17;
-            (*subrs).data = new((offset as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                as u32) as *mut u8;
-            offset = 0;
-            for i in 0..count {
-                *(*subrs).offset.offset(i as isize) = (offset + 1) as l_offset;
-                if *lengths.offset(i as isize) > 0 {
-                    memcpy(
-                        (*subrs).data.offset(offset as isize) as *mut libc::c_void,
-                        data.offset(*offsets.offset(i as isize) as isize) as *const libc::c_void,
-                        *lengths.offset(i as isize) as _,
-                    );
-                    offset += *lengths.offset(i as isize)
+        if font.subrs[0].is_none() {
+            let mut subrs = CffIndex::new(count as u16);
+            subrs.data = Vec::with_capacity(offset as usize);
+            for i in 0..count as usize {
+                subrs.offset[i] = (subrs.data.len() + 1) as l_offset;
+                if *lengths.add(i) > 0 {
+                    subrs.data.extend(std::slice::from_raw_parts(
+                        data.offset(*offsets.add(i) as isize),
+                        *lengths.add(i) as _,
+                    ));
                 }
             }
-            *(*subrs).offset.offset(count as isize) = (offset + 1) as l_offset
+            subrs.offset[count as usize] = (subrs.data.len() + 1) as l_offset;
+            font.subrs[0] = Some(subrs);
         } else {
             /* Adobe's OPO_____.PFB and OPBO____.PFB have two /Subrs dicts,
              * and also have /CharStrings not followed by dicts.
@@ -1548,7 +1540,7 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &
 
 impl cff_font {
     unsafe fn new() -> Self {
-        let cff = cff_font {
+        Self {
             handle: None,
             filter: 0,
             fontname: String::new(),
@@ -1563,24 +1555,21 @@ impl cff_font {
             name: CffIndex::new(1),
             topdict: cff_dict::new(),
             string: None,
-            gsubr: cff_new_index(0),
+            gsubr: Some(CffIndex::new(0)),
             encoding: ptr::null_mut(),
             charsets: ptr::null_mut(),
             fdselect: ptr::null_mut(),
             cstrings: ptr::null_mut(),
             fdarray: Vec::new(),
             private: vec![Some(cff_dict::new())],
-            subrs: new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_index>() as u64) as u32)
-                as *mut *mut cff_index,
+            subrs: vec![None],
             offset: 0 as l_offset,
             gsubr_offset: 0 as l_offset,
             num_glyphs: 0,
             num_fds: 1,
             _string: Some(CffIndex::new(0)),
             is_notdef_notzero: 0,
-        };
-        *cff.subrs.offset(0) = ptr::null_mut();
-        cff
+        }
     }
 }
 

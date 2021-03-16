@@ -28,7 +28,6 @@
 
 use super::dpx_sfnt::{sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
 use crate::{info, warn};
-use std::ptr;
 
 use super::dpx_cff::{
     cff_add_string, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
@@ -431,8 +430,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         max_len - charstring_len,
         data,
         size,
-        cffont.gsubr,
-        *cffont.subrs.offset(0),
+        &cffont.gsubr,
+        &cffont.subrs[0],
         default_width,
         nominal_width,
         &mut ginfo,
@@ -526,8 +525,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                         max_len - charstring_len,
                         data,
                         size,
-                        cffont.gsubr,
-                        *cffont.subrs.offset(0),
+                        &cffont.gsubr,
+                        &cffont.subrs[0],
                         default_width,
                         nominal_width,
                         &mut ginfo,
@@ -610,14 +609,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /*
      * We don't use subroutines at all.
      */
-    if !cffont.gsubr.is_null() {
-        cff_release_index(cffont.gsubr);
-    }
-    cffont.gsubr = cff_new_index(0 as u16);
-    if !(*cffont.subrs.offset(0)).is_null() {
-        cff_release_index(*cffont.subrs.offset(0));
-    }
-    *cffont.subrs.offset(0) = ptr::null_mut();
+    cffont.gsubr = Some(CffIndex::new(0));
+    cffont.subrs[0] = None;
     /*
      * Flag must be reset since cff_pack_encoding(charset) does not write
      * encoding(charset) if HAVE_STANDARD_ENCODING(CHARSET) is set. We are
@@ -665,7 +658,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     stream_data_len += cff_set_name(&mut cffont, &fullname) as usize;
     stream_data_len += topdict.size();
     stream_data_len += cffont.string.as_mut().unwrap().size();
-    stream_data_len += cff_index_size(cffont.gsubr);
+    stream_data_len += cffont.gsubr.as_mut().unwrap().size();
     /* We are using format 1 for Encoding and format 0 for charset.
      * TODO: Should implement cff_xxx_size().
      */
@@ -696,7 +689,11 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         .unwrap()
         .pack(&mut stream_data[offset..]);
     /* Global Subrs */
-    offset += cff_pack_index(&mut *cffont.gsubr, &mut stream_data[offset..]);
+    offset += cffont
+        .gsubr
+        .as_mut()
+        .unwrap()
+        .pack(&mut stream_data[offset..]);
     /* Encoding */
     cffont.topdict.set("Encoding", 0, offset as f64);
     offset += cff_pack_encoding(&cffont, &mut stream_data[offset..]);
