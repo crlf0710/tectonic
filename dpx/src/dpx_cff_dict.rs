@@ -68,8 +68,6 @@ enum CffError {
 of an Offset field or fields, range 1-4 */
 /* 1, 2, 3, or 4-byte offset */
 /* 2-byte string identifier  */
-use super::dpx_cff::cff_dict;
-use super::dpx_cff::cff_dict_entry;
 /* CID-Keyed font specific */
 use super::dpx_cff::cff_font;
 #[derive(Copy, Clone)]
@@ -85,12 +83,27 @@ impl Operator {
     }
 }
 
+#[derive(Clone, Default)]
+#[repr(C)]
+pub(crate) struct cff_dict {
+    pub(crate) entries: Vec<cff_dict_entry>,
+}
+
 impl cff_dict {
     pub(crate) fn new() -> Self {
         Self {
             entries: Vec::with_capacity(16),
         }
     }
+}
+
+/* Dictionary */
+#[derive(Clone)]
+pub(crate) struct cff_dict_entry {
+    pub(crate) id: i32,
+    pub(crate) key: &'static str,
+    pub(crate) values: Box<[f64]>,
+    /* values                                  */
 }
 
 const CFF_DICT_STACK_LIMIT: usize = 64;

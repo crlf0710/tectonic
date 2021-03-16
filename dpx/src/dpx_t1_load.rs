@@ -53,7 +53,7 @@ pub(crate) type s_SID = u16;
 
 use super::dpx_cff::cff_index;
 
-use super::dpx_cff::cff_dict;
+use super::dpx_cff_dict::cff_dict;
 /* Encoding, Charset and FDSelect */
 use super::dpx_cff::cff_charsets;
 
@@ -859,7 +859,7 @@ unsafe fn parse_encoding(enc_vec: &mut [String], start: &mut *const u8, end: *co
     0
 }
 unsafe fn parse_subrs(
-    font: &cff_font,
+    font: &mut cff_font,
     start: &mut *const u8,
     end: *const u8,
     lenIV: i32,

@@ -89,8 +89,8 @@ use super::dpx_cff::cff_fdselect;
 use super::dpx_cff::cff_range3;
 use super::dpx_tt_table::tt_longMetrics;
 
-use super::dpx_cff::cff_dict;
 use super::dpx_cff::cff_font;
+use super::dpx_cff_dict::cff_dict;
 
 use super::dpx_tt_table::{tt_head_table, tt_maxp_table};
 /* Acoid conflict with CHAR ... from <winnt.h>.  */
@@ -419,7 +419,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     let mut destlen = 4_usize;
     destlen += cff_set_name(cffont, &(*font).fontname) as usize;
     destlen += topdict.size();
-    destlen += cffont.string.as_deref_mut().unwrap().size();
+    destlen += cffont.string.as_mut().unwrap().size();
     destlen += cff_index_size(cffont.gsubr);
     destlen += (*cffont.charsets).num_entries as usize * 2 + 1;
     destlen += (*cffont.fdselect).num_entries as usize * 3 + 5;
@@ -794,24 +794,24 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
     free(CIDToGIDMap as *mut libc::c_void);
     *(*charstrings).offset.offset(num_glyphs as isize) = (charstring_len + 1) as l_offset;
     (*charstrings).count = num_glyphs;
-    (*cffont).num_glyphs = num_glyphs;
-    (*cffont).cstrings = charstrings;
+    cffont.num_glyphs = num_glyphs;
+    cffont.cstrings = charstrings;
     /* discard old one, set new data */
-    cff_release_charsets((*cffont).charsets);
-    (*cffont).charsets = charset;
-    cff_release_fdselect((*cffont).fdselect);
-    (*cffont).fdselect = fdselect;
+    cff_release_charsets(cffont.charsets);
+    cffont.charsets = charset;
+    cff_release_fdselect(cffont.fdselect);
+    cffont.fdselect = fdselect;
     /* no Global subr */
     if !(*cffont).gsubr.is_null() {
-        cff_release_index((*cffont).gsubr);
+        cff_release_index(cffont.gsubr);
     }
-    (*cffont).gsubr = cff_new_index(0 as u16);
-    for fd in 0..(*cffont).num_fds as i32 {
-        if !(*cffont).subrs.is_null() && !(*(*cffont).subrs.offset(fd as isize)).is_null() {
-            cff_release_index(*(*cffont).subrs.offset(fd as isize));
-            *(*cffont).subrs.offset(fd as isize) = ptr::null_mut()
+    cffont.gsubr = cff_new_index(0 as u16);
+    for fd in 0..cffont.num_fds as i32 {
+        if !cffont.subrs.is_null() && !(*cffont.subrs.offset(fd as isize)).is_null() {
+            cff_release_index(*cffont.subrs.offset(fd as isize));
+            *cffont.subrs.offset(fd as isize) = ptr::null_mut()
         }
-        if !(*cffont).private.is_empty() {
+        if !cffont.private.is_empty() {
             if let Some(private) = cffont.private[fd as usize].as_mut() {
                 private.remove("Subrs");
                 /* no Subrs */

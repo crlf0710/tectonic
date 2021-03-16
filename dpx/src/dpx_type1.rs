@@ -420,7 +420,7 @@ unsafe fn write_fontfile(
     let mut stream_data_len = 4_usize;
     stream_data_len += cffont.name.size();
     stream_data_len += topdict.size();
-    stream_data_len += cffont.string.as_deref_mut().unwrap().size();
+    stream_data_len += cffont.string.as_mut().unwrap().size();
     stream_data_len += cff_index_size(cffont.gsubr);
     /* We are using format 1 for Encoding and format 0 for charset.
      * TODO: Should implement cff_xxx_size().

@@ -29,7 +29,7 @@
 use crate::warn;
 use std::rc::Rc;
 
-use super::dpx_cff_dict::cff_dict_unpack;
+use super::dpx_cff_dict::{cff_dict, cff_dict_unpack};
 use super::dpx_mem::{new, renew};
 use super::dpx_numbers::GetFromFile;
 use libc::{free, memmove, memset};
@@ -175,19 +175,6 @@ pub(crate) struct cff_header {
     pub(crate) hdr_size: u8,
     pub(crate) offsize: c_offsize,
     /* Absolute offset (0) size             */
-}
-/* Dictionary */
-#[derive(Clone)]
-pub(crate) struct cff_dict_entry {
-    pub(crate) id: i32,
-    pub(crate) key: &'static str,
-    pub(crate) values: Box<[f64]>,
-    /* values                                  */
-}
-#[derive(Clone, Default)]
-#[repr(C)]
-pub(crate) struct cff_dict {
-    pub(crate) entries: Vec<cff_dict_entry>,
 }
 /* Encoding, Charset and FDSelect */
 #[derive(Copy, Clone)]
