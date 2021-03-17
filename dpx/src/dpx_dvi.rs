@@ -1508,14 +1508,12 @@ unsafe fn do_glyphs(do_actual_text: i32) {
     if lr_mode == 1 {
         dvi_right(width);
     }
-    let slen = get_buffered_unsigned_pair();
-    let xloc =
-        new((slen as u64).wrapping_mul(::std::mem::size_of::<spt_t>() as u64) as u32) as *mut spt_t;
-    let yloc =
-        new((slen as u64).wrapping_mul(::std::mem::size_of::<spt_t>() as u64) as u32) as *mut spt_t;
-    for i in 0..slen {
-        *xloc.offset(i as isize) = get_buffered_signed_quad();
-        *yloc.offset(i as isize) = get_buffered_signed_quad();
+    let slen = get_buffered_unsigned_pair() as usize;
+    let mut xloc = Vec::with_capacity(slen as _);
+    let mut yloc = Vec::with_capacity(slen as _);
+    for _ in 0..slen {
+        xloc.push(get_buffered_signed_quad());
+        yloc.push(get_buffered_signed_quad());
     }
     if font.rgba_color != 0xffffffffu32 {
         let mut color = PdfColor::from_rgb(
@@ -1561,8 +1559,8 @@ unsafe fn do_glyphs(do_actual_text: i32) {
                 let depth = (font.size as f64 * -descent / font.unitsPerEm as f64) as spt_t;
                 pdf_dev_set_rect(
                     &mut rect,
-                    dvi_state.h + *xloc.offset(i as isize),
-                    -dvi_state.v - *yloc.offset(i as isize),
+                    dvi_state.h + xloc[i],
+                    -dvi_state.v - yloc[i],
                     glyph_width,
                     height,
                     depth,
@@ -1572,8 +1570,8 @@ unsafe fn do_glyphs(do_actual_text: i32) {
         }
         let wbuf = glyph_id.to_be_bytes();
         pdf_dev_set_string(
-            dvi_state.h + *xloc.offset(i as isize),
-            -dvi_state.v - *yloc.offset(i as isize),
+            dvi_state.h + xloc[i],
+            -dvi_state.v - yloc[i],
             &wbuf,
             glyph_width,
             font.font_id,
@@ -1583,8 +1581,6 @@ unsafe fn do_glyphs(do_actual_text: i32) {
     if font.rgba_color != 0xffffffffu32 {
         pdf_color_pop();
     }
-    free(xloc as *mut libc::c_void);
-    free(yloc as *mut libc::c_void);
     if do_actual_text != 0 {
         pdf_dev_end_actualtext();
     }

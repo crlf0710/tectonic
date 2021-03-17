@@ -1102,17 +1102,17 @@ unsafe fn t1char_build_charpath(
  *  but Type 1 charstring encryption. Encryption makes lossless compression
  *  useless. We will only do very simple charstring compression.
  */
-unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
+unsafe fn do_postproc(mut cd: &mut t1_chardesc) {
     let mut next;
     if (*cd).charpath.is_null() {
         return;
     }
     /* Set dummy large value. */
-    (*cd).bbox.lly = 100000.0f64;
-    (*cd).bbox.llx = (*cd).bbox.lly;
-    (*cd).bbox.ury = -100000.0f64;
-    (*cd).bbox.urx = (*cd).bbox.ury;
-    let mut cur = (*cd).charpath;
+    cd.bbox.lly = 100000.0f64;
+    cd.bbox.llx = cd.bbox.lly;
+    cd.bbox.ury = -100000.0f64;
+    cd.bbox.urx = cd.bbox.ury;
+    let mut cur = cd.charpath;
     let mut prev = ptr::null_mut::<t1_cpath>();
     let mut y = 0.0f64;
     let mut x = y;
@@ -1122,33 +1122,33 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
             21 => {
                 x += (*cur).args[0];
                 y += (*cur).args[1];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
             }
             5 => {
                 x += (*cur).args[0];
                 y += (*cur).args[1];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
                 if !prev.is_null() && !cur.is_null() && (*prev).num_args + (*cur).num_args < 48 {
                     if (*prev).type_0 == 5 {
@@ -1175,32 +1175,32 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
             }
             22 => {
                 x += (*cur).args[0];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
             }
             6 => {
                 x += (*cur).args[0];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
                 if !prev.is_null() && !cur.is_null() && (*prev).num_args + (*cur).num_args < 48 {
                     if (*prev).type_0 == 7 && (*prev).num_args % 2 == 1
@@ -1219,32 +1219,32 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
             }
             4 => {
                 y += (*cur).args[0];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
             }
             7 => {
                 y += (*cur).args[0];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
                 if !prev.is_null() && !cur.is_null() && (*prev).num_args + (*cur).num_args < 48 {
                     if (*prev).type_0 == 6 && (*prev).num_args % 2 == 1
@@ -1265,17 +1265,17 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
                 for i in 0..3 {
                     x += (*cur).args[(2_u32).wrapping_mul(i) as usize];
                     y += (*cur).args[(2_u32).wrapping_mul(i).wrapping_add(1_u32) as usize];
-                    if (*cd).bbox.llx > x {
-                        (*cd).bbox.llx = x
+                    if cd.bbox.llx > x {
+                        cd.bbox.llx = x
                     }
-                    if (*cd).bbox.urx < x {
-                        (*cd).bbox.urx = x
+                    if cd.bbox.urx < x {
+                        cd.bbox.urx = x
                     }
-                    if (*cd).bbox.lly > y {
-                        (*cd).bbox.lly = y
+                    if cd.bbox.lly > y {
+                        cd.bbox.lly = y
                     }
-                    if (*cd).bbox.ury < y {
-                        (*cd).bbox.ury = y
+                    if cd.bbox.ury < y {
+                        cd.bbox.ury = y
                     }
                 }
                 if !prev.is_null() && !cur.is_null() && (*prev).num_args + (*cur).num_args < 48 {
@@ -1303,44 +1303,44 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
             }
             30 => {
                 y += (*cur).args[0];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
                 x += (*cur).args[1];
                 y += (*cur).args[2];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
                 x += (*cur).args[3];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
                 if !prev.is_null() && !cur.is_null() && (*prev).num_args + (*cur).num_args < 48 {
                     if (*prev).type_0 == 31 && (*prev).num_args / 4 % 2 == 1
@@ -1359,44 +1359,44 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
             }
             31 => {
                 x += (*cur).args[0];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
                 x += (*cur).args[1];
                 y += (*cur).args[2];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
                 y += (*cur).args[3];
-                if (*cd).bbox.llx > x {
-                    (*cd).bbox.llx = x
+                if cd.bbox.llx > x {
+                    cd.bbox.llx = x
                 }
-                if (*cd).bbox.urx < x {
-                    (*cd).bbox.urx = x
+                if cd.bbox.urx < x {
+                    cd.bbox.urx = x
                 }
-                if (*cd).bbox.lly > y {
-                    (*cd).bbox.lly = y
+                if cd.bbox.lly > y {
+                    cd.bbox.lly = y
                 }
-                if (*cd).bbox.ury < y {
-                    (*cd).bbox.ury = y
+                if cd.bbox.ury < y {
+                    cd.bbox.ury = y
                 }
                 if !prev.is_null() && !cur.is_null() && (*prev).num_args + (*cur).num_args < 48 {
                     if (*prev).type_0 == 30 && (*prev).num_args / 4 % 2 == 1
@@ -1417,17 +1417,17 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
                 for i in 0..6 {
                     x += (*cur).args[(2_u32).wrapping_mul(i) as usize];
                     y += (*cur).args[(2 * 1 + 1) as usize];
-                    if (*cd).bbox.llx > x {
-                        (*cd).bbox.llx = x
+                    if cd.bbox.llx > x {
+                        cd.bbox.llx = x
                     }
-                    if (*cd).bbox.urx < x {
-                        (*cd).bbox.urx = x
+                    if cd.bbox.urx < x {
+                        cd.bbox.urx = x
                     }
-                    if (*cd).bbox.lly > y {
-                        (*cd).bbox.lly = y
+                    if cd.bbox.lly > y {
+                        cd.bbox.lly = y
                     }
-                    if (*cd).bbox.ury < y {
-                        (*cd).bbox.ury = y
+                    if cd.bbox.ury < y {
+                        cd.bbox.ury = y
                     }
                 }
                 if (*cur).args[12] == 50.0f64 {
@@ -1476,20 +1476,20 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
         cur = next
     }
     /* Had no path. Fix lower-left point. */
-    if (*cd).bbox.llx > (*cd).bbox.urx {
-        (*cd).bbox.urx = (*cd).sbw.wx;
-        (*cd).bbox.llx = (*cd).bbox.urx
+    if cd.bbox.llx > cd.bbox.urx {
+        cd.bbox.urx = cd.sbw.wx;
+        cd.bbox.llx = cd.bbox.urx
     }
-    if (*cd).bbox.lly > (*cd).bbox.ury {
-        (*cd).bbox.ury = (*cd).sbw.wy;
-        (*cd).bbox.lly = (*cd).bbox.ury
+    if cd.bbox.lly > cd.bbox.ury {
+        cd.bbox.ury = cd.sbw.wy;
+        cd.bbox.lly = cd.bbox.ury
     };
 }
 
 pub(crate) unsafe fn t1char_get_metrics(
     mut src: &[u8],
     subrs: &Option<Box<CffIndex>>,
-    mut ginfo: *mut t1_ginfo,
+    ginfo: *mut t1_ginfo,
 ) -> i32 {
     let mut t1char: t1_chardesc = t1_chardesc {
         flags: 0,
