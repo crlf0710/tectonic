@@ -277,50 +277,52 @@ unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
     }
 }
 /* operators */
-unsafe fn add_dict(dict: &mut cff_dict, data: &mut &[u8]) -> Result<(), CffError> {
-    let mut id = data[0] as i32;
-    if id == 0xc {
-        *data = &data[1..];
-        if data.is_empty() || {
-            id = data[0] as i32 + CFF_LAST_DICT_OP1 as i32;
-            id >= CFF_LAST_DICT_OP as i32
-        } {
+impl cff_dict {
+    unsafe fn add_from_data(&mut self, data: &mut &[u8]) -> Result<(), CffError> {
+        let mut id = data[0] as i32;
+        if id == 0xc {
+            *data = &data[1..];
+            if data.is_empty() || {
+                id = data[0] as i32 + CFF_LAST_DICT_OP1 as i32;
+                id >= CFF_LAST_DICT_OP as i32
+            } {
+                return Err(CffError::ParseError);
+            }
+        } else if id >= CFF_LAST_DICT_OP1 as i32 {
             return Err(CffError::ParseError);
         }
-    } else if id >= CFF_LAST_DICT_OP1 as i32 {
-        return Err(CffError::ParseError);
-    }
-    let argtype = dict_operator[id as usize].argtype;
-    if dict_operator[id as usize].opname.is_empty() || argtype < 0 {
-        /* YuppySC-Regular.otf from OS X for instance uses op id 37, simply ignore
-        this dict instead of treat it as parsing error. */
-        return Ok(());
-    }
-    if argtype == CFF_TYPE_NUMBER
-        || argtype == CFF_TYPE_BOOLEAN
-        || argtype == CFF_TYPE_SID
-        || argtype == CFF_TYPE_OFFSET
-    {
-        /* check for underflow here, as exactly one operand is expected */
-        if stack_top < 1 {
-            return Err(CffError::StackUnderflow);
+        let argtype = dict_operator[id as usize].argtype;
+        if dict_operator[id as usize].opname.is_empty() || argtype < 0 {
+            /* YuppySC-Regular.otf from OS X for instance uses op id 37, simply ignore
+            this dict instead of treat it as parsing error. */
+            return Ok(());
         }
-        stack_top -= 1;
-        dict.entries.push(cff_dict_entry {
-            id,
-            key: dict_operator[id as usize].opname,
-            values: vec![arg_stack[stack_top as usize]].into_boxed_slice(),
-        });
-    } else if stack_top > 0 {
-        dict.entries.push(cff_dict_entry {
-            id,
-            key: dict_operator[id as usize].opname,
-            values: Vec::from(&arg_stack[..stack_top as usize]).into_boxed_slice(),
-        });
-        stack_top = 0;
+        if argtype == CFF_TYPE_NUMBER
+            || argtype == CFF_TYPE_BOOLEAN
+            || argtype == CFF_TYPE_SID
+            || argtype == CFF_TYPE_OFFSET
+        {
+            /* check for underflow here, as exactly one operand is expected */
+            if stack_top < 1 {
+                return Err(CffError::StackUnderflow);
+            }
+            stack_top -= 1;
+            self.entries.push(cff_dict_entry {
+                id,
+                key: dict_operator[id as usize].opname,
+                values: vec![arg_stack[stack_top as usize]].into_boxed_slice(),
+            });
+        } else if stack_top > 0 {
+            self.entries.push(cff_dict_entry {
+                id,
+                key: dict_operator[id as usize].opname,
+                values: Vec::from(&arg_stack[..stack_top as usize]).into_boxed_slice(),
+            });
+            stack_top = 0;
+        }
+        *data = &data[1..];
+        Ok(())
     }
-    *data = &data[1..];
-    Ok(())
 }
 /* just ignore operator if there were no operands provided;
 don't treat this as underflow (e.g. StemSnapV in TemporaLGCUni-Italic.otf) */
@@ -329,44 +331,45 @@ don't treat this as underflow (e.g. StemSnapV in TemporaLGCUni-Italic.otf) */
  *  Private: two numbers, size and offset
  *  ROS    : three numbers, SID, SID, and a number
  */
-
-pub(crate) unsafe fn cff_dict_unpack(mut data: &[u8]) -> cff_dict {
-    fn expect<T>(res: Result<T, CffError>) -> T {
-        match res {
-            Ok(res) => res,
-            Err(e) => panic!("{}: Parsing CFF DICT failed. (error={:?})", "CFF", e),
+impl cff_dict {
+    pub(crate) unsafe fn unpack(mut data: &[u8]) -> cff_dict {
+        fn expect<T>(res: Result<T, CffError>) -> T {
+            match res {
+                Ok(res) => res,
+                Err(e) => panic!("{}: Parsing CFF DICT failed. (error={:?})", "CFF", e),
+            }
         }
-    }
 
-    stack_top = 0;
-    let mut dict = cff_dict::new();
-    while !data.is_empty() {
-        if (data[0] as i32) < 22 {
-            /* operator */
-            expect(add_dict(&mut dict, &mut data));
-        } else if data[0] as i32 == 30 {
-            /* real - First byte of a sequence (variable) */
-            if stack_top < CFF_DICT_STACK_LIMIT as i32 {
-                arg_stack[stack_top as usize] = expect(get_real(&mut data)); /* everything else are integer */
+        stack_top = 0;
+        let mut dict = cff_dict::new();
+        while !data.is_empty() {
+            if (data[0] as i32) < 22 {
+                /* operator */
+                expect(dict.add_from_data(&mut data));
+            } else if data[0] as i32 == 30 {
+                /* real - First byte of a sequence (variable) */
+                if stack_top < CFF_DICT_STACK_LIMIT as i32 {
+                    arg_stack[stack_top as usize] = expect(get_real(&mut data)); /* everything else are integer */
+                    stack_top += 1
+                } else {
+                    expect(Result::<(), _>::Err(CffError::StackOverflow));
+                }
+            } else if data[0] as i32 == 255 || data[0] as i32 >= 22 && data[0] as i32 <= 27 {
+                /* reserved */
+                data = &data[1..];
+            } else if stack_top < CFF_DICT_STACK_LIMIT as i32 {
+                arg_stack[stack_top as usize] = expect(get_integer(&mut data));
                 stack_top += 1
             } else {
                 expect(Result::<(), _>::Err(CffError::StackOverflow));
             }
-        } else if data[0] as i32 == 255 || data[0] as i32 >= 22 && data[0] as i32 <= 27 {
-            /* reserved */
-            data = &data[1..];
-        } else if stack_top < CFF_DICT_STACK_LIMIT as i32 {
-            arg_stack[stack_top as usize] = expect(get_integer(&mut data));
-            stack_top += 1
-        } else {
-            expect(Result::<(), _>::Err(CffError::StackOverflow));
         }
+        if stack_top != 0 {
+            warn!("{}: Garbage in CFF DICT data.", "CFF");
+            stack_top = 0
+        }
+        dict
     }
-    if stack_top != 0 {
-        warn!("{}: Garbage in CFF DICT data.", "CFF");
-        stack_top = 0
-    }
-    dict
 }
 /* Pack DICT data */
 fn pack_integer(dest: &mut [u8], value: i32) -> usize {

@@ -29,7 +29,7 @@
 use crate::warn;
 use std::rc::Rc;
 
-use super::dpx_cff_dict::{cff_dict, cff_dict_unpack};
+use super::dpx_cff_dict::cff_dict;
 use super::dpx_mem::new;
 use super::dpx_numbers::GetFromFile;
 use libc::memset;
@@ -752,7 +752,7 @@ pub(crate) unsafe fn cff_open(
     if n > idx.count as i32 - 1 {
         panic!("CFF Top DICT not exist...");
     }
-    let topdict = cff_dict_unpack(
+    let topdict = cff_dict::unpack(
         &idx.data[idx.offset[n as usize] as usize - 1..idx.offset[(n + 1) as usize] as usize - 1],
     );
 
@@ -1711,7 +1711,7 @@ pub(crate) unsafe fn cff_read_fdarray(cff: &mut cff_font) -> i32 {
         let size = (idx.offset[(i as usize + 1) as usize] - idx.offset[i as usize]) as i32;
         if size > 0 {
             cff.fdarray
-                .push(Some(cff_dict_unpack(&data[..size as usize])));
+                .push(Some(cff_dict::unpack(&data[..size as usize])));
         } else {
             cff.fdarray.push(None);
         }
@@ -1784,7 +1784,7 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
                     handle
                         .read_exact(data.as_mut_slice())
                         .expect("reading file failed");
-                    cff.private.push(Some(cff_dict_unpack(data.as_slice())));
+                    cff.private.push(Some(cff_dict::unpack(data.as_slice())));
                     len += size;
                 }
                 _ => cff.private.push(None),
@@ -1808,7 +1808,7 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
             handle
                 .read_exact(data.as_mut_slice())
                 .expect("reading file failed");
-            cff.private.push(Some(cff_dict_unpack(data.as_slice())));
+            cff.private.push(Some(cff_dict::unpack(data.as_slice())));
             len += size
         } else {
             cff.private.push(None);
