@@ -81,11 +81,10 @@ use super::dpx_cff::{cff_font, Charsets};
 
 use super::dpx_tt_post::tt_post_table;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct cmap12 {
-    pub(crate) nGroups: u32,
-    pub(crate) groups: *mut charGroup,
+    pub(crate) groups: Box<[charGroup]>,
 }
 /* Format 8 and 10 not supported...
  *
@@ -105,37 +104,36 @@ pub(crate) struct charGroup {
     pub(crate) startGlyphID: u32,
 }
 /* format 6: trimmed table mapping */
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct cmap6 {
     pub(crate) firstCode: u16,
-    pub(crate) entryCount: u16,
-    pub(crate) glyphIndexArray: *mut u16,
+    pub(crate) glyphIndexArray: Box<[u16]>,
 }
 /*
  * format 4: segment mapping to delta values
  * - Microsoft standard character to glyph index mapping table
  */
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct cmap4 {
     pub(crate) segCountX2: u16,
     pub(crate) searchRange: u16,
     pub(crate) entrySelector: u16,
     pub(crate) rangeShift: u16,
-    pub(crate) endCount: *mut u16,
+    pub(crate) endCount: Box<[u16]>,
     pub(crate) reservedPad: u16,
-    pub(crate) startCount: *mut u16,
-    pub(crate) idDelta: *mut u16,
-    pub(crate) idRangeOffset: *mut u16,
-    pub(crate) glyphIndexArray: *mut u16,
+    pub(crate) startCount: Box<[u16]>,
+    pub(crate) idDelta: Box<[u16]>,
+    pub(crate) idRangeOffset: Box<[u16]>,
+    pub(crate) glyphIndexArray: Box<[u16]>,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct cmap2 {
     pub(crate) subHeaderKeys: [u16; 256],
-    pub(crate) subHeaders: *mut SubHeader,
-    pub(crate) glyphIndexArray: *mut u16,
+    pub(crate) subHeaders: Box<[SubHeader]>,
+    pub(crate) glyphIndexArray: Box<[u16]>,
 }
 /* format 2: high-byte mapping through table */
 #[derive(Copy, Clone)]
@@ -165,56 +163,58 @@ pub(crate) unsafe fn otf_cmap_set_verbose(level: i32) {
     verbose = level;
 }
 unsafe fn read_cmap0<R: Read>(handle: &mut R, len: u32) -> *mut cmap0 {
-    if len < 256_u32 {
+    if len < 256 {
         panic!("invalid cmap subtable");
     }
-    let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap0>() as u64) as u32) as *mut cmap0;
+    let mut glyphIndexArray = [0; 256];
     for i in 0..256 {
-        (*map).glyphIndexArray[i as usize] = u8::get(handle);
+        glyphIndexArray[i] = u8::get(handle);
     }
-    map
+    Box::into_raw(Box::new(cmap0 { glyphIndexArray }))
 }
 unsafe fn release_cmap0(map: *mut cmap0) {
-    free(map as *mut libc::c_void);
+    if !map.is_null() {
+        let _ = Box::from_raw(map);
+    }
 }
-unsafe fn lookup_cmap0(map: *mut cmap0, cc: u16) -> u16 {
+unsafe fn lookup_cmap0(map: &cmap0, cc: u16) -> u16 {
     return (if cc as i32 > 255 {
         0
     } else {
-        (*map).glyphIndexArray[cc as usize] as i32
+        map.glyphIndexArray[cc as usize] as i32
     }) as u16;
 }
 unsafe fn read_cmap2<R: Read>(handle: &mut R, len: u32) -> *mut cmap2 {
-    if len < 512_u32 {
+    if len < 512 {
         panic!("invalid cmap subtable");
     }
-    let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap2>() as u64) as u32) as *mut cmap2;
+    let mut subHeaderKeys = [0; 256];
     for i in 0..256 {
-        (*map).subHeaderKeys[i as usize] = u16::get(handle);
+        subHeaderKeys[i] = u16::get(handle);
     }
     let mut n = 0_u16;
     for i in 0..256 {
-        (*map).subHeaderKeys[i as usize] = ((*map).subHeaderKeys[i as usize] as i32 / 8) as u16;
-        if (n as i32) < (*map).subHeaderKeys[i as usize] as i32 {
-            n = (*map).subHeaderKeys[i as usize]
+        subHeaderKeys[i] = (subHeaderKeys[i] as i32 / 8) as u16;
+        if n < subHeaderKeys[i] {
+            n = subHeaderKeys[i];
         }
     }
-    n = (n as i32 + 1) as u16;
-    (*map).subHeaders =
-        new((n as u32 as u64).wrapping_mul(::std::mem::size_of::<SubHeader>() as u64) as u32)
-            as *mut SubHeader;
+    n += 1;
+    let mut subHeaders = Vec::<SubHeader>::with_capacity(n as _);
     for i in 0..n as i32 {
-        (*(*map).subHeaders.offset(i as isize)).firstCode = u16::get(handle);
-        (*(*map).subHeaders.offset(i as isize)).entryCount = u16::get(handle);
-        (*(*map).subHeaders.offset(i as isize)).idDelta = i16::get(handle);
-        (*(*map).subHeaders.offset(i as isize)).idRangeOffset = u16::get(handle);
+        let mut sh = SubHeader {
+            firstCode: u16::get(handle),
+            entryCount: u16::get(handle),
+            idDelta: i16::get(handle),
+            idRangeOffset: u16::get(handle),
+        };
         /* It makes things easier to let the offset starts from
          * the beginning of glyphIndexArray.
          */
-        if (*(*map).subHeaders.offset(i as isize)).idRangeOffset != 0 {
-            (*(*map).subHeaders.offset(i as isize)).idRangeOffset -=
-                (2 + (n as i32 - i as i32 - 1) * 8) as u16
+        if sh.idRangeOffset != 0 {
+            sh.idRangeOffset -= (2 + (n as i32 - i as i32 - 1) * 8) as u16
         }
+        subHeaders.push(sh);
     }
     /* Caculate the length of glyphIndexArray, this is ugly,
      * there should be a better way to get this information.
@@ -223,35 +223,35 @@ unsafe fn read_cmap2<R: Read>(handle: &mut R, len: u32) -> *mut cmap2 {
         .wrapping_sub(518_u32)
         .wrapping_sub((n as i32 * 8) as u32) as u16 as i32
         / 2) as u16;
-    (*map).glyphIndexArray =
-        new((n as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
-    for i in 0..n as i32 {
-        *(*map).glyphIndexArray.offset(i as isize) = u16::get(handle);
+    let mut glyphIndexArray = Vec::<u16>::with_capacity(n as _);
+    for _ in 0..n as i32 {
+        glyphIndexArray.push(u16::get(handle));
     }
-    map
+    Box::into_raw(Box::new(cmap2 {
+        subHeaderKeys,
+        subHeaders: subHeaders.into_boxed_slice(),
+        glyphIndexArray: glyphIndexArray.into_boxed_slice(),
+    }))
 }
 unsafe fn release_cmap2(map: *mut cmap2) {
     if !map.is_null() {
-        free((*map).subHeaders as *mut libc::c_void);
-        free((*map).glyphIndexArray as *mut libc::c_void);
-        free(map as *mut libc::c_void);
-    };
+        let _ = Box::from_raw(map);
+    }
 }
-unsafe fn lookup_cmap2(map: *mut cmap2, cc: u16) -> u16 {
+unsafe fn lookup_cmap2(map: &cmap2, cc: u16) -> u16 {
     let mut idx: u16 = 0_u16;
     let [hi, lo] = cc.to_be_bytes();
     let hi = hi as i32;
     let lo = lo as i32;
     /* select which subHeader to use */
-    let i = (*map).subHeaderKeys[hi as usize];
-    let firstCode = (*(*map).subHeaders.offset(i as isize)).firstCode;
-    let entryCount = (*(*map).subHeaders.offset(i as isize)).entryCount;
-    let idDelta = (*(*map).subHeaders.offset(i as isize)).idDelta;
-    let mut idRangeOffset =
-        ((*(*map).subHeaders.offset(i as isize)).idRangeOffset as i32 / 2) as u16;
+    let i = map.subHeaderKeys[hi as usize] as usize;
+    let firstCode = map.subHeaders[i].firstCode;
+    let entryCount = map.subHeaders[i].entryCount;
+    let idDelta = map.subHeaders[i].idDelta;
+    let mut idRangeOffset = (map.subHeaders[i].idRangeOffset as i32 / 2) as u16;
     if lo >= firstCode as i32 && lo < firstCode as i32 + entryCount as i32 {
         idRangeOffset = (idRangeOffset as i32 + (lo - firstCode as i32)) as u16;
-        idx = *(*map).glyphIndexArray.offset(idRangeOffset as isize);
+        idx = map.glyphIndexArray[idRangeOffset as usize];
         if idx as i32 != 0 {
             idx = (idx as i32 + idDelta as i32 & 0xffff) as u16
         }
@@ -259,94 +259,88 @@ unsafe fn lookup_cmap2(map: *mut cmap2, cc: u16) -> u16 {
     idx
 }
 unsafe fn read_cmap4<R: Read>(handle: &mut R, len: u32) -> *mut cmap4 {
-    if len < 8_u32 {
+    if len < 8 {
         panic!("invalid cmap subtable");
     }
-    let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap4>() as u64) as u32) as *mut cmap4;
     let segCount = u16::get(handle);
-    (*map).segCountX2 = segCount;
-    (*map).searchRange = u16::get(handle);
-    (*map).entrySelector = u16::get(handle);
-    (*map).rangeShift = u16::get(handle);
+    let segCountX2 = segCount;
+    let searchRange = u16::get(handle);
+    let entrySelector = u16::get(handle);
+    let rangeShift = u16::get(handle);
     let segCount = (segCount as i32 / 2) as u16;
-    (*map).endCount =
-        new((segCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
-            as *mut u16;
-    for i in 0..segCount as i32 {
-        *(*map).endCount.offset(i as isize) = u16::get(handle);
+    let mut endCount = Vec::with_capacity(segCount as _);
+    for _ in 0..segCount {
+        endCount.push(u16::get(handle));
     }
-    (*map).reservedPad = u16::get(handle);
-    (*map).startCount =
-        new((segCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
-            as *mut u16;
-    for i in 0..segCount as i32 {
-        *(*map).startCount.offset(i as isize) = u16::get(handle);
+    let reservedPad = u16::get(handle);
+    let mut startCount = Vec::with_capacity(segCount as _);
+    for _ in 0..segCount {
+        startCount.push(u16::get(handle));
     }
-    (*map).idDelta =
-        new((segCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
-            as *mut u16;
-    for i in 0..segCount as i32 {
-        *(*map).idDelta.offset(i as isize) = u16::get(handle);
+    let mut idDelta = Vec::with_capacity(segCount as _);
+    for _ in 0..segCount {
+        idDelta.push(u16::get(handle));
     }
-    (*map).idRangeOffset =
-        new((segCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
-            as *mut u16;
-    for i in 0..segCount as i32 {
-        *(*map).idRangeOffset.offset(i as isize) = u16::get(handle);
+    let mut idRangeOffset = Vec::with_capacity(segCount as _);
+    for _ in 0..segCount {
+        idRangeOffset.push(u16::get(handle));
     }
     let n = len
         .wrapping_sub(16_u32)
         .wrapping_sub((8 * segCount as i32) as u32)
         .wrapping_div(2_u32) as u16;
+    let mut glyphIndexArray;
     if n as i32 == 0 {
-        (*map).glyphIndexArray = ptr::null_mut()
+        glyphIndexArray = Vec::new();
     } else {
-        (*map).glyphIndexArray = new((n as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u16>() as u64)
-            as u32) as *mut u16;
-        for i in 0..n as i32 {
-            *(*map).glyphIndexArray.offset(i as isize) = u16::get(handle);
+        glyphIndexArray = Vec::with_capacity(n as _);
+        for _ in 0..n {
+            glyphIndexArray.push(u16::get(handle));
         }
     }
-    map
+    Box::into_raw(Box::new(cmap4 {
+        segCountX2,
+        searchRange,
+        entrySelector,
+        rangeShift,
+        endCount: endCount.into_boxed_slice(),
+        reservedPad,
+        startCount: startCount.into_boxed_slice(),
+        idDelta: idDelta.into_boxed_slice(),
+        idRangeOffset: idRangeOffset.into_boxed_slice(),
+        glyphIndexArray: glyphIndexArray.into_boxed_slice(),
+    }))
 }
 unsafe fn release_cmap4(map: *mut cmap4) {
     if !map.is_null() {
-        free((*map).endCount as *mut libc::c_void);
-        free((*map).startCount as *mut libc::c_void);
-        free((*map).idDelta as *mut libc::c_void);
-        free((*map).idRangeOffset as *mut libc::c_void);
-        free((*map).glyphIndexArray as *mut libc::c_void);
-        free(map as *mut libc::c_void);
-    };
+        let _ = Box::from_raw(map);
+    }
 }
-unsafe fn lookup_cmap4(map: *mut cmap4, cc: u16) -> u16 {
+unsafe fn lookup_cmap4(map: &cmap4, cc: u16) -> u16 {
     let mut gid: u16 = 0_u16;
     /*
      * Segments are sorted in order of increasing endCode values.
      * Last segment maps 0xffff to gid 0 (?)
      */
-    let segCount = ((*map).segCountX2 as i32 / 2) as u16;
-    for i in (0..segCount).rev() {
-        if !(cc as i32 <= *(*map).endCount.offset(i as isize) as i32) {
+    let segCount = (map.segCountX2 as i32 / 2) as u16;
+    for i in (0..segCount as usize).rev() {
+        if !(cc as i32 <= map.endCount[i] as i32) {
             break;
         }
-        if !(cc as i32 >= *(*map).startCount.offset(i as isize) as i32) {
+        if !(cc as i32 >= map.startCount[i] as i32) {
             continue;
         }
-        if *(*map).idRangeOffset.offset(i as isize) as i32 == 0 {
-            gid = (cc as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffff) as u16
-        } else if cc as i32 == 0xffff && *(*map).idRangeOffset.offset(i as isize) as i32 == 0xffff {
+        if map.idRangeOffset[i] as i32 == 0 {
+            gid = (cc as i32 + map.idDelta[i] as i32 & 0xffff) as u16
+        } else if cc as i32 == 0xffff && map.idRangeOffset[i] as i32 == 0xffff {
             /* this is for protection against some old broken fonts... */
             gid = 0_u16
         } else {
-            let j = (*(*map).idRangeOffset.offset(i as isize) as i32
-                - (segCount as i32 - i as i32) * 2) as u16;
-            let j =
-                (cc as i32 - *(*map).startCount.offset(i as isize) as i32 + j as i32 / 2) as u16;
-            gid = *(*map).glyphIndexArray.offset(j as isize);
-            if gid as i32 != 0 {
-                gid = (gid as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffff) as u16
+            let j = (map.idRangeOffset[i] as i32 - (segCount as i32 - i as i32) * 2) as u16;
+            let j = (cc as i32 - map.startCount[i] as i32 + j as i32 / 2) as usize;
+            gid = map.glyphIndexArray[j];
+            if gid != 0 {
+                gid = (gid as i32 + map.idDelta[i] as i32 & 0xffff) as u16
             }
         }
         break;
@@ -357,66 +351,62 @@ unsafe fn read_cmap6<R: Read>(handle: &mut R, len: u32) -> *mut cmap6 {
     if len < 4_u32 {
         panic!("invalid cmap subtable");
     }
-    let map = new((1_u64).wrapping_mul(::std::mem::size_of::<cmap6>() as u64) as u32) as *mut cmap6;
-    (*map).firstCode = u16::get(handle);
-    (*map).entryCount = u16::get(handle);
-    (*map).glyphIndexArray = new(
-        ((*map).entryCount as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32
-    ) as *mut u16;
-    for i in 0..(*map).entryCount as i32 {
-        *(*map).glyphIndexArray.offset(i as isize) = u16::get(handle);
+    let firstCode = u16::get(handle);
+    let entryCount = u16::get(handle);
+    let mut glyphIndexArray = Vec::with_capacity(entryCount as _);
+    for _ in 0..entryCount {
+        glyphIndexArray.push(u16::get(handle));
     }
-    map
+    Box::into_raw(Box::new(cmap6 {
+        firstCode,
+        glyphIndexArray: glyphIndexArray.into_boxed_slice(),
+    }))
 }
 unsafe fn release_cmap6(map: *mut cmap6) {
     if !map.is_null() {
-        free((*map).glyphIndexArray as *mut libc::c_void);
-        free(map as *mut libc::c_void);
-    };
-}
-unsafe fn lookup_cmap6(map: *mut cmap6, cc: u16) -> u16 {
-    let idx = (cc as i32 - (*map).firstCode as i32) as u16;
-    if (idx as i32) < (*map).entryCount as i32 {
-        return *(*map).glyphIndexArray.offset(idx as isize);
+        let _ = Box::from_raw(map);
     }
-    0_u16
+}
+unsafe fn lookup_cmap6(map: &cmap6, cc: u16) -> u16 {
+    let idx = (cc as i32 - map.firstCode as i32) as u16;
+    if (idx as i32) < map.glyphIndexArray.len() as i32 {
+        return map.glyphIndexArray[idx as usize];
+    }
+    0
 }
 /* ULONG length */
 unsafe fn read_cmap12<R: Read>(handle: &mut R, len: u32) -> *mut cmap12 {
     if len < 4_u32 {
         panic!("invalid cmap subtable");
     }
-    let map =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<cmap12>() as u64) as u32) as *mut cmap12;
-    (*map).nGroups = u32::get(handle);
-    (*map).groups =
-        new(((*map).nGroups as u64).wrapping_mul(::std::mem::size_of::<charGroup>() as u64) as u32)
-            as *mut charGroup;
-    for i in 0..(*map).nGroups {
-        (*(*map).groups.offset(i as isize)).startCharCode = u32::get(handle);
-        (*(*map).groups.offset(i as isize)).endCharCode = u32::get(handle);
-        (*(*map).groups.offset(i as isize)).startGlyphID = u32::get(handle);
+    let nGroups = u32::get(handle);
+    let mut groups = Vec::with_capacity(nGroups as _);
+    for _ in 0..nGroups {
+        groups.push(charGroup {
+            startCharCode: u32::get(handle),
+            endCharCode: u32::get(handle),
+            startGlyphID: u32::get(handle),
+        });
     }
-    map
+    Box::into_raw(Box::new(cmap12 {
+        groups: groups.into_boxed_slice(),
+    }))
 }
 unsafe fn release_cmap12(map: *mut cmap12) {
     if !map.is_null() {
-        free((*map).groups as *mut libc::c_void);
-        free(map as *mut libc::c_void);
-    };
+        let _ = Box::from_raw(map);
+    }
 }
-unsafe fn lookup_cmap12(map: *mut cmap12, cccc: u32) -> u16 {
+unsafe fn lookup_cmap12(map: &cmap12, cccc: u32) -> u16 {
     let mut gid: u16 = 0_u16;
-    for i in (0..(*map).nGroups as usize).rev() {
-        if !(cccc <= (*(*map).groups.offset(i as isize)).endCharCode) {
+    for group in map.groups.iter().rev() {
+        if !(cccc <= group.endCharCode) {
             break;
         }
-        if !(cccc >= (*(*map).groups.offset(i as isize)).startCharCode) {
+        if !(cccc >= group.startCharCode) {
             continue;
         }
-        gid = ((cccc - (*(*map).groups.offset(i as isize)).startCharCode
-            + (*(*map).groups.offset(i as isize)).startGlyphID)
-            & 0xffff_u32) as u16;
+        gid = ((cccc - group.startCharCode + group.startGlyphID) & 0xffff_u32) as u16;
         break;
     }
     gid
@@ -524,11 +514,11 @@ pub(crate) unsafe fn tt_cmap_lookup(cmap: *mut tt_cmap, cc: u32) -> u16 {
         return 0_u16;
     }
     match (*cmap).format as i32 {
-        0 => lookup_cmap0((*cmap).map as *mut cmap0, cc as u16),
-        2 => lookup_cmap2((*cmap).map as *mut cmap2, cc as u16),
-        4 => lookup_cmap4((*cmap).map as *mut cmap4, cc as u16),
-        6 => lookup_cmap6((*cmap).map as *mut cmap6, cc as u16),
-        12 => lookup_cmap12((*cmap).map as *mut cmap12, cc),
+        0 => lookup_cmap0(&*((*cmap).map as *mut cmap0), cc as u16),
+        2 => lookup_cmap2(&*((*cmap).map as *mut cmap2), cc as u16),
+        4 => lookup_cmap4(&*((*cmap).map as *mut cmap4), cc as u16),
+        6 => lookup_cmap6(&*((*cmap).map as *mut cmap6), cc as u16),
+        12 => lookup_cmap12(&*((*cmap).map as *mut cmap12), cc),
         _ => {
             panic!("Unrecognized OpenType/TrueType cmap subtable format");
         }
@@ -540,7 +530,7 @@ static mut srange_max: [u8; 2] = [0xff_u8, 0xff_u8];
 static mut lrange_min: [u8; 4] = [0; 4];
 static mut lrange_max: [u8; 4] = [0x7f_u8, 0xff_u8, 0xff_u8, 0xff_u8];
 unsafe fn load_cmap4(
-    map: *mut cmap4,
+    map: &cmap4,
     GIDToCIDMap: &[u8],
     gsub_vert: *mut otl_gsub,
     gsub_list: *mut otl_gsub,
@@ -548,29 +538,24 @@ unsafe fn load_cmap4(
     tounicode_add: *mut CMap,
 ) {
     let mut cid;
-    let segCount = ((*map).segCountX2 as i32 / 2) as u16;
-    let mut i = segCount as i32 - 1;
-    while i >= 0 {
-        let c0 = *(*map).startCount.offset(i as isize);
-        let c1 = *(*map).endCount.offset(i as isize);
-        let d =
-            (*(*map).idRangeOffset.offset(i as isize) as i32 / 2 - (segCount as i32 - i)) as u16;
+    let segCount = (map.segCountX2 as i32 / 2) as u16;
+    for i in (0..segCount as usize).rev() {
+        let c0 = map.startCount[i];
+        let c1 = map.endCount[i];
+        let d = (map.idRangeOffset[i] as i32 / 2 - (segCount as i32 - i as i32)) as u16;
         let mut j = 0_u16;
         while j as i32 <= c1 as i32 - c0 as i32 {
             let ch = (c0 as i32 + j as i32) as u16;
-            let mut gid = if *(*map).idRangeOffset.offset(i as isize) as i32 == 0 {
-                (ch as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffff) as u16
+            let mut gid = if map.idRangeOffset[i] as i32 == 0 {
+                (ch as i32 + map.idDelta[i] as i32 & 0xffff) as u16
             } else if c0 as i32 == 0xffff
                 && c1 as i32 == 0xffff
-                && *(*map).idRangeOffset.offset(i as isize) as i32 == 0xffff
+                && map.idRangeOffset[i] as i32 == 0xffff
             {
                 /* this is for protection against some old broken fonts... */
                 0
             } else {
-                (*(*map)
-                    .glyphIndexArray
-                    .offset((j as i32 + d as i32) as isize) as i32
-                    + *(*map).idDelta.offset(i as isize) as i32
+                (map.glyphIndexArray[(j as i32 + d as i32) as usize] as i32 + map.idDelta[i] as i32
                     & 0xffff) as u16
             }; /* LONG ? */
             if gid as i32 != 0 && gid as i32 != 0xffff {
@@ -607,11 +592,10 @@ unsafe fn load_cmap4(
             }
             j += 1;
         }
-        i -= 1
     }
 }
 unsafe fn load_cmap12(
-    map: *mut cmap12,
+    map: &cmap12,
     GIDToCIDMap: &[u8],
     gsub_vert: *mut otl_gsub,
     gsub_list: *mut otl_gsub,
@@ -619,15 +603,10 @@ unsafe fn load_cmap12(
     tounicode_add: *mut CMap,
 ) {
     let mut cid;
-    for i in 0..(*map).nGroups {
-        for ch in (*(*map).groups.offset(i as isize)).startCharCode
-            ..=(*(*map).groups.offset(i as isize)).endCharCode
-        {
-            let d: i32 = ch.wrapping_sub((*(*map).groups.offset(i as isize)).startCharCode) as i32;
-            let mut gid = ((*(*map).groups.offset(i as isize))
-                .startGlyphID
-                .wrapping_add(d as u32)
-                & 0xffff_u32) as u16;
+    for group in map.groups.iter() {
+        for ch in group.startCharCode..=group.endCharCode {
+            let d: i32 = (ch - group.startCharCode) as i32;
+            let mut gid = (group.startGlyphID.wrapping_add(d as u32) & 0xffff_u32) as u16;
             if !gsub_list.is_null() {
                 otl_gsub_apply_chain(&*gsub_list, &mut gid);
             }
@@ -889,33 +868,29 @@ unsafe fn add_to_cmap_if_used(
 }
 unsafe fn create_ToUnicode_cmap4(
     cmap: &mut CMap,
-    map: *mut cmap4,
+    map: &cmap4,
     used_chars: &mut [u8],
     cffont: Option<&cff_font>,
 ) -> u16 {
     let mut count: u16 = 0_u16;
-    let segCount: u16 = ((*map).segCountX2 as i32 / 2) as u16;
-    for i in 0..segCount as i32 {
-        let c0: u16 = *(*map).startCount.offset(i as isize);
-        let c1: u16 = *(*map).endCount.offset(i as isize);
-        let d: u16 = (*(*map).idRangeOffset.offset(i as isize) as i32 / 2
-            - (segCount as i32 - i as i32)) as u16;
+    let segCount: u16 = (map.segCountX2 as i32 / 2) as u16;
+    for i in 0..segCount as usize {
+        let c0: u16 = map.startCount[i];
+        let c1: u16 = map.endCount[i];
+        let d: u16 = (map.idRangeOffset[i] as i32 / 2 - (segCount as i32 - i as i32)) as u16;
         let mut j = 0;
         while j as i32 <= c1 as i32 - c0 as i32 {
             let ch: u16 = (c0 as i32 + j as i32) as u16;
-            let gid = if *(*map).idRangeOffset.offset(i as isize) as i32 == 0 {
-                (ch as i32 + *(*map).idDelta.offset(i as isize) as i32 & 0xffff) as u16
+            let gid = if map.idRangeOffset[i] as i32 == 0 {
+                (ch as i32 + map.idDelta[i] as i32 & 0xffff) as u16
             } else if c0 as i32 == 0xffff
                 && c1 as i32 == 0xffff
-                && *(*map).idRangeOffset.offset(i as isize) as i32 == 0xffff
+                && map.idRangeOffset[i] as i32 == 0xffff
             {
                 /* this is for protection against some old broken fonts... */
                 0
             } else {
-                (*(*map)
-                    .glyphIndexArray
-                    .offset((j as i32 + d as i32) as isize) as i32
-                    + *(*map).idDelta.offset(i as isize) as i32
+                (map.glyphIndexArray[(j as i32 + d as i32) as usize] as i32 + map.idDelta[i] as i32
                     & 0xffff) as u16
             };
             count = (count as i32
@@ -928,20 +903,15 @@ unsafe fn create_ToUnicode_cmap4(
 }
 unsafe fn create_ToUnicode_cmap12(
     cmap: &mut CMap,
-    map: *mut cmap12,
+    map: &cmap12,
     used_chars: &mut [u8],
     cffont: Option<&cff_font>,
 ) -> u16 {
     let mut count: u32 = 0_u32;
-    for i in 0..(*map).nGroups {
-        for ch in (*(*map).groups.offset(i as isize)).startCharCode
-            ..=(*(*map).groups.offset(i as isize)).endCharCode
-        {
-            let d: i32 = ch.wrapping_sub((*(*map).groups.offset(i as isize)).startCharCode) as i32;
-            let gid: u16 = ((*(*map).groups.offset(i as isize))
-                .startGlyphID
-                .wrapping_add(d as u32)
-                & 0xffff_u32) as u16;
+    for group in map.groups.iter() {
+        for ch in group.startCharCode..=group.endCharCode {
+            let d: i32 = (ch - group.startCharCode) as i32;
+            let gid: u16 = (group.startGlyphID.wrapping_add(d as u32) & 0xffff_u32) as u16;
             count += add_to_cmap_if_used(cmap, cffont, used_chars, gid, ch) as u32;
         }
     }
@@ -1018,7 +988,7 @@ unsafe fn create_ToUnicode_cmap(
             4 => {
                 count = create_ToUnicode_cmap4(
                     &mut cmap,
-                    (*ttcmap).map as *mut cmap4,
+                    &*((*ttcmap).map as *mut cmap4),
                     &mut used_chars_copy[..],
                     if is_cidfont {
                         if let Some(cffont) = &cffont {
@@ -1034,7 +1004,7 @@ unsafe fn create_ToUnicode_cmap(
             12 => {
                 count = create_ToUnicode_cmap12(
                     &mut cmap,
-                    (*ttcmap).map as *mut cmap12,
+                    &*((*ttcmap).map as *mut cmap12),
                     &mut used_chars_copy[..],
                     if is_cidfont {
                         if let Some(cffont) = &cffont {
@@ -1221,7 +1191,7 @@ unsafe fn load_base_CMap(
         }
         if (*ttcmap).format as i32 == 12 {
             load_cmap12(
-                (*ttcmap).map as *mut cmap12,
+                &*((*ttcmap).map as *mut cmap12),
                 GIDToCIDMap,
                 gsub_vert,
                 gsub_list,
@@ -1230,7 +1200,7 @@ unsafe fn load_base_CMap(
             );
         } else if (*ttcmap).format as i32 == 4 {
             load_cmap4(
-                (*ttcmap).map as *mut cmap4,
+                &*((*ttcmap).map as *mut cmap4),
                 GIDToCIDMap,
                 gsub_vert,
                 gsub_list,
