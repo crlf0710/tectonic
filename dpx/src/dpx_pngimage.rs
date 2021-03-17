@@ -32,13 +32,11 @@ use std::ptr;
 
 use crate::warn;
 
-use super::dpx_mem::new;
 use super::dpx_pdfcolor::{iccp_check_colorspace, iccp_load_profile, pdf_get_colorspace_reference};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_obj, pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj,
     IntoRef, Object, PushObj, STREAM_COMPRESS,
 };
-use libc::free;
 
 use std::io::{Seek, SeekFrom};
 
@@ -171,10 +169,8 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
     }
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     let stream_dict = stream.get_dict_mut();
-    let stream_data_ptr = new((rowbytes.wrapping_mul(height) as u64)
-        .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-        as *mut u8;
-    read_image_data(png, stream_data_ptr, height, rowbytes);
+    let mut stream_data = vec![0_u8; (rowbytes * height) as _];
+    read_image_data(png, stream_data.as_mut_ptr(), height, rowbytes);
     /* Non-NULL intent means there is valid sRGB chunk. */
     let intent = get_rendering_intent(png, png_info);
     if !intent.is_null() {
@@ -194,7 +190,8 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 }
                 2 => {
                     /* Soft mask */
-                    create_soft_mask(png, png_info, stream_data_ptr, width, height).map(Into::into)
+                    create_soft_mask(png, png_info, stream_data.as_mut_ptr(), width, height)
+                        .map(Into::into)
                 }
                 _ => None,
             };
@@ -219,8 +216,15 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
                 1 => create_ckey_mask(png, png_info).map(Into::into),
                 2 => {
                     /* rowbytes changes 4 to 3 at here */
-                    strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
-                        .map(Into::into)
+                    strip_soft_mask(
+                        png,
+                        png_info,
+                        stream_data.as_mut_ptr(),
+                        &mut rowbytes,
+                        width,
+                        height,
+                    )
+                    .map(Into::into)
                 }
                 _ => None,
             };
@@ -243,8 +247,15 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
             }
             mask = match trans_type {
                 1 => create_ckey_mask(png, png_info).map(Into::into),
-                2 => strip_soft_mask(png, png_info, stream_data_ptr, &mut rowbytes, width, height)
-                    .map(Into::into),
+                2 => strip_soft_mask(
+                    png,
+                    png_info,
+                    stream_data.as_mut_ptr(),
+                    &mut rowbytes,
+                    width,
+                    height,
+                )
+                .map(Into::into),
                 _ => None,
             };
             info.num_components = 1
@@ -255,11 +266,7 @@ pub(crate) unsafe fn png_include_image(ximage: &mut pdf_ximage, handle: &mut InF
         }
     }
     stream_dict.set("ColorSpace", colorspace);
-    stream.add(
-        stream_data_ptr as *const libc::c_void,
-        rowbytes.wrapping_mul(height) as i32,
-    );
-    free(stream_data_ptr as *mut libc::c_void);
+    stream.add_slice(&stream_data[..(rowbytes * height) as usize]);
     let stream_dict = stream.get_dict_mut();
     if let Some(mut mask) = mask {
         if trans_type == 1 {
@@ -891,28 +898,22 @@ unsafe fn create_soft_mask(
     }
     let mut smask = pdf_stream::new(STREAM_COMPRESS);
     let dict = smask.get_dict_mut();
-    let smask_data_ptr = new(
-        (width.wrapping_mul(height) as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
-    ) as *mut u8;
+    let mut smask_data = Vec::with_capacity((width * height) as _);
     dict.set("Type", "XObject");
     dict.set("Subtype", "Image");
     dict.set("Width", width as f64);
     dict.set("Height", height as f64);
     dict.set("ColorSpace", "DeviceGray");
     dict.set("BitsPerComponent", 8_f64);
-    for i in 0..width.wrapping_mul(height) {
+    for i in 0..(width * height) {
         let idx: u8 = *image_data_ptr.offset(i as isize);
-        *smask_data_ptr.offset(i as isize) = (if (idx as i32) < num_trans {
+        smask_data.push(if (idx as i32) < num_trans {
             *trans.offset(idx as isize) as i32
         } else {
             0xff
-        }) as u8;
+        } as u8);
     }
-    smask.add(
-        smask_data_ptr as *mut i8 as *const libc::c_void,
-        width.wrapping_mul(height) as i32,
-    );
-    free(smask_data_ptr as *mut libc::c_void);
+    smask.add_slice(&smask_data);
     Some(smask)
 }
 /* bitdepth is always 8 (16 is not supported) */
@@ -955,15 +956,11 @@ unsafe fn strip_soft_mask(
     dict.set("Height", height as f64);
     dict.set("ColorSpace", "DeviceGray");
     dict.set("BitsPerComponent", bpc as f64);
-    let smask_data_ptr = new((((bpc as i32 / 8) as u32)
-        .wrapping_mul(width)
-        .wrapping_mul(height) as u64)
-        .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-        as *mut u8;
+    let mut smask_data = Vec::<u8>::with_capacity(((bpc as u32 / 8) * width * height) as _);
     match color_type as i32 {
         6 => {
             if bpc as i32 == 8 {
-                for i in 0..width.wrapping_mul(height) {
+                for i in 0..width * height {
                     libc::memmove(
                         image_data_ptr.offset((3_u32).wrapping_mul(i) as isize)
                             as *mut libc::c_void,
@@ -971,14 +968,16 @@ unsafe fn strip_soft_mask(
                             as *const libc::c_void,
                         3usize,
                     );
-                    *smask_data_ptr.offset(i as isize) = *image_data_ptr
-                        .offset((4_u32).wrapping_mul(i).wrapping_add(3_u32) as isize);
+                    smask_data.push(
+                        *image_data_ptr
+                            .offset((4_u32).wrapping_mul(i).wrapping_add(3_u32) as isize),
+                    );
                 }
                 *rowbytes_ptr = ((3_u32).wrapping_mul(width) as u64)
                     .wrapping_mul(::std::mem::size_of::<u8>() as u64)
                     as u32
             } else {
-                for i in 0..width.wrapping_mul(height) {
+                for i in 0..width * height {
                     libc::memmove(
                         image_data_ptr.offset((6_u32).wrapping_mul(i) as isize)
                             as *mut libc::c_void,
@@ -986,11 +985,14 @@ unsafe fn strip_soft_mask(
                             as *const libc::c_void,
                         6usize,
                     );
-                    *smask_data_ptr.offset((2_u32).wrapping_mul(i) as isize) = *image_data_ptr
-                        .offset((8_u32).wrapping_mul(i).wrapping_add(6_u32) as isize);
-                    *smask_data_ptr.offset((2_u32).wrapping_mul(i).wrapping_add(1_u32) as isize) =
+                    smask_data.push(
                         *image_data_ptr
-                            .offset((8_u32).wrapping_mul(i).wrapping_add(7_u32) as isize);
+                            .offset((8_u32).wrapping_mul(i).wrapping_add(6_u32) as isize),
+                    );
+                    smask_data.push(
+                        *image_data_ptr
+                            .offset((8_u32).wrapping_mul(i).wrapping_add(7_u32) as isize),
+                    );
                 }
                 *rowbytes_ptr = ((6_u32).wrapping_mul(width) as u64)
                     .wrapping_mul(::std::mem::size_of::<u8>() as u64)
@@ -999,26 +1001,31 @@ unsafe fn strip_soft_mask(
         }
         4 => {
             if bpc as i32 == 8 {
-                for i in 0..width.wrapping_mul(height) {
+                for i in 0..width * height {
                     *image_data_ptr.offset(i as isize) =
                         *image_data_ptr.offset((2_u32).wrapping_mul(i) as isize);
-                    *smask_data_ptr.offset(i as isize) = *image_data_ptr
-                        .offset((2_u32).wrapping_mul(i).wrapping_add(1_u32) as isize);
+                    smask_data.push(
+                        *image_data_ptr
+                            .offset((2_u32).wrapping_mul(i).wrapping_add(1_u32) as isize),
+                    );
                 }
                 *rowbytes_ptr =
                     (width as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32
             } else {
-                for i in 0..width.wrapping_mul(height) {
+                for i in 0..width * height {
                     *image_data_ptr.offset((2_u32).wrapping_mul(i) as isize) =
                         *image_data_ptr.offset((4_u32).wrapping_mul(i) as isize);
                     *image_data_ptr.offset((2_u32).wrapping_mul(i).wrapping_add(1_u32) as isize) =
                         *image_data_ptr
                             .offset((4_u32).wrapping_mul(i).wrapping_add(1_u32) as isize);
-                    *smask_data_ptr.offset((2_u32).wrapping_mul(i) as isize) = *image_data_ptr
-                        .offset((4_u32).wrapping_mul(i).wrapping_add(2_u32) as isize);
-                    *smask_data_ptr.offset((2_u32).wrapping_mul(i).wrapping_add(1_u32) as isize) =
+                    smask_data.push(
                         *image_data_ptr
-                            .offset((4_u32).wrapping_mul(i).wrapping_add(3_u32) as isize);
+                            .offset((4_u32).wrapping_mul(i).wrapping_add(2_u32) as isize),
+                    );
+                    smask_data.push(
+                        *image_data_ptr
+                            .offset((4_u32).wrapping_mul(i).wrapping_add(3_u32) as isize),
+                    );
                 }
                 *rowbytes_ptr = ((2_u32).wrapping_mul(width) as u64)
                     .wrapping_mul(::std::mem::size_of::<u8>() as u64)
@@ -1027,28 +1034,19 @@ unsafe fn strip_soft_mask(
         }
         _ => {
             warn!("You found a bug in pngimage.c!");
-            free(smask_data_ptr as *mut libc::c_void);
             return None;
         }
     }
-    smask.add(
-        smask_data_ptr as *const libc::c_void,
-        ((bpc as i32 / 8) as u32)
-            .wrapping_mul(width)
-            .wrapping_mul(height) as i32,
-    );
-    free(smask_data_ptr as *mut libc::c_void);
+    smask.add_slice(&smask_data);
     Some(smask)
 }
 /* Read image body */
 unsafe fn read_image_data(png: &mut png_struct, dest_ptr: *mut u8, height: u32, rowbytes: u32) {
-    let rows_p = new((height as u64).wrapping_mul(::std::mem::size_of::<*mut u8>() as u64) as u32)
-        as *mut *mut u8;
+    let mut rows_p = Vec::<*mut u8>::with_capacity(height as _);
     for i in 0..height {
-        *rows_p.offset(i as isize) = dest_ptr.offset(rowbytes.wrapping_mul(i) as isize);
+        rows_p.push(dest_ptr.offset(rowbytes.wrapping_mul(i) as isize));
     }
-    png_read_image(png, rows_p);
-    free(rows_p as *mut libc::c_void);
+    png_read_image(png, rows_p.as_mut_ptr());
 }
 
 pub unsafe fn png_get_bbox(handle: &InFile) -> Result<(u32, u32, f64, f64), ()> {

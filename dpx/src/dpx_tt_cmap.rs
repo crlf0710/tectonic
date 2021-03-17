@@ -58,8 +58,7 @@ use super::dpx_tt_table::tt_read_maxp_table;
 use super::dpx_unicode::UC_UTF16BE_encode_char;
 use crate::dpx_pdfobj::{pdf_obj, pdf_stream};
 use crate::dpx_truetype::sfnt_table_info;
-use crate::mfree;
-use libc::{free, memset};
+use libc::free;
 
 use std::ffi::CString;
 use std::io::{Seek, SeekFrom};
@@ -542,7 +541,7 @@ static mut lrange_min: [u8; 4] = [0; 4];
 static mut lrange_max: [u8; 4] = [0x7f_u8, 0xff_u8, 0xff_u8, 0xff_u8];
 unsafe fn load_cmap4(
     map: *mut cmap4,
-    GIDToCIDMap: *mut u8,
+    GIDToCIDMap: &[u8],
     gsub_vert: *mut otl_gsub,
     gsub_list: *mut otl_gsub,
     cmap: &mut CMap,
@@ -581,9 +580,9 @@ unsafe fn load_cmap4(
                 if !gsub_vert.is_null() {
                     otl_gsub_apply(gsub_vert, &mut gid);
                 }
-                if !GIDToCIDMap.is_null() {
-                    cid = ((*GIDToCIDMap.offset((2 * gid as i32) as isize) as i32) << 8
-                        | *GIDToCIDMap.offset((2 * gid as i32 + 1) as isize) as i32)
+                if !GIDToCIDMap.is_empty() {
+                    cid = ((GIDToCIDMap[2 * gid as usize] as i32) << 8
+                        | GIDToCIDMap[2 * gid as usize + 1] as i32)
                         as u16;
                     if cid as i32 == 0 {
                         warn!("GID {} does not have corresponding CID {}.", gid, cid);
@@ -613,7 +612,7 @@ unsafe fn load_cmap4(
 }
 unsafe fn load_cmap12(
     map: *mut cmap12,
-    GIDToCIDMap: *mut u8,
+    GIDToCIDMap: &[u8],
     gsub_vert: *mut otl_gsub,
     gsub_list: *mut otl_gsub,
     cmap: &mut CMap,
@@ -635,10 +634,9 @@ unsafe fn load_cmap12(
             if !gsub_vert.is_null() {
                 otl_gsub_apply(gsub_vert, &mut gid);
             }
-            if !GIDToCIDMap.is_null() {
-                cid = ((*GIDToCIDMap.offset((2 * gid as i32) as isize) as i32) << 8
-                    | *GIDToCIDMap.offset((2 * gid as i32 + 1) as isize) as i32)
-                    as u16;
+            if !GIDToCIDMap.is_empty() {
+                cid = ((GIDToCIDMap[2 * gid as usize] as i32) << 8
+                    | GIDToCIDMap[2 * gid as usize + 1] as i32) as u16;
                 if cid as i32 == 0 {
                     warn!("GID {} does not have corresponding CID {}.", gid, cid);
                 }
@@ -665,18 +663,13 @@ unsafe fn load_cmap12(
  *  We don't use GID for them. OpenType cmap table is for
  *  charcode to GID mapping rather than to-CID mapping.
  */
-unsafe fn handle_CIDFont(
-    sfont: &mut sfnt,
-    GIDToCIDMap: &mut *mut u8,
-    mut csi: *mut CIDSysInfo,
-) -> i32 {
+unsafe fn handle_CIDFont(sfont: &mut sfnt, mut csi: *mut CIDSysInfo) -> Option<Vec<u8>> {
     assert!(!csi.is_null());
     let offset = sfnt_find_table_pos(sfont, b"CFF ") as i32;
     if offset == 0 {
         (*csi).registry = "".into();
         (*csi).ordering = "".into();
-        *GIDToCIDMap = ptr::null_mut();
-        return 0;
+        return None;
     }
     let maxp = tt_read_maxp_table(sfont);
     let num_glyphs = maxp.numGlyphs;
@@ -687,8 +680,7 @@ unsafe fn handle_CIDFont(
     if cffont.flag & 1 << 0 == 0 {
         (*csi).registry = "".into();
         (*csi).ordering = "".into();
-        *GIDToCIDMap = ptr::null_mut();
-        return 0;
+        return None;
     }
     if !cffont.topdict.contains_key("ROS") {
         panic!("No CIDSystemInfo???");
@@ -703,15 +695,13 @@ unsafe fn handle_CIDFont(
     if cffont.charsets.is_none() {
         panic!("No CFF charset data???");
     }
-    let mut map = new(((num_glyphs as i32 * 2) as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-    memset(map as *mut libc::c_void, 0, (num_glyphs * 2) as _);
+    let mut map = vec![0u8; num_glyphs as usize * 2];
     match cffont.charsets.as_deref().unwrap() {
         Charsets::Glyphs(cids) => {
             let mut gid = 1_u16;
             for &cid in cids.iter() {
-                *map.offset((2 * gid as i32) as isize) = (cid as i32 >> 8 & 0xff) as u8;
-                *map.offset((2 * gid as i32 + 1) as isize) = (cid as i32 & 0xff) as u8;
+                map[2 * gid as usize] = (cid as i32 >> 8 & 0xff) as u8;
+                map[2 * gid as usize + 1] = (cid as i32 & 0xff) as u8;
                 gid += 1;
             }
         }
@@ -723,8 +713,8 @@ unsafe fn handle_CIDFont(
                     if !(gid as i32 <= num_glyphs as i32) {
                         break;
                     }
-                    *map.offset((2 * gid as i32) as isize) = (cid as i32 >> 8 & 0xff) as u8;
-                    *map.offset((2 * gid as i32 + 1) as isize) = (cid as i32 & 0xff) as u8;
+                    map[2 * gid as usize] = (cid as i32 >> 8 & 0xff) as u8;
+                    map[2 * gid as usize + 1] = (cid as i32 & 0xff) as u8;
                     gid += 1;
                     cid += 1;
                 }
@@ -733,7 +723,7 @@ unsafe fn handle_CIDFont(
         Charsets::Range2(ranges) => {
             if ranges.len() == 1 && ranges[0].first as i32 == 1 {
                 /* "Complete" CIDFont */
-                map = mfree(map as *mut libc::c_void) as *mut u8
+                map = Vec::new();
             } else {
                 /* Not trivial mapping */
                 let mut gid = 1_u16;
@@ -743,8 +733,8 @@ unsafe fn handle_CIDFont(
                         if !(gid as i32 <= num_glyphs as i32) {
                             break;
                         }
-                        *map.offset((2 * gid as i32) as isize) = (cid_0 as i32 >> 8 & 0xff) as u8;
-                        *map.offset((2 * gid as i32 + 1) as isize) = (cid_0 as i32 & 0xff) as u8;
+                        map[2 * gid as usize] = (cid_0 as i32 >> 8 & 0xff) as u8;
+                        map[2 * gid as usize + 1] = (cid_0 as i32 & 0xff) as u8;
                         gid += 1;
                         cid_0 += 1;
                     }
@@ -752,8 +742,7 @@ unsafe fn handle_CIDFont(
             }
         }
     }
-    *GIDToCIDMap = map;
-    1
+    Some(map)
 }
 unsafe fn is_PUA_or_presentation(uni: u32) -> bool {
     /* KANGXI RADICALs are commonly double encoded. */
@@ -1211,7 +1200,7 @@ unsafe fn load_base_CMap(
     tounicode_add: *mut CMap,
     wmode: i32,
     csi: Option<&CIDSysInfo>,
-    GIDToCIDMap: *mut u8,
+    GIDToCIDMap: &[u8],
     gsub_vert: *mut otl_gsub,
     gsub_list: *mut otl_gsub,
     ttcmap: *mut tt_cmap,
@@ -1278,7 +1267,6 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         ordering: "".into(),
         supplement: 0,
     };
-    let mut GIDToCIDMap: *mut u8 = ptr::null_mut();
     if map_name.is_empty() {
         return None;
     }
@@ -1353,11 +1341,16 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     } else {
         cmap_name = base_name;
     }
-    let is_cidfont = if sfont.type_0 == 1 << 2 {
-        handle_CIDFont(&mut sfont, &mut GIDToCIDMap, &mut csi)
+    let (is_cidfont, GIDToCIDMap) = if let Some(map) = if sfont.type_0 == 1 << 2 {
+        handle_CIDFont(&mut sfont, &mut csi)
     } else {
-        0
+        None
+    } {
+        (true, map)
+    } else {
+        (false, Vec::new())
     };
+
     if verbose > 0 {
         info!("\n");
         info!(
@@ -1371,7 +1364,6 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         );
     }
     if let Some(cmap_id) = CMap_cache_find(&cmap_name) {
-        free(GIDToCIDMap as *mut libc::c_void);
         if verbose > 0 {
             info!("otf_cmap>> Found at cmap_id={}.\n", cmap_id);
         }
@@ -1418,8 +1410,8 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         &cmap_name,
         tounicode_add,
         wmode,
-        if is_cidfont != 0 { Some(&csi) } else { None },
-        GIDToCIDMap,
+        if is_cidfont { Some(&csi) } else { None },
+        &GIDToCIDMap,
         gsub_vert,
         gsub_list,
         ttcmap,
@@ -1433,8 +1425,7 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     if !gsub_list.is_null() {
         otl_gsub_release(gsub_list);
     }
-    free(GIDToCIDMap as *mut libc::c_void);
-    if is_cidfont != 0 {
+    if is_cidfont {
         csi.registry = "".into();
         csi.ordering = "".into();
     }

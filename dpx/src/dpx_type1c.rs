@@ -49,7 +49,6 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use crate::dpx_pdfobj::{pdf_stream, pdf_string, IntoRef, PushObj, STREAM_COMPRESS};
-use libc::free;
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -380,7 +379,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
         Some(dict) if dict.contains_key("nominalWidthX") => dict.get("nominalWidthX", 0),
         _ => 0.,
     };
-    let data = new((65536_u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
+    let mut data = Vec::<u8>::with_capacity(65536);
     /* First we add .notdef glyph.
      * All Type 1 font requires .notdef glyph to be present.
      */
@@ -396,13 +395,12 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     handle
         .seek(SeekFrom::Start(offset as u64 + cs_idx.offset[0] as u64 - 1))
         .unwrap();
-    let slice = std::slice::from_raw_parts_mut(data, size as usize);
-    handle.read(slice).unwrap();
+    data.resize(size as _, 0);
+    handle.read_exact(&mut data).unwrap();
     charstring_len += cs_copy_charstring(
         charstrings.data[charstring_len..].as_mut_ptr(),
         (max_len - charstring_len) as i32,
-        data,
-        size,
+        &data,
         &cffont.gsubr,
         &cffont.subrs[0],
         default_width,
@@ -486,13 +484,12 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                             offset as u64 + cs_idx.offset[gid_0 as usize] as u64 - 1,
                         ))
                         .unwrap();
-                    let slice = std::slice::from_raw_parts_mut(data, size as usize);
-                    handle.read(slice).unwrap();
+                    data.resize(size as _, 0);
+                    handle.read(&mut data).unwrap();
                     charstring_len += cs_copy_charstring(
                         charstrings.data[charstring_len..].as_mut_ptr(),
                         (max_len - charstring_len) as i32,
-                        data,
-                        size,
+                        &data,
                         &cffont.gsubr,
                         &cffont.subrs[0],
                         default_width,
@@ -510,7 +507,6 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     if verbose > 2 {
         info!("]");
     }
-    free(data as *mut libc::c_void);
     /*
      * Now we create encoding data.
      */

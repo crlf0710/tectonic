@@ -52,7 +52,6 @@ use crate::dpx_pdfobj::{
     pdf_dict, pdf_name, pdf_ref_obj, pdf_stream, pdf_string, IntoObj, IntoRef, PushObj,
     STREAM_COMPRESS,
 };
-use libc::free;
 
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
@@ -252,7 +251,7 @@ unsafe fn add_TTCIDHMetrics(
     fontdict: &mut pdf_dict,
     g: &tt_glyphs,
     used_chars: *mut i8,
-    cidtogidmap: *mut u8,
+    cidtogidmap: &[u8],
     last_cid: u16,
 ) {
     let mut start: i32 = 0;
@@ -270,9 +269,9 @@ unsafe fn add_TTCIDHMetrics(
     };
     for cid in 0..=last_cid as i32 {
         if !(*used_chars.offset((cid / 8) as isize) as i32 & 1 << 7 - cid % 8 == 0) {
-            let gid = (if !cidtogidmap.is_null() {
-                (*cidtogidmap.offset((2 * cid) as isize) as i32) << 8
-                    | *cidtogidmap.offset((2 * cid + 1) as isize) as i32
+            let gid = (if !cidtogidmap.is_empty() {
+                (cidtogidmap[2 * cid as usize] as i32) << 8
+                    | cidtogidmap[2 * cid as usize + 1] as i32
             } else {
                 cid
             }) as u16;
@@ -648,7 +647,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     if last_cid as u32 >= 0xffffu32 {
         panic!("CID count > 65535");
     }
-    let cidtogidmap = ptr::null_mut();
+    let cidtogidmap = Vec::new();
     /* !NO_GHOSTSCRIPT_BUG */
     /*
      * Map CIDs to GIDs.
@@ -805,7 +804,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             (*font.fontdict).as_dict_mut(),
             &glyphs,
             used_chars,
-            cidtogidmap,
+            &cidtogidmap,
             last_cid,
         );
         if !v_used_chars.is_null() {
@@ -819,7 +818,6 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     }
     /* Finish here if not embedded. */
     if CIDFont_get_embedding(font) == 0 {
-        free(cidtogidmap as *mut libc::c_void);
         return;
     }
     /* Create font file */
@@ -855,20 +853,16 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * default value as "Identity". However, ISO 32000-1 requires it
      * for Type 2 CIDFonts with embedded font programs.
      */
-    if cidtogidmap.is_null() {
+    if cidtogidmap.is_empty() {
         (*font.fontdict)
             .as_dict_mut()
             .set("CIDToGIDMap", "Identity");
     } else {
         let mut c2gmstream = pdf_stream::new(STREAM_COMPRESS);
-        c2gmstream.add(
-            cidtogidmap as *const libc::c_void,
-            (last_cid as i32 + 1) * 2,
-        );
+        c2gmstream.add_slice(&cidtogidmap[..(last_cid as usize + 1) * 2]);
         (*font.fontdict)
             .as_dict_mut()
             .set("CIDToGIDMap", c2gmstream.into_ref());
-        free(cidtogidmap as *mut libc::c_void);
     };
 }
 

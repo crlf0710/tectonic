@@ -221,7 +221,7 @@ fn get_integer(data: &mut &[u8]) -> Result<f64, CffError> {
     } as f64)
 }
 /* Simply uses strtod */
-unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
+fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
     let mut nibble: i32 = 0;
     let mut fail: i32 = 0;
     /* skip first byte (30) */

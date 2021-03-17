@@ -33,7 +33,6 @@ use super::dpx_cff::{
     cff_add_string, cff_get_seac_sid, cff_glyph_lookup_str, cff_pack_charsets, cff_pack_encoding,
     cff_put_header, cff_set_name, cff_update_string, CffIndex, Pack,
 };
-use super::dpx_mem::new;
 use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encoding};
 use super::dpx_pdffont::{
     pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_resource,
@@ -45,7 +44,6 @@ use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use crate::dpx_pdfobj::{pdf_stream, pdf_string, IntoRef, PushObj, STREAM_COMPRESS};
 use bridge::{InFile, TTInputFormat};
-use libc::free;
 
 /* quasi-hack to get the primary input */
 /* CFF Data Types */
@@ -528,8 +526,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         0.
     };
     /* Create CFF encoding, charset, sort glyphs */
-    let GIDMap =
-        new((1024_u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16; /* FIXME */
+    let mut GIDMap = vec![0_u16; 1024];
     let mut pdfcharset = pdf_stream::new(0); /* With pseudo unique tag */
     let mut encoding_ranges = Vec::with_capacity(256);
     let mut encoding_supp = Vec::with_capacity(256);
@@ -538,11 +535,11 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     if gid < 0 {
         panic!("Type 1 font with no \".notdef\" glyph???");
     }
-    *GIDMap.offset(0) = gid as u16;
+    GIDMap[0] = gid as u16;
     if verbose > 2 {
         info!("[glyphs:/.notdef");
     }
-    let mut num_glyphs = 1 as u16;
+    let mut num_glyphs = 1;
     let mut prev = -2_i32;
     for code in 0..=0xff {
         let glyph = &enc_slice[code as usize];
@@ -577,7 +574,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                             glyph: sid,
                         });
                     } else {
-                        *GIDMap.offset(num_glyphs as isize) = gid as u16;
+                        GIDMap[num_glyphs] = gid as u16;
                         charset_glyphs.push(sid);
                         if code != prev + 1 {
                             encoding_ranges.push(cff_range1 {
@@ -589,7 +586,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                             encoding_ranges[len - 1].n_left += 1;
                         }
                         prev = code;
-                        num_glyphs = num_glyphs.wrapping_add(1);
+                        num_glyphs += 1;
                         if verbose > 2 {
                             info!("/{}", glyph);
                         }
@@ -631,7 +628,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
             dstlen_max += 65536 * 2;
             cstring.data.resize(dstlen_max as _, 0);
         }
-        let gid_orig = *GIDMap.offset(gid_0 as isize);
+        let gid_orig = GIDMap[gid_0 as usize];
         let dstptr = cstring.data[cstring.offset[gid_0 as usize] as usize - 1..].as_mut_ptr();
         let src = &cff_cstrings.data[cff_cstrings.offset[gid_orig as usize] as usize - 1
             ..cff_cstrings.offset[(gid_orig as i32 + 1) as usize] as usize - 1];
@@ -670,32 +667,32 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                 continue;
             } else {
                 let mut i = 0;
-                while i < num_glyphs as i32 {
-                    if *GIDMap.offset(i as isize) as i32 == achar_gid {
+                while i < num_glyphs {
+                    if GIDMap[i] as i32 == achar_gid {
                         break;
                     }
                     i += 1
                 }
-                if i == num_glyphs as i32 {
+                if i == num_glyphs {
                     if verbose > 2 {
                         info!("/{}", achar_name);
                     }
-                    *GIDMap.offset(num_glyphs as isize) = achar_gid as u16;
+                    GIDMap[num_glyphs] = achar_gid as u16;
                     num_glyphs += 1;
                     charset_glyphs.push(cff_get_seac_sid(&cffont, achar_name) as s_SID);
                 }
                 let mut i = 0;
-                while i < num_glyphs as i32 {
-                    if *GIDMap.offset(i as isize) as i32 == bchar_gid {
+                while i < num_glyphs {
+                    if GIDMap[i] as i32 == bchar_gid {
                         break;
                     }
                     i += 1;
                 }
-                if i == num_glyphs as i32 {
+                if i == num_glyphs {
                     if verbose > 2 {
                         info!("/{}", bchar_name);
                     }
-                    *GIDMap.offset(num_glyphs as isize) = bchar_gid as u16;
+                    GIDMap[num_glyphs] = bchar_gid as u16;
                     num_glyphs += 1;
                     charset_glyphs.push(cff_get_seac_sid(&cffont, bchar_name) as s_SID);
                 }
@@ -704,7 +701,7 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         widths.push(gm.wx);
         gid_0 += 1;
     }
-    cstring.count = num_glyphs;
+    cstring.count = num_glyphs as _;
     cffont.subrs = Vec::new();
     cffont.cstrings = Some(cstring);
     cffont.charsets = Some(Rc::new(Charsets::Glyphs(charset_glyphs.into_boxed_slice())));
@@ -724,7 +721,6 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     if verbose > 1 {
         info!("[{} glyphs][{} bytes]", num_glyphs, offset);
     }
-    free(GIDMap as *mut libc::c_void);
     /* Maybe writing Charset is recommended for subsetted font. */
     0
 }
