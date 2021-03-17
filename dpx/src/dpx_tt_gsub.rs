@@ -149,25 +149,23 @@ pub(crate) struct clt_record {
     pub(crate) offset: Offset,
 }
 pub(crate) type Offset = u16;
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct clt_record_list {
-    pub(crate) count: u16,
-    pub(crate) record: *mut clt_record,
+    pub(crate) record: Vec<clt_record>,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct clt_number_list {
-    pub(crate) count: u16,
-    pub(crate) value: *mut u16,
+    pub(crate) value: Vec<u16>,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct clt_feature_table {
     pub(crate) FeatureParams: Offset,
     pub(crate) LookupListIndex: clt_number_list,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct clt_lookup_table {
     pub(crate) LookupType: u16,
@@ -182,13 +180,13 @@ pub(crate) struct otl_gsub_header {
     pub(crate) FeatureList: Offset,
     pub(crate) LookupList: Offset,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct clt_script_table {
     pub(crate) DefaultLangSys: Offset,
     pub(crate) LangSysRecord: clt_record_list,
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct clt_langsys_table {
     pub(crate) LookupOrder: Offset,
@@ -202,13 +200,14 @@ pub(crate) unsafe fn otl_gsub_set_verbose(level: i32) {
     verbose = level;
 }
 
-unsafe fn clt_read_record<R: Read>(rec: &mut clt_record, handle: &mut R) -> i32 {
+unsafe fn clt_read_record<R: Read>(handle: &mut R) -> (clt_record, i32) {
+    let mut tag = [0; 5];
     for i in 0..4 {
-        rec.tag[i] = i8::get(handle) as i8;
+        tag[i] = i8::get(handle) as i8;
     }
-    rec.tag[4] = '\u{0}' as i32 as i8;
-    rec.offset = u16::get(handle);
-    6
+    tag[4] = '\u{0}' as i32 as i8;
+    let offset = u16::get(handle);
+    (clt_record { tag, offset }, 6)
 }
 
 fn read_range<R: Read>(handle: &mut R) -> (Range, usize) {
@@ -223,56 +222,37 @@ fn read_range<R: Read>(handle: &mut R) -> (Range, usize) {
 }
 
 unsafe fn clt_read_record_list<R: Read>(list: &mut clt_record_list, handle: &mut R) -> i32 {
-    list.count = u16::get(handle);
+    let count = u16::get(handle);
     let mut len = 2;
-    if list.count as i32 == 0 {
-        list.record = ptr::null_mut()
+    if count == 0 {
+        list.record = Vec::new()
     } else {
-        list.record = new((list.count as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<clt_record>() as u64)
-            as u32) as *mut clt_record;
-        for i in 0..list.count as i32 {
-            len += clt_read_record(&mut *list.record.offset(i as isize), handle);
+        list.record = Vec::with_capacity(count as _);
+        for _ in 0..count {
+            let (rec, dlen) = clt_read_record(handle);
+            list.record.push(rec);
+            len += dlen;
         }
     }
     len
 }
-unsafe fn clt_release_record_list(mut list: *mut clt_record_list) {
-    if !list.is_null() {
-        (*list).record = mfree((*list).record as *mut libc::c_void) as *mut clt_record;
-        (*list).count = 0_u16
-    };
-}
 unsafe fn clt_read_number_list<R: Read>(list: &mut clt_number_list, handle: &mut R) -> i32 {
-    list.count = u16::get(handle);
-    if list.count as i32 == 0 {
-        list.value = ptr::null_mut()
+    let count = u16::get(handle);
+    if count == 0 {
+        list.value = Vec::new();
     } else {
-        list.value = new(
-            (list.count as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32
-        ) as *mut u16;
-        for i in 0..list.count as i32 {
-            *list.value.offset(i as isize) = u16::get(handle);
+        list.value = Vec::with_capacity(count as _);
+        for _ in 0..count {
+            list.value.push(u16::get(handle));
         }
     }
-    2 + 2 * list.count as i32
-}
-unsafe fn clt_release_number_list(mut list: *mut clt_number_list) {
-    if !list.is_null() {
-        (*list).value = mfree((*list).value as *mut libc::c_void) as *mut u16;
-        (*list).count = 0_u16
-    };
+    2 + 2 * count as i32
 }
 unsafe fn clt_read_script_table<R: Read>(tab: &mut clt_script_table, handle: &mut R) -> i32 {
     tab.DefaultLangSys = u16::get(handle);
     let mut len = 2;
     len += clt_read_record_list(&mut tab.LangSysRecord, handle);
     len
-}
-unsafe fn clt_release_script_table(tab: *mut clt_script_table) {
-    if !tab.is_null() {
-        clt_release_record_list(&mut (*tab).LangSysRecord);
-    };
 }
 unsafe fn clt_read_langsys_table<R: Read>(tab: &mut clt_langsys_table, handle: &mut R) -> i32 {
     tab.LookupOrder = u16::get(handle);
@@ -281,21 +261,11 @@ unsafe fn clt_read_langsys_table<R: Read>(tab: &mut clt_langsys_table, handle: &
     len += clt_read_number_list(&mut tab.FeatureIndex, handle);
     len
 }
-unsafe fn clt_release_langsys_table(tab: *mut clt_langsys_table) {
-    if !tab.is_null() {
-        clt_release_number_list(&mut (*tab).FeatureIndex);
-    };
-}
 unsafe fn clt_read_feature_table<R: Read>(tab: &mut clt_feature_table, handle: &mut R) -> i32 {
     tab.FeatureParams = u16::get(handle);
     let mut len = 2;
     len += clt_read_number_list(&mut tab.LookupListIndex, handle);
     len
-}
-unsafe fn clt_release_feature_table(tab: *mut clt_feature_table) {
-    if !tab.is_null() {
-        clt_release_number_list(&mut (*tab).LookupListIndex);
-    };
 }
 unsafe fn clt_read_lookup_table<R: Read>(tab: &mut clt_lookup_table, handle: &mut R) -> i32 {
     tab.LookupType = u16::get(handle);
@@ -303,11 +273,6 @@ unsafe fn clt_read_lookup_table<R: Read>(tab: &mut clt_lookup_table, handle: &mu
     let mut len = 4;
     len += clt_read_number_list(&mut tab.SubTableList, handle);
     len
-}
-unsafe fn clt_release_lookup_table(tab: *mut clt_lookup_table) {
-    if !tab.is_null() {
-        clt_release_number_list(&mut (*tab).SubTableList);
-    };
 }
 
 // TODO: Maybe return result?
@@ -424,10 +389,7 @@ unsafe fn otl_gsub_read_alternate<R: Read + Seek>(
     subtab: &mut otl_gsub_subtab,
     handle: &mut R,
 ) -> i32 {
-    let mut altset_offsets: clt_number_list = clt_number_list {
-        count: 0,
-        value: ptr::null_mut(),
-    };
+    let mut altset_offsets: clt_number_list = clt_number_list { value: Vec::new() };
     let offset = handle.seek(SeekFrom::Current(0)).unwrap();
     subtab.LookupType = 3_u16;
     subtab.SubstFormat = u16::get(handle);
@@ -445,7 +407,7 @@ unsafe fn otl_gsub_read_alternate<R: Read + Seek>(
     let cov_offset = u16::get(handle);
     len += 2;
     len += clt_read_number_list(&mut altset_offsets, handle);
-    (*data).AlternateSetCount = altset_offsets.count;
+    (*data).AlternateSetCount = altset_offsets.value.len() as _;
     if (*data).AlternateSetCount as i32 == 0 {
         (*data).AlternateSet = ptr::null_mut();
         (*data).coverage = Coverage::default();
@@ -456,7 +418,7 @@ unsafe fn otl_gsub_read_alternate<R: Read + Seek>(
         as u32) as *mut otl_gsub_altset;
     for i in 0..(*data).AlternateSetCount as i32 {
         let altset = &mut *(*data).AlternateSet.offset(i as isize) as *mut otl_gsub_altset;
-        let altset_offset = offset + (*altset_offsets.value.offset(i as isize) as u64);
+        let altset_offset = offset + (altset_offsets.value[i as usize] as u64);
         handle.seek(SeekFrom::Start(altset_offset as u64)).unwrap();
         (*altset).GlyphCount = u16::get(handle);
         len += 2;
@@ -473,7 +435,6 @@ unsafe fn otl_gsub_read_alternate<R: Read + Seek>(
             }
         }
     }
-    clt_release_number_list(&mut altset_offsets);
     handle.seek(SeekFrom::Start(cov_offset as u64)).unwrap();
     let (cov, l) = read_coverage(handle);
     (*data).coverage = cov;
@@ -484,10 +445,7 @@ unsafe fn otl_gsub_read_ligature<R: Read + Seek>(
     subtab: &mut otl_gsub_subtab,
     handle: &mut R,
 ) -> i32 {
-    let mut ligset_offsets: clt_number_list = clt_number_list {
-        count: 0,
-        value: ptr::null_mut(),
-    };
+    let mut ligset_offsets: clt_number_list = clt_number_list { value: Vec::new() };
     let offset = handle.seek(SeekFrom::Current(0)).unwrap() as u32;
     subtab.LookupType = 4_u16;
     subtab.SubstFormat = u16::get(handle);
@@ -505,7 +463,7 @@ unsafe fn otl_gsub_read_ligature<R: Read + Seek>(
     let cov_offset = u16::get(handle);
     len += 2;
     len += clt_read_number_list(&mut ligset_offsets, handle);
-    (*data).LigSetCount = ligset_offsets.count;
+    (*data).LigSetCount = ligset_offsets.value.len() as _;
     if (*data).LigSetCount as i32 == 0 {
         (*data).LigatureSet = ptr::null_mut();
         (*data).coverage = Coverage::default();
@@ -515,27 +473,22 @@ unsafe fn otl_gsub_read_ligature<R: Read + Seek>(
         .wrapping_mul(::std::mem::size_of::<otl_gsub_ligset>() as u64)
         as u32) as *mut otl_gsub_ligset;
     for i in 0..(*data).LigSetCount as i32 {
-        let mut ligset_tab: clt_number_list = clt_number_list {
-            count: 0,
-            value: ptr::null_mut(),
-        };
+        let mut ligset_tab: clt_number_list = clt_number_list { value: Vec::new() };
         let ligset = &mut *(*data).LigatureSet.offset(i as isize) as *mut otl_gsub_ligset;
-        let ligset_offset = offset.wrapping_add(*ligset_offsets.value.offset(i as isize) as u32);
+        let ligset_offset = offset.wrapping_add(ligset_offsets.value[i as usize] as u32);
         handle.seek(SeekFrom::Start(ligset_offset as u64)).unwrap();
         len += clt_read_number_list(&mut ligset_tab, handle);
-        (*ligset).LigatureCount = ligset_tab.count;
-        if ligset_tab.count as i32 == 0 {
+        (*ligset).LigatureCount = ligset_tab.value.len() as _;
+        if ligset_tab.value.is_empty() {
             (*ligset).Ligature = ptr::null_mut();
             break;
         } else {
-            (*ligset).Ligature = new((ligset_tab.count as u32 as u64)
+            (*ligset).Ligature = new((ligset_tab.value.len() as u64)
                 .wrapping_mul(::std::mem::size_of::<otl_gsub_ligtab>() as u64)
                 as u32) as *mut otl_gsub_ligtab;
-            for j in 0..ligset_tab.count as i32 {
+            for (j, &lt) in ligset_tab.value.iter().enumerate() {
                 handle
-                    .seek(SeekFrom::Start(
-                        ligset_offset as u64 + *ligset_tab.value.offset(j as isize) as u64,
-                    ))
+                    .seek(SeekFrom::Start(ligset_offset as u64 + lt as u64))
                     .unwrap();
                 (*(*ligset).Ligature.offset(j as isize)).LigGlyph = u16::get(handle);
                 (*(*ligset).Ligature.offset(j as isize)).CompCount = u16::get(handle);
@@ -562,10 +515,8 @@ unsafe fn otl_gsub_read_ligature<R: Read + Seek>(
                     len += 4 + count as i32 * 2;
                 }
             }
-            clt_release_number_list(&mut ligset_tab);
         }
     }
-    clt_release_number_list(&mut ligset_offsets);
     handle
         .seek(SeekFrom::Start(offset as u64 + cov_offset as u64))
         .unwrap();
@@ -653,18 +604,9 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
     let mut subtab: *mut otl_gsub_subtab = ptr::null_mut();
     let mut num_subtabs: u16 = 0_u16;
     let mut feat_bits: [u8; 8192] = [0; 8192];
-    let mut feature_list: clt_record_list = clt_record_list {
-        count: 0,
-        record: ptr::null_mut(),
-    };
-    let mut script_list: clt_record_list = clt_record_list {
-        count: 0,
-        record: ptr::null_mut(),
-    };
-    let mut lookup_list: clt_number_list = clt_number_list {
-        count: 0,
-        value: ptr::null_mut(),
-    };
+    let mut feature_list = clt_record_list { record: Vec::new() };
+    let mut script_list = clt_record_list { record: Vec::new() };
+    let mut lookup_list = clt_number_list { value: Vec::new() };
     let gsub_offset = sfnt_find_table_pos(sfont, b"GSUB");
     let handle = &mut &*sfont.handle;
     if gsub_offset == 0_u32 {
@@ -679,44 +621,30 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
     let mut offset = gsub_offset.wrapping_add(head.ScriptList as u32);
     handle.seek(SeekFrom::Start(offset as u64)).unwrap();
     clt_read_record_list(&mut script_list, handle);
-    for script_idx in 0..script_list.count as i32 {
-        if script.match_expr(
-            CStr::from_ptr(
-                (*script_list.record.offset(script_idx as isize))
-                    .tag
-                    .as_ptr(),
-            )
-            .to_str()
-            .unwrap(),
-        ) {
-            let mut script_tab: clt_script_table = clt_script_table {
+    for rec in script_list.record.iter() {
+        if script.match_expr(CStr::from_ptr(rec.tag.as_ptr()).to_str().unwrap()) {
+            let mut script_tab = clt_script_table {
                 DefaultLangSys: 0,
-                LangSysRecord: clt_record_list {
-                    count: 0,
-                    record: ptr::null_mut(),
-                },
+                LangSysRecord: clt_record_list { record: Vec::new() },
             };
             offset = gsub_offset
                 .wrapping_add(head.ScriptList as u32)
-                .wrapping_add((*script_list.record.offset(script_idx as isize)).offset as u32);
+                .wrapping_add(rec.offset as u32);
             handle.seek(SeekFrom::Start(offset as u64)).unwrap();
             clt_read_script_table(&mut script_tab, handle);
             if language.match_expr("dflt") && script_tab.DefaultLangSys as i32 != 0 {
-                let mut langsys_tab: clt_langsys_table = clt_langsys_table {
+                let mut langsys_tab = clt_langsys_table {
                     LookupOrder: 0,
                     ReqFeatureIndex: 0,
-                    FeatureIndex: clt_number_list {
-                        count: 0,
-                        value: ptr::null_mut(),
-                    },
+                    FeatureIndex: clt_number_list { value: Vec::new() },
                 };
                 if verbose > 0 {
                     info!(
                         "otl_gsub>> OTL script-language enabled: {}{}{}{}.dflt\n",
-                        char::from((*script_list.record.offset(script_idx as isize)).tag[0] as u8),
-                        char::from((*script_list.record.offset(script_idx as isize)).tag[1] as u8),
-                        char::from((*script_list.record.offset(script_idx as isize)).tag[2] as u8),
-                        char::from((*script_list.record.offset(script_idx as isize)).tag[3] as u8),
+                        char::from(rec.tag[0] as u8),
+                        char::from(rec.tag[1] as u8),
+                        char::from(rec.tag[2] as u8),
+                        char::from(rec.tag[3] as u8),
                     );
                 }
                 handle
@@ -731,59 +659,34 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                             | 1 << 7 - langsys_tab.ReqFeatureIndex as i32 % 8)
                             as u8
                 }
-                for feat_idx in 0..langsys_tab.FeatureIndex.count as i32 {
-                    feat_bits[(*langsys_tab.FeatureIndex.value.offset(feat_idx as isize) as i32 / 8)
-                        as usize] =
-                        (feat_bits[(*langsys_tab.FeatureIndex.value.offset(feat_idx as isize)
-                            as i32
-                            / 8) as usize] as i32
-                            | 1 << 7 - *langsys_tab.FeatureIndex.value.offset(feat_idx as isize)
-                                as i32
-                                % 8) as u8;
+                for &feat in langsys_tab.FeatureIndex.value.iter() {
+                    feat_bits[(feat as i32 / 8) as usize] =
+                        (feat_bits[(feat as i32 / 8) as usize] as i32 | 1 << 7 - feat as i32 % 8)
+                            as u8;
                 }
-                clt_release_langsys_table(&mut langsys_tab);
             }
-            for langsys_idx in 0..script_tab.LangSysRecord.count as i32 {
-                let langsys_rec = &mut *script_tab.LangSysRecord.record.offset(langsys_idx as isize)
-                    as *mut clt_record;
-                if language.match_expr(
-                    CStr::from_ptr((*langsys_rec).tag.as_mut_ptr())
-                        .to_str()
-                        .unwrap(),
-                ) {
-                    let mut langsys_tab_0: clt_langsys_table = clt_langsys_table {
+            for langsys_rec in script_tab.LangSysRecord.record.iter() {
+                if language.match_expr(CStr::from_ptr(langsys_rec.tag.as_ptr()).to_str().unwrap()) {
+                    let mut langsys_tab_0 = clt_langsys_table {
                         LookupOrder: 0,
                         ReqFeatureIndex: 0,
-                        FeatureIndex: clt_number_list {
-                            count: 0,
-                            value: ptr::null_mut(),
-                        },
+                        FeatureIndex: clt_number_list { value: Vec::new() },
                     };
                     if verbose > 0 {
                         info!(
                             "otl_gsub>> OTL script-language enabled: {}{}{}{}.{}{}{}{}\n",
-                            char::from(
-                                (*script_list.record.offset(script_idx as isize)).tag[0] as u8
-                            ),
-                            char::from(
-                                (*script_list.record.offset(script_idx as isize)).tag[1] as u8
-                            ),
-                            char::from(
-                                (*script_list.record.offset(script_idx as isize)).tag[2] as u8
-                            ),
-                            char::from(
-                                (*script_list.record.offset(script_idx as isize)).tag[3] as u8
-                            ),
-                            char::from((*langsys_rec).tag[0] as u8),
-                            char::from((*langsys_rec).tag[1] as u8),
-                            char::from((*langsys_rec).tag[2] as u8),
-                            char::from((*langsys_rec).tag[3] as u8),
+                            char::from(rec.tag[0] as u8),
+                            char::from(rec.tag[1] as u8),
+                            char::from(rec.tag[2] as u8),
+                            char::from(rec.tag[3] as u8),
+                            char::from(langsys_rec.tag[0] as u8),
+                            char::from(langsys_rec.tag[1] as u8),
+                            char::from(langsys_rec.tag[2] as u8),
+                            char::from(langsys_rec.tag[3] as u8),
                         );
                     }
                     handle
-                        .seek(SeekFrom::Start(
-                            offset as u64 + (*langsys_rec).offset as u64,
-                        ))
+                        .seek(SeekFrom::Start(offset as u64 + langsys_rec.offset as u64))
                         .unwrap();
                     clt_read_langsys_table(&mut langsys_tab_0, handle);
                     if feature.match_expr("____") || langsys_tab_0.ReqFeatureIndex as i32 != 0xffff
@@ -793,23 +696,13 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                                 | 1 << 7 - langsys_tab_0.ReqFeatureIndex as i32 % 8)
                                 as u8
                     }
-                    for feat_idx in 0..langsys_tab_0.FeatureIndex.count as i32 {
-                        feat_bits[(*langsys_tab_0.FeatureIndex.value.offset(feat_idx as isize)
-                            as i32
-                            / 8) as usize] = (feat_bits[(*langsys_tab_0
-                            .FeatureIndex
-                            .value
-                            .offset(feat_idx as isize)
-                            as i32
-                            / 8) as usize] as i32
-                            | 1 << 7 - *langsys_tab_0.FeatureIndex.value.offset(feat_idx as isize)
-                                as i32
-                                % 8) as u8;
+                    for &feat in langsys_tab_0.FeatureIndex.value.iter() {
+                        feat_bits[(feat as i32 / 8) as usize] =
+                            (feat_bits[(feat as i32 / 8) as usize] as i32
+                                | 1 << 7 - feat as i32 % 8) as u8;
                     }
-                    clt_release_langsys_table(&mut langsys_tab_0);
                 }
             }
-            clt_release_script_table(&mut script_tab);
         }
     }
     offset = gsub_offset.wrapping_add(head.FeatureList as u32);
@@ -821,58 +714,44 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
     if verbose > 0 {
         info!("otl_gsub>> Reading OTL feature(s):");
     }
-    for feat_idx in 0..feature_list.count as i32 {
+    for (feat_idx, rec) in feature_list.record.iter().enumerate() {
         if feat_bits[(feat_idx / 8) as usize] as i32 & 1 << 7 - feat_idx % 8 != 0
-            && feature.match_expr(
-                CStr::from_ptr(
-                    (*feature_list.record.offset(feat_idx as isize))
-                        .tag
-                        .as_ptr(),
-                )
-                .to_str()
-                .unwrap(),
-            )
+            && feature.match_expr(CStr::from_ptr(rec.tag.as_ptr()).to_str().unwrap())
         {
             let mut feature_table: clt_feature_table = clt_feature_table {
                 FeatureParams: 0,
-                LookupListIndex: clt_number_list {
-                    count: 0,
-                    value: ptr::null_mut(),
-                },
+                LookupListIndex: clt_number_list { value: Vec::new() },
             };
             if verbose > 0 {
                 info!(
                     " {}{}{}{}",
-                    char::from((*feature_list.record.offset(feat_idx as isize)).tag[0] as u8),
-                    char::from((*feature_list.record.offset(feat_idx as isize)).tag[1] as u8),
-                    char::from((*feature_list.record.offset(feat_idx as isize)).tag[2] as u8),
-                    char::from((*feature_list.record.offset(feat_idx as isize)).tag[3] as u8),
+                    char::from(rec.tag[0] as u8),
+                    char::from(rec.tag[1] as u8),
+                    char::from(rec.tag[2] as u8),
+                    char::from(rec.tag[3] as u8),
                 );
             }
             offset = gsub_offset
                 .wrapping_add(head.FeatureList as u32)
-                .wrapping_add((*feature_list.record.offset(feat_idx as isize)).offset as u32);
+                .wrapping_add(rec.offset as u32);
             handle.seek(SeekFrom::Start(offset as u64)).unwrap();
             clt_read_feature_table(&mut feature_table, handle);
             if feature_table.FeatureParams as i32 != 0 {
                 panic!("unrecognized FeatureParams");
             }
-            for i in 0..feature_table.LookupListIndex.count as i32 {
+            for &lli in feature_table.LookupListIndex.value.iter() {
                 let mut lookup_table: clt_lookup_table = clt_lookup_table {
                     LookupType: 0,
                     LookupFlag: 0,
-                    SubTableList: clt_number_list {
-                        count: 0,
-                        value: ptr::null_mut(),
-                    },
+                    SubTableList: clt_number_list { value: Vec::new() },
                 };
-                let ll_idx = *feature_table.LookupListIndex.value.offset(i as isize) as i32;
-                if ll_idx >= lookup_list.count as i32 {
+                let ll_idx = lli as usize;
+                if ll_idx >= lookup_list.value.len() {
                     panic!("invalid Lookup index.");
                 }
                 offset = gsub_offset
                     .wrapping_add(head.LookupList as u32)
-                    .wrapping_add(*lookup_list.value.offset(ll_idx as isize) as u32);
+                    .wrapping_add(lookup_list.value[ll_idx] as u32);
                 handle.seek(SeekFrom::Start(offset as u64)).unwrap();
                 clt_read_lookup_table(&mut lookup_table, handle);
                 if lookup_table.LookupType as i32 != 1
@@ -889,19 +768,17 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                 } else {
                     subtab = renew(
                         subtab as *mut libc::c_void,
-                        ((num_subtabs as i32 + lookup_table.SubTableList.count as i32) as u32
+                        ((num_subtabs as i32 + lookup_table.SubTableList.value.len() as i32) as u32
                             as u64)
                             .wrapping_mul(::std::mem::size_of::<otl_gsub_subtab>() as u64)
                             as u32,
                     ) as *mut otl_gsub_subtab;
                     let mut n_st = 0;
-                    for st_idx in 0..lookup_table.SubTableList.count as i32 {
+                    for &st in lookup_table.SubTableList.value.iter() {
                         offset = gsub_offset
                             .wrapping_add(head.LookupList as u32)
-                            .wrapping_add(*lookup_list.value.offset(ll_idx as isize) as u32)
-                            .wrapping_add(
-                                *lookup_table.SubTableList.value.offset(st_idx as isize) as u32
-                            );
+                            .wrapping_add(lookup_list.value[ll_idx] as u32)
+                            .wrapping_add(st as u32);
                         handle.seek(SeekFrom::Start(offset as u64)).unwrap();
                         match lookup_table.LookupType as i32 {
                             1 => {
@@ -1012,19 +889,14 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                         }
                     }
                     num_subtabs = (num_subtabs as i32 + n_st) as u16;
-                    clt_release_lookup_table(&mut lookup_table);
                 }
             }
-            clt_release_feature_table(&mut feature_table);
         }
     }
     if verbose > 0 {
         info!("\n");
         info!("otl_gsub>> {} subtable(s) read.\n", num_subtabs as i32);
     }
-    clt_release_number_list(&mut lookup_list);
-    clt_release_record_list(&mut feature_list);
-    clt_release_record_list(&mut script_list);
     if !subtab.is_null() {
         gsub.num_subtables = num_subtabs as i32;
         gsub.subtables = subtab
