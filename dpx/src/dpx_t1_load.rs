@@ -29,6 +29,7 @@
 use crate::bridge::DisplayExt;
 use crate::warn;
 use std::ptr;
+use std::rc::Rc;
 
 use super::dpx_cff::cff_set_name;
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string, CffIndex};
@@ -53,7 +54,7 @@ pub(crate) type s_SID = u16;
 
 use super::dpx_cff_dict::cff_dict;
 /* Encoding, Charset and FDSelect */
-use super::dpx_cff::cff_charsets;
+use super::dpx_cff::Charsets;
 
 use super::dpx_cff::cff_font;
 
@@ -1046,20 +1047,7 @@ unsafe fn parse_charstrings(
                 max_size = 0;
                 None
             };
-            font.charsets =
-                new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
-                    as *mut cff_charsets;
-            let charset = font.charsets;
-            (*charset).format = 0 as u8;
-            (*charset).num_entries = (count - 1) as u16;
-            (*charset).data.glyphs = new(((count - 1) as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<s_SID>() as u64)
-                as u32) as *mut s_SID;
-            memset(
-                (*charset).data.glyphs as *mut libc::c_void,
-                0,
-                (::std::mem::size_of::<s_SID>()).wrapping_mul(count as usize - 1),
-            );
+            let mut charset_glyphs = vec![0; count as usize - 1];
             let mut offset = 0;
             let mut have_notdef = 0;
             font.is_notdef_notzero = 0;
@@ -1093,7 +1081,7 @@ unsafe fn parse_charstrings(
                             gid = i + 1;
                         }
                         if gid > 0 {
-                            *(*charset).data.glyphs.offset((gid - 1) as isize) =
+                            charset_glyphs[(gid - 1) as usize] =
                                 cff_add_string(font, &glyph_name, 0)
                         }
                         /*
@@ -1193,6 +1181,7 @@ unsafe fn parse_charstrings(
                     }
                 }
             }
+            font.charsets = Some(Rc::new(Charsets::Glyphs(charset_glyphs.into_boxed_slice())));
             if mode != 1 {
                 font.cstrings.as_mut().unwrap().offset[count as usize] = (offset + 1) as l_offset;
             }
@@ -1542,7 +1531,7 @@ impl cff_font {
             string: None,
             gsubr: Some(CffIndex::new(0)),
             encoding: ptr::null_mut(),
-            charsets: ptr::null_mut(),
+            charsets: None,
             fdselect: ptr::null_mut(),
             cstrings: None,
             fdarray: Vec::new(),

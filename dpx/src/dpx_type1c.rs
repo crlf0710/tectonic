@@ -28,13 +28,13 @@
 
 use super::dpx_sfnt::{sfnt_find_table_pos, sfnt_open, sfnt_read_table_directory};
 use crate::{info, warn};
+use std::rc::Rc;
 
 use super::dpx_cff::{
     cff_add_string, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
     cff_get_index_header, cff_get_sid, cff_get_string, cff_open, cff_pack_charsets,
     cff_pack_encoding, cff_put_header, cff_read_charsets, cff_read_encoding, cff_read_private,
-    cff_read_subrs, cff_release_charsets, cff_release_encoding, cff_set_name, cff_update_string,
-    CffIndex, Pack,
+    cff_read_subrs, cff_release_encoding, cff_set_name, cff_update_string, CffIndex, Pack,
 };
 use super::dpx_cs_type2::cs_copy_charstring;
 use super::dpx_dpxfile::dpx_open_opentype_file;
@@ -92,7 +92,7 @@ of an Offset field or fields, range 1-4 */
 /* format 1 */
 /* number of supplementary data */
 /* supplement */
-use super::dpx_cff::cff_charsets;
+use super::dpx_cff::Charsets;
 
 use super::dpx_cff::cff_font;
 
@@ -292,13 +292,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* FIXME */
     cffont._string = Some(CffIndex::new(0));
     /* New Charsets data */
-    let mut charset =
-        &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
-            as *mut cff_charsets);
-    charset.format = 0 as u8;
-    charset.num_entries = 0 as u16;
-    charset.data.glyphs =
-        new((256_u64).wrapping_mul(::std::mem::size_of::<s_SID>() as u64) as u32) as *mut s_SID;
+    let mut charset_glyphs = Vec::new();
+    new((256_u64).wrapping_mul(::std::mem::size_of::<s_SID>() as u64) as u32) as *mut s_SID;
     /*
      * Encoding related things.
      */
@@ -454,8 +449,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
              * Check if multiply-encoded glyph.
              */
             let mut j = 0;
-            while (j as i32) < (*charset).num_entries as i32 {
-                if sid as i32 == *(*charset).data.glyphs.offset(j as isize) as i32 {
+            while (j as i32) < charset_glyphs.len() as i32 {
+                if sid as i32 == charset_glyphs[j as usize] as i32 {
                     /* Already have this glyph. */
                     (*(*encoding).supp.offset((*encoding).num_supps as isize)).code = code as u8; /* Used but multiply-encoded. */
                     (*(*encoding).supp.offset((*encoding).num_supps as isize)).glyph = sid;
@@ -466,7 +461,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                     j += 1;
                 }
             }
-            if !((j as i32) < (*charset).num_entries as i32) {
+            if !((j as i32) < charset_glyphs.len() as i32) {
                 /* This is new encoding entry. */
                 let gid_0 = cff_charsets_lookup(&cffont, sid_orig); /* FIXME */
                 if gid_0 as i32 == 0 {
@@ -512,12 +507,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
                         &mut ginfo,
                     ) as usize;
                     widths[code as usize] = ginfo.wx;
-                    *(*charset)
-                        .data
-                        .glyphs
-                        .offset((*charset).num_entries as isize) = sid;
-                    (*charset).num_entries = ((*charset).num_entries as i32 + 1) as u16;
-                    num_glyphs = num_glyphs.wrapping_add(1)
+                    charset_glyphs.push(sid);
+                    num_glyphs += 1;
                 }
             }
         }
@@ -577,10 +568,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /*
      * Discard old one, set new data.
      */
-    if !cffont.charsets.is_null() {
-        cff_release_charsets(cffont.charsets);
-    }
-    cffont.charsets = charset;
+    cffont.charsets = Some(Rc::new(Charsets::Glyphs(charset_glyphs.into_boxed_slice())));
     if !cffont.encoding.is_null() {
         cff_release_encoding(cffont.encoding);
     }
@@ -643,7 +631,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      */
     stream_data_len +=
         2 + (*encoding).num_entries as usize * 2 + 1 + (*encoding).num_supps as usize * 3;
-    stream_data_len += 1 + (*charset).num_entries as usize * 2;
+    stream_data_len += 1 + cffont.charsets.as_ref().unwrap().num_entries() as usize * 2;
     stream_data_len += charstring_len;
     stream_data_len += private_size as usize;
     /*

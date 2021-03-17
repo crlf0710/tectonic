@@ -26,7 +26,9 @@
     non_upper_case_globals
 )]
 
+use crate::dpx_cff::Charsets;
 use crate::dpx_error::{Result, ERR};
+use std::rc::Rc;
 
 use crate::bridge::DisplayExt;
 use std::ffi::{CStr, CString};
@@ -52,7 +54,7 @@ pub(crate) struct fontmap_opt {
     pub(crate) flags: i32,
     pub(crate) otl_tags: String,
     pub(crate) tounicode: String,
-    pub(crate) cff_charsets: *mut libc::c_void,
+    pub(crate) cff_charsets: Option<Rc<Charsets>>,
     pub(crate) design_size: f64,
     pub(crate) charcoll: String,
     pub(crate) index: i32,
@@ -109,7 +111,7 @@ pub(crate) unsafe fn pdf_init_fontmap_record() -> fontmap_rec {
             charcoll: String::new(),
             style: 0,
             stemv: -1,
-            cff_charsets: ptr::null_mut(),
+            cff_charsets: None,
         },
     }
 }
@@ -136,7 +138,7 @@ unsafe fn pdf_copy_fontmap_record(src: &fontmap_rec) -> fontmap_rec {
             charcoll: src.opt.charcoll.clone(),
             style: src.opt.style,
             stemv: src.opt.stemv,
-            cff_charsets: src.opt.cff_charsets,
+            cff_charsets: src.opt.cff_charsets.clone(),
         },
     }
 }

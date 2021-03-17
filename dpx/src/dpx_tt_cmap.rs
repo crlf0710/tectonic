@@ -78,7 +78,7 @@ pub(crate) struct tt_cmap {
 
 use super::dpx_cid::CIDSysInfo;
 
-use super::dpx_cff::cff_font;
+use super::dpx_cff::{cff_font, Charsets};
 
 use super::dpx_tt_post::tt_post_table;
 
@@ -700,31 +700,26 @@ unsafe fn handle_CIDFont(
         (*csi).supplement = cffont.topdict.get("ROS", 2) as i32
     }
     cff_read_charsets(&mut cffont);
-    let charset = cffont.charsets;
-    if charset.is_null() {
+    if cffont.charsets.is_none() {
         panic!("No CFF charset data???");
     }
     let mut map = new(((num_glyphs as i32 * 2) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
     memset(map as *mut libc::c_void, 0, (num_glyphs * 2) as _);
-    match (*charset).format as i32 {
-        0 => {
-            let cids = (*charset).data.glyphs;
+    match cffont.charsets.as_deref().unwrap() {
+        Charsets::Glyphs(cids) => {
             let mut gid = 1_u16;
-            for i in 0..(*charset).num_entries as i32 {
-                *map.offset((2 * gid as i32) as isize) =
-                    (*cids.offset(i as isize) as i32 >> 8 & 0xff) as u8;
-                *map.offset((2 * gid as i32 + 1) as isize) =
-                    (*cids.offset(i as isize) as i32 & 0xff) as u8;
-                gid = gid.wrapping_add(1);
+            for &cid in cids.iter() {
+                *map.offset((2 * gid as i32) as isize) = (cid as i32 >> 8 & 0xff) as u8;
+                *map.offset((2 * gid as i32 + 1) as isize) = (cid as i32 & 0xff) as u8;
+                gid += 1;
             }
         }
-        1 => {
-            let ranges = (*charset).data.range1;
+        Charsets::Range1(ranges) => {
             let mut gid = 1_u16;
-            for i in 0..(*charset).num_entries as i32 {
-                let mut cid = (*ranges.offset(i as isize)).first;
-                for _ in 0..((*ranges.offset(i as isize)).n_left as i32 + 1) as u16 {
+            for range in ranges.iter() {
+                let mut cid = range.first;
+                for _ in 0..(range.n_left as i32 + 1) as u16 {
                     if !(gid as i32 <= num_glyphs as i32) {
                         break;
                     }
@@ -735,17 +730,16 @@ unsafe fn handle_CIDFont(
                 }
             }
         }
-        2 => {
-            let ranges_0 = (*charset).data.range2;
-            if (*charset).num_entries as i32 == 1 && (*ranges_0.offset(0)).first as i32 == 1 {
+        Charsets::Range2(ranges) => {
+            if ranges.len() == 1 && ranges[0].first as i32 == 1 {
                 /* "Complete" CIDFont */
                 map = mfree(map as *mut libc::c_void) as *mut u8
             } else {
                 /* Not trivial mapping */
                 let mut gid = 1_u16;
-                for i in 0..(*charset).num_entries as i32 {
-                    let mut cid_0 = (*ranges_0.offset(i as isize)).first;
-                    for _ in 0..((*ranges_0.offset(i as isize)).n_left as i32 + 1) as u16 {
+                for range in ranges.iter() {
+                    let mut cid_0 = range.first;
+                    for _ in 0..(range.n_left as i32 + 1) as u16 {
                         if !(gid as i32 <= num_glyphs as i32) {
                             break;
                         }
@@ -756,13 +750,6 @@ unsafe fn handle_CIDFont(
                     }
                 }
             }
-        }
-        _ => {
-            mfree(map as *mut libc::c_void) as *mut u8;
-            panic!(
-                "Unknown CFF charset format...: {}",
-                (*charset).format as i32
-            );
         }
     }
     *GIDToCIDMap = map;

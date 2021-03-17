@@ -30,7 +30,7 @@ use crate::warn;
 use std::rc::Rc;
 
 use super::dpx_cff_dict::{cff_dict, cff_dict_unpack};
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::new;
 use super::dpx_numbers::GetFromFile;
 use libc::{free, memset};
 
@@ -203,19 +203,28 @@ pub(crate) union C2RustUnnamed {
     pub(crate) codes: *mut u8,
     pub(crate) range1: *mut cff_range1,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct cff_charsets {
-    pub(crate) format: u8,
-    pub(crate) num_entries: u16,
-    pub(crate) data: C2RustUnnamed_0,
+
+#[derive(Clone)]
+pub(crate) enum Charsets {
+    Glyphs(Box<[s_SID]>),
+    Range1(Box<[cff_range1]>),
+    Range2(Box<[cff_range2]>),
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) union C2RustUnnamed_0 {
-    pub(crate) glyphs: *mut s_SID,
-    pub(crate) range1: *mut cff_range1,
-    pub(crate) range2: *mut cff_range2,
+impl Charsets {
+    pub(crate) fn format(&self) -> u8 {
+        match self {
+            Self::Glyphs(_) => 0,
+            Self::Range1(_) => 1,
+            Self::Range2(_) => 2,
+        }
+    }
+    pub(crate) fn num_entries(&self) -> usize {
+        match self {
+            Self::Glyphs(glyphs) => glyphs.len(),
+            Self::Range1(ranges) => ranges.len(),
+            Self::Range2(ranges) => ranges.len(),
+        }
+    }
 }
 /* CID-Keyed font specific */
 #[derive(Copy, Clone)]
@@ -248,7 +257,7 @@ pub(crate) struct cff_font {
     pub(crate) string: Option<Box<CffIndex>>,
     pub(crate) gsubr: Option<Box<CffIndex>>,
     pub(crate) encoding: *mut cff_encoding,
-    pub(crate) charsets: *mut cff_charsets,
+    pub(crate) charsets: Option<Rc<Charsets>>,
     pub(crate) fdselect: *mut cff_fdselect,
     pub(crate) cstrings: Option<Box<CffIndex>>,
     pub(crate) fdarray: Vec<Option<cff_dict>>,
@@ -780,7 +789,7 @@ pub(crate) unsafe fn cff_open(
         topdict,
         gsubr: None,
         encoding: ptr::null_mut(),
-        charsets: ptr::null_mut(),
+        charsets: None,
         fdselect: ptr::null_mut(),
         cstrings: None,
         fdarray: Vec::new(),
@@ -803,9 +812,6 @@ impl Drop for cff_font {
         unsafe {
             if !self.encoding.is_null() {
                 cff_release_encoding(self.encoding);
-            }
-            if !self.charsets.is_null() {
-                cff_release_charsets(self.charsets);
             }
             if !self.fdselect.is_null() {
                 cff_release_fdselect(self.fdselect);
@@ -1233,24 +1239,24 @@ pub(crate) unsafe fn cff_release_encoding(encoding: *mut cff_encoding) {
 pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
     if !cff.topdict.contains_key("charset") {
         cff.flag |= 1 << 5;
-        cff.charsets = ptr::null_mut();
+        cff.charsets = None;
         return 0;
     }
     let offset = cff.topdict.get("charset", 0) as i32;
     if offset == 0 {
         /* predefined */
         cff.flag |= 1 << 5;
-        cff.charsets = ptr::null_mut();
+        cff.charsets = None;
         return 0;
     } else {
         if offset == 1 {
             cff.flag |= 1 << 6;
-            cff.charsets = ptr::null_mut();
+            cff.charsets = None;
             return 0;
         } else {
             if offset == 2 {
                 cff.flag |= 1 << 7;
-                cff.charsets = ptr::null_mut();
+                cff.charsets = None;
                 return 0;
             }
         }
@@ -1259,124 +1265,105 @@ pub(crate) unsafe fn cff_read_charsets(cff: &mut cff_font) -> i32 {
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
-    let charset = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
-        as *mut cff_charsets;
-    cff.charsets = charset;
-    (*charset).format = u8::get(handle);
-    (*charset).num_entries = 0 as u16;
+    let format = u8::get(handle);
     let mut count = (cff.num_glyphs as i32 - 1) as u16;
     let mut length = 1;
     /* Not sure. Not well documented. */
-    match (*charset).format as i32 {
+    let charset = match format as i32 {
         0 => {
-            (*charset).num_entries = (cff.num_glyphs as i32 - 1) as u16; /* no .notdef */
-            (*charset).data.glyphs = new(((*charset).num_entries as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<s_SID>() as u64)
-                as u32) as *mut s_SID; /* no-overrap */
-            length += (*charset).num_entries as i32 * 2; /* non-overrapping */
-            for i in 0..(*charset).num_entries {
-                *(*charset).data.glyphs.offset(i as isize) = u16::get(handle);
+            let num_entries = (cff.num_glyphs as i32 - 1) as usize; /* no .notdef */
+            let mut glyphs = Vec::with_capacity(num_entries); /* no-overrap */
+            length += num_entries as i32 * 2; /* non-overrapping */
+            for _ in 0..num_entries {
+                glyphs.push(u16::get(handle));
             }
-            count = 0 as u16
+            count = 0 as u16;
+            Charsets::Glyphs(glyphs.into_boxed_slice())
         }
         1 => {
-            let mut ranges: *mut cff_range1 = ptr::null_mut();
-            while count as i32 > 0 && ((*charset).num_entries as i32) < cff.num_glyphs as i32 {
-                ranges = renew(
-                    ranges as *mut libc::c_void,
-                    (((*charset).num_entries as i32 + 1) as u32 as u64)
-                        .wrapping_mul(::std::mem::size_of::<cff_range1>() as u64)
-                        as u32,
-                ) as *mut cff_range1;
-                (*ranges.offset((*charset).num_entries as isize)).first = u16::get(handle);
-                (*ranges.offset((*charset).num_entries as isize)).n_left = u8::get(handle);
-                count = (count as i32
-                    - ((*ranges.offset((*charset).num_entries as isize)).n_left as i32 + 1))
-                    as u16;
-                (*charset).num_entries = ((*charset).num_entries as i32 + 1) as u16;
-                (*charset).data.range1 = ranges
+            let mut num_entries = 0;
+            let mut ranges = Vec::new();
+            while count as i32 > 0 && (num_entries as i32) < cff.num_glyphs as i32 {
+                let range1 = cff_range1 {
+                    first: u16::get(handle),
+                    n_left: u8::get(handle),
+                };
+                count = (count as i32 - (range1.n_left as i32 + 1)) as u16;
+                num_entries = (num_entries as i32 + 1) as u16;
+                ranges.push(range1);
             }
-            length += (*charset).num_entries as i32 * 3
+            length += ranges.len() as i32 * 3;
+            Charsets::Range1(ranges.into_boxed_slice())
         }
         2 => {
-            let mut ranges_0: *mut cff_range2 = ptr::null_mut();
-            while count as i32 > 0 && ((*charset).num_entries as i32) < cff.num_glyphs as i32 {
-                ranges_0 = renew(
-                    ranges_0 as *mut libc::c_void,
-                    (((*charset).num_entries as i32 + 1) as u32 as u64)
-                        .wrapping_mul(::std::mem::size_of::<cff_range2>() as u64)
-                        as u32,
-                ) as *mut cff_range2;
-                (*ranges_0.offset((*charset).num_entries as isize)).first = u16::get(handle);
-                (*ranges_0.offset((*charset).num_entries as isize)).n_left = u16::get(handle);
-                count = (count as i32
-                    - ((*ranges_0.offset((*charset).num_entries as isize)).n_left as i32 + 1))
-                    as u16;
-                (*charset).num_entries = ((*charset).num_entries as i32 + 1) as u16
+            let mut num_entries = 0;
+            let mut ranges = Vec::new();
+            while count as i32 > 0 && (num_entries as i32) < cff.num_glyphs as i32 {
+                let range2 = cff_range2 {
+                    first: u16::get(handle),
+                    n_left: u16::get(handle),
+                };
+                count = (count as i32 - (range2.n_left as i32 + 1)) as u16;
+                num_entries = (num_entries as i32 + 1) as u16;
+                ranges.push(range2);
             }
-            (*charset).data.range2 = ranges_0;
-            length += (*charset).num_entries as i32 * 4
+            length += ranges.len() as i32 * 4;
+            Charsets::Range2(ranges.into_boxed_slice())
         }
         _ => {
-            free(charset as *mut libc::c_void);
             panic!("Unknown Charset format");
         }
-    }
+    };
     if count as i32 > 0 {
         panic!("Charset data possibly broken");
     }
+    cff.charsets = Some(Rc::new(charset));
     length
 }
 
 pub(crate) unsafe fn cff_pack_charsets(cff: &cff_font, dest: &mut [u8]) -> usize {
     let destlen = dest.len();
     let mut len = 0;
-    if cff.flag & (1 << 5 | 1 << 6 | 1 << 7) != 0 || cff.charsets.is_null() {
+    if cff.flag & (1 << 5 | 1 << 6 | 1 << 7) != 0 || cff.charsets.is_none() {
         return 0;
     }
     if destlen < 1 {
         panic!("in cff_pack_charsets(): Buffer overflow");
     }
-    let charset = cff.charsets;
-    dest[len] = (*charset).format;
+    let charset = cff.charsets.as_deref().unwrap();
+    dest[len] = charset.format();
     len += 1;
-    match (*charset).format as i32 {
-        0 => {
-            if destlen < len + (*charset).num_entries as usize * 2 {
+    match charset {
+        Charsets::Glyphs(glyphs) => {
+            if destlen < len + glyphs.len() * 2 {
                 panic!("in cff_pack_charsets(): Buffer overflow");
             }
-            for i in 0..((*charset).num_entries as isize) {
-                let sid: s_SID = *(*charset).data.glyphs.offset(i);
+            for sid in glyphs.iter() {
                 dest[len..len + 2].copy_from_slice(&sid.to_be_bytes());
                 len += 2;
             }
         }
-        1 => {
-            if destlen < len + (*charset).num_entries as usize * 3 {
+        Charsets::Range1(ranges) => {
+            if destlen < len + ranges.len() * 3 {
                 panic!("in cff_pack_charsets(): Buffer overflow");
             }
-            for i in 0..((*charset).num_entries as isize) {
-                let range = *(*charset).data.range1.offset(i);
+            for range in ranges.iter() {
                 dest[len..len + 2].copy_from_slice(&range.first.to_be_bytes());
                 len += 2;
                 dest[len] = range.n_left;
                 len += 1;
             }
         }
-        2 => {
-            if destlen < len + (*charset).num_entries as usize * 4 {
+        Charsets::Range2(ranges) => {
+            if destlen < len + ranges.len() * 4 {
                 panic!("in cff_pack_charsets(): Buffer overflow");
             }
-            for i in 0..((*charset).num_entries as isize) {
-                let range = *(*charset).data.range2.offset(i);
+            for range in ranges.iter() {
                 dest[len..len + 2].copy_from_slice(&range.first.to_be_bytes());
                 len += 2;
                 dest[len..len + 2].copy_from_slice(&range.n_left.to_be_bytes());
                 len += 2;
             }
-        }
-        _ => {
-            panic!("Unknown Charset format");
         }
     }
     len
@@ -1395,7 +1382,7 @@ pub(crate) unsafe fn cff_glyph_lookup(cff: &cff_font, glyph: &str) -> u16 {
     if cff.flag & (1 << 5 | 1 << 6 | 1 << 7) != 0 {
         panic!("Predefined CFF charsets not supported yet");
     } else {
-        if cff.charsets.is_null() {
+        if cff.charsets.is_none() {
             panic!("Charsets data not available");
         }
     }
@@ -1403,52 +1390,39 @@ pub(crate) unsafe fn cff_glyph_lookup(cff: &cff_font, glyph: &str) -> u16 {
     if glyph.is_empty() || glyph == ".notdef" {
         return 0 as u16;
     }
-    let charset = cff.charsets;
-    let mut gid = 0u16;
-    match (*charset).format as i32 {
-        0 => {
-            for i in 0..(*charset).num_entries as i32 {
-                gid = gid.wrapping_add(1);
-                if cff_match_string(cff, glyph, *(*charset).data.glyphs.offset(i as isize)) {
+    let charset = cff.charsets.as_deref().unwrap();
+    let mut gid = 0;
+    match charset {
+        Charsets::Glyphs(glyphs) => {
+            for &sid in glyphs.iter() {
+                gid += 1;
+                if cff_match_string(cff, glyph, sid) {
                     return gid;
                 }
             }
         }
-        1 => {
-            for i in 0..(*charset).num_entries as i32 {
-                for n in 0..=(*(*charset).data.range1.offset(i as isize)).n_left as i32 {
-                    gid = gid.wrapping_add(1);
-                    if cff_match_string(
-                        cff,
-                        glyph,
-                        ((*(*charset).data.range1.offset(i as isize)).first as i32 + n as i32)
-                            as s_SID,
-                    ) {
+        Charsets::Range1(ranges) => {
+            for range in ranges.iter() {
+                for n in 0..=range.n_left as i32 {
+                    gid += 1;
+                    if cff_match_string(cff, glyph, (range.first as i32 + n as i32) as s_SID) {
                         return gid;
                     }
                 }
             }
         }
-        2 => {
-            for i in 0..(*charset).num_entries as i32 {
-                for n in 0..=(*(*charset).data.range2.offset(i as isize)).n_left as i32 {
-                    gid = gid.wrapping_add(1);
-                    if cff_match_string(
-                        cff,
-                        glyph,
-                        ((*(*charset).data.range2.offset(i as isize)).first as i32 + n as i32)
-                            as s_SID,
-                    ) {
+        Charsets::Range2(ranges) => {
+            for range in ranges.iter() {
+                for n in 0..=range.n_left as i32 {
+                    gid += 1;
+                    if cff_match_string(cff, glyph, (range.first as i32 + n as i32) as s_SID) {
                         return gid;
                     }
                 }
             }
-        }
-        _ => {
-            panic!("Unknown Charset format");
         }
     }
-    return 0 as u16;
+    0
     /* not found, returns .notdef */
 }
 /* Input : SID or CID (16-bit unsigned int)
@@ -1459,62 +1433,50 @@ pub(crate) unsafe fn cff_charsets_lookup(cff: &cff_font, cid: u16) -> u16 {
     if cff.flag & (1 << 5 | 1 << 6 | 1 << 7) != 0 {
         panic!("Predefined CFF charsets not supported yet");
     } else {
-        if cff.charsets.is_null() {
+        if let Some(charsets) = cff.charsets.as_ref() {
+            cff_charsets_lookup_gid(charsets, cid)
+        } else {
             panic!("Charsets data not available");
         }
     }
-    cff_charsets_lookup_gid(&*cff.charsets, cid)
 }
 
-pub(crate) unsafe fn cff_charsets_lookup_gid(charset: &cff_charsets, cid: u16) -> u16 {
+pub(crate) unsafe fn cff_charsets_lookup_gid(charset: &Charsets, cid: u16) -> u16 {
     let mut gid: u16 = 0;
     if cid as i32 == 0 {
         return 0 as u16;
         /* GID 0 (.notdef) */
     }
-    match charset.format as i32 {
-        0 => {
-            for i in 0..charset.num_entries as i32 {
-                if cid as i32 == *charset.data.glyphs.offset(i as isize) as i32 {
+    match charset {
+        Charsets::Glyphs(glyphs) => {
+            for (i, &sid) in glyphs.iter().enumerate() {
+                if cid == sid {
                     gid = (i as i32 + 1) as u16;
                     return gid;
                 }
             }
         }
-        1 => {
-            for i in 0..charset.num_entries as i32 {
-                if cid as i32 >= (*charset.data.range1.offset(i as isize)).first as i32
-                    && cid as i32
-                        <= (*charset.data.range1.offset(i as isize)).first as i32
-                            + (*charset.data.range1.offset(i as isize)).n_left as i32
+        Charsets::Range1(ranges) => {
+            for range in ranges.iter() {
+                if cid as i32 >= range.first as i32
+                    && cid as i32 <= range.first as i32 + range.n_left as i32
                 {
-                    gid = (gid as i32
-                        + (cid as i32 - (*charset.data.range1.offset(i as isize)).first as i32 + 1))
-                        as u16;
+                    gid = (gid as i32 + (cid as i32 - range.first as i32 + 1)) as u16;
                     return gid;
                 }
-                gid = (gid as i32 + ((*charset.data.range1.offset(i as isize)).n_left as i32 + 1))
-                    as u16;
+                gid = (gid as i32 + (range.n_left as i32 + 1)) as u16;
             }
         }
-        2 => {
-            for i in 0..charset.num_entries as i32 {
-                if cid as i32 >= (*charset.data.range2.offset(i as isize)).first as i32
-                    && cid as i32
-                        <= (*charset.data.range2.offset(i as isize)).first as i32
-                            + (*charset.data.range2.offset(i as isize)).n_left as i32
+        Charsets::Range2(ranges) => {
+            for range in ranges.iter() {
+                if cid as i32 >= range.first as i32
+                    && cid as i32 <= range.first as i32 + range.n_left as i32
                 {
-                    gid = (gid as i32
-                        + (cid as i32 - (*charset.data.range2.offset(i as isize)).first as i32 + 1))
-                        as u16;
+                    gid = (gid as i32 + (cid as i32 - range.first as i32 + 1)) as u16;
                     return gid;
                 }
-                gid = (gid as i32 + ((*charset.data.range2.offset(i as isize)).n_left as i32 + 1))
-                    as u16;
+                gid = (gid as i32 + (range.n_left as i32 + 1)) as u16;
             }
-        }
-        _ => {
-            panic!("Unknown Charset format");
         }
     }
     return 0;
@@ -1527,85 +1489,50 @@ pub(crate) unsafe fn cff_charsets_lookup_gid(charset: &cff_charsets, cid: u16) -
 pub(crate) unsafe fn cff_charsets_lookup_inverse(cff: &cff_font, gid: u16) -> u16 {
     if cff.flag & (1 << 5 | 1 << 6 | 1 << 7) != 0 {
         panic!("Predefined CFF charsets not supported yet");
-    } else if cff.charsets.is_null() {
-        panic!("Charsets data not available");
+    } else {
+        if let Some(charsets) = cff.charsets.as_ref() {
+            if gid == 0 {
+                return 0;
+                /* .notdef */
+            }
+            cff_charsets_lookup_cid(charsets, gid)
+        } else {
+            panic!("Charsets data not available");
+        }
     }
-    if gid == 0 {
-        return 0;
-        /* .notdef */
-    }
-    cff_charsets_lookup_cid(&*cff.charsets, gid)
 }
 
-pub(crate) unsafe fn cff_charsets_lookup_cid(charset: &cff_charsets, mut gid: u16) -> u16 {
-    let mut sid: u16 = 0;
-    match charset.format as i32 {
-        0 => {
-            if gid as i32 - 1 >= charset.num_entries as i32 {
+pub(crate) unsafe fn cff_charsets_lookup_cid(charset: &Charsets, mut gid: u16) -> u16 {
+    match charset {
+        Charsets::Glyphs(glyphs) => {
+            if gid as i32 - 1 >= glyphs.len() as i32 {
                 panic!("Invalid GID.");
             }
-            sid = *charset.data.glyphs.offset((gid as i32 - 1) as isize)
+            return glyphs[(gid as i32 - 1) as usize];
         }
-        1 => {
-            let mut i = 0;
-            while (i as i32) < charset.num_entries as i32 {
-                if gid as i32 <= (*charset.data.range1.offset(i as isize)).n_left as i32 + 1 {
-                    sid = (gid as i32 + (*charset.data.range1.offset(i as isize)).first as i32 - 1)
-                        as u16;
-                    break;
+        Charsets::Range1(ranges) => {
+            for range in ranges.iter() {
+                if gid as i32 <= range.n_left as i32 + 1 {
+                    return (gid as i32 + range.first as i32 - 1) as u16;
                 } else {
-                    gid = (gid as i32
-                        - ((*charset.data.range1.offset(i as isize)).n_left as i32 + 1))
-                        as u16;
-                    i += 1;
+                    gid = (gid as i32 - (range.n_left as i32 + 1)) as u16;
                 }
             }
-            if i as i32 == charset.num_entries as i32 {
-                panic!("Invalid GID");
-            }
+            panic!("Invalid GID");
         }
-        2 => {
-            let mut i = 0;
-            while (i as i32) < charset.num_entries as i32 {
-                if gid as i32 <= (*charset.data.range2.offset(i as isize)).n_left as i32 + 1 {
-                    sid = (gid as i32 + (*charset.data.range2.offset(i as isize)).first as i32 - 1)
-                        as u16;
-                    break;
+        Charsets::Range2(ranges) => {
+            for range in ranges.iter() {
+                if gid as i32 <= range.n_left as i32 + 1 {
+                    return (gid as i32 + range.first as i32 - 1) as u16;
                 } else {
-                    gid = (gid as i32
-                        - ((*charset.data.range2.offset(i as isize)).n_left as i32 + 1))
-                        as u16;
-                    i += 1;
+                    gid = (gid as i32 - (range.n_left as i32 + 1)) as u16;
                 }
             }
-            if i as i32 == charset.num_entries as i32 {
-                panic!("Invalid GID");
-            }
-        }
-        _ => {
-            panic!("Unknown Charset format");
+            panic!("Invalid GID");
         }
     }
-    sid
 }
 
-pub(crate) unsafe fn cff_release_charsets(charset: *mut cff_charsets) {
-    if !charset.is_null() {
-        match (*charset).format as i32 {
-            0 => {
-                free((*charset).data.glyphs as *mut libc::c_void);
-            }
-            1 => {
-                free((*charset).data.range1 as *mut libc::c_void);
-            }
-            2 => {
-                free((*charset).data.range2 as *mut libc::c_void);
-            }
-            _ => {}
-        }
-        free(charset as *mut libc::c_void);
-    };
-}
 /* CID-Keyed font specific */
 
 pub(crate) unsafe fn cff_read_fdselect(cff: &mut cff_font) -> i32 {

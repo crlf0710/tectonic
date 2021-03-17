@@ -28,6 +28,7 @@
 
 use crate::dpx_error::{Result, ERR};
 use crate::dpx_pdffont::FontType;
+use std::rc::Rc;
 
 use euclid::point2;
 
@@ -187,7 +188,7 @@ pub(crate) struct dev_font {
     pub(crate) ucs_group: i32,
     pub(crate) ucs_plane: i32,
     pub(crate) is_unicode: i32,
-    pub(crate) cff_charsets: *mut cff_charsets,
+    pub(crate) cff_charsets: Option<Rc<Charsets>>,
 }
 
 impl Drop for dev_font {
@@ -196,12 +197,11 @@ impl Drop for dev_font {
             self.tex_name = String::new();
             crate::release!(self.resource);
             self.resource = ptr::null_mut();
-            self.cff_charsets = ptr::null_mut();
         }
     }
 }
 
-use super::dpx_cff::cff_charsets;
+use super::dpx_cff::Charsets;
 /*
  * Unit conversion, formatting and others.
  */
@@ -825,7 +825,7 @@ static mut sbuf0: [u8; 4096] = [0; 4096];
 static mut sbuf1: [u8; 4096] = [0; 4096];
 unsafe fn handle_multibyte_string(font: &dev_font, string: &mut &[u8], ctype: i32) -> Result<()> {
     let mut p = *string;
-    if ctype == -1 && !font.cff_charsets.is_null() {
+    if ctype == -1 && font.cff_charsets.is_some() {
         /* freetype glyph indexes */
         /* Convert freetype glyph indexes to CID. */
         let mut inbuf = p;
@@ -835,7 +835,7 @@ unsafe fn handle_multibyte_string(font: &dev_font, string: &mut &[u8], ctype: i3
             inbuf = &inbuf[1..];
             gid += inbuf[0] as u32;
             inbuf = &inbuf[1..];
-            gid = cff_charsets_lookup_cid(&*font.cff_charsets, gid as u16) as u32;
+            gid = cff_charsets_lookup_cid(font.cff_charsets.as_deref().unwrap(), gid as u16) as u32;
             outbuf[0] = (gid >> 8) as u8;
             outbuf = &mut outbuf[1..];
             outbuf[0] = (gid & 0xff) as u8;
@@ -1308,11 +1308,11 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &str, ptsize: spt_t) -> i32 
             Some(mrec) if mrec.enc_name == "unicode" => 1,
             _ => 0,
         },
-        cff_charsets: 0 as *mut cff_charsets,
+        cff_charsets: None,
     };
 
     if let Some(mrec) = mrec {
-        font.cff_charsets = mrec.opt.cff_charsets as *mut cff_charsets
+        font.cff_charsets = mrec.opt.cff_charsets.clone();
     }
     /* We found device font here. */
     if i < dev_fonts.len() {

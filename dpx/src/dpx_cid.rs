@@ -28,12 +28,12 @@
 
 use crate::bridge::DisplayExt;
 use std::ptr;
+use std::rc::Rc;
 
 use crate::dpx_pdfobj::IntoObj;
 use crate::dpx_pdfparse::ParsePdfObj;
 use crate::{info, warn};
 
-use super::dpx_cff::cff_release_charsets;
 use super::dpx_cidtype0::{
     CIDFont_type0_dofont, CIDFont_type0_open, CIDFont_type0_set_flags, CIDFont_type0_set_verbose,
     CIDFont_type0_t1cdofont, CIDFont_type0_t1dofont,
@@ -72,7 +72,7 @@ pub(crate) struct cid_opt {
     pub(crate) style: i32,
     pub(crate) embed: i32,
     pub(crate) stemv: i32,
-    pub(crate) cff_charsets: *mut libc::c_void,
+    pub(crate) cff_charsets: Option<Rc<Charsets>>,
 }
 use super::dpx_fontmap::fontmap_opt;
 /*
@@ -88,7 +88,7 @@ pub(crate) struct C2RustUnnamed_0 {
     pub(crate) ordering: &'static str,
     pub(crate) supplement: [i32; 16],
 }
-use super::dpx_cff::cff_charsets;
+use super::dpx_cff::Charsets;
 /* PLEASE SEND INFORMATION ON FONTS
  *
  * Those fonts are only for fixed-pitch glyphs (full-, half-, third-,
@@ -622,7 +622,7 @@ pub(crate) unsafe fn CIDFont_cache_find(
         name: String::new(),
         csi: get_cidsysinfo(map_name, fmap_opt),
         stemv: fmap_opt.stemv,
-        cff_charsets: ptr::null_mut(),
+        cff_charsets: None,
     });
 
     if opt.csi.is_none() {
@@ -693,7 +693,7 @@ pub(crate) unsafe fn CIDFont_cache_find(
             .or_else(|opt| CIDFont_type0_open(map_name, &cmap_csi, opt, 1 << 9))
             .or_else(|opt| CIDFont_base_open(map_name, &cmap_csi, opt))
         {
-            fmap_opt.cff_charsets = font.options.cff_charsets;
+            fmap_opt.cff_charsets = font.options.cff_charsets.clone();
 
             __cache.push(font);
         } else {
@@ -727,17 +727,6 @@ pub(crate) unsafe fn CIDFont_cache_close() {
  *
  *   (:int:)?!?string(/string)?(,string)?
  */
-impl Drop for cid_opt {
-    fn drop(&mut self) {
-        unsafe {
-            if self.csi.is_some() {
-                if !self.cff_charsets.is_null() {
-                    cff_release_charsets(self.cff_charsets as *mut cff_charsets);
-                }
-            }
-        }
-    }
-}
 unsafe fn get_cidsysinfo(map_name: &str, fmap_opt: *mut fontmap_opt) -> Option<Box<CIDSysInfo>> {
     let mut csi = None;
     let mut csi_idx: i32 = -1;
