@@ -1530,7 +1530,7 @@ impl cff_font {
             topdict: cff_dict::new(),
             string: None,
             gsubr: Some(CffIndex::new(0)),
-            encoding: ptr::null_mut(),
+            encoding: None,
             charsets: None,
             fdselect: None,
             cstrings: None,

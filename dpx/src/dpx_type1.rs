@@ -26,7 +26,6 @@
     non_upper_case_globals
 )]
 
-use crate::mfree;
 use crate::{info, warn};
 use std::rc::Rc;
 
@@ -71,9 +70,9 @@ use super::dpx_cff::cff_font;
 use super::dpx_cff::Charsets;
 /* 1, 2, 3, or 4-byte offset */
 pub(crate) type s_SID = u16;
-use super::dpx_cff::cff_encoding;
 use super::dpx_cff::cff_map;
 use super::dpx_cff::cff_range1;
+use super::dpx_cff::Encoding;
 
 use super::dpx_t1_char::t1_ginfo;
 
@@ -401,10 +400,8 @@ unsafe fn write_fontfile(
     /* We are using format 1 for Encoding and format 0 for charset.
      * TODO: Should implement cff_xxx_size().
      */
-    stream_data_len += 2
-        + (*cffont.encoding).num_entries as usize * 2
-        + 1
-        + (*cffont.encoding).num_supps as usize * 3;
+    let encoding = cffont.encoding.as_ref().unwrap();
+    stream_data_len += 2 + encoding.num_entries() * 2 + 1 + encoding.num_supps() * 3;
     stream_data_len += 1 + cffont.charsets.as_ref().unwrap().num_entries() * 2;
     stream_data_len += charstring_len;
     stream_data_len += private_size;
@@ -534,16 +531,8 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
     let GIDMap =
         new((1024_u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16; /* FIXME */
     let mut pdfcharset = pdf_stream::new(0); /* With pseudo unique tag */
-    cffont.encoding = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_encoding>() as u64) as u32)
-        as *mut cff_encoding;
-    (*cffont.encoding).format = 1 as u8;
-    (*cffont.encoding).num_entries = 0 as u8;
-    (*cffont.encoding).data.range1 = new((256_u64)
-        .wrapping_mul(::std::mem::size_of::<cff_range1>() as u64)
-        as u32) as *mut cff_range1;
-    (*cffont.encoding).num_supps = 0 as u8;
-    (*cffont.encoding).supp =
-        new((256_u64).wrapping_mul(::std::mem::size_of::<cff_map>() as u64) as u32) as *mut cff_map;
+    let mut encoding_ranges = Vec::with_capacity(256);
+    let mut encoding_supp = Vec::with_capacity(256);
     let mut charset_glyphs = Vec::with_capacity(1024);
     let gid = cff_glyph_lookup_str(&cffont, ".notdef") as i32;
     if gid < 0 {
@@ -583,38 +572,21 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
                     let sid = cff_add_string(&mut cffont, glyph, 1);
                     if duplicate < code {
                         /* found duplicates */
-                        (*(*cffont.encoding)
-                            .supp
-                            .offset((*cffont.encoding).num_supps as isize))
-                        .code = duplicate as u8;
-                        (*(*cffont.encoding)
-                            .supp
-                            .offset((*cffont.encoding).num_supps as isize))
-                        .glyph = sid;
-                        (*cffont.encoding).num_supps =
-                            ((*cffont.encoding).num_supps as i32 + 1) as u8
+                        encoding_supp.push(cff_map {
+                            code: duplicate as u8,
+                            glyph: sid,
+                        });
                     } else {
                         *GIDMap.offset(num_glyphs as isize) = gid as u16;
                         charset_glyphs.push(sid);
                         if code != prev + 1 {
-                            (*cffont.encoding).num_entries =
-                                ((*cffont.encoding).num_entries as i32 + 1) as u8;
-                            (*(*cffont.encoding)
-                                .data
-                                .range1
-                                .offset(((*cffont.encoding).num_entries as i32 - 1) as isize))
-                            .first = code as s_SID;
-                            (*(*cffont.encoding)
-                                .data
-                                .range1
-                                .offset(((*cffont.encoding).num_entries as i32 - 1) as isize))
-                            .n_left = 0;
+                            encoding_ranges.push(cff_range1 {
+                                first: code as s_SID,
+                                n_left: 0,
+                            });
                         } else {
-                            (*(*cffont.encoding)
-                                .data
-                                .range1
-                                .offset(((*cffont.encoding).num_entries as i32 - 1) as isize))
-                            .n_left += 1;
+                            let len = encoding_ranges.len();
+                            encoding_ranges[len - 1].n_left += 1;
                         }
                         prev = code;
                         num_glyphs = num_glyphs.wrapping_add(1);
@@ -629,12 +601,14 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
             }
         }
     }
-    if (*cffont.encoding).num_supps as i32 > 0 {
-        (*cffont.encoding).format = ((*cffont.encoding).format as i32 | 0x80) as u8
+    cffont.encoding = Some(Box::new(if !encoding_supp.is_empty() {
+        Encoding::Range1Supp(
+            encoding_ranges.into_boxed_slice(),
+            encoding_supp.into_boxed_slice(),
+        )
     } else {
-        (*cffont.encoding).supp =
-            mfree((*cffont.encoding).supp as *mut libc::c_void) as *mut cff_map
-    }
+        Encoding::Range1(encoding_ranges.into_boxed_slice())
+    }));
     let cff_cstrings = cffont.cstrings.as_ref().unwrap();
     let mut widths = Vec::<f64>::with_capacity(cff_cstrings.count as usize);
     /* No more strings will be added. The Type 1 seac operator may add another

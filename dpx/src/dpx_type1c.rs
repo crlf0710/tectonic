@@ -34,7 +34,7 @@ use super::dpx_cff::{
     cff_add_string, cff_charsets_lookup, cff_charsets_lookup_inverse, cff_encoding_lookup,
     cff_get_index_header, cff_get_sid, cff_get_string, cff_open, cff_pack_charsets,
     cff_pack_encoding, cff_put_header, cff_read_charsets, cff_read_encoding, cff_read_private,
-    cff_read_subrs, cff_release_encoding, cff_set_name, cff_update_string, CffIndex, Pack,
+    cff_read_subrs, cff_set_name, cff_update_string, CffIndex, Pack,
 };
 use super::dpx_cs_type2::cs_copy_charstring;
 use super::dpx_dpxfile::dpx_open_opentype_file;
@@ -54,8 +54,8 @@ use libc::free;
 use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type l_offset = u32;
-use super::dpx_cff::cff_encoding;
 use super::dpx_cff::cff_map;
+use super::dpx_cff::Encoding;
 pub(crate) type s_SID = u16;
 use super::dpx_cff::cff_range1;
 /* CFF Data Types */
@@ -337,16 +337,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      *  Creating actual encoding date is delayed to eliminate character codes to
      *  be mapped to .notdef and to handle multiply-encoded glyphs.
      */
-    let encoding = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_encoding>() as u64) as u32)
-        as *mut cff_encoding;
-    (*encoding).format = 1 as u8;
-    (*encoding).num_entries = 0 as u8;
-    (*encoding).data.range1 =
-        new((255_u64).wrapping_mul(::std::mem::size_of::<cff_range1>() as u64) as u32)
-            as *mut cff_range1;
-    (*encoding).num_supps = 0 as u8;
-    (*encoding).supp =
-        new((255_u64).wrapping_mul(::std::mem::size_of::<cff_map>() as u64) as u32) as *mut cff_map;
+    let mut encoding_ranges = Vec::with_capacity(255);
+    let mut encoding_supp = Vec::with_capacity(255);
     /*
      * Charastrings.
      */
@@ -452,10 +444,11 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
             while (j as i32) < charset_glyphs.len() as i32 {
                 if sid as i32 == charset_glyphs[j as usize] as i32 {
                     /* Already have this glyph. */
-                    (*(*encoding).supp.offset((*encoding).num_supps as isize)).code = code as u8; /* Used but multiply-encoded. */
-                    (*(*encoding).supp.offset((*encoding).num_supps as isize)).glyph = sid;
+                    encoding_supp.push(cff_map {
+                        code: code as u8, /* Used but multiply-encoded. */
+                        glyph: sid,
+                    });
                     *usedchars.offset(code as isize) = 0_i8;
-                    (*encoding).num_supps = ((*encoding).num_supps as i32 + 1) as u8;
                     break;
                 } else {
                     j += 1;
@@ -521,42 +514,26 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /*
      * Now we create encoding data.
      */
-    if (*encoding).num_supps as i32 > 0 {
-        (*encoding).format = ((*encoding).format as i32 | 0x80) as u8
-    } else {
-        free((*encoding).supp as *mut libc::c_void); /* Have supplemantary data. */
-        /* FIXME */
-    }
     let mut code = 0_u16;
     while code < 256 {
         if !(*usedchars.offset(code as isize) == 0
             || enc_slice[code as usize].is_empty()
             || enc_slice[code as usize] == ".notdef")
         {
-            (*(*encoding)
-                .data
-                .range1
-                .offset((*encoding).num_entries as isize))
-            .first = code;
-            (*(*encoding)
-                .data
-                .range1
-                .offset((*encoding).num_entries as isize))
-            .n_left = 0 as u8;
+            let mut range = cff_range1 {
+                first: code,
+                n_left: 0,
+            };
             code = code.wrapping_add(1);
             while (code as i32) < 256
                 && *usedchars.offset(code as isize) as i32 != 0
                 && !enc_slice[code as usize].is_empty()
                 && enc_slice[code as usize] != ".notdef"
             {
-                (*(*encoding)
-                    .data
-                    .range1
-                    .offset((*encoding).num_entries as isize))
-                .n_left += 1;
+                range.n_left += 1;
                 code += 1;
             }
-            (*encoding).num_entries = ((*encoding).num_entries as i32 + 1) as u8
+            encoding_ranges.push(range);
         }
         code = code.wrapping_add(1)
         /* The above while() loop stopped at unused char or code == 256. */
@@ -569,10 +546,15 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
      * Discard old one, set new data.
      */
     cffont.charsets = Some(Rc::new(Charsets::Glyphs(charset_glyphs.into_boxed_slice())));
-    if !cffont.encoding.is_null() {
-        cff_release_encoding(cffont.encoding);
-    }
-    cffont.encoding = encoding;
+    cffont.encoding = Some(Box::new(if !encoding_supp.is_empty() {
+        Encoding::Range1Supp(
+            encoding_ranges.into_boxed_slice(),
+            encoding_supp.into_boxed_slice(),
+        )
+    } else {
+        Encoding::Range1(encoding_ranges.into_boxed_slice()) /* Have supplemantary data. */
+        /* FIXME */
+    }));
     /*
      * We don't use subroutines at all.
      */
@@ -629,8 +611,8 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* We are using format 1 for Encoding and format 0 for charset.
      * TODO: Should implement cff_xxx_size().
      */
-    stream_data_len +=
-        2 + (*encoding).num_entries as usize * 2 + 1 + (*encoding).num_supps as usize * 3;
+    let encoding = cffont.encoding.as_ref().unwrap();
+    stream_data_len += 2 + encoding.num_entries() * 2 + 1 + encoding.num_supps() * 3;
     stream_data_len += 1 + cffont.charsets.as_ref().unwrap().num_entries() as usize * 2;
     stream_data_len += charstring_len;
     stream_data_len += private_size as usize;
