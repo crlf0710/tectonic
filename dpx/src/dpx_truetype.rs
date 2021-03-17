@@ -49,7 +49,7 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use super::dpx_tt_aux::ttc_read_offset;
-use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read, tt_cmap_release};
+use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read};
 use super::dpx_tt_glyf::{tt_add_glyph, tt_build_tables, tt_find_glyph, tt_get_index, tt_glyphs};
 use super::dpx_tt_gsub::{
     otl_gsub, otl_gsub_add_feat, otl_gsub_apply, otl_gsub_apply_alt, otl_gsub_apply_lig,
@@ -133,7 +133,7 @@ pub(crate) mod sfnt_table_info {
  */
 #[repr(C)]
 pub(crate) struct glyph_mapper<'a> {
-    pub(crate) codetogid: *mut tt_cmap,
+    pub(crate) codetogid: Option<tt_cmap>,
     pub(crate) gsub: *mut otl_gsub,
     pub(crate) sfont: &'a sfnt,
     pub(crate) nametogid: *mut tt_post_table,
@@ -286,10 +286,11 @@ static mut verbose: i32 = 0;
 unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: &mut sfnt) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let ttcm = tt_cmap_read(sfont, 1_u16, 0_u16);
-    if ttcm.is_null() {
+    if ttcm.is_none() {
         warn!("Could not read Mac-Roman TrueType cmap table...");
         return -1;
     }
+    let ttcm = ttcm.unwrap();
     let mut cmap_table = Vec::with_capacity(274);
     cmap_table.put_be(0_u16); //  Version
     cmap_table.put_be(1_u16); // Number of subtables
@@ -311,7 +312,7 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
                 info!("/.c0x{:02x}", code);
             }
             let mut idx;
-            let gid = tt_cmap_lookup(ttcm, code as u32);
+            let gid = tt_cmap_lookup(&ttcm, code as u32);
             if gid as i32 == 0 {
                 warn!(
                     "Glyph for character code=0x{:02x} missing in font font-file=\"{}\".",
@@ -333,7 +334,6 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
         }
     }
 
-    tt_cmap_release(ttcm);
     if verbose > 2 {
         info!("]");
     }
@@ -523,7 +523,7 @@ unsafe fn composeuchar(
     gid: *mut u16,
 ) -> i32 {
     let mut error: i32 = 0;
-    if gm.codetogid.is_null() {
+    if gm.codetogid.is_none() {
         return -1;
     }
     let gids =
@@ -531,8 +531,10 @@ unsafe fn composeuchar(
             as *mut u16;
     let mut i = 0;
     while error == 0 && i < n_unicodes {
-        *gids.offset(i as isize) =
-            tt_cmap_lookup(gm.codetogid, *unicodes.offset(i as isize) as u32);
+        *gids.offset(i as isize) = tt_cmap_lookup(
+            gm.codetogid.as_ref().unwrap(),
+            *unicodes.offset(i as isize) as u32,
+        );
         error = if *gids.offset(i as isize) as i32 == 0 {
             -1
         } else {
@@ -629,7 +631,7 @@ unsafe fn findparanoiac(glyphname: &[u8], gid: *mut u16, gm: &mut glyph_mapper) 
                 /* ignore */
             }
         } else if (*agln).n_components == 1 {
-            idx = tt_cmap_lookup(gm.codetogid, (*agln).unicodes[0] as u32)
+            idx = tt_cmap_lookup(gm.codetogid.as_ref().unwrap(), (*agln).unicodes[0] as u32)
         } else if (*agln).n_components > 1 {
             if verbose >= 0 {
                 /* give warning */
@@ -716,14 +718,14 @@ unsafe fn resolve_glyph(glyphname: &str, gid: *mut u16, gm: &mut glyph_mapper) -
     if error == 0 {
         return 0;
     }
-    if gm.codetogid.is_null() {
+    if gm.codetogid.is_none() {
         return -1;
     }
     let (name, suffix) = agl_chop_suffix(glyphname.as_bytes());
     if let Some(name) = name {
         let mut error = if agl_name_is_unicode(name.to_bytes()) {
             let ucv = agl_name_convert_unicode(name.as_ptr());
-            *gid = tt_cmap_lookup(gm.codetogid, ucv as u32);
+            *gid = tt_cmap_lookup(gm.codetogid.as_ref().unwrap(), ucv as u32);
             if *gid as i32 == 0 {
                 -1
             } else {
@@ -760,14 +762,10 @@ impl<'a> Drop for glyph_mapper<'a> {
             if !self.gsub.is_null() {
                 otl_gsub_release(self.gsub);
             }
-            if !self.codetogid.is_null() {
-                tt_cmap_release(self.codetogid);
-            }
             if !self.nametogid.is_null() {
                 tt_release_post_table(self.nametogid);
             }
             self.gsub = ptr::null_mut();
-            self.codetogid = ptr::null_mut();
             self.nametogid = ptr::null_mut();
         }
     }
@@ -788,11 +786,9 @@ unsafe fn do_custom_encoding(
      */
     // setup_glyph_mapper
     let nametogid = tt_read_post_table(sfont);
-    let mut codetogid = tt_cmap_read(sfont, 3_u16, 10_u16);
-    if codetogid.is_null() {
-        codetogid = tt_cmap_read(sfont, 3_u16, 1_u16)
-    }
-    if nametogid.is_null() && codetogid.is_null() {
+    let codetogid =
+        tt_cmap_read(sfont, 3_u16, 10_u16).or_else(|| tt_cmap_read(sfont, 3_u16, 1_u16));
+    if nametogid.is_null() && codetogid.is_none() {
         warn!(
             "No post table nor Unicode cmap found in font: {}",
             (&*font).ident,

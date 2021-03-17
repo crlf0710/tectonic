@@ -41,7 +41,7 @@ use super::dpx_dpxfile::{dpx_open_dfont_file, dpx_open_truetype_file};
 use super::dpx_pdffont::pdf_font_make_uniqueTag;
 use super::dpx_tt_aux::tt_get_fontdesc;
 use super::dpx_tt_aux::ttc_read_offset;
-use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read, tt_cmap_release};
+use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read};
 use super::dpx_tt_glyf::{tt_add_glyph, tt_build_tables, tt_get_index, tt_get_metrics};
 use super::dpx_tt_gsub::{
     otl_gsub_add_feat, otl_gsub_apply, otl_gsub_new, otl_gsub_release, otl_gsub_select,
@@ -56,7 +56,6 @@ use crate::dpx_pdfobj::{
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
 use super::dpx_cmap::CMap;
-use super::dpx_tt_cmap::tt_cmap;
 
 /* 2 for CID, variable for Code..  */
 /* CID (as 16-bit BE), Code ...    */
@@ -482,7 +481,7 @@ unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
 
 pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     let cmap;
-    let mut ttcmap: *mut tt_cmap = ptr::null_mut();
+    let mut ttcmap = None;
     let offset;
     let mut i: i32 = 0;
     let mut unicode_cmap: i32 = 0;
@@ -549,7 +548,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * Select TrueType cmap table, find ToCode CMap for each TrueType encodings.
      */
     if glyph_ordering {
-        ttcmap = ptr::null_mut();
+        ttcmap = None;
         cmap = ptr::null_mut()
     } else {
         /*
@@ -562,11 +561,11 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                 known_encodings[i].platform,
                 known_encodings[i].encoding,
             );
-            if !ttcmap.is_null() {
+            if ttcmap.is_some() {
                 break;
             }
         }
-        if ttcmap.is_null() {
+        if ttcmap.is_none() {
             warn!(
                 "No usable TrueType cmap table found for font \"{}\".",
                 font.ident
@@ -669,6 +668,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                     code = cid as i32
                 } else {
                     code = cid_to_code(cmap, cid);
+                    let ttcmap = ttcmap.as_ref().unwrap();
                     gid = tt_cmap_lookup(ttcmap, code as u32);
                     if gid as i32 == 0 && unicode_cmap != 0 {
                         let alt_code = fix_CJK_symbols(code as u16) as i32;
@@ -738,6 +738,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                         code_0 = cid as i32
                     } else {
                         code_0 = cid_to_code(cmap, cid);
+                        let ttcmap = ttcmap.as_ref().unwrap();
                         gid_0 = tt_cmap_lookup(ttcmap, code_0 as u32);
                         if gid_0 as i32 == 0 && unicode_cmap != 0 {
                             let alt_code_0 = fix_CJK_symbols(code_0 as u16) as i32;
@@ -783,7 +784,6 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     if used_chars.is_null() {
         panic!("Unexpected error.");
     }
-    tt_cmap_release(ttcmap);
     if CIDFont_get_embedding(font) != 0 {
         if tt_build_tables(&mut sfont, &mut glyphs) < 0 {
             panic!("Could not created FontFile stream.");

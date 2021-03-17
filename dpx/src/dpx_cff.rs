@@ -186,21 +186,6 @@ pub(crate) struct cff_map {
     pub(crate) code: u8,
     pub(crate) glyph: s_SID,
 }
-/*#[derive(Clone)]
-#[repr(C)]
-pub(crate) struct cff_encoding {
-    pub(crate) format: u8,
-    pub(crate) num_entries: u8,
-    pub(crate) data: C2RustUnnamed,
-    pub(crate) supp: Vec<cff_map>,
-    /* supplement */
-}
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) union C2RustUnnamed {
-    pub(crate) codes: *mut u8,
-    pub(crate) range1: *mut cff_range1,
-}*/
 #[derive(Clone)]
 pub(crate) enum Encoding {
     Codes(Box<[u8]>),
