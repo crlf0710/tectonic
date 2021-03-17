@@ -182,20 +182,19 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &mut cff_font) {
     let mut gid = cff_glyph_lookup_str(cffont, "space") as i32; /* FIXME */
     if gid >= 0 && gid < cff_cstrings.count as i32 {
         t1char_get_metrics(
-            cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
-            (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize]) as i32,
+            &cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1
+                ..cff_cstrings.offset[(gid + 1) as usize] as usize - 1],
             &cffont.subrs[0],
             &mut gm,
         );
-        defaultwidth = gm.wx
+        defaultwidth = gm.wx;
     }
     for i in &L_c {
         gid = cff_glyph_lookup_str(cffont, *i) as i32;
         if gid >= 0 && gid < cff_cstrings.count as i32 {
             t1char_get_metrics(
-                cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
-                (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize])
-                    as i32,
+                &cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1
+                    ..cff_cstrings.offset[(gid + 1) as usize] as usize - 1],
                 &cffont.subrs[0],
                 &mut gm,
             );
@@ -207,9 +206,8 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &mut cff_font) {
         gid = cff_glyph_lookup_str(cffont, *i) as i32;
         if gid >= 0 && gid < cff_cstrings.count as i32 {
             t1char_get_metrics(
-                cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
-                (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize])
-                    as i32,
+                &cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1
+                    ..cff_cstrings.offset[(gid + 1) as usize] as usize - 1],
                 &cffont.subrs[0],
                 &mut gm,
             );
@@ -221,9 +219,8 @@ unsafe fn get_font_attr(font: &mut pdf_font, cffont: &mut cff_font) {
         gid = cff_glyph_lookup_str(cffont, *i) as i32;
         if gid >= 0 && gid < cff_cstrings.count as i32 {
             t1char_get_metrics(
-                cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
-                (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize])
-                    as i32,
+                &cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1
+                    ..cff_cstrings.offset[(gid + 1) as usize] as usize - 1],
                 &cffont.subrs[0],
                 &mut gm,
             );
@@ -670,15 +667,12 @@ pub(crate) unsafe fn pdf_font_load_type1(font: &mut pdf_font) -> i32 {
         }
         let gid_orig = *GIDMap.offset(gid_0 as isize);
         let dstptr = cstring.data[cstring.offset[gid_0 as usize] as usize - 1..].as_mut_ptr();
-        let srcptr =
-            cff_cstrings.data[cff_cstrings.offset[gid_orig as usize] as usize - 1..].as_ptr();
-        let srclen = (cff_cstrings.offset[(gid_orig as i32 + 1) as usize]
-            - cff_cstrings.offset[gid_orig as usize]) as i32;
+        let src = &cff_cstrings.data[cff_cstrings.offset[gid_orig as usize] as usize - 1
+            ..cff_cstrings.offset[(gid_orig as i32 + 1) as usize] as usize - 1];
         offset += t1char_convert_charstring(
             dstptr,
             65536,
-            srcptr,
-            srclen,
+            src,
             &cffont.subrs[0],
             defaultwidth,
             nominalwidth,

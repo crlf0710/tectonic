@@ -292,9 +292,9 @@ unsafe fn release_charpath(mut cd: *mut t1_chardesc) {
 /*
  * Single byte operators:
  */
-unsafe fn do_operator1(mut cd: *mut t1_chardesc, data: &mut *const u8) {
-    let mut op: u8 = **data;
-    *data = (*data).offset(1);
+unsafe fn do_operator1(mut cd: *mut t1_chardesc, data: &mut &[u8]) {
+    let mut op: u8 = data[0];
+    *data = &data[1..];
     match op as i32 {
         9 => {
             /*
@@ -744,14 +744,14 @@ unsafe fn do_callothersubr(cd: *mut t1_chardesc) {
 /*
  * Double byte operators:
  */
-unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: &mut *const u8, endptr: *const u8) {
-    *data = (*data).offset(1);
-    if endptr < (*data).offset(1) {
+unsafe fn do_operator2(mut cd: *mut t1_chardesc, data: &mut &[u8]) {
+    *data = &data[1..];
+    if data.len() < 1 {
         status = -1;
         return;
     }
-    let op = **data;
-    *data = (*data).offset(1);
+    let op = data[0];
+    *data = &data[1..];
     match op as i32 {
         7 => {
             if cs_stack_top < 4 {
@@ -958,44 +958,44 @@ unsafe fn put_numbers(argv: *mut f64, argn: i32, dest: &mut *mut u8, limit: *mut
         }
     }
 }
-unsafe fn get_integer(data: &mut *const u8, endptr: *const u8) {
+unsafe fn get_integer(data: &mut &[u8]) {
     let mut result;
-    let b0: u8 = **data;
+    let b0: u8 = data[0];
     let b1;
-    *data = (*data).offset(1);
+    *data = &data[1..];
     if b0 as i32 == 28 {
         /* shortint */
-        if endptr < (*data).offset(2) {
+        if data.len() < 2 {
             status = -1;
             return;
         }
-        b1 = **data;
-        let b2 = *(*data).offset(1);
+        b1 = data[0];
+        let b2 = data[1];
         result = b1 as i32 * 256 + b2 as i32;
         if result > 0x7fff {
             result = (result as i64 - 0x10000) as i32
         }
-        *data = (*data).offset(2)
+        *data = &data[2..];
     } else if b0 as i32 >= 32 && b0 as i32 <= 246 {
         /* int (1) */
         result = b0 as i32 - 139
     } else if b0 as i32 >= 247 && b0 as i32 <= 250 {
         /* int (2) */
-        if endptr < (*data).offset(1) {
+        if data.len() < 1 {
             status = -1;
             return;
         }
-        b1 = **data;
+        b1 = data[0];
         result = (b0 as i32 - 247) * 256 + b1 as i32 + 108;
-        *data = (*data).offset(1)
+        *data = &data[1..];
     } else if b0 as i32 >= 251 && b0 as i32 <= 254 {
-        if endptr < (*data).offset(1) {
+        if data.len() < 1 {
             status = -1;
             return;
         }
-        b1 = **data;
+        b1 = data[0];
         result = -(b0 as i32 - 251) * 256 - b1 as i32 - 108;
-        *data = (*data).offset(1)
+        *data = &data[1..];
     } else {
         status = -1;
         return;
@@ -1008,20 +1008,20 @@ unsafe fn get_integer(data: &mut *const u8, endptr: *const u8) {
     cs_stack_top += 1;
 }
 /* Type 1 */
-unsafe fn get_longint(data: &mut *const u8, endptr: *const u8) {
-    *data = (*data).offset(1);
-    if endptr < (*data).offset(4) {
+unsafe fn get_longint(data: &mut &[u8]) {
+    *data = &data[1..];
+    if data.len() < 4 {
         status = -1;
         return;
     }
-    let mut result = **data as i32;
+    let mut result = data[0] as i32;
     if result as i64 >= 0x80 {
         result = (result as i64 - 0x100) as i32
     }
-    *data = (*data).offset(1);
+    *data = &data[1..];
     for _ in 1..4 {
-        result = result * 256 + **data as i32;
-        *data = (*data).offset(1);
+        result = result * 256 + data[0] as i32;
+        *data = &data[1..];
     }
     if cs_stack_top + 1 > 48 {
         status = -2;
@@ -1038,18 +1038,17 @@ unsafe fn get_longint(data: &mut *const u8, endptr: *const u8) {
 /* Parse charstring and build charpath. */
 unsafe fn t1char_build_charpath(
     cd: *mut t1_chardesc,
-    data: &mut *const u8,
-    endptr: *const u8,
+    data: &mut &[u8],
     subrs: &Option<Box<CffIndex>>,
 ) {
     if nest > 10 {
         panic!("Subroutine nested too deeply.");
     }
     nest += 1;
-    while *data < endptr && status == 0 {
-        let b0 = **data;
+    while !data.is_empty() && status == 0 {
+        let b0 = data[0];
         if b0 as i32 == 255 {
-            get_longint(data, endptr);
+            get_longint(data);
         /* Type 1 */
         } else if b0 as i32 == 11 {
             status = 2
@@ -1061,19 +1060,16 @@ unsafe fn t1char_build_charpath(
                 let idx = cs_arg_stack[cs_stack_top as usize] as i32;
                 match subrs.as_ref() {
                     Some(subrs0) if idx < subrs0.count as i32 => {
-                        let mut subr =
-                            subrs0.data[subrs0.offset[idx as usize] as usize - 1..].as_ptr();
-                        let len = (subrs0.offset[(idx + 1) as usize] - subrs0.offset[idx as usize])
-                            as i32;
-                        let endptr = subr.offset(len as isize);
-                        t1char_build_charpath(cd, &mut subr, endptr, subrs);
-                        *data = (*data).offset(1);
+                        let mut subr = &subrs0.data[subrs0.offset[idx as usize] as usize - 1
+                            ..subrs0.offset[(idx + 1) as usize] as usize - 1];
+                        t1char_build_charpath(cd, &mut subr, subrs);
+                        *data = &data[1..];
                     }
                     _ => panic!("Invalid Subr#."),
                 }
             }
         } else if b0 as i32 == 12 {
-            do_operator2(cd, data, endptr);
+            do_operator2(cd, data);
         } else if (b0 as i32) < 32 && b0 as i32 != 28 {
             /* 19, 20 need mask */
             do_operator1(cd, data);
@@ -1082,17 +1078,14 @@ unsafe fn t1char_build_charpath(
             status = -1
         /* not an error ? */
         } else {
-            get_integer(data, endptr);
+            get_integer(data);
         }
     }
     if status == 2 {
         status = 0
-    } else if status == 3 && *data < endptr {
-        if !(*data == endptr.offset(-1) && **data as i32 == 11) {
-            warn!(
-                "Garbage after endchar. ({} bytes)",
-                endptr.offset_from(*data) as i64 as i32
-            );
+    } else if status == 3 && !data.is_empty() {
+        if !(data.len() == 1 && data[0] as i32 == 11) {
+            warn!("Garbage after endchar. ({} bytes)", data.len());
         }
     } else if status < 0 {
         /* error */
@@ -1494,8 +1487,7 @@ unsafe fn do_postproc(mut cd: *mut t1_chardesc) {
 }
 
 pub(crate) unsafe fn t1char_get_metrics(
-    mut src: *const u8,
-    srclen: i32,
+    mut src: &[u8],
     subrs: &Option<Box<CffIndex>>,
     mut ginfo: *mut t1_ginfo,
 ) -> i32 {
@@ -1537,27 +1529,26 @@ pub(crate) unsafe fn t1char_get_metrics(
     nest = 0;
     ps_stack_top = 0;
     cs_stack_top = 0;
-    let endptr = src.offset(srclen as isize);
-    t1char_build_charpath(cd, &mut src, endptr, subrs);
+    t1char_build_charpath(cd, &mut src, subrs);
     if cs_stack_top != 0 || ps_stack_top != 0 {
         warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top);
     }
     do_postproc(cd);
-    if !ginfo.is_null() {
-        (*ginfo).wx = (*cd).sbw.wx;
-        (*ginfo).wy = (*cd).sbw.wy;
-        (*ginfo).bbox.llx = (*cd).bbox.llx;
-        (*ginfo).bbox.lly = (*cd).bbox.lly;
-        (*ginfo).bbox.urx = (*cd).bbox.urx;
-        (*ginfo).bbox.ury = (*cd).bbox.ury;
+    if let Some(ginfo) = ginfo.as_mut() {
+        ginfo.wx = (*cd).sbw.wx;
+        ginfo.wy = (*cd).sbw.wy;
+        ginfo.bbox.llx = (*cd).bbox.llx;
+        ginfo.bbox.lly = (*cd).bbox.lly;
+        ginfo.bbox.urx = (*cd).bbox.urx;
+        ginfo.bbox.ury = (*cd).bbox.ury;
         if (*cd).flags & 1 << 2 != 0 {
-            (*ginfo).use_seac = 1;
-            (*ginfo).seac.adx = (*cd).seac.adx;
-            (*ginfo).seac.ady = (*cd).seac.ady;
-            (*ginfo).seac.bchar = (*cd).seac.bchar;
-            (*ginfo).seac.achar = (*cd).seac.achar
+            ginfo.use_seac = 1;
+            ginfo.seac.adx = (*cd).seac.adx;
+            ginfo.seac.ady = (*cd).seac.ady;
+            ginfo.seac.bchar = (*cd).seac.bchar;
+            ginfo.seac.achar = (*cd).seac.achar
         } else {
-            (*ginfo).use_seac = 0
+            ginfo.use_seac = 0
         }
     }
     release_charpath(cd);
@@ -1805,12 +1796,11 @@ unsafe fn t1char_encode_charpath(
 pub(crate) unsafe fn t1char_convert_charstring(
     dst: *mut u8,
     dstlen: i32,
-    mut src: *const u8,
-    srclen: i32,
+    mut src: &[u8],
     subrs: &Option<Box<CffIndex>>,
     default_width: f64,
     nominal_width: f64,
-    mut ginfo: *mut t1_ginfo,
+    ginfo: *mut t1_ginfo,
 ) -> i32 {
     let mut t1char: t1_chardesc = t1_chardesc {
         flags: 0,
@@ -1850,8 +1840,7 @@ pub(crate) unsafe fn t1char_convert_charstring(
     nest = 0;
     ps_stack_top = 0;
     cs_stack_top = 0;
-    let endptr = src.offset(srclen as isize);
-    t1char_build_charpath(cd, &mut src, endptr, subrs);
+    t1char_build_charpath(cd, &mut src, subrs);
     if cs_stack_top != 0 || ps_stack_top != 0 {
         warn!("Stack not empty. ({}, {})", cs_stack_top, ps_stack_top);
     }
@@ -1864,21 +1853,21 @@ pub(crate) unsafe fn t1char_convert_charstring(
         dst,
         dst.offset(dstlen as isize),
     );
-    if !ginfo.is_null() {
-        (*ginfo).wx = (*cd).sbw.wx;
-        (*ginfo).wy = (*cd).sbw.wy;
-        (*ginfo).bbox.llx = (*cd).bbox.llx;
-        (*ginfo).bbox.lly = (*cd).bbox.lly;
-        (*ginfo).bbox.urx = (*cd).bbox.urx;
-        (*ginfo).bbox.ury = (*cd).bbox.ury;
-        if (*cd).flags & 1 << 2 != 0 {
-            (*ginfo).use_seac = 1;
-            (*ginfo).seac.adx = (*cd).seac.adx;
-            (*ginfo).seac.ady = (*cd).seac.ady;
-            (*ginfo).seac.bchar = (*cd).seac.bchar;
-            (*ginfo).seac.achar = (*cd).seac.achar
+    if let Some(ginfo) = ginfo.as_mut() {
+        ginfo.wx = cd.sbw.wx;
+        ginfo.wy = cd.sbw.wy;
+        ginfo.bbox.llx = cd.bbox.llx;
+        ginfo.bbox.lly = cd.bbox.lly;
+        ginfo.bbox.urx = cd.bbox.urx;
+        ginfo.bbox.ury = cd.bbox.ury;
+        if cd.flags & 1 << 2 != 0 {
+            ginfo.use_seac = 1;
+            ginfo.seac.adx = cd.seac.adx;
+            ginfo.seac.ady = cd.seac.ady;
+            ginfo.seac.bchar = cd.seac.bchar;
+            ginfo.seac.achar = cd.seac.achar
         } else {
-            (*ginfo).use_seac = 0
+            ginfo.use_seac = 0;
         }
     }
     release_charpath(cd);

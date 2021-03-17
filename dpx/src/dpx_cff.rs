@@ -1156,12 +1156,12 @@ pub(crate) unsafe fn cff_encoding_lookup(cff: &cff_font, code: u8) -> u16 {
             panic!("Encoding data not available");
         }
     }
-    let encoding = cff.encoding;
+    let encoding = &*cff.encoding;
     let mut gid = 0;
-    match (*encoding).format as i32 & !0x80 {
+    match encoding.format as i32 & !0x80 {
         0 => {
-            for i in 0..(*encoding).num_entries {
-                if code as i32 == *(*encoding).data.codes.offset(i as isize) as i32 {
+            for i in 0..encoding.num_entries {
+                if code as i32 == *encoding.data.codes.offset(i as isize) as i32 {
                     gid = (i as i32 + 1) as u16;
                     break;
                 }
@@ -1169,25 +1169,24 @@ pub(crate) unsafe fn cff_encoding_lookup(cff: &cff_font, code: u8) -> u16 {
         }
         1 => {
             let mut i = 0;
-            while (i as i32) < (*encoding).num_entries as i32 {
-                if code as i32 >= (*(*encoding).data.range1.offset(i as isize)).first as i32
+            while (i as i32) < encoding.num_entries as i32 {
+                if code as i32 >= (*encoding.data.range1.offset(i as isize)).first as i32
                     && code as i32
-                        <= (*(*encoding).data.range1.offset(i as isize)).first as i32
-                            + (*(*encoding).data.range1.offset(i as isize)).n_left as i32
+                        <= (*encoding.data.range1.offset(i as isize)).first as i32
+                            + (*encoding.data.range1.offset(i as isize)).n_left as i32
                 {
                     gid = (gid as i32
-                        + (code as i32
-                            - (*(*encoding).data.range1.offset(i as isize)).first as i32
+                        + (code as i32 - (*encoding.data.range1.offset(i as isize)).first as i32
                             + 1)) as u16;
                     break;
                 } else {
                     gid = (gid as i32
-                        + ((*(*encoding).data.range1.offset(i as isize)).n_left as i32 + 1))
+                        + ((*encoding.data.range1.offset(i as isize)).n_left as i32 + 1))
                         as u16;
                     i += 1;
                 }
             }
-            if i as i32 == (*encoding).num_entries as i32 {
+            if i as i32 == encoding.num_entries as i32 {
                 gid = 0 as u16
             }
         }
@@ -1196,12 +1195,12 @@ pub(crate) unsafe fn cff_encoding_lookup(cff: &cff_font, code: u8) -> u16 {
         }
     }
     /* Supplementary data */
-    if gid as i32 == 0 && (*encoding).format as i32 & 0x80 != 0 {
-        if (*encoding).supp.is_null() {
+    if gid as i32 == 0 && encoding.format as i32 & 0x80 != 0 {
+        if encoding.supp.is_null() {
             panic!("No CFF supplementary encoding data read.");
         }
-        let map = (*encoding).supp;
-        for i in 0..(*encoding).num_supps {
+        let map = encoding.supp;
+        for i in 0..encoding.num_supps {
             if code as i32 == (*map.offset(i as isize)).code as i32 {
                 gid = cff_charsets_lookup(cff, (*map.offset(i as isize)).glyph);
                 break;
@@ -1464,55 +1463,53 @@ pub(crate) unsafe fn cff_charsets_lookup(cff: &cff_font, cid: u16) -> u16 {
             panic!("Charsets data not available");
         }
     }
-    cff_charsets_lookup_gid(cff.charsets, cid)
+    cff_charsets_lookup_gid(&*cff.charsets, cid)
 }
 
-pub(crate) unsafe fn cff_charsets_lookup_gid(charset: *mut cff_charsets, cid: u16) -> u16 {
-    let mut gid: u16 = 0 as u16;
+pub(crate) unsafe fn cff_charsets_lookup_gid(charset: &cff_charsets, cid: u16) -> u16 {
+    let mut gid: u16 = 0;
     if cid as i32 == 0 {
         return 0 as u16;
         /* GID 0 (.notdef) */
     }
-    match (*charset).format as i32 {
+    match charset.format as i32 {
         0 => {
-            for i in 0..(*charset).num_entries as i32 {
-                if cid as i32 == *(*charset).data.glyphs.offset(i as isize) as i32 {
+            for i in 0..charset.num_entries as i32 {
+                if cid as i32 == *charset.data.glyphs.offset(i as isize) as i32 {
                     gid = (i as i32 + 1) as u16;
                     return gid;
                 }
             }
         }
         1 => {
-            for i in 0..(*charset).num_entries as i32 {
-                if cid as i32 >= (*(*charset).data.range1.offset(i as isize)).first as i32
+            for i in 0..charset.num_entries as i32 {
+                if cid as i32 >= (*charset.data.range1.offset(i as isize)).first as i32
                     && cid as i32
-                        <= (*(*charset).data.range1.offset(i as isize)).first as i32
-                            + (*(*charset).data.range1.offset(i as isize)).n_left as i32
+                        <= (*charset.data.range1.offset(i as isize)).first as i32
+                            + (*charset.data.range1.offset(i as isize)).n_left as i32
                 {
                     gid = (gid as i32
-                        + (cid as i32 - (*(*charset).data.range1.offset(i as isize)).first as i32
-                            + 1)) as u16;
+                        + (cid as i32 - (*charset.data.range1.offset(i as isize)).first as i32 + 1))
+                        as u16;
                     return gid;
                 }
-                gid = (gid as i32
-                    + ((*(*charset).data.range1.offset(i as isize)).n_left as i32 + 1))
+                gid = (gid as i32 + ((*charset.data.range1.offset(i as isize)).n_left as i32 + 1))
                     as u16;
             }
         }
         2 => {
-            for i in 0..(*charset).num_entries as i32 {
-                if cid as i32 >= (*(*charset).data.range2.offset(i as isize)).first as i32
+            for i in 0..charset.num_entries as i32 {
+                if cid as i32 >= (*charset.data.range2.offset(i as isize)).first as i32
                     && cid as i32
-                        <= (*(*charset).data.range2.offset(i as isize)).first as i32
-                            + (*(*charset).data.range2.offset(i as isize)).n_left as i32
+                        <= (*charset.data.range2.offset(i as isize)).first as i32
+                            + (*charset.data.range2.offset(i as isize)).n_left as i32
                 {
                     gid = (gid as i32
-                        + (cid as i32 - (*(*charset).data.range2.offset(i as isize)).first as i32
-                            + 1)) as u16;
+                        + (cid as i32 - (*charset.data.range2.offset(i as isize)).first as i32 + 1))
+                        as u16;
                     return gid;
                 }
-                gid = (gid as i32
-                    + ((*(*charset).data.range2.offset(i as isize)).n_left as i32 + 1))
+                gid = (gid as i32 + ((*charset.data.range2.offset(i as isize)).n_left as i32 + 1))
                     as u16;
             }
         }
@@ -1520,7 +1517,7 @@ pub(crate) unsafe fn cff_charsets_lookup_gid(charset: *mut cff_charsets, cid: u1
             panic!("Unknown Charset format");
         }
     }
-    return 0 as u16;
+    return 0;
     /* not found */
 }
 /* Input : GID

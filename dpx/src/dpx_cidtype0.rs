@@ -1367,8 +1367,8 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
     let gid = cff_glyph_lookup(cffont, "space") as i32;
     if gid >= 0 && gid < cff_cstrings.count as i32 {
         t1char_get_metrics(
-            cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
-            (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize]) as i32,
+            &cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1
+                ..cff_cstrings.offset[(gid + 1) as usize] as usize - 1],
             &cffont.subrs[0],
             &mut gm,
         );
@@ -1378,9 +1378,8 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
         let gid = cff_glyph_lookup(cffont, *i) as i32;
         if gid >= 0 && gid < cff_cstrings.count as i32 {
             t1char_get_metrics(
-                cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
-                (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize])
-                    as i32,
+                &cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1
+                    ..cff_cstrings.offset[(gid + 1) as usize] as usize - 1],
                 &cffont.subrs[0],
                 &mut gm,
             );
@@ -1392,9 +1391,8 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
         let gid = cff_glyph_lookup(cffont, *i) as i32;
         if gid >= 0 && gid < cff_cstrings.count as i32 {
             t1char_get_metrics(
-                cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
-                (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize])
-                    as i32,
+                &cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1
+                    ..cff_cstrings.offset[(gid + 1) as usize] as usize - 1],
                 &cffont.subrs[0],
                 &mut gm,
             );
@@ -1406,9 +1404,8 @@ unsafe fn get_font_attr(font: *mut CIDFont, cffont: &mut cff_font) {
         let gid = cff_glyph_lookup(cffont, *i) as i32;
         if gid >= 0 && gid < cff_cstrings.count as i32 {
             t1char_get_metrics(
-                cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1..].as_ptr(),
-                (cff_cstrings.offset[(gid + 1) as usize] - cff_cstrings.offset[gid as usize])
-                    as i32,
+                &cff_cstrings.data[cff_cstrings.offset[gid as usize] as usize - 1
+                    ..cff_cstrings.offset[(gid + 1) as usize] as usize - 1],
                 &cffont.subrs[0],
                 &mut gm,
             );
@@ -1677,9 +1674,8 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
             offset += t1char_convert_charstring(
                 cstring.data[cstring.offset[gid as usize] as usize - 1..].as_mut_ptr(),
                 65536,
-                cff_cstrings.data[cff_cstrings.offset[cid as usize] as usize - 1..].as_ptr(),
-                (cff_cstrings.offset[(cid as i32 + 1) as usize] - cff_cstrings.offset[cid as usize])
-                    as i32,
+                &cff_cstrings.data[cff_cstrings.offset[cid as usize] as usize - 1
+                    ..cff_cstrings.offset[(cid as i32 + 1) as usize] as usize - 1],
                 &cffont.subrs[0],
                 defaultwidth,
                 nominalwidth,

@@ -1542,9 +1542,8 @@ unsafe fn do_glyphs(do_actual_text: i32) {
                     glyph_id += 1;
                 }
                 t1char_get_metrics(
-                    cstrings.data[cstrings.offset[glyph_id as usize] as usize - 1..].as_ptr(),
-                    (cstrings.offset[(glyph_id + 1) as usize] - cstrings.offset[glyph_id as usize])
-                        as i32,
+                    &cstrings.data[cstrings.offset[glyph_id as usize] as usize - 1
+                        ..cstrings.offset[(glyph_id + 1) as usize] as usize - 1],
                     &(*font.cffont).subrs[0],
                     &mut gm,
                 );
