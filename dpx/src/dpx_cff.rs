@@ -233,7 +233,27 @@ pub(crate) struct cff_range3 {
     pub(crate) first: u16,
     pub(crate) fd: u8,
 }
-#[derive(Copy, Clone)]
+
+#[derive(Clone)]
+pub(crate) enum FdSelect {
+    Fds(Box<[u8]>),
+    Ranges(Box<[cff_range3]>),
+}
+impl FdSelect {
+    pub(crate) fn format(&self) -> u8 {
+        match self {
+            Self::Fds(_) => 0,
+            Self::Ranges(_) => 3,
+        }
+    }
+    pub(crate) fn num_entries(&self) -> usize {
+        match self {
+            Self::Fds(fds) => fds.len(),
+            Self::Ranges(ranges) => ranges.len(),
+        }
+    }
+}
+/*#[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct cff_fdselect {
     pub(crate) format: u8,
@@ -247,7 +267,7 @@ pub(crate) struct cff_fdselect {
 pub(crate) union C2RustUnnamed_1 {
     pub(crate) fds: *mut u8,
     pub(crate) ranges: *mut cff_range3,
-}
+}*/
 #[repr(C)]
 pub(crate) struct cff_font {
     pub(crate) fontname: String,
@@ -258,7 +278,7 @@ pub(crate) struct cff_font {
     pub(crate) gsubr: Option<Box<CffIndex>>,
     pub(crate) encoding: *mut cff_encoding,
     pub(crate) charsets: Option<Rc<Charsets>>,
-    pub(crate) fdselect: *mut cff_fdselect,
+    pub(crate) fdselect: Option<Box<FdSelect>>,
     pub(crate) cstrings: Option<Box<CffIndex>>,
     pub(crate) fdarray: Vec<Option<cff_dict>>,
     pub(crate) private: Vec<Option<cff_dict>>,
@@ -790,7 +810,7 @@ pub(crate) unsafe fn cff_open(
         gsubr: None,
         encoding: ptr::null_mut(),
         charsets: None,
-        fdselect: ptr::null_mut(),
+        fdselect: None,
         cstrings: None,
         fdarray: Vec::new(),
         private: Vec::new(),
@@ -812,9 +832,6 @@ impl Drop for cff_font {
         unsafe {
             if !self.encoding.is_null() {
                 cff_release_encoding(self.encoding);
-            }
-            if !self.fdselect.is_null() {
-                cff_release_fdselect(self.fdselect);
             }
         }
     }
@@ -1544,42 +1561,36 @@ pub(crate) unsafe fn cff_read_fdselect(cff: &mut cff_font) -> i32 {
     handle
         .seek(SeekFrom::Start(cff.offset as u64 + offset as u64))
         .unwrap();
-    let fdsel = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_fdselect>() as u64) as u32)
-        as *mut cff_fdselect;
-    cff.fdselect = fdsel;
-    (*fdsel).format = u8::get(handle);
+    let format = u8::get(handle);
     let mut length = 1;
-    match (*fdsel).format as i32 {
+    match format {
         0 => {
-            (*fdsel).num_entries = cff.num_glyphs;
-            (*fdsel).data.fds = new(((*fdsel).num_entries as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                as u32) as *mut u8;
-            for i in 0..(*fdsel).num_entries as i32 {
-                *(*fdsel).data.fds.offset(i as isize) = u8::get(handle);
+            let mut fds = Vec::with_capacity(cff.num_glyphs as _);
+            for _ in 0..cff.num_glyphs {
+                fds.push(u8::get(handle));
             }
-            length += (*fdsel).num_entries as i32
+            length += fds.len() as i32;
+            cff.fdselect = Some(Box::new(FdSelect::Fds(fds.into_boxed_slice())));
         }
         3 => {
-            (*fdsel).num_entries = u16::get(handle);
-            let ranges = new(((*fdsel).num_entries as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<cff_range3>() as u64)
-                as u32) as *mut cff_range3;
-            (*fdsel).data.ranges = ranges;
-            for i in 0..(*fdsel).num_entries as i32 {
-                (*ranges.offset(i as isize)).first = u16::get(handle);
-                (*ranges.offset(i as isize)).fd = u8::get(handle);
+            let num_entries = u16::get(handle);
+            let mut ranges = Vec::with_capacity(num_entries as _);
+            for _ in 0..num_entries {
+                ranges.push(cff_range3 {
+                    first: u16::get(handle),
+                    fd: u8::get(handle),
+                });
             }
-            if (*ranges.offset(0)).first as i32 != 0 {
+            if ranges[0].first != 0 {
                 panic!("Range not starting with 0.");
             }
             if cff.num_glyphs as i32 != u16::get(handle) as i32 {
                 panic!("Sentinel value mismatched with number of glyphs.");
             }
-            length += (*fdsel).num_entries as i32 * 3 + 4
+            length += num_entries as i32 * 3 + 4;
+            cff.fdselect = Some(Box::new(FdSelect::Ranges(ranges.into_boxed_slice())));
         }
         _ => {
-            free(fdsel as *mut libc::c_void);
             panic!("Unknown FDSelect format.");
         }
     }
@@ -1588,80 +1599,61 @@ pub(crate) unsafe fn cff_read_fdselect(cff: &mut cff_font) -> i32 {
 
 pub(crate) unsafe fn cff_pack_fdselect(cff: &cff_font, dest: &mut [u8]) -> usize {
     let mut len = 0;
-    if cff.fdselect.is_null() {
-        return 0;
-    }
-    let fdsel = &*cff.fdselect;
-    dest[len] = fdsel.format;
-    len += 1;
-    match fdsel.format as i32 {
-        0 => {
-            if fdsel.num_entries != cff.num_glyphs {
-                panic!("in cff_pack_fdselect(): Invalid data");
+    if let Some(fdsel) = cff.fdselect.as_deref() {
+        dest[len] = fdsel.format();
+        len += 1;
+        match fdsel {
+            FdSelect::Fds(fds) => {
+                if fds.len() != cff.num_glyphs as usize {
+                    panic!("in cff_pack_fdselect(): Invalid data");
+                }
+                for &fd in fds.iter() {
+                    dest[len] = fd;
+                    len += 1;
+                }
             }
-            for i in 0..fdsel.num_entries as isize {
-                dest[len] = *fdsel.data.fds.offset(i);
-                len += 1;
-            }
-        }
-        3 => {
-            len += 2;
-            for i in 0..fdsel.num_entries as isize {
-                dest[len..len + 2]
-                    .copy_from_slice(&(*fdsel.data.ranges.offset(i)).first.to_be_bytes());
+            FdSelect::Ranges(ranges) => {
                 len += 2;
-                dest[len] = (*fdsel.data.ranges.offset(i)).fd;
-                len += 1;
+                for range in ranges.iter() {
+                    dest[len..len + 2].copy_from_slice(&range.first.to_be_bytes());
+                    len += 2;
+                    dest[len] = range.fd;
+                    len += 1;
+                }
+                dest[len..len + 2].copy_from_slice(&cff.num_glyphs.to_be_bytes());
+                len += 2;
+                dest[1] = (len / 3 - 1 >> 8 & 0xff) as u8;
+                dest[2] = (len / 3 - 1 & 0xff) as u8
             }
-            dest[len..len + 2].copy_from_slice(&cff.num_glyphs.to_be_bytes());
-            len += 2;
-            dest[1] = (len / 3 - 1 >> 8 & 0xff) as u8;
-            dest[2] = (len / 3 - 1 & 0xff) as u8
         }
-        _ => {
-            panic!("Unknown FDSelect format.");
-        }
+        len
+    } else {
+        0
     }
-    len
-}
-
-pub(crate) unsafe fn cff_release_fdselect(fdselect: *mut cff_fdselect) {
-    if !fdselect.is_null() {
-        if (*fdselect).format as i32 == 0 {
-            free((*fdselect).data.fds as *mut libc::c_void);
-        } else if (*fdselect).format as i32 == 3 {
-            free((*fdselect).data.ranges as *mut libc::c_void);
-        }
-        free(fdselect as *mut libc::c_void);
-    };
 }
 
 pub(crate) unsafe fn cff_fdselect_lookup(cff: &cff_font, gid: u16) -> u8 {
-    if cff.fdselect.is_null() {
+    if cff.fdselect.is_none() {
         panic!("in cff_fdselect_lookup(): FDSelect not available");
     }
-    let fdsel = cff.fdselect;
     if gid as i32 >= cff.num_glyphs as i32 {
         panic!("in cff_fdselect_lookup(): Invalid glyph index");
     }
-    let fd = match (*fdsel).format as i32 {
-        0 => *(*fdsel).data.fds.offset(gid as isize),
-        3 => {
+    let fd = match cff.fdselect.as_deref().unwrap() {
+        FdSelect::Fds(fds) => fds[gid as usize],
+        FdSelect::Ranges(ranges) => {
             if gid as i32 == 0 {
-                (*(*fdsel).data.ranges.offset(0)).fd
+                ranges[0].fd
             } else {
                 let mut i = 1;
-                while i < (*fdsel).num_entries {
-                    if (gid as i32) < (*(*fdsel).data.ranges.offset(i as isize)).first as i32 {
+                while i < ranges.len() {
+                    if (gid as i32) < ranges[i].first as i32 {
                         break;
                     }
                     i += 1;
                 }
-                (*(*fdsel).data.ranges.offset((i as i32 - 1) as isize)).fd
+                ranges[i - 1].fd
             }
-        }
-        _ => {
-            panic!("in cff_fdselect_lookup(): Invalid FDSelect format");
         }
     };
     if fd as i32 >= cff.num_fds as i32 {

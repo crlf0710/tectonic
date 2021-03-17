@@ -45,8 +45,7 @@ use super::dpx_cff::{
     cff_read_charsets, cff_read_fdselect, cff_read_subrs, cff_set_name, cff_update_string,
 };
 use super::dpx_cff::{
-    cff_charsets_lookup, cff_fdselect_lookup, cff_read_fdarray, cff_read_private,
-    cff_release_fdselect, CffIndex, Pack,
+    cff_charsets_lookup, cff_fdselect_lookup, cff_read_fdarray, cff_read_private, CffIndex, Pack,
 };
 use super::dpx_cid::{
     CIDFont_get_embedding, CIDFont_get_opt_index, CIDFont_get_parent_id, CIDFont_is_BaseFont,
@@ -85,8 +84,8 @@ use super::dpx_cff::Charsets;
 pub(crate) type s_SID = u16;
 
 pub(crate) type l_offset = u32;
-use super::dpx_cff::cff_fdselect;
 use super::dpx_cff::cff_range3;
+use super::dpx_cff::FdSelect;
 use super::dpx_tt_table::tt_longMetrics;
 
 use super::dpx_cff::cff_font;
@@ -422,7 +421,7 @@ unsafe fn write_fontfile(font: *mut CIDFont, cffont: &mut cff_font) -> i32 {
     destlen += cffont.string.as_mut().unwrap().size();
     destlen += cffont.gsubr.as_mut().unwrap().size();
     destlen += cffont.charsets.as_ref().unwrap().num_entries() * 2 + 1;
-    destlen += (*cffont.fdselect).num_entries as usize * 3 + 5;
+    destlen += cffont.fdselect.as_ref().unwrap().num_entries() * 3 + 5;
     destlen += cffont.cstrings.as_mut().unwrap().size();
     destlen += fdarray.size();
     destlen = destlen + private.offset[private.count as usize] as usize - 1;
@@ -687,13 +686,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
     /* New Charsets data */
     let mut charset_glyphs = Vec::new();
     /* New FDSelect data */
-    let fdselect = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_fdselect>() as u64) as u32)
-        as *mut cff_fdselect;
-    (*fdselect).format = 3 as u8;
-    (*fdselect).num_entries = 0 as u16;
-    (*fdselect).data.ranges = new((num_glyphs as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<cff_range3>() as u64)
-        as u32) as *mut cff_range3;
+    let mut fd_ranges = Vec::with_capacity(num_glyphs as _);
     /* New CharStrings INDEX */
     let mut charstrings = CffIndex::new((num_glyphs as i32 + 1) as u16);
     let mut max_len = 2 * 65536;
@@ -744,17 +737,10 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
                 charset_glyphs.push(cid as s_SID);
             }
             if fd != prev_fd {
-                (*(*fdselect)
-                    .data
-                    .ranges
-                    .offset((*fdselect).num_entries as isize))
-                .first = gid;
-                (*(*fdselect)
-                    .data
-                    .ranges
-                    .offset((*fdselect).num_entries as isize))
-                .fd = fd as u8;
-                (*fdselect).num_entries = ((*fdselect).num_entries as i32 + 1) as u16;
+                fd_ranges.push(cff_range3 {
+                    first: gid,
+                    fd: fd as u8,
+                });
                 prev_fd = fd
             }
             gid += 1;
@@ -771,8 +757,7 @@ pub(crate) unsafe fn CIDFont_type0_dofont(font: &mut CIDFont) {
     cffont.cstrings = Some(charstrings);
     /* discard old one, set new data */
     cffont.charsets = Some(Rc::new(Charsets::Glyphs(charset_glyphs.into_boxed_slice())));
-    cff_release_fdselect(cffont.fdselect);
-    cffont.fdselect = fdselect;
+    cffont.fdselect = Some(Box::new(FdSelect::Ranges(fd_ranges.into_boxed_slice())));
     /* no Global subr */
     cffont.gsubr = Some(CffIndex::new(0));
     for fd in 0..cffont.num_fds as usize {
@@ -997,16 +982,9 @@ pub(crate) unsafe fn CIDFont_type0_t1cdofont(font: &mut CIDFont) {
             }
         }
     }
-    let fdselect = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_fdselect>() as u64) as u32)
-        as *mut cff_fdselect;
-    (*fdselect).format = 3;
-    (*fdselect).num_entries = 1;
-    (*fdselect).data.ranges =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<cff_range3>() as u64) as u32)
-            as *mut cff_range3;
-    (*(*fdselect).data.ranges.offset(0)).first = 0 as u16;
-    (*(*fdselect).data.ranges.offset(0)).fd = 0 as u8;
-    cffont.fdselect = fdselect;
+    cffont.fdselect = Some(Box::new(FdSelect::Ranges(
+        vec![cff_range3 { first: 0, fd: 0 }].into_boxed_slice(),
+    )));
     let mut charset_glyphs = vec![0; num_glyphs as usize - 1];
     let mut gid = 0_u16;
     for cid in 0..=last_cid as i32 {
@@ -1567,16 +1545,9 @@ pub(crate) unsafe fn CIDFont_type0_t1dofont(font: &mut CIDFont) {
             }
         }
     }
-    let fdselect = new((1_u64).wrapping_mul(::std::mem::size_of::<cff_fdselect>() as u64) as u32)
-        as *mut cff_fdselect;
-    (*fdselect).format = 3 as u8;
-    (*fdselect).num_entries = 1 as u16;
-    (*fdselect).data.ranges =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<cff_range3>() as u64) as u32)
-            as *mut cff_range3;
-    (*(*fdselect).data.ranges.offset(0)).first = 0 as u16;
-    (*(*fdselect).data.ranges.offset(0)).fd = 0 as u8;
-    cffont.fdselect = fdselect;
+    cffont.fdselect = Some(Box::new(FdSelect::Ranges(
+        vec![cff_range3 { first: 0, fd: 0 }].into_boxed_slice(),
+    )));
     let CIDToGIDMap = new(((2 * (last_cid as i32 + 1)) as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
     memset(

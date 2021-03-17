@@ -1532,7 +1532,7 @@ impl cff_font {
             gsubr: Some(CffIndex::new(0)),
             encoding: ptr::null_mut(),
             charsets: None,
-            fdselect: ptr::null_mut(),
+            fdselect: None,
             cstrings: None,
             fdarray: Vec::new(),
             private: vec![Some(cff_dict::new())],
