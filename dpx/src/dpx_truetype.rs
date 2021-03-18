@@ -491,13 +491,12 @@ unsafe fn selectglyph(
 }
 /* Compose glyphs via ligature substitution. */
 unsafe fn composeglyph(
-    glyphs: *mut u16,
-    n_glyphs: usize,
+    glyphs: &[u16],
     feat: Option<&str>,
     gm: &mut glyph_mapper,
     gid: *mut u16,
 ) -> i32 {
-    assert!(!glyphs.is_null() && n_glyphs > 0 && !gid.is_null());
+    assert!(!glyphs.is_empty() && !gid.is_null());
     let mut error = match feat {
         None | Some("") => {
             /* meaning "Unknown" */
@@ -510,7 +509,7 @@ unsafe fn composeglyph(
         }
     };
     if error == 0 {
-        error = otl_gsub_apply_lig(gm.gsub, glyphs, n_glyphs as u16, gid)
+        error = otl_gsub_apply_lig(gm.gsub, glyphs, gid)
     }
     error
 }
@@ -526,26 +525,19 @@ unsafe fn composeuchar(
     if gm.codetogid.is_none() {
         return -1;
     }
-    let gids =
-        new((n_unicodes as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
-            as *mut u16;
+    let mut gids = vec![0_u16; n_unicodes as _];
     let mut i = 0;
-    while error == 0 && i < n_unicodes {
-        *gids.offset(i as isize) = tt_cmap_lookup(
+    while error == 0 && i < n_unicodes as usize {
+        gids[i] = tt_cmap_lookup(
             gm.codetogid.as_ref().unwrap(),
             *unicodes.offset(i as isize) as u32,
         );
-        error = if *gids.offset(i as isize) as i32 == 0 {
-            -1
-        } else {
-            0
-        };
+        error = if gids[i] == 0 { -1 } else { 0 };
         i += 1
     }
     if error == 0 {
-        error = composeglyph(gids, n_unicodes as usize, feat, gm, gid)
+        error = composeglyph(&gids, feat, gm, gid)
     }
-    free(gids as *mut libc::c_void);
     error
 }
 /* Search 'post' table. */
@@ -591,10 +583,10 @@ unsafe fn findcomposite(glyphname: &mut String, gid: *mut u16, gm: &mut glyph_ma
                     || suffix == "ccmp"
                     || suffix == "afrc") =>
             {
-                error = composeglyph(gids.as_mut_ptr(), nptrs.len(), Some(suffix), gm, gid)
+                error = composeglyph(&gids[..nptrs.len()], Some(suffix), gm, gid)
             }
             Some(suffix) => {
-                error = composeglyph(gids.as_mut_ptr(), nptrs.len(), None, gm, gid);
+                error = composeglyph(&gids[..nptrs.len()], None, gm, gid);
                 if error == 0 {
                     /* a_b_c.vert */
                     let suffix = CString::new(suffix.as_bytes()).unwrap();
@@ -602,7 +594,7 @@ unsafe fn findcomposite(glyphname: &mut String, gid: *mut u16, gm: &mut glyph_ma
                 }
             }
             None => {
-                error = composeglyph(gids.as_mut_ptr(), nptrs.len(), None, gm, gid);
+                error = composeglyph(&gids[..nptrs.len()], None, gm, gid);
             }
         }
     }

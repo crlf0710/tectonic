@@ -33,10 +33,9 @@ use std::ptr;
 
 use super::dpx_numbers::GetFromFile;
 use super::dpx_sfnt::sfnt_find_table_pos;
-use crate::mfree;
 use crate::{info, warn};
 
-use super::dpx_mem::{new, renew};
+use super::dpx_mem::new;
 use super::dpx_otl_opt::OtlOpt;
 use libc::{free, memset};
 
@@ -46,7 +45,7 @@ pub(crate) type Fixed = u32;
 
 use super::dpx_sfnt::sfnt;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct otl_gsub {
     pub(crate) num_gsubs: i32,
@@ -55,30 +54,14 @@ pub(crate) struct otl_gsub {
     pub(crate) gsubs: [otl_gsub_tab; 32],
     /* _TT_GSUB_H_ */
 }
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct otl_gsub_tab {
     pub(crate) script: *mut i8,
     pub(crate) language: *mut i8,
     pub(crate) feature: *mut i8,
-    pub(crate) num_subtables: i32,
-    pub(crate) subtables: *mut otl_gsub_subtab,
+    pub(crate) subtables: Vec<SubTable>,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) struct otl_gsub_subtab {
-    pub(crate) LookupType: u16,
-    pub(crate) SubstFormat: u16,
-    pub(crate) table: C2RustUnnamed,
-}
-/*#[derive(Copy, Clone)]
-#[repr(C)]
-pub(crate) union C2RustUnnamed {
-    pub(crate) single1: *mut otl_gsub_single1,
-    pub(crate) single2: *mut otl_gsub_single2,
-    pub(crate) alternate1: *mut otl_gsub_alternate1,
-    pub(crate) ligature1: *mut otl_gsub_ligature1,
-}*/
 
 #[derive(Clone)]
 pub(crate) enum SingleSubTable {
@@ -339,31 +322,25 @@ impl Default for Coverage {
     }
 }
 
-unsafe fn otl_gsub_read_single<R: Read + Seek>(
-    subtab: &mut otl_gsub_subtab,
-    handle: &mut R,
-) -> i32 {
+unsafe fn otl_gsub_read_single<R: Read + Seek>(handle: &mut R) -> Option<SubTable> {
     let offset = handle.seek(SeekFrom::Current(0)).unwrap();
-    subtab.LookupType = 1_u16;
     let SubstFormat = u16::get(handle);
-    let mut len = 2;
     if SubstFormat == 1 {
         let cov_offset = u16::get(handle);
         let DeltaGlyphID = i16::get(handle);
-        len += 4;
         handle
             .seek(SeekFrom::Start(offset as u64 + cov_offset as u64))
             .unwrap();
-        let (coverage, l) = read_coverage(handle);
-        subtab.table = SubTable::Single(SingleSubTable::Single1(otl_gsub_single1 {
-            DeltaGlyphID,
-            coverage,
-        }));
-        len += l as i32;
+        let (coverage, _) = read_coverage(handle);
+        Some(SubTable::Single(SingleSubTable::Single1(
+            otl_gsub_single1 {
+                DeltaGlyphID,
+                coverage,
+            },
+        )))
     } else if SubstFormat == 2 {
         let cov_offset = u16::get(handle);
         let GlyphCount = u16::get(handle);
-        len += 4;
         let mut Substitute = Vec::new();
         if GlyphCount as i32 == 0 {
         } else {
@@ -371,210 +348,118 @@ unsafe fn otl_gsub_read_single<R: Read + Seek>(
             for _ in 0..GlyphCount as i32 {
                 Substitute.push(u16::get(handle));
             }
-            len += 2 * GlyphCount as i32;
         }
         handle
             .seek(SeekFrom::Start(offset as u64 + cov_offset as u64))
             .unwrap();
-        let (coverage, l) = read_coverage(handle);
-        subtab.table = SubTable::Single(SingleSubTable::Single2(otl_gsub_single2 {
-            Substitute,
-            coverage,
-        }));
-        len += l as i32;
+        let (coverage, _) = read_coverage(handle);
+        Some(SubTable::Single(SingleSubTable::Single2(
+            otl_gsub_single2 {
+                Substitute,
+                coverage,
+            },
+        )))
     } else {
         panic!("unexpected SubstFormat");
     }
-    // TODO: Error handling!
-    len as i32
 }
-unsafe fn otl_gsub_read_alternate<R: Read + Seek>(
-    subtab: &mut otl_gsub_subtab,
-    handle: &mut R,
-) -> i32 {
+unsafe fn otl_gsub_read_alternate<R: Read + Seek>(handle: &mut R) -> Option<SubTable> {
     let mut altset_offsets: clt_number_list = clt_number_list { value: Vec::new() };
     let offset = handle.seek(SeekFrom::Current(0)).unwrap();
-    subtab.LookupType = 3_u16;
     let SubstFormat = u16::get(handle);
     if SubstFormat as i32 != 1 {
-        warn!(
-            "Unknown GSUB SubstFormat for Alternate: {}",
-            subtab.SubstFormat
-        );
-        return -1;
+        warn!("Unknown GSUB SubstFormat for Alternate: {}", SubstFormat);
+        return None;
     }
-    let mut len = 2;
     let cov_offset = u16::get(handle);
-    len += 2;
-    len += clt_read_number_list(&mut altset_offsets, handle);
+    clt_read_number_list(&mut altset_offsets, handle);
     let AlternateSetCount = altset_offsets.value.len() as usize;
     if AlternateSetCount == 0 {
-        subtab.table = SubstFormat::Alternate1(otl_gsub_alternate1 {
-            AlternateSet = Vec::new();
-            coverage = Coverage::default();
-        });
-        return len;
+        return Some(SubTable::Alternate1(otl_gsub_alternate1 {
+            AlternateSet: Vec::new(),
+            coverage: Coverage::default(),
+        }));
     }
     let mut AlternateSet = Vec::with_capacity(AlternateSetCount);
     for i in 0..AlternateSetCount {
         let altset_offset = offset + (altset_offsets.value[i] as u64);
         handle.seek(SeekFrom::Start(altset_offset as u64)).unwrap();
-        let GlyphCount = u16::get(handle);
-        len += 2;
-        let mut Alternate = Vec::new();
-        if GlyphCount as i32 == 0 {
+        let GlyphCount = u16::get(handle) as usize;
+        if GlyphCount == 0 {
             break;
         } else {
-            Alternate = Vec::with_capacity(GlyphCount as _);
-            for j in 0..GlyphCount {
+            let mut Alternate = Vec::with_capacity(GlyphCount);
+            for _ in 0..GlyphCount {
                 Alternate.push(u16::get(handle));
-                len += 2;
             }
+            AlternateSet.push(otl_gsub_altset { Alternate });
         }
-        AlternateSet.push(otl_gsub_altset { Alternate });
     }
     handle.seek(SeekFrom::Start(cov_offset as u64)).unwrap();
-    let (coverage, l) = read_coverage(handle);
-    subtab.table = SubTable::Alternate1(otl_gsub_alternate1 {
+    let (coverage, _) = read_coverage(handle);
+    Some(SubTable::Alternate1(otl_gsub_alternate1 {
         AlternateSet,
         coverage,
-    });
-    len += l as i32;
-    len
+    }))
 }
-unsafe fn otl_gsub_read_ligature<R: Read + Seek>(
-    subtab: &mut otl_gsub_subtab,
-    handle: &mut R,
-) -> i32 {
+unsafe fn otl_gsub_read_ligature<R: Read + Seek>(handle: &mut R) -> Option<SubTable> {
     let mut ligset_offsets: clt_number_list = clt_number_list { value: Vec::new() };
     let offset = handle.seek(SeekFrom::Current(0)).unwrap() as u32;
-    subtab.LookupType = 4_u16;
     let SubstFormat = u16::get(handle);
     if SubstFormat as i32 != 1 {
-        warn!(
-            "Unknown GSUB SubstFormat for Ligature: {}",
-            SubstFormat
-        );
-        return -1;
+        warn!("Unknown GSUB SubstFormat for Ligature: {}", SubstFormat);
+        return None;
     }
-    let mut len = 2;
     let cov_offset = u16::get(handle);
-    len += 2;
-    len += clt_read_number_list(&mut ligset_offsets, handle);
-    let LigSetCount = ligset_offsets.value.len() as _;
-    if let LigSetCount == 0 {
-        subtab.table = SubTable::Ligature1(otl_gsub_ligature1 {
+    clt_read_number_list(&mut ligset_offsets, handle);
+    let LigSetCount = ligset_offsets.value.len();
+    if LigSetCount == 0 {
+        return Some(SubTable::Ligature1(otl_gsub_ligature1 {
             LigatureSet: Vec::new(),
             coverage: Coverage::default(),
-        });
-        return len;
+        }));
     }
-    let mut LigatureSet = Vec::with_capacity(LigSetCount as _);
-    for i in 0..LigSetCount as i32 {
+    let mut LigatureSet = Vec::with_capacity(LigSetCount);
+    for i in 0..LigSetCount {
         let mut ligset_tab: clt_number_list = clt_number_list { value: Vec::new() };
-        let ligset = &mut *(*data).LigatureSet.offset(i as isize) as *mut otl_gsub_ligset;
         let ligset_offset = offset.wrapping_add(ligset_offsets.value[i as usize] as u32);
         handle.seek(SeekFrom::Start(ligset_offset as u64)).unwrap();
-        len += clt_read_number_list(&mut ligset_tab, handle);
+        clt_read_number_list(&mut ligset_tab, handle);
         if ligset_tab.value.is_empty() {
-            (*ligset).Ligature = Vec::new();
             break;
         } else {
-            (*ligset).Ligature = Vec::with_capacity(ligset_tab.value.len());
-            for (j, &lt) in ligset_tab.value.iter().enumerate() {
+            let mut Ligature = Vec::with_capacity(ligset_tab.value.len());
+            for &lt in ligset_tab.value.iter() {
                 handle
                     .seek(SeekFrom::Start(ligset_offset as u64 + lt as u64))
                     .unwrap();
                 let LigGlyph = u16::get(handle);
                 let CompCount = u16::get(handle);
-                let mut Component = Vec::new();
                 if CompCount == 0 {
                     break;
                 } else {
-                    Component = Vec::with_capacity((CompCount - 1) as _);
+                    let mut Component = Vec::with_capacity((CompCount - 1) as _);
                     for _ in 0..CompCount - 1 {
                         Component.push(u16::get(handle));
                     }
-                    len += 4 + (CompCount - 1) as i32 * 2;
+                    Ligature.push(otl_gsub_ligtab {
+                        LigGlyph,
+                        Component,
+                    });
                 }
-                (*ligset).Ligature.push(otl_gsub_ligtab { LigGlyph, Component });
             }
+            LigatureSet.push(otl_gsub_ligset { Ligature });
         }
-        LigatureSet.push(Ligature);
     }
     handle
         .seek(SeekFrom::Start(offset as u64 + cov_offset as u64))
         .unwrap();
-    let (coverage, l) = read_coverage(handle);
-    subtab.table = SubTable::Ligature1(otl_gsub_ligature1 {
+    let (coverage, _) = read_coverage(handle);
+    Some(SubTable::Ligature1(otl_gsub_ligature1 {
         LigatureSet,
         coverage,
-    });
-    len += l as i32;
-    len
+    }))
 }
-/*unsafe fn otl_gsub_release_single(mut subtab: *mut otl_gsub_subtab) {
-    if !subtab.is_null() {
-        match (*subtab).SubstFormat as i32 {
-            1 => {
-                let data = (*subtab).table.single1;
-                if !data.is_null() {
-                    free(data as *mut libc::c_void);
-                }
-                (*subtab).table.single1 = ptr::null_mut()
-            }
-            2 => {
-                let data_0 = (*subtab).table.single2;
-                if !data_0.is_null() {
-                    free((*data_0).Substitute as *mut libc::c_void);
-                    free(data_0 as *mut libc::c_void);
-                }
-                (*subtab).table.single2 = ptr::null_mut()
-            }
-            _ => {
-                panic!("Unknown format for single substitution");
-            }
-        }
-    };
-}
-unsafe fn otl_gsub_release_ligature(mut subtab: *mut otl_gsub_subtab) {
-    if !subtab.is_null() {
-        let data = (*subtab).table.ligature1;
-        if !data.is_null() && !(*data).LigatureSet.is_null() {
-            for i in 0..(*data).LigSetCount as i32 {
-                let ligset = &mut *(*data).LigatureSet.offset(i as isize) as *mut otl_gsub_ligset;
-                for j in 0..(*ligset).LigatureCount as i32 {
-                    (*(*ligset).Ligature.offset(j as isize)).Component = mfree(
-                        (*(*ligset).Ligature.offset(j as isize)).Component as *mut libc::c_void,
-                    )
-                        as *mut GlyphID;
-                }
-                (*ligset).Ligature =
-                    mfree((*ligset).Ligature as *mut libc::c_void) as *mut otl_gsub_ligtab;
-            }
-            free((*data).LigatureSet as *mut libc::c_void);
-        }
-        (*data).LigatureSet = ptr::null_mut();
-        free(data as *mut libc::c_void);
-        (*subtab).table.ligature1 = ptr::null_mut()
-    };
-}
-unsafe fn otl_gsub_release_alternate(mut subtab: *mut otl_gsub_subtab) {
-    if !subtab.is_null() {
-        let data = (*subtab).table.alternate1;
-        if !data.is_null() && !(*data).AlternateSet.is_null() {
-            for i in 0..(*data).AlternateSetCount as i32 {
-                let altset = &mut *(*data).AlternateSet.offset(i as isize) as *mut otl_gsub_altset;
-                (*altset).Alternate =
-                    mfree((*altset).Alternate as *mut libc::c_void) as *mut GlyphID;
-            }
-            free((*data).AlternateSet as *mut libc::c_void);
-        }
-        (*data).AlternateSet = ptr::null_mut();
-        free(data as *mut libc::c_void);
-        (*subtab).table.alternate1 = ptr::null_mut()
-    };
-}*/
 unsafe fn otl_gsub_read_header<R: Read>(head: &mut otl_gsub_header, handle: &mut R) -> i32 {
     head.version = u32::get(handle);
     head.ScriptList = u16::get(handle);
@@ -589,8 +474,7 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
         FeatureList: 0,
         LookupList: 0,
     };
-    let mut subtab: *mut otl_gsub_subtab = ptr::null_mut();
-    let mut num_subtabs: u16 = 0_u16;
+    let mut subtab = Vec::new();
     let mut feat_bits: [u8; 8192] = [0; 8192];
     let mut feature_list = clt_record_list { record: Vec::new() };
     let mut script_list = clt_record_list { record: Vec::new() };
@@ -754,14 +638,6 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                         );
                     }
                 } else {
-                    subtab = renew(
-                        subtab as *mut libc::c_void,
-                        ((num_subtabs as i32 + lookup_table.SubTableList.value.len() as i32) as u32
-                            as u64)
-                            .wrapping_mul(::std::mem::size_of::<otl_gsub_subtab>() as u64)
-                            as u32,
-                    ) as *mut otl_gsub_subtab;
-                    let mut n_st = 0;
                     for &st in lookup_table.SubTableList.value.iter() {
                         offset = gsub_offset
                             .wrapping_add(head.LookupList as u32)
@@ -770,45 +646,33 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                         handle.seek(SeekFrom::Start(offset as u64)).unwrap();
                         match lookup_table.LookupType as i32 {
                             1 => {
-                                let r = otl_gsub_read_single(
-                                    &mut *subtab.offset((num_subtabs as i32 + n_st) as isize),
-                                    handle,
-                                );
-                                if r <= 0 {
-                                    warn!("Reading GSUB subtable (single) failed...");
-                                } else {
+                                if let Some(st) = otl_gsub_read_single(handle) {
+                                    subtab.push(st);
                                     if verbose > 0 {
                                         info!("(single)");
                                     }
-                                    n_st += 1
+                                } else {
+                                    warn!("Reading GSUB subtable (single) failed...");
                                 }
                             }
                             3 => {
-                                let r = otl_gsub_read_alternate(
-                                    &mut *subtab.offset((num_subtabs as i32 + n_st) as isize),
-                                    handle,
-                                );
-                                if r <= 0 {
-                                    warn!("Reading GSUB subtable (alternate) failed...");
-                                } else {
+                                if let Some(st) = otl_gsub_read_alternate(handle) {
+                                    subtab.push(st);
                                     if verbose > 0 {
                                         info!("(alternate)");
                                     }
-                                    n_st += 1
+                                } else {
+                                    warn!("Reading GSUB subtable (alternate) failed...");
                                 }
                             }
                             4 => {
-                                let r = otl_gsub_read_ligature(
-                                    &mut *subtab.offset((num_subtabs as i32 + n_st) as isize),
-                                    handle,
-                                );
-                                if r <= 0 {
-                                    warn!("Reading GSUB subtable (ligature) failed...");
-                                } else {
+                                if let Some(st) = otl_gsub_read_ligature(handle) {
+                                    subtab.push(st);
                                     if verbose > 0 {
                                         info!("(ligature)");
                                     }
-                                    n_st += 1
+                                } else {
+                                    warn!("Reading GSUB subtable (ligature) failed...");
                                 }
                             }
                             7 => {
@@ -821,52 +685,37 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                                         .unwrap();
                                     match ExtensionLookupType as i32 {
                                         1 => {
-                                            let r = otl_gsub_read_single(
-                                                &mut *subtab
-                                                    .offset((num_subtabs as i32 + n_st) as isize),
-                                                handle,
-                                            );
-                                            if r <= 0 {
-                                                warn!(
-                                                    "Reading GSUB subtable (ext:single) failed..."
-                                                );
-                                            } else {
+                                            if let Some(st) = otl_gsub_read_single(handle) {
+                                                subtab.push(st);
                                                 if verbose > 0 {
                                                     info!("(ext:single)");
                                                 }
-                                                n_st += 1
+                                            } else {
+                                                warn!(
+                                                    "Reading GSUB subtable (ext:single) failed..."
+                                                );
                                             }
                                         }
                                         3 => {
-                                            let r = otl_gsub_read_alternate(
-                                                &mut *subtab
-                                                    .offset((num_subtabs as i32 + n_st) as isize),
-                                                handle,
-                                            );
-                                            if r <= 0 {
-                                                warn!(
-                                                    "Reading GSUB subtable (alternate) failed..."
-                                                );
-                                            } else {
+                                            if let Some(st) = otl_gsub_read_alternate(handle) {
+                                                subtab.push(st);
                                                 if verbose > 0 {
                                                     info!("(alternate)");
                                                 }
-                                                n_st += 1
+                                            } else {
+                                                warn!(
+                                                    "Reading GSUB subtable (alternate) failed..."
+                                                );
                                             }
                                         }
                                         4 => {
-                                            let r = otl_gsub_read_ligature(
-                                                &mut *subtab
-                                                    .offset((num_subtabs as i32 + n_st) as isize),
-                                                handle,
-                                            );
-                                            if r <= 0 {
-                                                warn!("Reading GSUB subtable (ext:ligature) failed...");
-                                            } else {
+                                            if let Some(st) = otl_gsub_read_ligature(handle) {
+                                                subtab.push(st);
                                                 if verbose > 0 {
                                                     info!("(ext:ligature)");
                                                 }
-                                                n_st += 1
+                                            } else {
+                                                warn!("Reading GSUB subtable (ext:ligature) failed...");
                                             }
                                         }
                                         _ => {}
@@ -876,67 +725,63 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> i32 {
                             _ => {}
                         }
                     }
-                    num_subtabs = (num_subtabs as i32 + n_st) as u16;
                 }
             }
         }
     }
     if verbose > 0 {
         info!("\n");
-        info!("otl_gsub>> {} subtable(s) read.\n", num_subtabs as i32);
+        info!("otl_gsub>> {} subtable(s) read.\n", subtab.len());
     }
-    if !subtab.is_null() {
-        gsub.num_subtables = num_subtabs as i32;
-        gsub.subtables = subtab
+    if !subtab.is_empty() {
+        gsub.subtables = subtab;
     } else {
         return -1;
     }
     0
 }
-unsafe fn otl_gsub_apply_single(subtab: &otl_gsub_subtab, gid: *mut u16) -> i32 {
+unsafe fn otl_gsub_apply_single(subtab: &SingleSubTable, gid: *mut u16) -> i32 {
     assert!(!gid.is_null());
-    if subtab.SubstFormat as i32 == 1 {
-        let data = subtab.table.single1;
-        if let Some(_idx) = (*data).coverage.lookup(*gid) {
-            *gid = (*gid as i32 + (*data).DeltaGlyphID as i32) as u16;
-            return 0;
-        }
-    } else if subtab.SubstFormat as i32 == 2 {
-        let data_0 = subtab.table.single2;
-        if let Some(idx) = (*data_0).coverage.lookup(*gid) {
-            if idx < (*data_0).Substitute.len() as i32 {
-                *gid = (*data_0).Substitute[idx as usize];
+    match subtab {
+        SingleSubTable::Single1(data) => {
+            if let Some(_idx) = data.coverage.lookup(*gid) {
+                *gid = (*gid as i32 + data.DeltaGlyphID as i32) as u16;
                 return 0;
+            }
+        }
+        SingleSubTable::Single2(data) => {
+            if let Some(idx) = data.coverage.lookup(*gid) {
+                if idx < data.Substitute.len() as i32 {
+                    *gid = data.Substitute[idx as usize];
+                    return 0;
+                }
             }
         }
     }
     -1
 }
-unsafe fn otl_gsub_apply_alternate(subtab: &otl_gsub_subtab, alt_idx: u16, gid: *mut u16) -> i32 {
+unsafe fn otl_gsub_apply_alternate(
+    subtab: &otl_gsub_alternate1,
+    alt_idx: u16,
+    gid: *mut u16,
+) -> i32 {
     assert!(!gid.is_null());
-    if subtab.SubstFormat as i32 == 1 {
-        let data = subtab.table.alternate1;
-        if let Some(idx) = (*data).coverage.lookup(*gid) {
-            if idx >= (*data).AlternateSet.len() as i32 {
-                return -1;
-            }
-            let altset = &mut (*data).AlternateSet[idx as usize];
-            if alt_idx as i32 >= altset.Alternate.len() as i32 {
-                return -1;
-            } else {
-                *gid = altset.Alternate[alt_idx as usize];
-                return 0;
-            }
-        } else {
+    if let Some(idx) = subtab.coverage.lookup(*gid) {
+        if idx >= subtab.AlternateSet.len() as i32 {
             return -1;
         }
+        let altset = &subtab.AlternateSet[idx as usize];
+        if alt_idx as i32 >= altset.Alternate.len() as i32 {
+            return -1;
+        } else {
+            *gid = altset.Alternate[alt_idx as usize];
+            return 0;
+        }
+    } else {
+        return -1;
     }
-    -1
 }
-unsafe fn glyph_seq_cmp(
-    glyph_seq0: &[GlyphID],
-    glyph_seq1: &[GlyphID],
-) -> i32 {
+unsafe fn glyph_seq_cmp(glyph_seq0: &[GlyphID], glyph_seq1: &[GlyphID]) -> i32 {
     if glyph_seq0.len() != glyph_seq1.len() {
         return glyph_seq0.len() as i32 - glyph_seq1.len() as i32;
     }
@@ -948,28 +793,21 @@ unsafe fn glyph_seq_cmp(
     0
 }
 unsafe fn otl_gsub_apply_ligature(
-    subtab: *mut otl_gsub_subtab,
+    subtab: &otl_gsub_ligature1,
     gid_in: &[u16],
     gid_out: *mut u16,
 ) -> i32 {
-    assert!(!subtab.is_null() && !gid_out.is_null());
+    assert!(!gid_out.is_null());
     if gid_in.is_empty() {
         return -1;
     }
-    if (*subtab).SubstFormat as i32 == 1 {
-        let data = (*subtab).table.ligature1;
-        if let Some(idx) = (*data).coverage.lookup(gid_in[0]) {
-            if idx < (*data).LigSetCount as i32 {
-                let ligset = &mut *(*data).LigatureSet.offset(idx as isize) as *mut otl_gsub_ligset;
-                for lig in (*ligset).Ligature.iter() {
-                    if glyph_seq_cmp(
-                        &gid_in[1..],
-                        &lig.Component[..lig.Component.len()-1],
-                    ) == 0
-                    {
-                        *gid_out = lig.LigGlyph;
-                        return 0;
-                    }
+    if let Some(idx) = subtab.coverage.lookup(gid_in[0]) {
+        if idx < subtab.LigatureSet.len() as i32 {
+            let ligset = &subtab.LigatureSet[idx as usize];
+            for lig in ligset.Ligature.iter() {
+                if glyph_seq_cmp(&gid_in[1..], &lig.Component[..lig.Component.len() - 1]) == 0 {
+                    *gid_out = lig.LigGlyph;
+                    return 0;
                 }
             }
         }
@@ -1091,28 +929,11 @@ pub(crate) unsafe fn otl_gsub_release(gsub_list: *mut otl_gsub) {
         return;
     }
     for i in 0..(*gsub_list).num_gsubs {
-        let gsub = &mut *(*gsub_list).gsubs.as_mut_ptr().offset(i as isize);
-        let _ = CString::from_raw((*gsub).script);
-        let _ = CString::from_raw((*gsub).language);
-        let _ = CString::from_raw((*gsub).feature);
-        for j in 0..(*gsub).num_subtables {
-            let subtab = &mut *(*gsub).subtables.offset(j as isize);
-            match subtab.LookupType as i32 {
-                1 => {
-                    otl_gsub_release_single(subtab);
-                }
-                3 => {
-                    otl_gsub_release_alternate(subtab);
-                }
-                4 => {
-                    otl_gsub_release_ligature(subtab);
-                }
-                _ => {
-                    panic!("???");
-                }
-            }
-        }
-        free(gsub.subtables as *mut libc::c_void);
+        let gsub = &mut (*gsub_list).gsubs[i as usize];
+        let _ = CString::from_raw(gsub.script);
+        let _ = CString::from_raw(gsub.language);
+        let _ = CString::from_raw(gsub.feature);
+        gsub.subtables = Vec::new();
     }
     clear_chain(gsub_list);
     free(gsub_list as *mut libc::c_void);
@@ -1127,13 +948,11 @@ pub(crate) unsafe fn otl_gsub_apply(gsub_list: *mut otl_gsub, gid: *mut u16) -> 
     if i < 0 || i >= (*gsub_list).num_gsubs {
         panic!("GSUB not selected...");
     }
-    let gsub = &mut *(*gsub_list).gsubs.as_mut_ptr().offset(i as isize) as *mut otl_gsub_tab;
+    let gsub = &(*gsub_list).gsubs[i as usize];
     let mut j = 0;
-    while retval < 0 && j < (*gsub).num_subtables {
-        let subtab = &*(*gsub).subtables.offset(j as isize);
-        match subtab.LookupType as i32 {
-            1 => retval = otl_gsub_apply_single(subtab, gid),
-            _ => {}
+    while retval < 0 && j < gsub.subtables.len() {
+        if let SubTable::Single(subtab) = &gsub.subtables[j as usize] {
+            retval = otl_gsub_apply_single(subtab, gid);
         }
         j += 1
     }
@@ -1153,13 +972,11 @@ pub(crate) unsafe fn otl_gsub_apply_alt(
     if i < 0 || i >= (*gsub_list).num_gsubs {
         panic!("GSUB not selected...");
     }
-    let gsub = &mut *(*gsub_list).gsubs.as_mut_ptr().offset(i as isize) as *mut otl_gsub_tab;
+    let gsub = &(*gsub_list).gsubs[i as usize];
     let mut j = 0;
-    while retval < 0 && j < (*gsub).num_subtables {
-        let subtab = &*(*gsub).subtables.offset(j as isize);
-        match subtab.LookupType as i32 {
-            3 => retval = otl_gsub_apply_alternate(subtab, alt_idx, gid),
-            _ => {}
+    while retval < 0 && j < gsub.subtables.len() {
+        if let SubTable::Alternate1(subtab) = &gsub.subtables[j] {
+            retval = otl_gsub_apply_alternate(subtab, alt_idx, gid);
         }
         j += 1
     }
@@ -1181,11 +998,9 @@ pub(crate) unsafe fn otl_gsub_apply_lig(
     }
     let gsub = &mut *(*gsub_list).gsubs.as_mut_ptr().offset(i as isize) as *mut otl_gsub_tab;
     let mut j = 0;
-    while retval < 0 && j < (*gsub).num_subtables {
-        let subtab = &mut *(*gsub).subtables.offset(j as isize) as *mut otl_gsub_subtab;
-        match (*subtab).LookupType as i32 {
-            4 => retval = otl_gsub_apply_ligature(subtab, gid_in, gid_out),
-            _ => {}
+    while retval < 0 && j < (*gsub).subtables.len() {
+        if let SubTable::Ligature1(subtab) = &(*gsub).subtables[j] {
+            retval = otl_gsub_apply_ligature(subtab, gid_in, gid_out);
         }
         j += 1
     }
@@ -1272,16 +1087,14 @@ pub(crate) unsafe fn otl_gsub_apply_chain(gsub_list: &otl_gsub, gid: *mut u16) -
     while !entry.is_null() {
         let idx = (*entry).index;
         if !(idx < 0 || idx >= gsub_list.num_gsubs) {
-            let gsub = &*gsub_list.gsubs.as_ptr().offset(idx as isize);
+            let gsub = &gsub_list.gsubs[idx as usize];
             let mut i = 0;
             retval = -1;
-            while retval < 0 && i < gsub.num_subtables {
-                let subtab = &*gsub.subtables.offset(i as isize);
-                match subtab.LookupType as i32 {
-                    1 => retval = otl_gsub_apply_single(subtab, gid),
-                    _ => {}
+            while retval < 0 && i < gsub.subtables.len() {
+                if let SubTable::Single(subtab) = &gsub.subtables[i] {
+                    retval = otl_gsub_apply_single(subtab, gid);
                 }
-                i += 1
+                i += 1;
             }
         }
         entry = (*entry).next
