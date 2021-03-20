@@ -40,7 +40,6 @@ use super::dpx_agl::{
     agl_suffix_to_otltag,
 };
 use super::dpx_dpxfile::{dpx_open_dfont_file, dpx_open_truetype_file};
-use super::dpx_mem::new;
 use super::dpx_pdfencoding::{pdf_encoding_get_encoding, pdf_encoding_is_predefined};
 use super::dpx_pdffont::{
     pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_index,
@@ -59,7 +58,6 @@ use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_po
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{pdf_obj, IntoRef, PushObj};
 use crate::shims::sprintf;
-use libc::{atoi, free, memcpy, memset, strcpy, strlen};
 
 use super::dpx_sfnt::{sfnt, PutBE};
 
@@ -402,24 +400,17 @@ unsafe fn select_gsub(feat: &str, gm: &mut glyph_mapper) -> i32 {
     -1
 }
 /* Apply GSUB. This is a bit tricky... */
-unsafe fn selectglyph(
-    mut in_0: u16,
-    suffix: *const i8,
-    gm: &mut glyph_mapper,
-    out: *mut u16,
-) -> i32 {
-    let mut t: [i8; 5] = [0; 5];
+unsafe fn selectglyph(mut in_0: u16, suffix: &str, gm: &mut glyph_mapper, out: *mut u16) -> i32 {
+    let mut t: [u8; 4] = [0; 4];
     let mut error;
-    assert!(!suffix.is_null() && !out.is_null());
-    assert!(!suffix.is_null() && *suffix as i32 != 0);
-    let s = new((strlen(suffix).wrapping_add(1) as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    strcpy(s, suffix);
+    assert!(!out.is_null());
+    assert!(!suffix.is_empty());
+    let mut s = suffix;
     /* First try converting suffix to feature tag.
      * agl.c currently only knows less ambiguos cases;
      * e.g., 'sc', 'superior', etc.
      */
-    if let Some(r) = agl_suffix_to_otltag(CStr::from_ptr(s).to_bytes())
+    if let Some(r) = agl_suffix_to_otltag(s.as_bytes())
     /* 'suffix' may represent feature tag. */
     {
         /* We found feature tag for 'suffix'. */
@@ -431,57 +422,46 @@ unsafe fn selectglyph(
         /* Try loading GSUB only when length of 'suffix' is less
          * than or equal to 4. tt_gsub give a warning otherwise.
          */
-        if strlen(s) > 4 {
+        if s.len() > 4 {
             error = -1
-        } else if strlen(s) == 4 {
-            error = select_gsub(CStr::from_ptr(s).to_str().unwrap(), gm)
+        } else if s.len() == 4 {
+            error = select_gsub(s, gm)
         } else {
             /* Uh */
             /* less than 4. pad ' '. */
-            memset(t.as_mut_ptr() as *mut libc::c_void, ' ' as i32, 4);
-            t[4] = '\u{0}' as i32 as i8;
-            memcpy(
-                t.as_mut_ptr() as *mut libc::c_void,
-                s as *const libc::c_void,
-                strlen(s),
-            );
-            error = select_gsub(CStr::from_ptr(t.as_mut_ptr()).to_str().unwrap(), gm)
+            t.fill(b' ');
+            t[..s.len()].copy_from_slice(s.as_bytes());
+            error = select_gsub(std::str::from_utf8(&t).unwrap(), gm)
         }
         if error == 0 {
             /* 'suffix' represents feature tag. */
             error = otl_gsub_apply(&*gm.gsub, &mut in_0)
         } else {
             /* other case: alt1, nalt10... (alternates) */
-            let mut q = s.offset(strlen(s) as isize).offset(-1);
-            while q > s && *q as i32 >= '0' as i32 && *q as i32 <= '9' as i32 {
-                q = q.offset(-1)
-            }
-            if q == s {
-                error = -1
-            } else {
-                /* starting at 1 */
-                let n = atoi(q.offset(1)) - 1;
-                *q.offset(1) = '\u{0}' as i32 as i8;
-                if strlen(s) > 4 {
+            if let Some(q) = s.bytes().rposition(|b| !b.is_ascii_digit()) {
+                if q == 0 {
                     error = -1
                 } else {
-                    /* This may be alternate substitution. */
-                    memset(t.as_mut_ptr() as *mut libc::c_void, ' ' as i32, 4);
-                    t[4] = '\u{0}' as i32 as i8;
-                    memcpy(
-                        t.as_mut_ptr() as *mut libc::c_void,
-                        s as *const libc::c_void,
-                        strlen(s),
-                    );
-                    error = select_gsub(CStr::from_ptr(s).to_str().unwrap(), gm);
-                    if error == 0 {
-                        error = otl_gsub_apply_alt(gm.gsub, n as u16, &mut in_0 as *mut u16)
+                    /* starting at 1 */
+                    let n = s[q + 1..].parse::<i32>().unwrap() - 1;
+                    s = &s[..q + 1];
+                    if s.len() > 4 {
+                        error = -1
+                    } else {
+                        /* This may be alternate substitution. */
+                        t.fill(b' ');
+                        t[..s.len()].copy_from_slice(s.as_bytes());
+                        error = select_gsub(std::str::from_utf8(&t).unwrap(), gm);
+                        if error == 0 {
+                            error = otl_gsub_apply_alt(gm.gsub, n as u16, &mut in_0 as *mut u16)
+                        }
                     }
                 }
+            } else {
+                error = -1;
             }
         }
     }
-    free(s as *mut libc::c_void);
     *out = in_0;
     error
 }
@@ -582,8 +562,7 @@ unsafe fn findcomposite(glyphname: &mut String, gid: *mut u16, gm: &mut glyph_ma
                 error = composeglyph(&gids[..nptrs.len()], None, gm, gid);
                 if error == 0 {
                     /* a_b_c.vert */
-                    let suffix = CString::new(suffix.as_bytes()).unwrap();
-                    error = selectglyph(*gid, suffix.as_ptr(), gm, gid)
+                    error = selectglyph(*gid, suffix, gm, gid)
                 }
             }
             None => {
@@ -604,7 +583,12 @@ unsafe fn findparanoiac(glyphname: &[u8], gid: *mut u16, gm: &mut glyph_mapper) 
             if error != 0 {
                 return error;
             }
-            error = selectglyph(idx, (*agln).suffix, gm, &mut idx);
+            error = selectglyph(
+                idx,
+                CStr::from_ptr((*agln).suffix).to_str().unwrap(),
+                gm,
+                &mut idx,
+            );
             if error != 0 {
                 warn!(
                     "Variant \"{}\" for glyph \"{}\" might not be found.",
@@ -721,7 +705,7 @@ unsafe fn resolve_glyph(glyphname: &str, gid: *mut u16, gm: &mut glyph_mapper) -
         };
         if error == 0 {
             if let Some(suffix) = suffix {
-                error = selectglyph(*gid, suffix.as_ptr(), gm, gid);
+                error = selectglyph(*gid, suffix.to_str().unwrap(), gm, gid);
                 if error != 0 {
                     warn!(
                         "Variant \"{}\" for glyph \"{}\" might not be found.",
