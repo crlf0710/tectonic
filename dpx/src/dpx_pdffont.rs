@@ -65,18 +65,25 @@ pub(crate) enum FontType {
     Type3 = 2,
     TrueType = 3,
     Type0 = 4,
-    CidType0 = 5,
-    CidType2 = 6,
+    //CidType0 = 5,
+    //CidType2 = 6,
+}
+
+use bitflags::bitflags;
+
+bitflags! {
+    pub(crate) struct FontFlag: i32 {
+        const NOEMBED = 1 << 0;
+        const COMPOSITE = 1 << 1;
+        const BASEFONT = 1 << 2;
+        const USEDCHAR_SHARED = 1 << 3;
+        const IS_ALIAS = 1 << 4;
+        const IS_REENCODE = 1 << 5;
+        const ACCFONT = 1 << 6;
+        const UCSFONT = 1 << 7;
+    }
 }
 /*
-#define PDF_FONT_FLAG_NOEMBED         (1 << 0)
-#define PDF_FONT_FLAG_COMPOSITE       (1 << 1)
-#define PDF_FONT_FLAG_BASEFONT        (1 << 2)
-#define PDF_FONT_FLAG_USEDCHAR_SHARED (1 << 3)
-#define PDF_FONT_FLAG_IS_ALIAS        (1 << 4)
-#define PDF_FONT_FLAG_IS_REENCODE     (1 << 5)
-#define PDF_FONT_FLAG_ACCFONT         (1 << 6)
-#define PDF_FONT_FLAG_UCSFONT         (1 << 7)
 
 /* Converted from Type 1 */
 #define CIDFONT_FLAG_TYPE1      (1 << 8)
@@ -108,7 +115,7 @@ pub(crate) struct pdf_font {
     pub(crate) resource: *mut pdf_obj,
     pub(crate) descriptor: *mut pdf_obj,
     pub(crate) usedchars: *mut i8,
-    pub(crate) flags: i32,
+    pub(crate) flags: FontFlag,
     pub(crate) point_size: f64,
     pub(crate) design_size: f64,
     /* _PDFFONT_H_ */
@@ -223,14 +230,14 @@ impl pdf_font {
             point_size: 0.,
             design_size: 0.,
             usedchars: ptr::null_mut(),
-            flags: 0,
+            flags: FontFlag::empty(),
         }
     }
 }
 unsafe fn pdf_flush_font(font: &mut pdf_font) {
     if !font.resource.is_null() && !font.reference.is_null() {
         if font.subtype != FontType::Type3 {
-            if pdf_font_get_flag(font, 1 << 0) != 0 {
+            if pdf_font_get_flag(font, FontFlag::NOEMBED) {
                 (*font.resource)
                     .as_dict_mut()
                     .set("BaseFont", pdf_name::new(font.fontname.as_bytes()));
@@ -422,7 +429,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
         if __verbose != 0 {
             if font.subtype != FontType::Type0 {
                 info!("({}", font.ident);
-                if __verbose > 2 && pdf_font_get_flag(font, 1 << 0) == 0 {
+                if __verbose > 2 && !pdf_font_get_flag(font, FontFlag::NOEMBED) {
                     info!("[{}+{}]", pdf_font_get_uniqueTag(font), font.fontname);
                 } else if __verbose > 1 {
                     info!("[{}]", font.fontname);
@@ -444,7 +451,7 @@ pub(crate) unsafe fn pdf_close_fonts() {
                 if __verbose != 0 {
                     info!("[Type1]");
                 }
-                if pdf_font_get_flag(font, 1 << 2) == 0 {
+                if !pdf_font_get_flag(font, FontFlag::BASEFONT) {
                     pdf_font_load_type1(font);
                 }
             }
@@ -849,8 +856,8 @@ pub(crate) unsafe fn pdf_font_get_encoding(font: &pdf_font) -> i32 {
     font.encoding_id
 }
 
-pub(crate) unsafe fn pdf_font_get_flag(font: &mut pdf_font, mask: i32) -> i32 {
-    return if font.flags & mask != 0 { 1 } else { 0 };
+pub(crate) unsafe fn pdf_font_get_flag(font: &mut pdf_font, mask: FontFlag) -> bool {
+    font.flags.contains(mask)
 }
 
 pub(crate) unsafe fn pdf_font_get_param(font: &mut pdf_font, param_type: i32) -> f64 {
@@ -870,9 +877,8 @@ pub(crate) unsafe fn pdf_font_get_uniqueTag(font: &mut pdf_font) -> String {
     font.uniqueID.clone()
 }
 
-pub(crate) unsafe fn pdf_font_set_subtype(mut font: &mut pdf_font, subtype: FontType) -> i32 {
+pub(crate) unsafe fn pdf_font_set_subtype(font: &mut pdf_font, subtype: FontType) {
     font.subtype = subtype;
-    0
 }
 /* pdf_open_document() call them. */
 /* font_name is used when mrec is NULL.
@@ -883,7 +889,6 @@ pub(crate) unsafe fn pdf_font_set_subtype(mut font: &mut pdf_font, subtype: Font
 /* Each font drivers use the followings. */
 /* without unique tag */
 
-pub(crate) unsafe fn pdf_font_set_flags(mut font: &mut pdf_font, flags: i32) -> i32 {
-    font.flags |= flags;
-    0
+pub(crate) unsafe fn pdf_font_set_flags(font: &mut pdf_font, flags: FontFlag) {
+    font.flags.insert(flags);
 }

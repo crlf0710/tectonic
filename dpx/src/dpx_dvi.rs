@@ -37,7 +37,6 @@ use std::ffi::{CStr, CString};
 use super::dpx_sfnt::{
     dfont_open, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
 };
-use crate::mfree;
 use crate::warn;
 
 use super::dpx_dpxfile::{
@@ -171,8 +170,8 @@ pub(crate) type Fixed = u32;
 static mut dvi_handle: Option<InFile> = None;
 static mut linear: i8 = 0_i8;
 /* set to 1 for strict linear processing of the input */
-static mut page_loc: *mut u32 = std::ptr::null_mut();
-static mut num_pages: u32 = 0_u32;
+static mut page_loc: Vec<u32> = Vec::new();
+static mut num_pages: usize = 0;
 static mut dvi_file_size: u32 = 0_u32;
 static mut DVI_INFO: dvi_header = dvi_header {
     unit_num: 25400000_u32,
@@ -305,7 +304,7 @@ pub(crate) unsafe fn dvi_set_verbose(level: i32) {
     spc_set_verbose(level);
 }
 
-pub(crate) unsafe fn dvi_npages() -> u32 {
+pub(crate) unsafe fn dvi_npages() -> usize {
     num_pages
 }
 
@@ -402,34 +401,27 @@ unsafe fn get_page_info(post_location: i32) {
     handle
         .seek(SeekFrom::Start(post_location as u64 + 27))
         .unwrap();
-    num_pages = u16::get(handle) as u32;
-    if num_pages == 0_u32 {
+    num_pages = u16::get(handle) as usize;
+    if num_pages == 0 {
         panic!("Page count is 0!");
     }
     if verbose > 2 {
         info!("Page count:\t {:4}\n", num_pages);
     }
-    page_loc = new((num_pages as u64).wrapping_mul(::std::mem::size_of::<u32>() as u64) as u32)
-        as *mut u32;
+    page_loc = vec![0; num_pages as _];
     handle
         .seek(SeekFrom::Start(post_location as u64 + 1))
         .unwrap();
-    *page_loc.offset(num_pages.wrapping_sub(1_u32) as isize) = u32::get(handle);
-    if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
-        > dvi_file_size
-    {
+    page_loc[num_pages - 1] = u32::get(handle);
+    if page_loc[num_pages - 1] + 41 > dvi_file_size {
         panic!("{}", invalid_signature);
     }
     for i in (0..num_pages - 1).rev() {
         handle
-            .seek(SeekFrom::Start(
-                *page_loc.offset((i + 1) as isize) as u64 + 41,
-            ))
+            .seek(SeekFrom::Start(page_loc[i + 1] as u64 + 41))
             .unwrap();
-        *page_loc.offset(i as isize) = u32::get(handle);
-        if (*page_loc.offset(num_pages.wrapping_sub(1_u32) as isize)).wrapping_add(41_u32)
-            > dvi_file_size
-        {
+        page_loc[i] = u32::get(handle);
+        if page_loc[num_pages - 1] + 41 > dvi_file_size {
             panic!("{}", invalid_signature);
         }
     }
@@ -1842,8 +1834,8 @@ pub(crate) unsafe fn dvi_close() {
     }
     def_fonts.clear();
 
-    page_loc = mfree(page_loc as *mut libc::c_void) as *mut u32;
-    num_pages = 0_u32;
+    page_loc = Vec::new();
+    num_pages = 0;
 
     for font in &mut loaded_fonts {
         font.hvmt = Vec::new();
@@ -2195,17 +2187,17 @@ pub(crate) unsafe fn dvi_scan_specials(
     user_pw: *mut i8,
 ) {
     /* because dvipdfmx wants to scan first page twice! */
-    if page_no == buffered_page || num_pages == 0_u32 {
+    if page_no == buffered_page || num_pages == 0 {
         return;
     }
     buffered_page = page_no;
     DVI_PAGE_BUF_INDEX = 0;
     let handle = dvi_handle.as_mut().unwrap();
     if linear == 0 {
-        if page_no as u32 >= num_pages {
+        if page_no as usize >= num_pages {
             panic!("Invalid page number: {}", page_no);
         }
-        let offset = *page_loc.offset(page_no as isize);
+        let offset = page_loc[page_no as usize];
         handle.seek(SeekFrom::Start(offset as u64)).unwrap();
     }
     loop {

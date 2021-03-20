@@ -209,7 +209,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
         };
         let mut page_no = page_ranges[i].first;
         while dvi_npages() != 0 {
-            if (page_no as u32) < dvi_npages() {
+            if (page_no as usize) < dvi_npages() {
                 info!("[{}", page_no + 1);
                 /* Users want to change page size even after page is started! */
                 page_width = paper_width;

@@ -28,7 +28,6 @@
 
 use euclid::point2;
 
-use crate::mfree;
 use crate::{info, warn};
 use std::ptr;
 
@@ -137,13 +136,13 @@ pub(crate) struct attr_ {
 #[repr(C)]
 pub(crate) struct opt_ {
     pub(crate) verbose: i32,
-    pub(crate) cmdtmpl: *mut i8,
+    //    pub(crate) cmdtmpl: *mut i8,
 }
 static mut ximages: Vec<pdf_ximage> = Vec::new();
 
 static mut _opts: opt_ = opt_ {
     verbose: 0,
-    cmdtmpl: ptr::null_mut(),
+    //    cmdtmpl: ptr::null_mut(),
 };
 
 pub(crate) unsafe fn pdf_ximage_set_verbose(level: i32) {
@@ -207,7 +206,7 @@ pub(crate) unsafe fn pdf_close_images() {
         }
     }
     ximages = Vec::new();
-    _opts.cmdtmpl = mfree(_opts.cmdtmpl as *mut libc::c_void) as *mut i8;
+    //    _opts.cmdtmpl = mfree(_opts.cmdtmpl as *mut libc::c_void) as *mut i8;
 }
 unsafe fn source_image_type<R: Read + Seek>(handle: &mut R) -> ImageType {
     handle.seek(SeekFrom::Start(0)).unwrap();

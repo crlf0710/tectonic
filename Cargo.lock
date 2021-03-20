@@ -2079,6 +2079,7 @@ name = "tectonic_dvipdfmx"
 version = "0.0.1-dev"
 dependencies = [
  "arrayvec",
+ "bitflags",
  "cc",
  "chrono",
  "euclid",

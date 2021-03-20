@@ -37,7 +37,7 @@ use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encodin
 use super::dpx_pdffont::{
     pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_resource,
     pdf_font_get_uniqueTag, pdf_font_get_usedchars, pdf_font_get_verbose, pdf_font_is_in_use,
-    pdf_font_set_flags, pdf_font_set_subtype, FontType,
+    pdf_font_set_flags, pdf_font_set_subtype, FontFlag, FontType,
 };
 use super::dpx_t1_char::{t1char_convert_charstring, t1char_get_metrics};
 use super::dpx_t1_load::{is_pfb, t1_get_fontname, t1_get_standard_glyph, t1_load_font};
@@ -105,7 +105,7 @@ pub(crate) unsafe fn pdf_font_open_type1(font: &mut pdf_font) -> i32 {
     if is_basefont(ident) {
         font.fontname = ident.to_owned();
         pdf_font_set_subtype(font, FontType::Type1);
-        pdf_font_set_flags(font, 1 << 0 | 1 << 2);
+        pdf_font_set_flags(font, FontFlag::NOEMBED | FontFlag::BASEFONT);
     } else {
         /* NOTE: skipping qcheck_filetype() call in dpx_find_type1_file but we
          * call is_pfb() in just a second anyway.

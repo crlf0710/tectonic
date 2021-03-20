@@ -28,15 +28,13 @@
 
 use crate::bridge::DisplayExt;
 use crate::warn;
-use std::ptr;
 use std::rc::Rc;
 
 use super::dpx_cff::cff_set_name;
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string, CffIndex};
-use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
 use crate::bridge::InFile;
-use libc::{free, memcpy, memmove, memset};
+use libc::memmove;
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -865,8 +863,6 @@ unsafe fn parse_subrs(
     mode: i32,
 ) -> Result<(), ()> {
     let mut max_size;
-    let offsets;
-    let lengths;
     let count = match pst_get_token(start, end) {
         Some(PstObj::Integer(count)) if count >= 0 => count,
         _ => {
@@ -883,43 +879,25 @@ unsafe fn parse_subrs(
         _ => return Err(()),
     }
     let mut data;
+    let mut offsets;
+    let mut lengths;
     if mode != 1 {
         max_size = 65536;
-        data = new((max_size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
-        offsets =
-            new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as u32)
-                as *mut i32;
-        lengths =
-            new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as u32)
-                as *mut i32;
-        memset(
-            offsets as *mut libc::c_void,
-            0,
-            (::std::mem::size_of::<i32>()).wrapping_mul(count as _),
-        );
-        memset(
-            lengths as *mut libc::c_void,
-            0,
-            (::std::mem::size_of::<i32>()).wrapping_mul(count as _),
-        );
+        data = vec![0_u8; max_size];
+        offsets = vec![0_i32; count as _];
+        lengths = vec![0_i32; count as _];
     } else {
         max_size = 0;
-        data = ptr::null_mut();
-        offsets = ptr::null_mut();
-        lengths = ptr::null_mut()
+        data = Vec::new();
+        offsets = Vec::new();
+        lengths = Vec::new()
     }
     let mut offset = 0;
     /* dup subr# n-bytes RD n-binary-bytes NP */
     let mut i = 0;
     while i < count {
         match pst_get_token(start, end) {
-            None => {
-                free(data as *mut libc::c_void);
-                free(offsets as *mut libc::c_void);
-                free(lengths as *mut libc::c_void);
-                return Err(());
-            }
+            None => return Err(()),
             Some(PstObj::Unknown(tok))
                 if (tok.starts_with(b"ND")
                     || tok.starts_with(b"|-")
@@ -930,13 +908,8 @@ unsafe fn parse_subrs(
             Some(PstObj::Unknown(tok)) if tok.starts_with(b"dup") => {
                 /* Found "dup" */
                 let idx = match pst_get_token(start, end) {
-                    Some(PstObj::Integer(idx)) if (idx >= 0 && idx < count) => idx,
-                    _ => {
-                        free(data as *mut libc::c_void);
-                        free(offsets as *mut libc::c_void);
-                        free(lengths as *mut libc::c_void);
-                        return Err(());
-                    }
+                    Some(PstObj::Integer(idx)) if (idx >= 0 && idx < count) => idx as usize,
+                    _ => return Err(()),
                 };
                 let len = match pst_get_token(start, end) {
                     Some(PstObj::Integer(len)) if (len >= 0 && len <= 65536) => len,
@@ -947,45 +920,33 @@ unsafe fn parse_subrs(
                         matches!(tok, PstObj::Unknown(tok) if (tok.starts_with(b"RD")) || tok.starts_with(b"-|"))
                             || seek_operator(start, end, b"readstring")
                                 >= 0
-                    })
-                    .ok_or_else(|| {
-                        free(data as *mut libc::c_void);
-                        free(offsets as *mut libc::c_void);
-                        free(lengths as *mut libc::c_void);
-                        ()
-                    })?;
+                    }).ok_or(())?;
                 *start = (*start).offset(1);
                 if (*start).offset(len as isize) >= end {
-                    free(data as *mut libc::c_void);
-                    free(offsets as *mut libc::c_void);
-                    free(lengths as *mut libc::c_void);
                     return Err(());
                 }
                 if mode != 1 {
-                    if offset + len >= max_size {
+                    if offset + len >= max_size as i32 {
                         max_size += 65536;
-                        data = renew(
-                            data as *mut libc::c_void,
-                            (max_size as u32 as u64)
-                                .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                                as u32,
-                        ) as *mut u8
+                        data.resize(max_size, 0);
                     }
                     if lenIV >= 0 {
-                        t1_decrypt(4330_u16, data.offset(offset as isize), *start, lenIV, len);
-                        *offsets.offset(idx as isize) = offset;
-                        let ref mut fresh16 = *lengths.offset(idx as isize);
-                        *fresh16 = len - lenIV;
-                        offset += *fresh16
-                    } else if len > 0 {
-                        *offsets.offset(idx as isize) = offset;
-                        *lengths.offset(idx as isize) = len;
-                        memcpy(
-                            &mut *data.offset(offset as isize) as *mut u8 as *mut libc::c_void,
-                            *start as *const libc::c_void,
-                            len as _,
+                        t1_decrypt(
+                            4330_u16,
+                            data[offset as usize..].as_mut_ptr(),
+                            *start,
+                            lenIV,
+                            len,
                         );
-                        offset += len
+                        offsets[idx] = offset;
+                        lengths[idx] = len - lenIV;
+                        offset += lengths[idx];
+                    } else if len > 0 {
+                        offsets[idx] = offset;
+                        lengths[idx] = len;
+                        data[offset as usize..(offset + len) as usize]
+                            .copy_from_slice(std::slice::from_raw_parts(*start, len as _));
+                        offset += len;
                     }
                 }
                 *start = (*start).offset(len as isize);
@@ -1000,11 +961,11 @@ unsafe fn parse_subrs(
             subrs.data = Vec::with_capacity(offset as usize);
             for i in 0..count as usize {
                 subrs.offset[i] = (subrs.data.len() + 1) as l_offset;
-                if *lengths.add(i) > 0 {
-                    subrs.data.extend(std::slice::from_raw_parts(
-                        data.offset(*offsets.add(i) as isize),
-                        *lengths.add(i) as _,
-                    ));
+                if lengths[i] > 0 {
+                    let offset = offsets[i] as usize;
+                    subrs
+                        .data
+                        .extend(&data[offset..offset + lengths[i] as usize]);
                 }
             }
             subrs.offset[count as usize] = (subrs.data.len() + 1) as l_offset;
@@ -1015,9 +976,6 @@ unsafe fn parse_subrs(
              * Simply ignores those data. By ChoF on 2009/04/08. */
             warn!("Already found /Subrs; ignores the other /Subrs dicts.");
         }
-        free(data as *mut libc::c_void);
-        free(offsets as *mut libc::c_void);
-        free(lengths as *mut libc::c_void);
     }
     Ok(())
 }
@@ -1146,21 +1104,14 @@ unsafe fn parse_charstrings(
                                 );
                                 offset += len - lenIV
                             } else {
+                                let slice = std::slice::from_raw_parts(*start, len as _);
                                 if gid == 0 {
                                     charstrings.offset[gid as usize] = 1 as l_offset;
-                                    memcpy(
-                                        charstrings.data[0..].as_mut_ptr() as *mut libc::c_void,
-                                        *start as *const libc::c_void,
-                                        len as _,
-                                    );
+                                    charstrings.data[..len as usize].copy_from_slice(slice);
                                 } else {
                                     charstrings.offset[gid as usize] = (offset + 1) as l_offset;
-                                    memcpy(
-                                        charstrings.data[offset as usize..].as_mut_ptr()
-                                            as *mut libc::c_void,
-                                        *start as *const libc::c_void,
-                                        len as _,
-                                    );
+                                    charstrings.data[offset as usize..(offset + len) as usize]
+                                        .copy_from_slice(slice);
                                 }
                                 offset += len
                             }

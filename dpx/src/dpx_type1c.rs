@@ -44,7 +44,7 @@ use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encodin
 use super::dpx_pdffont::{
     pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_flag,
     pdf_font_get_resource, pdf_font_get_uniqueTag, pdf_font_get_usedchars, pdf_font_get_verbose,
-    pdf_font_is_in_use, pdf_font_set_flags, pdf_font_set_subtype, FontType,
+    pdf_font_is_in_use, pdf_font_set_flags, pdf_font_set_subtype, FontFlag, FontType,
 };
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
@@ -144,7 +144,7 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
         warn!("please specify appropriate \".enc\" file in your fontmap.");
     }
     pdf_font_set_subtype(font, FontType::Type1c);
-    let mut embedding = if pdf_font_get_flag(font, 1 << 0) != 0 {
+    let mut embedding = if pdf_font_get_flag(font, FontFlag::NOEMBED) {
         0
     } else {
         1
@@ -159,7 +159,7 @@ pub(crate) unsafe fn pdf_font_open_type1c(font: &mut pdf_font) -> i32 {
         (*descriptor).as_dict_mut().merge(&tmp);
         if embedding == 0 {
             /* tt_get_fontdesc may have changed this */
-            pdf_font_set_flags(font, 1 << 0);
+            pdf_font_set_flags(font, FontFlag::NOEMBED);
         }
         0
     } else {
@@ -251,7 +251,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     if !pdf_font_is_in_use(font) {
         return 0;
     }
-    if pdf_font_get_flag(font, 1 << 0) != 0 {
+    if pdf_font_get_flag(font, FontFlag::NOEMBED) {
         panic!("Only embedded font supported for CFF/OpenType font.");
     }
     let usedchars = pdf_font_get_usedchars(font);

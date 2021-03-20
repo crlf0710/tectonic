@@ -31,7 +31,6 @@ use std::io::Write;
 
 use crate::warn;
 
-use super::dpx_mem::new;
 use super::dpx_pdfdev::{pdf_sprint_number, Rect};
 use super::dpx_pdfencoding::{
     pdf_encoding_get_encoding, pdf_encoding_get_name, pdf_encoding_used_by_type3,
@@ -44,7 +43,6 @@ use super::dpx_tfm::{tfm_get_design_size, tfm_open};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_name, pdf_stream, IntoObj, IntoRef, PushObj, STREAM_COMPRESS,
 };
-use libc::{free, memset};
 
 use crate::dpx_numbers::{
     get_positive_quad, get_unsigned_num, get_unsigned_triple, skip_bytes, GetFromFile,
@@ -130,11 +128,11 @@ pub(crate) unsafe fn pdf_font_open_pkfont(font: &mut pdf_font) -> i32 {
 /* We are using Mask Image. Fill black is bit clear.
  * Optimizing those codes doesn't improve things.
  */
-unsafe fn fill_black_run(dp: *mut u8, mut left: u32, run_count: u32) -> u32 {
+unsafe fn fill_black_run(dp: &mut [u8], mut left: u32, run_count: u32) -> u32 {
     static mut mask: [u8; 8] = [127, 191, 223, 239, 247, 251, 253, 254];
     let right: u32 = left + run_count - 1;
     while left <= right {
-        *dp.offset((left / 8) as isize) &= mask[(left % 8) as usize];
+        dp[(left / 8) as usize] &= mask[(left % 8) as usize];
         left = left.wrapping_add(1)
     }
     run_count
@@ -211,9 +209,6 @@ unsafe fn pk_packed_num(np: *mut u32, dyn_f: i32, dp: *mut u8, pl: u32) -> u32 {
     *np = i;
     nmbr
 }
-unsafe fn send_out(rowptr: *mut u8, rowbytes: u32, stream: &mut pdf_stream) {
-    (*stream).add(rowptr as *mut libc::c_void, rowbytes as i32);
-}
 unsafe fn pk_decode_packed(
     stream: &mut pdf_stream,
     wd: u32,
@@ -225,8 +220,7 @@ unsafe fn pk_decode_packed(
 ) -> i32 {
     let mut run_count: u32 = 0_u32;
     let rowbytes = wd.wrapping_add(7_u32).wrapping_div(8_u32);
-    let rowptr =
-        new((rowbytes as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
+    let mut row = vec![0_u8; rowbytes as usize];
     /* repeat count is applied to the *current* row.
      * "run" can span across rows.
      * If there are non-zero repeat count and if run
@@ -237,7 +231,7 @@ unsafe fn pk_decode_packed(
     while i < ht {
         let mut nbits;
         let mut repeat_count = 0;
-        memset(rowptr as *mut libc::c_void, 0xff, rowbytes as _);
+        row.fill(0xff);
         let mut rowbits_left = wd;
         /* Fill run left over from previous row */
         if run_count > 0_u32 {
@@ -249,7 +243,7 @@ unsafe fn pk_decode_packed(
             match run_color {
                 0 => {
                     rowbits_left = (rowbits_left as u32)
-                        .wrapping_sub(fill_black_run(rowptr, 0_u32, nbits))
+                        .wrapping_sub(fill_black_run(&mut row, 0_u32, nbits))
                         as u32
                 }
                 1 => {
@@ -293,7 +287,7 @@ unsafe fn pk_decode_packed(
                 match run_color {
                     0 => {
                         rowbits_left = (rowbits_left as u32).wrapping_sub(fill_black_run(
-                            rowptr,
+                            &mut row,
                             wd.wrapping_sub(rowbits_left),
                             nbits,
                         )) as u32
@@ -307,15 +301,14 @@ unsafe fn pk_decode_packed(
             }
         }
         /* We got bitmap row data. */
-        send_out(rowptr, rowbytes, stream);
+        stream.add_slice(&row);
         while i < ht && repeat_count > 0_u32 {
-            send_out(rowptr, rowbytes, stream);
+            stream.add_slice(&row);
             repeat_count = repeat_count.wrapping_sub(1);
             i = i.wrapping_add(1)
         }
         i = i.wrapping_add(1)
     }
-    free(rowptr as *mut libc::c_void);
     0
 }
 unsafe fn pk_decode_bitmap(
@@ -349,9 +342,7 @@ unsafe fn pk_decode_bitmap(
         return -1;
     }
     let rowbytes = wd.wrapping_add(7_u32).wrapping_div(8_u32);
-    let rowptr =
-        new((rowbytes as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-    memset(rowptr as *mut libc::c_void, 0, rowbytes as _);
+    let mut row = vec![0_u8; rowbytes as usize];
     /* Flip. PK bitmap is not byte aligned for each rows. */
     /* flip bit */
     let mut j = 0_u32;
@@ -359,12 +350,12 @@ unsafe fn pk_decode_bitmap(
         let c = (*dp.offset(i.wrapping_div(8_u32) as isize) as i32
             & mask[i.wrapping_rem(8_u32) as usize] as i32) as u8;
         if c as i32 == 0 {
-            *rowptr.offset(j.wrapping_div(8_u32) as isize) |= mask[i.wrapping_rem(8_u32) as usize];
+            row[j.wrapping_div(8_u32) as usize] |= mask[i.wrapping_rem(8_u32) as usize];
         }
         j += 1;
         if j == wd {
-            send_out(rowptr, rowbytes, stream);
-            memset(rowptr as *mut libc::c_void, 0, rowbytes as _);
+            stream.add_slice(&row);
+            row.fill(0);
             j = 0
         }
     }
@@ -534,7 +525,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
             ident, dpi
         )
     });
-    memset(charavail.as_mut_ptr() as *mut libc::c_void, 0, 256);
+    charavail.fill(0);
     let mut charprocs = pdf_dict::new();
     /* Include bitmap as 72dpi image:
      * There seems to be problems in "scaled" bitmap glyph
