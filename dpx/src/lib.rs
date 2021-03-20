@@ -86,15 +86,6 @@ impl SkipBlank for &[u8] {
 }
 
 #[inline]
-unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
-    let length = libc::strlen(prefix);
-    if libc::strncmp(s, prefix, length) == 0 {
-        return s.offset(length as isize);
-    }
-    std::ptr::null()
-}
-
-#[inline]
 unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {
     libc::free(ptr);
     std::ptr::null_mut()
