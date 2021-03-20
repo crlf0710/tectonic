@@ -61,12 +61,11 @@ pub(crate) struct tt_post_table {
 }
 
 /* offset from begenning of the post table */
-unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut R) -> i32 {
-    (*post).numberOfGlyphs = u16::get(handle);
-    let indices = new(((*post).numberOfGlyphs as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
+unsafe fn read_v2_post_names<R: Read>(handle: &mut R) -> Option<(*mut *mut i8, u16, *mut *const i8, u16)> {
+    let numberOfGlyphs = u16::get(handle);
+    let mut indices = Vec::<u16>::with_capacity(numberOfGlyphs as _);
     let mut maxidx = 257_u16;
-    for i in 0..(*post).numberOfGlyphs as i32 {
+    for _ in 0..numberOfGlyphs {
         let mut idx = u16::get(handle);
         if idx as i32 >= 258 {
             if idx as i32 > maxidx as i32 {
@@ -89,56 +88,55 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
                 idx = 0_u16
             }
         }
-        *indices.offset(i as isize) = idx;
+        indices.push(idx);
     }
-    (*post).count = (maxidx as i32 - 257) as u16;
-    if ((*post).count as i32) < 1 {
-        (*post).names = 0 as *mut *mut i8
+    let count = (maxidx as i32 - 257) as u16;
+    let names;
+    if (count as i32) < 1 {
+        names = 0 as *mut *mut i8
     } else {
-        (*post).names = new(((*post).count as u32 as u64)
+        names = new((count as u32 as u64)
             .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
             as u32) as *mut *mut i8;
-        for i in 0..(*post).count as i32 {
+        for i in 0..count as i32 {
             /* read Pascal strings */
             let len = u8::get(handle) as i32;
             if len > 0 {
-                *(*post).names.offset(i as isize) = new(((len + 1) as u32 as u64)
+                *names.offset(i as isize) = new(((len + 1) as u32 as u64)
                     .wrapping_mul(::std::mem::size_of::<i8>() as u64)
                     as u32) as *mut i8;
                 let slice = std::slice::from_raw_parts_mut(
-                    (*(*post).names.offset(i as isize)) as *mut u8,
+                    (*names.offset(i as isize)) as *mut u8,
                     len as usize,
                 );
                 handle.read(slice).unwrap();
-                *(*(*post).names.offset(i as isize)).offset(len as isize) = 0_i8
+                *(*names.offset(i as isize)).offset(len as isize) = 0_i8
             } else {
-                *(*post).names.offset(i as isize) = ptr::null_mut();
+                *names.offset(i as isize) = ptr::null_mut();
             }
         }
     }
-    (*post).glyphNamePtr = new(((*post).numberOfGlyphs as u32 as u64)
+    let glyphNamePtr = new((numberOfGlyphs as u32 as u64)
         .wrapping_mul(::std::mem::size_of::<*const i8>() as u64)
         as u32) as *mut *const i8;
-    for i in 0..(*post).numberOfGlyphs as i32 {
-        let idx = *indices.offset(i as isize);
+    for i in 0..numberOfGlyphs as usize {
+        let idx = indices[i];
         if (idx as i32) < 258 {
-            *(*post).glyphNamePtr.offset(i as isize) =
+            *glyphNamePtr.offset(i as isize) =
                 macglyphorder[idx as usize].as_ptr() as *const i8
-        } else if idx as i32 - 258 < (*post).count as i32 {
-            *(*post).glyphNamePtr.offset(i as isize) =
-                *(*post).names.offset((idx as i32 - 258) as isize)
+        } else if idx as i32 - 258 < count as i32 {
+            *glyphNamePtr.offset(i as isize) =
+                *names.offset((idx as i32 - 258) as isize)
         } else {
             warn!(
                 "Invalid glyph name index number: {} (>= {})",
                 idx,
-                (*post).count + 258,
+                count + 258,
             );
-            free(indices as *mut libc::c_void);
-            return -1;
+            return None;
         }
     }
-    free(indices as *mut libc::c_void);
-    0
+    Some((names, count, glyphNamePtr, numberOfGlyphs))
 }
 
 pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
@@ -147,7 +145,8 @@ pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
     let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
         as *mut tt_post_table; /* Fixed */
     let handle = &mut &*sfont.handle;
-    (*post).Version = u32::get(handle); /* FWord */
+    let Version = u32::get(handle); /* FWord */
+    (*post).Version = Version;
     (*post).italicAngle = u32::get(handle); /* FWord */
     (*post).underlinePosition = i16::get(handle); /* wrong */
     (*post).underlineThickness = i16::get(handle);
@@ -160,21 +159,26 @@ pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
     (*post).glyphNamePtr = 0 as *mut *const i8;
     (*post).count = 0_u16;
     (*post).names = 0 as *mut *mut i8;
-    if (*post).Version as u64 == 0x10000 {
-        (*post).numberOfGlyphs = 258_u16;
+    if Version == 0x10000 {
+        (*post).numberOfGlyphs = 258;
         (*post).glyphNamePtr = macglyphorder.as_mut_ptr() as *mut *const u8 as *mut *const i8
-    } else if (*post).Version as u64 == 0x28000 {
+    } else if Version == 0x28000 {
         warn!("TrueType \'post\' version 2.5 found (deprecated)");
-    } else if (*post).Version as u64 == 0x20000 {
-        if read_v2_post_names(post, handle) < 0 {
+    } else if Version == 0x20000 {
+        if let Some(res) = read_v2_post_names(handle) {
+            (*post).names = res.0;
+            (*post).count = res.1;
+            (*post).glyphNamePtr = res.2;
+            (*post).numberOfGlyphs = res.3;
+        } else {
             warn!("Invalid version 2.0 \'post\' table");
             tt_release_post_table(post);
             post = ptr::null_mut()
         }
-    } else if !((*post).Version as u64 == 0x30000 || (*post).Version as u64 == 0x40000) {
+    } else if !(Version == 0x30000 || Version == 0x40000) {
         warn!(
             "Unknown \'post\' version: {:08X}, assuming version 3.0",
-            (*post).Version,
+            Version,
         );
     }
     post
