@@ -26,13 +26,11 @@
     non_upper_case_globals
 )]
 
-use super::dpx_mem::new;
 use super::dpx_numbers::GetFromFile;
 use crate::dpx_pdfobj::{
     pdf_stream, pdf_stream_set_predictor, pdf_string, IntoObj, PushObj, STREAM_COMPRESS,
 };
 use crate::warn;
-use libc::free;
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -113,7 +111,7 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
             .offset
             .wrapping_sub(hdr.hsize)
             .wrapping_sub(14_u32)
-            .wrapping_div(hdr.psize as u32) as i32;
+            .wrapping_div(hdr.psize as u32) as usize;
         info.bits_per_component = hdr.bit_count as i32;
         info.num_components = 1
     } else if hdr.bit_count as i32 == 24 {
@@ -141,23 +139,18 @@ pub(crate) unsafe fn bmp_include_image<R: Read + Seek>(
     /* Color space: Indexed or DeviceRGB */
     let colorspace = if (hdr.bit_count as i32) < 24 {
         let mut bgrq: [u8; 4] = [0; 4];
-        let palette = new(((num_palette * 3 + 1) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
-        for i in 0..num_palette {
+        let mut palette = Vec::<u8>::with_capacity(num_palette * 3 + 1);
+        for _ in 0..num_palette {
             if handle.read_exact(&mut bgrq[..hdr.psize as usize]).is_err() {
                 warn!("Reading file failed...");
-                free(palette as *mut libc::c_void);
                 return Err(());
             }
             /* BGR data */
-            *palette.offset((3 * i) as isize) = bgrq[2];
-            *palette.offset((3 * i + 1) as isize) = bgrq[1];
-            *palette.offset((3 * i + 2) as isize) = bgrq[0];
+            palette.push(bgrq[2]);
+            palette.push(bgrq[1]);
+            palette.push(bgrq[0]);
         }
-        let lookup =
-            pdf_string::new_from_ptr(palette as *const libc::c_void, (num_palette * 3) as usize);
-        free(palette as *mut libc::c_void);
+        let lookup = pdf_string::new(&palette);
         let mut colorspace = vec![];
         colorspace.push_obj("Indexed");
         colorspace.push_obj("DeviceRGB");
