@@ -43,9 +43,7 @@ use super::dpx_tt_aux::tt_get_fontdesc;
 use super::dpx_tt_aux::ttc_read_offset;
 use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read};
 use super::dpx_tt_glyf::{tt_add_glyph, tt_build_tables, tt_get_index, tt_get_metrics};
-use super::dpx_tt_gsub::{
-    otl_gsub_add_feat, otl_gsub_apply, otl_gsub_new, otl_gsub_release, otl_gsub_select,
-};
+use super::dpx_tt_gsub::{otl_gsub, otl_gsub_add_feat, otl_gsub_apply, otl_gsub_select};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
@@ -589,7 +587,6 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     } /* .notdef */
     let mut glyphs = tt_glyphs::init();
     let mut last_cid = 0 as CID;
-    let mut num_glyphs = 1_u16;
     let mut v_used_chars = ptr::null_mut();
     let mut h_used_chars = v_used_chars;
     let mut used_chars = h_used_chars;
@@ -689,8 +686,6 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                 }
                 /* TODO: duplicated glyph */
                 tt_add_glyph(&mut glyphs, gid, cid);
-                /* !NO_GHOSTSCRIPT_BUG */
-                num_glyphs = num_glyphs.wrapping_add(1)
             }
         }
     }
@@ -698,26 +693,26 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * Vertical
      */
     if !v_used_chars.is_null() {
-        let mut gsub_list;
         /*
          * Require `vrt2' or `vert'.
          */
-        if glyph_ordering {
-            gsub_list = ptr::null_mut()
+        let gsub_list = if glyph_ordering {
+            None
         } else {
-            gsub_list = otl_gsub_new();
-            if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vrt2", &sfont) < 0 {
-                if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vert", &sfont) < 0 {
+            let mut gsub_list = otl_gsub::new();
+            if otl_gsub_add_feat(&mut gsub_list, "*", "*", "vrt2", &sfont).is_none() {
+                if otl_gsub_add_feat(&mut gsub_list, "*", "*", "vert", &sfont).is_none() {
                     warn!("GSUB feature vrt2/vert not found.");
-                    otl_gsub_release(gsub_list);
-                    gsub_list = ptr::null_mut()
+                    None
                 } else {
-                    otl_gsub_select(gsub_list, b"*", b"*", b"vert");
+                    otl_gsub_select(&mut gsub_list, "*", "*", "vert");
+                    Some(gsub_list)
                 }
             } else {
-                otl_gsub_select(gsub_list, b"*", b"*", b"vrt2");
+                otl_gsub_select(&mut gsub_list, "*", "*", "vrt2");
+                Some(gsub_list)
             }
-        }
+        };
         for cid in 1..=last_cid as CID {
             let code_0;
             let mut gid_0;
@@ -759,8 +754,8 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                             "Glyph missing in font. (CID={}, code=0x{:04x})",
                             cid, code_0,
                         );
-                    } else if !gsub_list.is_null() {
-                        otl_gsub_apply(gsub_list, &mut gid_0);
+                    } else if let Some(gsub) = gsub_list.as_ref() {
+                        otl_gsub_apply(gsub, &mut gid_0);
                     }
                     tt_add_glyph(&mut glyphs, gid_0, cid);
                     /* !NO_GHOSTSCRIPT_BUG */
@@ -769,13 +764,10 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                         *used_chars.offset((cid as i32 / 8) as isize) |=
                             (1 << 7 - cid as i32 % 8) as i8;
                     }
-                    num_glyphs = num_glyphs.wrapping_add(1)
                 }
             }
         }
-        if !gsub_list.is_null() {
-            otl_gsub_release(gsub_list);
-        }
+        drop(gsub_list);
         if used_chars.is_null() {
             /* We have no horizontal. */
             used_chars = v_used_chars

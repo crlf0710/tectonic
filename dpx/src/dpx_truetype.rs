@@ -53,7 +53,7 @@ use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read};
 use super::dpx_tt_glyf::{tt_add_glyph, tt_build_tables, tt_find_glyph, tt_get_index, tt_glyphs};
 use super::dpx_tt_gsub::{
     otl_gsub, otl_gsub_add_feat, otl_gsub_apply, otl_gsub_apply_alt, otl_gsub_apply_lig,
-    otl_gsub_new, otl_gsub_release, otl_gsub_select,
+    otl_gsub_select,
 };
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
@@ -383,25 +383,21 @@ fn agl_decompose_glyphname(glyphname: &mut String) -> (Vec<String>, Option<Strin
     }
     (nptrs, suffix)
 }
-unsafe fn select_gsub(feat: &[u8], gm: &mut glyph_mapper) -> i32 {
+unsafe fn select_gsub(feat: &str, gm: &mut glyph_mapper) -> i32 {
     if feat.is_empty() || gm.gsub.is_null() {
         return -1;
     }
     /* First treat as is */
-    let idx = otl_gsub_select(gm.gsub, b"*", b"*", feat);
-    if idx >= 0 {
+    let idx = otl_gsub_select(&mut *gm.gsub, "*", "*", feat);
+    if idx.is_some() {
         return 0;
     }
     if verbose > 1 {
-        info!(
-            "\ntrutype>> Try loading OTL GSUB for \"*.*.{}\"...",
-            feat.display()
-        );
+        info!("\ntrutype>> Try loading OTL GSUB for \"*.*.{}\"...", feat);
     }
-    let error = otl_gsub_add_feat(&mut *gm.gsub, b"*", b"*", feat, gm.sfont);
-    if error == 0 {
-        let idx = otl_gsub_select(gm.gsub, b"*", b"*", feat);
-        return if idx >= 0 { 0 } else { -1 };
+    if otl_gsub_add_feat(&mut *gm.gsub, "*", "*", feat, gm.sfont).is_some() {
+        let idx = otl_gsub_select(&mut *gm.gsub, "*", "*", feat);
+        return if idx.is_some() { 0 } else { -1 };
     }
     -1
 }
@@ -427,9 +423,9 @@ unsafe fn selectglyph(
     /* 'suffix' may represent feature tag. */
     {
         /* We found feature tag for 'suffix'. */
-        error = select_gsub(r, gm); /* no fallback for this */
+        error = select_gsub(std::str::from_utf8(r).unwrap(), gm); /* no fallback for this */
         if error == 0 {
-            error = otl_gsub_apply(gm.gsub, &mut in_0)
+            error = otl_gsub_apply(&*gm.gsub, &mut in_0)
         }
     } else {
         /* Try loading GSUB only when length of 'suffix' is less
@@ -438,7 +434,7 @@ unsafe fn selectglyph(
         if strlen(s) > 4 {
             error = -1
         } else if strlen(s) == 4 {
-            error = select_gsub(CStr::from_ptr(s).to_bytes(), gm)
+            error = select_gsub(CStr::from_ptr(s).to_str().unwrap(), gm)
         } else {
             /* Uh */
             /* less than 4. pad ' '. */
@@ -449,11 +445,11 @@ unsafe fn selectglyph(
                 s as *const libc::c_void,
                 strlen(s),
             );
-            error = select_gsub(CStr::from_ptr(t.as_mut_ptr()).to_bytes(), gm)
+            error = select_gsub(CStr::from_ptr(t.as_mut_ptr()).to_str().unwrap(), gm)
         }
         if error == 0 {
             /* 'suffix' represents feature tag. */
-            error = otl_gsub_apply(gm.gsub, &mut in_0)
+            error = otl_gsub_apply(&*gm.gsub, &mut in_0)
         } else {
             /* other case: alt1, nalt10... (alternates) */
             let mut q = s.offset(strlen(s) as isize).offset(-1);
@@ -477,7 +473,7 @@ unsafe fn selectglyph(
                         s as *const libc::c_void,
                         strlen(s),
                     );
-                    error = select_gsub(CStr::from_ptr(s).to_bytes(), gm);
+                    error = select_gsub(CStr::from_ptr(s).to_str().unwrap(), gm);
                     if error == 0 {
                         error = otl_gsub_apply_alt(gm.gsub, n as u16, &mut in_0 as *mut u16)
                     }
@@ -500,13 +496,10 @@ unsafe fn composeglyph(
     let mut error = match feat {
         None | Some("") => {
             /* meaning "Unknown" */
-            select_gsub(b"(?lig|lig?|?cmp|cmp?|frac|afrc)", gm)
+            select_gsub("(?lig|lig?|?cmp|cmp?|frac|afrc)", gm)
         }
         Some(s) if s.len() > 4 => -1,
-        Some(s) => {
-            let t = s.to_string();
-            select_gsub(t.as_bytes(), gm)
-        }
+        Some(s) => select_gsub(s, gm),
     };
     if error == 0 {
         error = otl_gsub_apply_lig(gm.gsub, glyphs, gid)
@@ -752,7 +745,7 @@ impl<'a> Drop for glyph_mapper<'a> {
     fn drop(&mut self) {
         unsafe {
             if !self.gsub.is_null() {
-                otl_gsub_release(self.gsub);
+                let _ = Box::from_raw(self.gsub);
             }
             if !self.nametogid.is_null() {
                 tt_release_post_table(self.nametogid);
@@ -795,7 +788,7 @@ unsafe fn do_custom_encoding(
                 sfont,
                 nametogid,
                 codetogid,
-                gsub: otl_gsub_new(),
+                gsub: Box::into_raw(Box::new(otl_gsub::new())),
             };
             cmap_table = Vec::with_capacity(274);
             cmap_table.put_be(0_u16); // Version

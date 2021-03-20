@@ -50,7 +50,7 @@ use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resou
 use super::dpx_tt_aux::ttc_read_offset;
 use super::dpx_tt_gsub::{
     otl_gsub, otl_gsub_add_feat, otl_gsub_add_feat_list, otl_gsub_apply, otl_gsub_apply_chain,
-    otl_gsub_new, otl_gsub_release, otl_gsub_select, otl_gsub_set_chain, otl_gsub_set_verbose,
+    otl_gsub_select, otl_gsub_set_chain, otl_gsub_set_verbose,
 };
 use super::dpx_tt_post::{tt_get_glyphname, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_read_maxp_table;
@@ -477,8 +477,8 @@ static mut lrange_max: [u8; 4] = [0x7f_u8, 0xff_u8, 0xff_u8, 0xff_u8];
 unsafe fn load_cmap4(
     map: &cmap4,
     GIDToCIDMap: &[u8],
-    gsub_vert: *mut otl_gsub,
-    gsub_list: *mut otl_gsub,
+    gsub_vert: &Option<otl_gsub>,
+    gsub_list: &Option<otl_gsub>,
     cmap: &mut CMap,
     tounicode_add: *mut CMap,
 ) {
@@ -504,11 +504,11 @@ unsafe fn load_cmap4(
                     & 0xffff) as u16
             }; /* LONG ? */
             if gid as i32 != 0 && gid as i32 != 0xffff {
-                if !gsub_list.is_null() {
-                    otl_gsub_apply_chain(&*gsub_list, &mut gid);
+                if let Some(gsub) = gsub_list.as_ref() {
+                    otl_gsub_apply_chain(gsub, &mut gid);
                 }
-                if !gsub_vert.is_null() {
-                    otl_gsub_apply(gsub_vert, &mut gid);
+                if let Some(gsub) = gsub_vert.as_ref() {
+                    otl_gsub_apply(gsub, &mut gid);
                 }
                 if !GIDToCIDMap.is_empty() {
                     cid = ((GIDToCIDMap[2 * gid as usize] as i32) << 8
@@ -542,8 +542,8 @@ unsafe fn load_cmap4(
 unsafe fn load_cmap12(
     map: &cmap12,
     GIDToCIDMap: &[u8],
-    gsub_vert: *mut otl_gsub,
-    gsub_list: *mut otl_gsub,
+    gsub_vert: &Option<otl_gsub>,
+    gsub_list: &Option<otl_gsub>,
     cmap: &mut CMap,
     tounicode_add: *mut CMap,
 ) {
@@ -552,11 +552,11 @@ unsafe fn load_cmap12(
         for ch in group.startCharCode..=group.endCharCode {
             let d: i32 = (ch - group.startCharCode) as i32;
             let mut gid = (group.startGlyphID.wrapping_add(d as u32) & 0xffff_u32) as u16;
-            if !gsub_list.is_null() {
-                otl_gsub_apply_chain(&*gsub_list, &mut gid);
+            if let Some(gsub) = gsub_list.as_ref() {
+                otl_gsub_apply_chain(gsub, &mut gid);
             }
-            if !gsub_vert.is_null() {
-                otl_gsub_apply(gsub_vert, &mut gid);
+            if let Some(gsub) = gsub_vert.as_ref() {
+                otl_gsub_apply(gsub, &mut gid);
             }
             if !GIDToCIDMap.is_empty() {
                 cid = ((GIDToCIDMap[2 * gid as usize] as i32) << 8
@@ -1116,8 +1116,8 @@ unsafe fn load_base_CMap(
     wmode: i32,
     csi: Option<&CIDSysInfo>,
     GIDToCIDMap: &[u8],
-    gsub_vert: *mut otl_gsub,
-    gsub_list: *mut otl_gsub,
+    gsub_vert: &Option<otl_gsub>,
+    gsub_list: &Option<otl_gsub>,
     ttcmap: &tt_cmap,
 ) -> Option<usize> {
     if let Some(cmap_id) = CMap_cache_find(cmap_name) {
@@ -1179,8 +1179,6 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
     let mut tounicode_add: *mut CMap = ptr::null_mut();
     let offset;
     let cmap_name;
-    let mut gsub_vert;
-    let gsub_list;
     let mut csi: CIDSysInfo = CIDSysInfo {
         registry: "".into(),
         ordering: "".into(),
@@ -1292,51 +1290,47 @@ pub(crate) unsafe fn otf_load_Unicode_CMap(
         .or_else(|| tt_cmap_read(&mut sfont, 3_u16, 1_u16))
         .or_else(|| tt_cmap_read(&mut sfont, 0_u16, 3_u16))
         .unwrap_or_else(|| panic!("Unable to read OpenType/TrueType Unicode cmap table."));
-    if wmode == 1 {
-        gsub_vert = otl_gsub_new();
-        if otl_gsub_add_feat(&mut *gsub_vert, b"*", b"*", b"vrt2", &sfont) < 0 {
-            if otl_gsub_add_feat(&mut *gsub_vert, b"*", b"*", b"vert", &sfont) < 0 {
+    let gsub_vert = if wmode == 1 {
+        let mut gsub_vert = otl_gsub::new();
+        if otl_gsub_add_feat(&mut gsub_vert, "*", "*", "vrt2", &sfont).is_none() {
+            if otl_gsub_add_feat(&mut gsub_vert, "*", "*", "vert", &sfont).is_none() {
                 warn!("GSUB feature vrt2/vert not found.");
-                otl_gsub_release(gsub_vert);
-                gsub_vert = ptr::null_mut()
+                None
             } else {
-                otl_gsub_select(gsub_vert, b"*", b"*", b"vert");
+                otl_gsub_select(&mut gsub_vert, "*", "*", "vert");
+                Some(gsub_vert)
             }
         } else {
-            otl_gsub_select(gsub_vert, b"*", b"*", b"vrt2");
+            otl_gsub_select(&mut gsub_vert, "*", "*", "vrt2");
+            Some(gsub_vert)
         }
     } else {
-        gsub_vert = ptr::null_mut()
-    }
-    if !otl_tags.is_empty() {
+        None
+    };
+    let gsub_list = if !otl_tags.is_empty() {
         let otl_tags_ = CString::new(otl_tags).unwrap();
-        gsub_list = otl_gsub_new();
-        if otl_gsub_add_feat_list(gsub_list, otl_tags_.as_ptr(), &sfont) < 0 {
+        let mut gsub_list = otl_gsub::new();
+        if otl_gsub_add_feat_list(&mut gsub_list, otl_tags_.as_ptr(), &sfont) < 0 {
             warn!("Reading GSUB feature table(s) failed for \"{}\"", otl_tags);
         } else {
-            otl_gsub_set_chain(gsub_list, otl_tags_.as_ptr());
+            otl_gsub_set_chain(&mut gsub_list, otl_tags_.as_ptr());
         }
+        Some(gsub_list)
     } else {
-        gsub_list = ptr::null_mut()
-    }
+        None
+    };
     let cmap_id = load_base_CMap(
         &cmap_name,
         tounicode_add,
         wmode,
         if is_cidfont { Some(&csi) } else { None },
         &GIDToCIDMap,
-        gsub_vert,
-        gsub_list,
+        &gsub_vert,
+        &gsub_list,
         &ttcmap,
     );
     if cmap_id.is_none() {
         panic!("Failed to read OpenType/TrueType cmap table.");
-    }
-    if !gsub_vert.is_null() {
-        otl_gsub_release(gsub_vert);
-    }
-    if !gsub_list.is_null() {
-        otl_gsub_release(gsub_list);
     }
     if is_cidfont {
         csi.registry = "".into();
