@@ -32,7 +32,7 @@ use std::ptr;
 
 use crate::bridge::DisplayExt;
 use crate::FromBEByteSlice;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use super::dpx_sfnt::{
     dfont_open, sfnt_find_table_pos, sfnt_locate_table, sfnt_open, sfnt_read_table_directory,
@@ -45,7 +45,6 @@ use super::dpx_dpxfile::{
 use super::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
 use super::dpx_dvipdfmx::{is_xdv, landscape_mode, paper_height, paper_width};
 use super::dpx_fontmap::{fontmap, pdf_insert_native_fontmap_record};
-use super::dpx_mem::new;
 use super::dpx_numbers::{get_positive_quad, get_unsigned_num, skip_bytes, sqxfw, GetFromFile};
 use super::dpx_pdfcolor::{pdf_color_pop, pdf_color_push, PdfColor};
 use super::dpx_pdfdev::{
@@ -73,7 +72,7 @@ use crate::specials::{
     spc_exec_at_begin_page, spc_exec_at_end_page, spc_exec_special, spc_set_verbose,
 };
 
-use libc::{atof, free, strncpy, strtol};
+use libc::{atof, strncpy, strtol};
 
 use bridge::{InFile, TTInputFormat};
 
@@ -503,20 +502,15 @@ unsafe fn read_native_font_record(tex_id: u32) {
     let handle = dvi_handle.as_mut().unwrap();
     let point_size = get_positive_quad(handle, "DVI", "point_size");
     let flags = u16::get(handle) as u32;
-    let len = u8::get(handle) as i32;
-    let font_name =
-        new(((len + 1) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-            as *mut i8;
-
-    let slice = std::slice::from_raw_parts_mut(font_name as *mut u8, len as usize);
-    handle.read_exact(slice).expect(invalid_signature);
-    *font_name.offset(len as isize) = '\u{0}' as i32 as i8;
+    let len = u8::get(handle) as usize;
+    let mut font_name = vec![0_u8; len];
+    handle.read_exact(&mut font_name).expect(invalid_signature);
 
     let index = get_positive_quad(handle, "DVI", "index");
     let mut font = font_def {
         font_id: -1,
         tex_id: tex_id,
-        font_name: CStr::from_ptr(font_name).to_str().unwrap().to_owned(),
+        font_name: String::from_utf8(font_name).unwrap(),
         face_index: index,
         point_size: point_size as spt_t,
         design_size: 655360,
@@ -544,7 +538,6 @@ unsafe fn read_native_font_record(tex_id: u32) {
         font.embolden = i32::get(handle)
     }
     def_fonts.push(font);
-    free(font_name as *mut _);
 }
 unsafe fn get_dvi_fonts(post_location: i32) {
     let handle = dvi_handle.as_mut().unwrap();
@@ -1481,14 +1474,11 @@ unsafe fn do_glyphs(do_actual_text: i32) {
                 DVI_PAGE_BUF_INDEX += 2;
             }
         } else {
-            let unicodes: *mut u16 = new((slen as u64)
-                .wrapping_mul(::std::mem::size_of::<u16>() as u64)
-                as u32) as *mut u16;
-            for i in 0..slen {
-                *unicodes.offset(i as isize) = get_buffered_unsigned_pair();
+            let mut unicodes = Vec::<u16>::with_capacity(slen as _);
+            for _ in 0..slen {
+                unicodes.push(get_buffered_unsigned_pair());
             }
-            pdf_dev_begin_actualtext(unicodes, slen as i32);
-            free(unicodes as *mut libc::c_void);
+            pdf_dev_begin_actualtext(&unicodes);
         }
     }
     let width = get_buffered_signed_quad();

@@ -30,7 +30,6 @@ use crate::warn;
 use std::rc::Rc;
 
 use super::dpx_cff_dict::cff_dict;
-use super::dpx_mem::new;
 use super::dpx_numbers::GetFromFile;
 use libc::memset;
 
@@ -1778,8 +1777,6 @@ pub(crate) unsafe fn cff_read_private(cff: &mut cff_font) -> i32 {
     } else {
         cff.num_fds = 1 as u8;
         cff.private = Vec::with_capacity(1);
-        new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
-            as *mut *mut cff_dict;
         if cff.topdict.contains_key("Private") && {
             size = cff.topdict.get("Private", 0) as i32;
             size > 0

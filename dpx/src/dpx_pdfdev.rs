@@ -1635,17 +1635,14 @@ pub(crate) unsafe fn transform_info_clear(info: &mut transform_info) {
     info.flags = 0;
 }
 
-pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
+pub(crate) unsafe fn pdf_dev_begin_actualtext(unicodes: &[u16]) {
     let mut pdf_doc_enc = 1_usize;
     /* check whether we can use PDFDocEncoding for this string
     (we punt on the 0x80..0xA0 range that does not directly correspond to unicode)  */
     /* if using PDFDocEncoding, we only care about the low 8 bits,
     so start with the second byte of our pair */
-    for i in 0..count {
-        if *unicodes.offset(i as isize) as i32 > 0xff
-            || *unicodes.offset(i as isize) as i32 > 0x7f
-                && (*unicodes.offset(i as isize) as i32) < 0xa1
-        {
+    for &b16 in unicodes {
+        if b16 > 0xff || b16 > 0x7f && b16 < 0xa1 {
             pdf_doc_enc = 0;
             break;
         }
@@ -1657,12 +1654,8 @@ pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count:
     }
     let p = pdf_doc_mut();
     p.add_page_content(&content);
-    loop {
-        if !(count > 0) {
-            break;
-        }
-        count -= 1;
-        let s: [u8; 2] = (*unicodes).to_be_bytes();
+    for b16 in unicodes {
+        let s: [u8; 2] = b16.to_be_bytes();
         let mut content = String::new();
         for i in pdf_doc_enc..2 {
             let c: u8 = s[i];
@@ -1675,7 +1668,6 @@ pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count:
             }
         }
         p.add_page_content(content.as_bytes());
-        unicodes = unicodes.offset(1)
     }
     p.add_page_content(b")>>BDC");
 }

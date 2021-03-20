@@ -503,7 +503,6 @@ unsafe fn stringprep_profile(
     Ok(())
 }
 unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
-    let mut saslpwd: *mut i8 = ptr::null_mut();
     let mut error: i32 = 0;
     memset(outbuf as *mut libc::c_void, 0, 128);
     match V {
@@ -528,6 +527,7 @@ unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
         }
         5 => {
             /* This is a dummy routine - not actually stringprep password... */
+            let mut saslpwd: *mut i8 = ptr::null_mut();
             if stringprep_profile(
                 passwd,
                 &mut saslpwd,
