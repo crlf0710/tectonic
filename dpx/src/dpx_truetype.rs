@@ -32,7 +32,7 @@ use super::dpx_sfnt::{
 };
 use crate::bridge::DisplayExt;
 use crate::{info, warn};
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_agl::{
@@ -57,7 +57,6 @@ use super::dpx_tt_gsub::{
 use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{pdf_obj, IntoRef, PushObj};
-use crate::shims::sprintf;
 
 use super::dpx_sfnt::{sfnt, PutBE};
 
@@ -620,46 +619,31 @@ unsafe fn findparanoiac(glyphname: &[u8], gid: *mut u16, gm: &mut glyph_mapper) 
                 if error != 0 {
                     warn!("Not found...");
                 } else {
-                    let mut _i: i32 = 0;
-                    let mut _n: i32 = 0;
-                    let mut _p: *mut i8 = ptr::null_mut();
-                    let mut _buf: [i8; 256] = [0; 256];
+                    let mut buf =
+                        String::with_capacity((((*agln).n_components as usize) * 10).max(256));
                     warn!(
                         ">> Composite glyph glyph-name=\"{}\" found at glyph-id=\"{}\".",
                         CStr::from_ptr((*agln).name).display(),
                         idx,
                     );
-                    _p = _buf.as_mut_ptr();
-                    _i = 0;
-                    while _i < (*agln).n_components && _n < 245 {
-                        *_p.offset(_n as isize) =
-                            (if _i == 0 { '<' as i32 } else { ' ' as i32 }) as i8;
-                        _n = _n + 1;
-                        if (*agln).unicodes[_i as usize] >= 0x10000 {
-                            _n += sprintf(
-                                _p.offset(_n as isize),
-                                b"U+%06X\x00" as *const u8 as *const i8,
-                                (*agln).unicodes[_i as usize],
-                            )
-                        } else {
-                            _n += sprintf(
-                                _p.offset(_n as isize),
-                                b"U+%04X\x00" as *const u8 as *const i8,
-                                (*agln).unicodes[_i as usize],
-                            )
+                    for i in 0..(*agln).n_components as usize {
+                        if buf.len() > 245 {
+                            break;
                         }
-                        *_p.offset(_n as isize) = (if _i == (*agln).n_components - 1 {
-                            '>' as i32
+                        buf.push(if i == 0 { '<' } else { ' ' });
+                        if (*agln).unicodes[i] >= 0x10000 {
+                            buf.push_str(&format!("U+{:06X}", (*agln).unicodes[i]));
                         } else {
-                            ',' as i32
-                        }) as i8;
-                        _n = _n + 1;
-                        _i += 1;
+                            buf.push_str(&format!("U+{:04X}", (*agln).unicodes[i]));
+                        }
+                        buf.push(if i == (*agln).n_components as usize - 1 {
+                            '>'
+                        } else {
+                            ','
+                        });
                     }
-                    *_p.offset(_n as isize) = '\u{0}' as i32 as i8;
-                    _n = _n + 1;
                     warn!(">> Input Unicode seq.=\"{}\" ==> glyph-id=\"{}\" in font-file=\"_please_try_-v_\".",
-                                CStr::from_ptr(_buf.as_mut_ptr()).display(), idx);
+                                buf, idx);
                 }
             }
         } else {
