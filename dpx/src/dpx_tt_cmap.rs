@@ -52,7 +52,7 @@ use super::dpx_tt_gsub::{
     otl_gsub, otl_gsub_add_feat, otl_gsub_add_feat_list, otl_gsub_apply, otl_gsub_apply_chain,
     otl_gsub_select, otl_gsub_set_chain, otl_gsub_set_verbose,
 };
-use super::dpx_tt_post::{tt_get_glyphname, tt_read_post_table, tt_release_post_table};
+use super::dpx_tt_post::{tt_get_glyphname, tt_read_post_table};
 use super::dpx_tt_table::tt_read_maxp_table;
 use super::dpx_unicode::UC_UTF16BE_encode_char;
 use crate::dpx_pdfobj::{pdf_obj, pdf_stream};
@@ -677,12 +677,12 @@ unsafe fn is_PUA_or_presentation(uni: u32) -> bool {
         || uni >= 0x100000_u32 && uni <= 0x10fffd_u32;
 }
 unsafe fn sfnt_get_glyphname(
-    post: *mut tt_post_table,
+    post: &Option<tt_post_table>,
     cffont: Option<&cff_font>,
     gid: u16,
 ) -> String {
     let mut name = String::new();
-    if !post.is_null() {
+    if let Some(post) = post.as_ref() {
         name = tt_get_glyphname(post, gid)
     }
     if name.is_empty() {
@@ -704,9 +704,9 @@ unsafe fn handle_subst_glyphs(
     sfont: &sfnt,
     cffont: Option<&cff_font>,
 ) -> u16 {
-    let mut post: *mut tt_post_table = ptr::null_mut();
+    let mut post = None;
     if cmap_add.is_null() {
-        post = tt_read_post_table(sfont)
+        post = tt_read_post_table(sfont);
     }
     let mut count = 0_u16;
     for i in 0..8192 {
@@ -720,7 +720,7 @@ unsafe fn handle_subst_glyphs(
                         /* try to look up Unicode values from the glyph name... */
                         let mut unicodes: [i32; 16] = [0; 16];
                         let mut unicode_count: i32 = -1;
-                        let name = sfnt_get_glyphname(post, cffont, gid);
+                        let name = sfnt_get_glyphname(&post, cffont, gid);
                         if !name.is_empty() {
                             unicode_count = agl_get_unicodes(&name, unicodes.as_mut_ptr(), 16)
                         }
@@ -771,9 +771,6 @@ unsafe fn handle_subst_glyphs(
                 }
             }
         }
-    }
-    if !post.is_null() {
-        tt_release_post_table(post);
     }
     count
 }

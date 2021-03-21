@@ -54,7 +54,7 @@ use super::dpx_tt_gsub::{
     otl_gsub, otl_gsub_add_feat, otl_gsub_apply, otl_gsub_apply_alt, otl_gsub_apply_lig,
     otl_gsub_select,
 };
-use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
+use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{pdf_obj, IntoRef, PushObj};
 
@@ -133,7 +133,7 @@ pub(crate) struct glyph_mapper<'a> {
     pub(crate) codetogid: Option<tt_cmap>,
     pub(crate) gsub: *mut otl_gsub,
     pub(crate) sfont: &'a sfnt,
-    pub(crate) nametogid: *mut tt_post_table,
+    pub(crate) nametogid: Option<tt_post_table>,
 }
 
 /* TrueType */
@@ -514,14 +514,15 @@ unsafe fn composeuchar(
 }
 /* Search 'post' table. */
 unsafe fn findposttable(glyph_name: &str, gid: *mut u16, gm: *mut glyph_mapper) -> i32 {
-    if (*gm).nametogid.is_null() {
-        return -1;
-    }
-    *gid = tt_lookup_post_table((*gm).nametogid, glyph_name);
-    if *gid as i32 == 0 {
-        -1
+    if let Some(post) = (*gm).nametogid.as_ref() {
+        *gid = tt_lookup_post_table(post, glyph_name);
+        if *gid as i32 == 0 {
+            -1
+        } else {
+            0
+        }
     } else {
-        0
+        -1
     }
 }
 /* This is wrong. We must care about '.'. */
@@ -715,11 +716,7 @@ impl<'a> Drop for glyph_mapper<'a> {
             if !self.gsub.is_null() {
                 let _ = Box::from_raw(self.gsub);
             }
-            if !self.nametogid.is_null() {
-                tt_release_post_table(self.nametogid);
-            }
             self.gsub = ptr::null_mut();
-            self.nametogid = ptr::null_mut();
         }
     }
 }
@@ -741,7 +738,7 @@ unsafe fn do_custom_encoding(
     let nametogid = tt_read_post_table(sfont);
     let codetogid =
         tt_cmap_read(sfont, 3_u16, 10_u16).or_else(|| tt_cmap_read(sfont, 3_u16, 1_u16));
-    if nametogid.is_null() && codetogid.is_none() {
+    if nametogid.is_none() && codetogid.is_none() {
         warn!(
             "No post table nor Unicode cmap found in font: {}",
             (&*font).ident,

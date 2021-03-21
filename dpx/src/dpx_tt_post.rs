@@ -39,7 +39,7 @@ pub(crate) type FWord = i16;
 
 use super::dpx_sfnt::sfnt;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct tt_post_table {
     pub(crate) Version: Fixed,
@@ -138,42 +138,41 @@ unsafe fn read_v2_post_names<R: Read>(
     Some((names, count, glyphNamePtr, numberOfGlyphs))
 }
 
-pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
+pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> Option<tt_post_table> {
     /* offset = */
     sfnt_locate_table(sfont, b"post"); /* Fixed */
-    let mut post = crate::dpx_mem::new(
-        (1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32,
-    ) as *mut tt_post_table; /* Fixed */
+    /* Fixed */
     let handle = &mut &*sfont.handle;
     let Version = u32::get(handle); /* FWord */
-    (*post).Version = Version;
-    (*post).italicAngle = u32::get(handle); /* FWord */
-    (*post).underlinePosition = i16::get(handle); /* wrong */
-    (*post).underlineThickness = i16::get(handle);
-    (*post).isFixedPitch = u32::get(handle);
-    (*post).minMemType42 = u32::get(handle);
-    (*post).maxMemType42 = u32::get(handle);
-    (*post).minMemType1 = u32::get(handle);
-    (*post).maxMemType1 = u32::get(handle);
-    (*post).numberOfGlyphs = 0_u16;
-    (*post).glyphNamePtr = 0 as *mut *const i8;
-    (*post).count = 0_u16;
-    (*post).names = 0 as *mut *mut i8;
+    let mut post = tt_post_table {
+        Version,
+        italicAngle: u32::get(handle),       /* FWord */
+        underlinePosition: i16::get(handle), /* wrong */
+        underlineThickness: i16::get(handle),
+        isFixedPitch: u32::get(handle),
+        minMemType42: u32::get(handle),
+        maxMemType42: u32::get(handle),
+        minMemType1: u32::get(handle),
+        maxMemType1: u32::get(handle),
+        numberOfGlyphs: 0_u16,
+        glyphNamePtr: 0 as *mut *const i8,
+        count: 0_u16,
+        names: 0 as *mut *mut i8,
+    };
     if Version == 0x10000 {
-        (*post).numberOfGlyphs = 258;
-        (*post).glyphNamePtr = macglyphorder.as_mut_ptr() as *mut *const u8 as *mut *const i8
+        post.numberOfGlyphs = 258;
+        post.glyphNamePtr = macglyphorder.as_mut_ptr() as *mut *const u8 as *mut *const i8
     } else if Version == 0x28000 {
         warn!("TrueType \'post\' version 2.5 found (deprecated)");
     } else if Version == 0x20000 {
         if let Some(res) = read_v2_post_names(handle) {
-            (*post).names = res.0;
-            (*post).count = res.1;
-            (*post).glyphNamePtr = res.2;
-            (*post).numberOfGlyphs = res.3;
+            post.names = res.0;
+            post.count = res.1;
+            post.glyphNamePtr = res.2;
+            post.numberOfGlyphs = res.3;
         } else {
             warn!("Invalid version 2.0 \'post\' table");
-            tt_release_post_table(post);
-            post = ptr::null_mut()
+            return None;
         }
     } else if !(Version == 0x30000 || Version == 0x40000) {
         warn!(
@@ -181,15 +180,15 @@ pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
             Version,
         );
     }
-    post
+    Some(post)
 }
 
-pub(crate) unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: &str) -> u16 {
-    assert!(!post.is_null() && !glyphname.is_empty());
-    for gid in 0..(*post).count as u16 {
-        if !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
+pub(crate) unsafe fn tt_lookup_post_table(post: &tt_post_table, glyphname: &str) -> u16 {
+    assert!(!glyphname.is_empty());
+    for gid in 0..post.count as u16 {
+        if !(*post.glyphNamePtr.offset(gid as isize)).is_null()
             && glyphname.as_bytes()
-                == CStr::from_ptr(*(*post).glyphNamePtr.offset(gid as isize)).to_bytes()
+                == CStr::from_ptr(*post.glyphNamePtr.offset(gid as isize)).to_bytes()
         {
             return gid;
         }
@@ -197,11 +196,9 @@ pub(crate) unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: &
     0
 }
 
-pub(crate) unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> String {
-    if (gid as i32) < (*post).count as i32
-        && !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
-    {
-        return CStr::from_ptr(*(*post).glyphNamePtr.offset(gid as isize))
+pub(crate) unsafe fn tt_get_glyphname(post: &tt_post_table, gid: u16) -> String {
+    if (gid as i32) < post.count as i32 && !(*post.glyphNamePtr.offset(gid as isize)).is_null() {
+        return CStr::from_ptr(*post.glyphNamePtr.offset(gid as isize))
             .to_str()
             .unwrap()
             .to_string();
@@ -212,22 +209,25 @@ pub(crate) unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> Str
 /* Non-standard glyph names */
 /* Number of glyph names in names[] */
 
-pub(crate) unsafe fn tt_release_post_table(mut post: *mut tt_post_table) {
-    assert!(!post.is_null());
-    if !(*post).glyphNamePtr.is_null() && (*post).Version as u64 != 0x10000 {
-        libc::free((*post).glyphNamePtr as *mut libc::c_void);
-    }
-    if !(*post).names.is_null() {
-        for i in 0..(*post).count {
-            libc::free(*(*post).names.offset(i as isize) as *mut libc::c_void);
+impl Drop for tt_post_table {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.glyphNamePtr.is_null() && self.Version as u64 != 0x10000 {
+                libc::free(self.glyphNamePtr as *mut libc::c_void);
+            }
+            if !self.names.is_null() {
+                for i in 0..self.count {
+                    libc::free(*self.names.offset(i as isize) as *mut libc::c_void);
+                }
+                libc::free(self.names as *mut libc::c_void);
+            }
+            self.count = 0_u16;
+            self.glyphNamePtr = 0 as *mut *const i8;
+            self.names = 0 as *mut *mut i8;
         }
-        libc::free((*post).names as *mut libc::c_void);
     }
-    (*post).count = 0_u16;
-    (*post).glyphNamePtr = 0 as *mut *const i8;
-    (*post).names = 0 as *mut *mut i8;
-    libc::free(post as *mut libc::c_void);
 }
+
 /* Macintosh glyph order - from apple's TTRefMan */
 static mut macglyphorder: [&[u8]; 258] = [
     b".notdef\x00",
