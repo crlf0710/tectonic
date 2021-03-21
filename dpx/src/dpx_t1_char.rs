@@ -1673,7 +1673,7 @@ unsafe fn t1char_encode_charpath(
         match (*curr).type_0 {
             -1 => {
                 let mut hintmask: [u8; 12] = [0; 12];
-                hintmaskp[..(((*cd).num_stems + 7) / 8) as usize].fill(0);
+                hintmask[..(((*cd).num_stems + 7) / 8) as usize].fill(0);
                 while !curr.is_null() && (*curr).type_0 == -1 {
                     let stem_idx = get_stem(cd, (*curr).args[0] as i32);
                     assert!(stem_idx < (*cd).num_stems);

@@ -70,20 +70,20 @@ use super::specials::dvips::{
 use crate::dpx_pdfobj::{pdf_dict, pdf_obj, pdf_ref_obj, IntoObj};
 use crate::shims::sprintf;
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 pub(crate) struct SpcEnv {
     pub(crate) x_user: f64,
     pub(crate) y_user: f64,
     pub(crate) mag: f64,
     pub(crate) pg: i32,
 }
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 pub(crate) struct SpcArg<'a> {
     pub(crate) cur: &'a [u8],
     pub(crate) base: &'a [u8],
     pub(crate) command: Option<&'static str>,
 }
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 pub(crate) struct SpcHandler {
     pub(crate) key: &'static str,
     pub(crate) exec: Option<unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> Result<()>>,
@@ -238,28 +238,29 @@ unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()
     args.cur = &[];
     ERR
 }
-unsafe fn init_special<'a, 'b>(
-    special: &mut SpcHandler,
-    mut spe: &mut SpcEnv,
-    mut args: &'a mut SpcArg<'b>,
+unsafe fn init_special<'b>(
     buf: &'b [u8],
     x_user: f64,
     y_user: f64,
     mag: f64,
-) where
-    'b: 'a,
-{
-    *special = SpcHandler {
-        key: "",
-        exec: Some(spc_handler_unknown),
-    };
-    spe.x_user = x_user;
-    spe.y_user = y_user;
-    spe.mag = mag;
-    spe.pg = pdf_doc().current_page_number() as i32;
-    args.cur = buf;
-    args.base = buf;
-    args.command = None;
+) -> (SpcHandler, SpcEnv, SpcArg<'b>) {
+    (
+        SpcHandler {
+            key: "",
+            exec: Some(spc_handler_unknown),
+        },
+        SpcEnv {
+            x_user,
+            y_user,
+            mag,
+            pg: pdf_doc().current_page_number() as i32,
+        },
+        SpcArg {
+            cur: buf,
+            base: buf,
+            command: None,
+        },
+    )
 }
 unsafe fn check_garbage(args: &mut SpcArg) {
     if args.cur.is_empty() {
@@ -476,21 +477,10 @@ pub(crate) unsafe fn spc_exec_special(
     mag: f64,
 ) -> Result<()> {
     let mut error = ERR;
-    let mut spe = SpcEnv::default();
-    let mut args = SpcArg::default();
-    let mut special = SpcHandler::default();
     if VERBOSE > 3 {
         dump(buffer);
     }
-    init_special(
-        &mut special,
-        &mut spe,
-        &mut args,
-        buffer,
-        x_user,
-        y_user,
-        mag,
-    );
+    let (mut special, mut spe, mut args) = init_special(buffer, x_user, y_user, mag);
 
     for spc in &KNOWN_SPECIALS {
         let found = (spc.check_func)(buffer);
