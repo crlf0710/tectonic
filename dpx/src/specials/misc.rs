@@ -31,9 +31,7 @@ use bridge::{InFile, TTInputFormat};
 use std::ptr;
 
 use super::{Handler, SpcArg, SpcEnv};
-use super::{Result, ERR};
-
-use super::SpcHandler;
+use super::{Result, ERR, ERROR};
 
 use crate::dpx_pdfximage::load_options;
 
@@ -151,10 +149,9 @@ pub(crate) fn spc_misc_check_special(mut buf: &[u8]) -> bool {
 }
 
 pub(crate) unsafe fn spc_misc_setup_handler(
-    handle: &mut SpcHandler,
     _spe: &mut SpcEnv,
     args: &mut SpcArg,
-) -> Result<()> {
+) -> Result<Handler> {
     args.cur.skip_white();
     let key = args.cur;
     let mut keylen = 0;
@@ -170,15 +167,14 @@ pub(crate) unsafe fn spc_misc_setup_handler(
         keylen += 1;
     }
     if keylen < 1 {
-        return ERR;
+        return ERROR();
     }
     for (hkey, &exec) in MISC_HANDLERS.entries() {
         if &key[..keylen] == hkey.as_bytes() {
             args.cur.skip_white();
             args.command = Some(hkey);
-            *handle = SpcHandler { key: "???:", exec };
-            return Ok(());
+            return Ok(exec);
         }
     }
-    ERR
+    ERROR()
 }

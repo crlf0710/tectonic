@@ -86,12 +86,6 @@ pub(crate) struct SpcArg<'a> {
 
 type Handler = unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> Result<()>;
 
-#[derive(Copy, Clone)]
-pub(crate) struct SpcHandler {
-    pub(crate) key: &'static str,
-    pub(crate) exec: Handler,
-}
-
 use super::dpx_dpxutil::ht_table;
 
 #[derive(Copy, Clone)]
@@ -103,8 +97,7 @@ pub(crate) struct Special {
     pub(crate) bophk_func: Option<unsafe fn() -> Result<()>>,
     pub(crate) eophk_func: Option<unsafe fn() -> Result<()>>,
     pub(crate) check_func: fn(_: &[u8]) -> bool,
-    pub(crate) setup_func:
-        unsafe fn(_: &mut SpcHandler, _: &mut SpcEnv, _: &mut SpcArg) -> Result<()>,
+    pub(crate) setup_func: unsafe fn(&mut SpcEnv, _: &mut SpcArg) -> Result<Handler>,
 }
 static mut VERBOSE: i32 = 0;
 pub(crate) unsafe fn spc_set_verbose(level: i32) {
@@ -237,21 +230,13 @@ pub(crate) unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
     NAMED_OBJECTS = pdf_new_name_tree();
 }
-unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
-    args.cur = &[];
-    ERR
-}
 unsafe fn init_special<'b>(
     buf: &'b [u8],
     x_user: f64,
     y_user: f64,
     mag: f64,
-) -> (SpcHandler, SpcEnv, SpcArg<'b>) {
+) -> (SpcEnv, SpcArg<'b>) {
     (
-        SpcHandler {
-            key: "",
-            exec: spc_handler_unknown,
-        },
         SpcEnv {
             x_user,
             y_user,
@@ -483,14 +468,13 @@ pub(crate) unsafe fn spc_exec_special(
     if VERBOSE > 3 {
         dump(buffer);
     }
-    let (mut special, mut spe, mut args) = init_special(buffer, x_user, y_user, mag);
+    let (mut spe, mut args) = init_special(buffer, x_user, y_user, mag);
 
     for spc in &KNOWN_SPECIALS {
         let found = (spc.check_func)(buffer);
         if found {
-            error = (spc.setup_func)(&mut special, &mut spe, &mut args);
-            if error.is_ok() {
-                error = (special.exec)(&mut spe, &mut args)
+            if let Ok(handler) = (spc.setup_func)(&mut spe, &mut args) {
+                error = handler(&mut spe, &mut args)
             }
             if error.is_err() {
                 print_error(spc.key, &mut spe, &mut args);

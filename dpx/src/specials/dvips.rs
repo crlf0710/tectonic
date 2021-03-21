@@ -21,7 +21,7 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
-use super::{Result, ERR};
+use super::{Result, ERR, ERROR};
 
 use std::ptr;
 
@@ -44,7 +44,7 @@ use crate::spc_warn;
 
 /* quasi-hack to get the primary input */
 
-use super::{Handler, SpcHandler};
+use super::Handler;
 
 use crate::dpx_pdfximage::load_options;
 static mut BLOCK_PENDING: i32 = 0;
@@ -314,10 +314,9 @@ pub(crate) fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
 }
 
 pub(crate) unsafe fn spc_dvips_setup_handler(
-    handle: &mut SpcHandler,
     spe: &mut SpcEnv,
     args: &mut SpcArg,
-) -> Result<()> {
+) -> Result<Handler> {
     args.cur.skip_white();
     let key = args.cur;
     while !args.cur.is_empty() && (args.cur[0] as u8).is_ascii_alphabetic() {
@@ -335,15 +334,14 @@ pub(crate) unsafe fn spc_dvips_setup_handler(
     let keylen = key.len() - args.cur.len();
     if keylen < 1 {
         spc_warn!(spe, "Not ps: special???");
-        return ERR;
+        return ERROR();
     }
     for (hkey, &exec) in DVIPS_HANDLERS.entries() {
         if &key[..keylen] == hkey.as_bytes() {
             args.cur.skip_white();
             args.command = Some(hkey);
-            *handle = SpcHandler { key: "ps:", exec };
-            return Ok(());
+            return Ok(exec);
         }
     }
-    ERR
+    ERROR()
 }

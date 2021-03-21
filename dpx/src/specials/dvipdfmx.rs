@@ -21,8 +21,8 @@
 */
 #![allow()]
 
-use super::{Handler, SpcArg, SpcEnv, SpcHandler};
-use super::{Result, ERR};
+use super::{Handler, SpcArg, SpcEnv};
+use super::{Result, ERROR};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
@@ -41,28 +41,22 @@ pub(crate) fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
 }
 
 pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
-    sph: &mut SpcHandler,
     spe: &mut SpcEnv,
     ap: &mut SpcArg,
-) -> Result<()> {
-    let mut error = ERR;
+) -> Result<Handler> {
     ap.cur.skip_white();
     if !ap.cur.starts_with(b"dvipdfmx:") {
         spc_warn!(spe, "Not dvipdfmx: special???");
-        return ERR;
+        return ERROR();
     }
     ap.cur = &ap.cur[b"dvipdfmx:".len()..];
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
         if let Some((key, &exec)) = DVIPDFMX_HANDLERS.get_entry(q.as_str()) {
             ap.command = Some(key);
-            *sph = SpcHandler {
-                key: "dvipdfmx:",
-                exec,
-            };
             ap.cur.skip_white();
-            error = Ok(());
+            return Ok(exec);
         }
     }
-    error
+    ERROR()
 }

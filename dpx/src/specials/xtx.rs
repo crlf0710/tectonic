@@ -21,7 +21,7 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
-use super::{Result, ERR, ERR1};
+use super::{Result, ERR, ERR1, ERROR};
 
 use super::util::spc_util_read_colorspec;
 use crate::dpx_dpxutil::ParseCIdent;
@@ -39,8 +39,6 @@ use crate::dpx_pdfparse::{ParseIdent, SkipWhite};
 use crate::spc_warn;
 
 use super::{Handler, SpcArg, SpcEnv};
-
-use super::SpcHandler;
 
 use crate::dpx_pdfdev::Point;
 
@@ -307,26 +305,20 @@ pub(crate) fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
     buf.starts_with(b"x:")
 }
 
-pub(crate) unsafe fn spc_xtx_setup_handler(
-    sph: &mut SpcHandler,
-    spe: &mut SpcEnv,
-    ap: &mut SpcArg,
-) -> Result<()> {
-    let mut error = ERR;
+pub(crate) unsafe fn spc_xtx_setup_handler(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<Handler> {
     ap.cur.skip_white();
     if !ap.cur.starts_with(b"x:") {
         spc_warn!(spe, "Not x: special???");
-        return ERR;
+        return ERROR();
     }
     ap.cur = &ap.cur[b"x:".len()..];
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
         if let Some((key, &exec)) = XTX_HANDLERS.get_entry(q.as_str()) {
             ap.command = Some(key);
-            *sph = SpcHandler { key: "x:", exec };
             ap.cur.skip_white();
-            error = Ok(());
+            return Ok(exec);
         }
     }
-    error
+    ERROR()
 }

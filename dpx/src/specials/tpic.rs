@@ -21,7 +21,7 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
-use super::{Result, ERR};
+use super::{Result, ERR, ERROR};
 
 use crate::bridge::DisplayExt;
 use crate::warn;
@@ -47,7 +47,6 @@ use crate::dpx_pdfobj::{
 use crate::dpx_pdfparse::ParseIdent;
 use libc::atof;
 
-use super::SpcHandler;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct C2RustUnnamed_0 {
@@ -690,13 +689,9 @@ pub(crate) fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
     istpic
 }
 
-pub(crate) unsafe fn spc_tpic_setup_handler(
-    sph: &mut SpcHandler,
-    _spe: &mut SpcEnv,
-    ap: &mut SpcArg,
-) -> Result<()> {
+pub(crate) unsafe fn spc_tpic_setup_handler(_spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<Handler> {
     let mut hasnsp: i32 = 0;
-    let mut error = ERR;
+    let mut error = ERROR::<Handler>();
     ap.cur.skip_blank();
     if ap.cur.starts_with(b"tpic:") {
         ap.cur = &ap.cur[b"tpic:".len()..];
@@ -705,25 +700,17 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
     if let Some(q) = ap.cur.parse_c_ident() {
         if hasnsp != 0 && q == "__setopt__" {
             ap.command = Some("__setopt__");
-            *sph = SpcHandler {
-                key: "tpic:",
-                exec: spc_handler_tpic__setopts,
-            };
             ap.cur.skip_blank();
-            error = Ok(());
+            error = Ok(spc_handler_tpic__setopts);
         } else {
             if let Some((key, &exec)) = TPIC_HANDLERS.get_entry(q.as_str()) {
                 ap.command = Some(key);
-                *sph = SpcHandler {
-                    key: "tpic:",
-                    exec: exec,
-                };
                 ap.cur.skip_blank();
-                error = Ok(());
+                error = Ok(exec);
             }
         }
     } else {
-        error = ERR;
+        error = ERROR();
     }
     error
 }

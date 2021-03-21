@@ -22,8 +22,8 @@
 #![allow()]
 
 use super::util::spc_util_read_colorspec;
-use super::{Result, ERR};
-use super::{SpcArg, SpcEnv, SpcHandler};
+use super::{Handler, SpcArg, SpcEnv};
+use super::{Result, ERR, ERROR};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_pdfcolor::{pdf_color_clear_stack, pdf_color_pop, pdf_color_push, pdf_color_set};
 use crate::dpx_pdfdoc::pdf_doc_set_bgcolor;
@@ -81,21 +81,17 @@ pub(crate) fn spc_color_check_special(mut buf: &[u8]) -> bool {
     }
 }
 
-pub(crate) unsafe fn spc_color_setup_handler(
-    sph: &mut SpcHandler,
-    spe: &mut SpcEnv,
-    ap: &mut SpcArg,
-) -> Result<()> {
+pub(crate) unsafe fn spc_color_setup_handler(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<Handler> {
     ap.cur.skip_blank();
     let q = ap.cur.parse_c_ident();
     if q.is_none() {
-        return ERR;
+        return ERROR();
     }
     ap.cur.skip_blank();
-    match q.unwrap().as_ref() {
+    let exec = match q.unwrap().as_ref() {
         "background" => {
             ap.command = Some("background");
-            sph.exec = spc_handler_background;
+            spc_handler_background
         }
         "color" => {
             /* color */
@@ -105,28 +101,28 @@ pub(crate) unsafe fn spc_color_setup_handler(
                 match q.as_ref() {
                     "push" => {
                         ap.command = Some("push");
-                        sph.exec = spc_handler_color_push;
-                        ap.cur = p
+                        ap.cur = p;
+                        spc_handler_color_push
                     }
                     "pop" => {
                         ap.command = Some("pop");
-                        sph.exec = spc_handler_color_pop;
-                        ap.cur = p
+                        ap.cur = p;
+                        spc_handler_color_pop
                     }
                     _ => {
                         ap.command = Some("");
-                        sph.exec = spc_handler_color_default;
+                        spc_handler_color_default
                     }
                 }
             } else {
-                return ERR;
+                return ERROR();
             }
         }
         _ => {
             spc_warn!(spe, "Not color/background special?");
-            return ERR;
+            return ERROR();
         }
-    }
+    };
     ap.cur.skip_blank();
-    Ok(())
+    Ok(exec)
 }

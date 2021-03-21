@@ -21,7 +21,7 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
-use super::{Result, ERR};
+use super::{Result, ERR, ERROR};
 
 use euclid::point2;
 use once_cell::sync::Lazy;
@@ -67,7 +67,6 @@ use crate::dpx_unicode::{UC_UTF16BE_is_valid_string, UC_UTF8_is_valid_string};
 
 use super::{Handler, SpcArg, SpcEnv};
 
-use super::SpcHandler;
 #[derive(Clone)]
 pub(crate) struct spc_pdf_ {
     pub(crate) annotation_started: bool,
@@ -1549,26 +1548,20 @@ pub(crate) fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
     buf.starts_with(b"pdf:")
 }
 
-pub(crate) unsafe fn spc_pdfm_setup_handler(
-    sph: &mut SpcHandler,
-    spe: &mut SpcEnv,
-    ap: &mut SpcArg,
-) -> Result<()> {
-    let mut error = ERR;
+pub(crate) unsafe fn spc_pdfm_setup_handler(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<Handler> {
     ap.cur.skip_white();
     if !ap.cur.starts_with(b"pdf:") {
         spc_warn!(spe, "Not pdf: special???");
-        return ERR;
+        return ERROR();
     }
     ap.cur = &ap.cur[b"pdf:".len()..];
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
         if let Some((key, &exec)) = PDFM_HANDLERS.get_entry(q.as_str()) {
             ap.command = Some(key);
-            *sph = SpcHandler { key: "pdf:", exec };
             ap.cur.skip_white();
-            error = Ok(());
+            return Ok(exec);
         }
     }
-    error
+    ERROR()
 }

@@ -45,9 +45,7 @@ use crate::dpx_pdfobj::{
 use crate::spc_warn;
 use libc::atof;
 
-use super::{SpcArg, SpcEnv};
-
-use super::SpcHandler;
+use super::{Handler, SpcArg, SpcEnv};
 
 #[derive(Clone)]
 #[repr(C)]
@@ -738,25 +736,17 @@ pub(crate) fn spc_html_check_special(buf: &[u8]) -> bool {
     buf.starts_with(b"html:")
 }
 
-pub(crate) unsafe fn spc_html_setup_handler(
-    sph: &mut SpcHandler,
-    _spe: &mut SpcEnv,
-    ap: &mut SpcArg,
-) -> Result<()> {
+pub(crate) unsafe fn spc_html_setup_handler(_spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<Handler> {
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];
     }
     if !ap.cur.starts_with(b"html:") {
-        return ERR;
+        return ERROR();
     }
     ap.command = Some("");
-    *sph = SpcHandler {
-        key: "html:",
-        exec: spc_handler_html_default,
-    };
     ap.cur = &ap.cur[b"html:".len()..];
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];
     }
-    Ok(())
+    Ok(spc_handler_html_default)
 }
