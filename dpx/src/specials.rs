@@ -83,10 +83,13 @@ pub(crate) struct SpcArg<'a> {
     pub(crate) base: &'a [u8],
     pub(crate) command: Option<&'static str>,
 }
+
+type Handler = unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> Result<()>;
+
 #[derive(Copy, Clone)]
 pub(crate) struct SpcHandler {
     pub(crate) key: &'static str,
-    pub(crate) exec: Option<unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> Result<()>>,
+    pub(crate) exec: Handler,
 }
 
 use super::dpx_dpxutil::ht_table;
@@ -247,7 +250,7 @@ unsafe fn init_special<'b>(
     (
         SpcHandler {
             key: "",
-            exec: Some(spc_handler_unknown),
+            exec: spc_handler_unknown,
         },
         SpcEnv {
             x_user,
@@ -487,7 +490,7 @@ pub(crate) unsafe fn spc_exec_special(
         if found {
             error = (spc.setup_func)(&mut special, &mut spe, &mut args);
             if error.is_ok() {
-                error = special.exec.expect("non-null function pointer")(&mut spe, &mut args)
+                error = (special.exec)(&mut spe, &mut args)
             }
             if error.is_err() {
                 print_error(spc.key, &mut spe, &mut args);

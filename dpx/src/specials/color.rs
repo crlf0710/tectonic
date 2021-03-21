@@ -95,7 +95,7 @@ pub(crate) unsafe fn spc_color_setup_handler(
     match q.unwrap().as_ref() {
         "background" => {
             ap.command = Some("background");
-            sph.exec = Some(spc_handler_background);
+            sph.exec = spc_handler_background;
         }
         "color" => {
             /* color */
@@ -105,17 +105,17 @@ pub(crate) unsafe fn spc_color_setup_handler(
                 match q.as_ref() {
                     "push" => {
                         ap.command = Some("push");
-                        sph.exec = Some(spc_handler_color_push);
+                        sph.exec = spc_handler_color_push;
                         ap.cur = p
                     }
                     "pop" => {
                         ap.command = Some("pop");
-                        sph.exec = Some(spc_handler_color_pop);
+                        sph.exec = spc_handler_color_pop;
                         ap.cur = p
                     }
                     _ => {
                         ap.command = Some("");
-                        sph.exec = Some(spc_handler_color_default)
+                        sph.exec = spc_handler_color_default;
                     }
                 }
             } else {

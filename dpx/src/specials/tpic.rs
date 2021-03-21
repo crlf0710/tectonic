@@ -28,7 +28,7 @@ use crate::warn;
 use crate::SkipBlank;
 use std::ptr;
 
-use super::{SpcArg, SpcEnv};
+use super::{Handler, SpcArg, SpcEnv};
 use crate::spc_warn;
 
 use crate::dpx_dpxutil::{ParseCIdent, ParseCString, ParseFloatDecimal};
@@ -657,60 +657,22 @@ unsafe fn spc_handler_tpic__setopts(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result
     }
 }
 /* DEBUG */
-const TPIC_HANDLERS: [SpcHandler; 13] = [
-    SpcHandler {
-        key: "pn",
-        exec: Some(spc_handler_tpic_pn),
-    },
-    SpcHandler {
-        key: "pa",
-        exec: Some(spc_handler_tpic_pa),
-    },
-    SpcHandler {
-        key: "fp",
-        exec: Some(spc_handler_tpic_fp),
-    },
-    SpcHandler {
-        key: "ip",
-        exec: Some(spc_handler_tpic_ip),
-    },
-    SpcHandler {
-        key: "da",
-        exec: Some(spc_handler_tpic_da),
-    },
-    SpcHandler {
-        key: "dt",
-        exec: Some(spc_handler_tpic_dt),
-    },
-    SpcHandler {
-        key: "sp",
-        exec: Some(spc_handler_tpic_sp),
-    },
-    SpcHandler {
-        key: "ar",
-        exec: Some(spc_handler_tpic_ar),
-    },
-    SpcHandler {
-        key: "ia",
-        exec: Some(spc_handler_tpic_ia),
-    },
-    SpcHandler {
-        key: "sh",
-        exec: Some(spc_handler_tpic_sh),
-    },
-    SpcHandler {
-        key: "wh",
-        exec: Some(spc_handler_tpic_wh),
-    },
-    SpcHandler {
-        key: "bk",
-        exec: Some(spc_handler_tpic_bk),
-    },
-    SpcHandler {
-        key: "tx",
-        exec: Some(spc_handler_tpic_tx),
-    },
-];
+static TPIC_HANDLERS: phf::Map<&'static str, Handler> = phf::phf_map! {
+    "pn" => spc_handler_tpic_pn,
+    "pa" => spc_handler_tpic_pa,
+    "fp" => spc_handler_tpic_fp,
+    "ip" => spc_handler_tpic_ip,
+    "da" => spc_handler_tpic_da,
+    "dt" => spc_handler_tpic_dt,
+    "sp" => spc_handler_tpic_sp,
+    "ar" => spc_handler_tpic_ar,
+    "ia" => spc_handler_tpic_ia,
+    "sh" => spc_handler_tpic_sh,
+    "wh" => spc_handler_tpic_wh,
+    "bk" => spc_handler_tpic_bk,
+    "tx" => spc_handler_tpic_tx,
+};
+
 pub(crate) fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
     buf.skip_blank();
     let hasnsp = buf.starts_with(b"tpic:");
@@ -721,13 +683,8 @@ pub(crate) fn spc_tpic_check_special(mut buf: &[u8]) -> bool {
     if let Some(q) = buf.parse_c_ident() {
         if hasnsp && q == "__setopt__" {
             istpic = true;
-        } else {
-            for handler in TPIC_HANDLERS.iter() {
-                if q == handler.key {
-                    istpic = true;
-                    break;
-                }
-            }
+        } else if (&TPIC_HANDLERS).contains_key(q.as_str()) {
+            istpic = true;
         }
     }
     istpic
@@ -750,22 +707,19 @@ pub(crate) unsafe fn spc_tpic_setup_handler(
             ap.command = Some("__setopt__");
             *sph = SpcHandler {
                 key: "tpic:",
-                exec: Some(spc_handler_tpic__setopts),
+                exec: spc_handler_tpic__setopts,
             };
             ap.cur.skip_blank();
             error = Ok(());
         } else {
-            for handler in TPIC_HANDLERS.iter() {
-                if q == handler.key {
-                    ap.command = Some(handler.key);
-                    *sph = SpcHandler {
-                        key: "tpic:",
-                        exec: handler.exec,
-                    };
-                    ap.cur.skip_blank();
-                    error = Ok(());
-                    break;
-                }
+            if let Some((key, &exec)) = TPIC_HANDLERS.get_entry(q.as_str()) {
+                ap.command = Some(key);
+                *sph = SpcHandler {
+                    key: "tpic:",
+                    exec: exec,
+                };
+                ap.cur.skip_blank();
+                error = Ok(());
             }
         }
     } else {

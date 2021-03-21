@@ -38,7 +38,7 @@ use crate::dpx_pdfdraw::{
 use crate::dpx_pdfparse::{ParseIdent, SkipWhite};
 use crate::spc_warn;
 
-use super::{SpcArg, SpcEnv};
+use super::{Handler, SpcArg, SpcEnv};
 
 use super::SpcHandler;
 
@@ -279,92 +279,29 @@ unsafe fn spc_handler_xtx_unsupported(spe: &mut SpcEnv, args: &mut SpcArg) -> Re
     args.cur = &[];
     Ok(())
 }
-const XTX_HANDLERS: [SpcHandler; 21] = [
-    SpcHandler {
-        key: "textcolor",
-        exec: Some(spc_handler_xtx_unsupportedcolor),
-    },
-    SpcHandler {
-        key: "textcolorpush",
-        exec: Some(spc_handler_xtx_unsupportedcolor),
-    },
-    SpcHandler {
-        key: "textcolorpop",
-        exec: Some(spc_handler_xtx_unsupportedcolor),
-    },
-    SpcHandler {
-        key: "rulecolor",
-        exec: Some(spc_handler_xtx_unsupportedcolor),
-    },
-    SpcHandler {
-        key: "rulecolorpush",
-        exec: Some(spc_handler_xtx_unsupportedcolor),
-    },
-    SpcHandler {
-        key: "rulecolorpop",
-        exec: Some(spc_handler_xtx_unsupportedcolor),
-    },
-    SpcHandler {
-        key: "papersize",
-        exec: Some(spc_handler_xtx_papersize),
-    },
-    SpcHandler {
-        key: "backgroundcolor",
-        exec: Some(spc_handler_xtx_backgroundcolor),
-    },
-    SpcHandler {
-        key: "gsave",
-        exec: Some(spc_handler_xtx_gsave),
-    },
-    SpcHandler {
-        key: "grestore",
-        exec: Some(spc_handler_xtx_grestore),
-    },
-    SpcHandler {
-        key: "scale",
-        exec: Some(spc_handler_xtx_scale),
-    },
-    SpcHandler {
-        key: "bscale",
-        exec: Some(spc_handler_xtx_bscale),
-    },
-    SpcHandler {
-        key: "escale",
-        exec: Some(spc_handler_xtx_escale),
-    },
-    SpcHandler {
-        key: "rotate",
-        exec: Some(spc_handler_xtx_rotate),
-    },
-    SpcHandler {
-        key: "fontmapline",
-        exec: Some(spc_handler_xtx_fontmapline),
-    },
-    SpcHandler {
-        key: "fontmapfile",
-        exec: Some(spc_handler_xtx_fontmapfile),
-    },
-    SpcHandler {
-        key: "shadow",
-        exec: Some(spc_handler_xtx_unsupported),
-    },
-    SpcHandler {
-        key: "colorshadow",
-        exec: Some(spc_handler_xtx_unsupported),
-    },
-    SpcHandler {
-        key: "renderingmode",
-        exec: Some(spc_handler_xtx_renderingmode),
-    },
-    SpcHandler {
-        key: "initoverlay",
-        exec: Some(spc_handler_xtx_initoverlay),
-    },
-    SpcHandler {
-        key: "clipoverlay",
-        exec: Some(spc_handler_xtx_clipoverlay),
-    },
-];
+static XTX_HANDLERS: phf::Map<&'static str, Handler> = phf::phf_map! {
+    "textcolor" => spc_handler_xtx_unsupportedcolor,
+    "textcolorpush" => spc_handler_xtx_unsupportedcolor,
+    "textcolorpop" => spc_handler_xtx_unsupportedcolor,
+    "rulecolor" => spc_handler_xtx_unsupportedcolor,
+    "rulecolorpush" => spc_handler_xtx_unsupportedcolor,
+    "rulecolorpop" => spc_handler_xtx_unsupportedcolor,
+    "papersize" => spc_handler_xtx_papersize,
+    "backgroundcolor" => spc_handler_xtx_backgroundcolor,
+    "gsave" => spc_handler_xtx_gsave,
+    "grestore" => spc_handler_xtx_grestore,
+    "scale" => spc_handler_xtx_scale,
+    "bscale" => spc_handler_xtx_bscale,
+    "escale" => spc_handler_xtx_escale,
+    "rotate" => spc_handler_xtx_rotate,
+    "fontmapline" => spc_handler_xtx_fontmapline,
+    "fontmapfile" => spc_handler_xtx_fontmapfile,
+    "shadow" => spc_handler_xtx_unsupported,
+    "colorshadow" => spc_handler_xtx_unsupported,
+    "renderingmode" => spc_handler_xtx_renderingmode,
+    "initoverlay" => spc_handler_xtx_initoverlay,
+    "clipoverlay" => spc_handler_xtx_clipoverlay,
+};
 pub(crate) fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     buf.starts_with(b"x:")
@@ -384,17 +321,11 @@ pub(crate) unsafe fn spc_xtx_setup_handler(
     ap.cur = &ap.cur[b"x:".len()..];
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
-        for handler in XTX_HANDLERS.iter() {
-            if q == handler.key {
-                ap.command = Some(handler.key);
-                *sph = SpcHandler {
-                    key: "x:",
-                    exec: handler.exec,
-                };
-                ap.cur.skip_white();
-                error = Ok(());
-                break;
-            }
+        if let Some((key, &exec)) = XTX_HANDLERS.get_entry(q.as_str()) {
+            ap.command = Some(key);
+            *sph = SpcHandler { key: "x:", exec };
+            ap.cur.skip_white();
+            error = Ok(());
         }
     }
     error

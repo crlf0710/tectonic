@@ -30,8 +30,8 @@ use crate::spc_warn;
 use bridge::{InFile, TTInputFormat};
 use std::ptr;
 
+use super::{Handler, SpcArg, SpcEnv};
 use super::{Result, ERR};
-use super::{SpcArg, SpcEnv};
 
 use super::SpcHandler;
 
@@ -130,37 +130,20 @@ unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     args.cur = &[];
     Ok(())
 }
-const MISC_HANDLERS: [SpcHandler; 6] = [
-    SpcHandler {
-        key: "postscriptbox",
-        exec: Some(spc_handler_postscriptbox),
-    },
-    SpcHandler {
-        key: "landscape",
-        exec: Some(spc_handler_null),
-    },
-    SpcHandler {
-        key: "papersize",
-        exec: Some(spc_handler_null),
-    },
-    SpcHandler {
-        key: "src:",
-        exec: Some(spc_handler_null),
-    },
-    SpcHandler {
-        key: "pos:",
-        exec: Some(spc_handler_null),
-    },
-    SpcHandler {
-        key: "om:",
-        exec: Some(spc_handler_null),
-    },
-];
+
+static MISC_HANDLERS: phf::Map<&'static str, Handler> = phf::phf_map! {
+    "postscriptbox" => spc_handler_postscriptbox,
+    "landscape" => spc_handler_null,
+    "papersize" => spc_handler_null,
+    "src:" => spc_handler_null,
+    "pos:" => spc_handler_null,
+    "om:" => spc_handler_null,
+};
 
 pub(crate) fn spc_misc_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
-    for handler in MISC_HANDLERS.iter() {
-        if buf.starts_with(handler.key.as_bytes()) {
+    for key in MISC_HANDLERS.keys() {
+        if buf.starts_with(key.as_bytes()) {
             return true;
         }
     }
@@ -189,14 +172,11 @@ pub(crate) unsafe fn spc_misc_setup_handler(
     if keylen < 1 {
         return ERR;
     }
-    for handler in MISC_HANDLERS.iter() {
-        if &key[..keylen] == handler.key.as_bytes() {
+    for (hkey, &exec) in MISC_HANDLERS.entries() {
+        if &key[..keylen] == hkey.as_bytes() {
             args.cur.skip_white();
-            args.command = Some(handler.key);
-            *handle = SpcHandler {
-                key: "???:",
-                exec: handler.exec,
-            };
+            args.command = Some(hkey);
+            *handle = SpcHandler { key: "???:", exec };
             return Ok(());
         }
     }

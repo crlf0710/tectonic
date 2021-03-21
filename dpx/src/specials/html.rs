@@ -752,7 +752,7 @@ pub(crate) unsafe fn spc_html_setup_handler(
     ap.command = Some("");
     *sph = SpcHandler {
         key: "html:",
-        exec: Some(spc_handler_html_default),
+        exec: spc_handler_html_default,
     };
     ap.cur = &ap.cur[b"html:".len()..];
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {

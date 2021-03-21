@@ -65,7 +65,7 @@ use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
 use crate::dpx_unicode::{UC_UTF16BE_is_valid_string, UC_UTF8_is_valid_string};
 
-use super::{SpcArg, SpcEnv};
+use super::{Handler, SpcArg, SpcEnv};
 
 use super::SpcHandler;
 #[derive(Clone)]
@@ -1461,328 +1461,89 @@ unsafe fn spc_handler_pdfm_tounicode(spe: &mut SpcEnv, args: &mut SpcArg) -> Res
         ERR
     }
 }
-const PDFM_HANDLERS: [SpcHandler; 80] = [
-    SpcHandler {
-        key: "annotation",
-        exec: Some(spc_handler_pdfm_annot),
-    },
-    SpcHandler {
-        key: "annotate",
-        exec: Some(spc_handler_pdfm_annot),
-    },
-    SpcHandler {
-        key: "annot",
-        exec: Some(spc_handler_pdfm_annot),
-    },
-    SpcHandler {
-        key: "ann",
-        exec: Some(spc_handler_pdfm_annot),
-    },
-    SpcHandler {
-        key: "outline",
-        exec: Some(spc_handler_pdfm_outline),
-    },
-    SpcHandler {
-        key: "out",
-        exec: Some(spc_handler_pdfm_outline),
-    },
-    SpcHandler {
-        key: "article",
-        exec: Some(spc_handler_pdfm_article),
-    },
-    SpcHandler {
-        key: "art",
-        exec: Some(spc_handler_pdfm_article),
-    },
-    SpcHandler {
-        key: "bead",
-        exec: Some(spc_handler_pdfm_bead),
-    },
-    SpcHandler {
-        key: "thread",
-        exec: Some(spc_handler_pdfm_bead),
-    },
-    SpcHandler {
-        key: "destination",
-        exec: Some(spc_handler_pdfm_dest),
-    },
-    SpcHandler {
-        key: "dest",
-        exec: Some(spc_handler_pdfm_dest),
-    },
-    SpcHandler {
-        key: "object",
-        exec: Some(spc_handler_pdfm_object),
-    },
-    SpcHandler {
-        key: "obj",
-        exec: Some(spc_handler_pdfm_object),
-    },
-    SpcHandler {
-        key: "docinfo",
-        exec: Some(spc_handler_pdfm_docinfo),
-    },
-    SpcHandler {
-        key: "docview",
-        exec: Some(spc_handler_pdfm_docview),
-    },
-    SpcHandler {
-        key: "content",
-        exec: Some(spc_handler_pdfm_content),
-    },
-    SpcHandler {
-        key: "put",
-        exec: Some(spc_handler_pdfm_put),
-    },
-    SpcHandler {
-        key: "close",
-        exec: Some(spc_handler_pdfm_close),
-    },
-    SpcHandler {
-        key: "bop",
-        exec: Some(spc_handler_pdfm_bop),
-    },
-    SpcHandler {
-        key: "eop",
-        exec: Some(spc_handler_pdfm_eop),
-    },
-    SpcHandler {
-        key: "image",
-        exec: Some(spc_handler_pdfm_image),
-    },
-    SpcHandler {
-        key: "img",
-        exec: Some(spc_handler_pdfm_image),
-    },
-    SpcHandler {
-        key: "epdf",
-        exec: Some(spc_handler_pdfm_image),
-    },
-    SpcHandler {
-        key: "link",
-        exec: Some(spc_handler_pdfm_link),
-    },
-    SpcHandler {
-        key: "nolink",
-        exec: Some(spc_handler_pdfm_nolink),
-    },
-    SpcHandler {
-        key: "begincolor",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "bcolor",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "bc",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "setcolor",
-        exec: Some(spc_handler_pdfm_scolor),
-    },
-    SpcHandler {
-        key: "scolor",
-        exec: Some(spc_handler_pdfm_scolor),
-    },
-    SpcHandler {
-        key: "sc",
-        exec: Some(spc_handler_pdfm_scolor),
-    },
-    SpcHandler {
-        key: "endcolor",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "ecolor",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "ec",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "begingray",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "bgray",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "bg",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "endgray",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "egray",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "eg",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "bgcolor",
-        exec: Some(spc_handler_pdfm_bgcolor),
-    },
-    SpcHandler {
-        key: "bgc",
-        exec: Some(spc_handler_pdfm_bgcolor),
-    },
-    SpcHandler {
-        key: "bbc",
-        exec: Some(spc_handler_pdfm_bgcolor),
-    },
-    SpcHandler {
-        key: "bbg",
-        exec: Some(spc_handler_pdfm_bgcolor),
-    },
-    SpcHandler {
-        key: "pagesize",
-        exec: Some(spc_handler_pdfm_pagesize),
-    },
-    SpcHandler {
-        key: "bannot",
-        exec: Some(spc_handler_pdfm_bann),
-    },
-    SpcHandler {
-        key: "beginann",
-        exec: Some(spc_handler_pdfm_bann),
-    },
-    SpcHandler {
-        key: "bann",
-        exec: Some(spc_handler_pdfm_bann),
-    },
-    SpcHandler {
-        key: "eannot",
-        exec: Some(spc_handler_pdfm_eann),
-    },
-    SpcHandler {
-        key: "endann",
-        exec: Some(spc_handler_pdfm_eann),
-    },
-    SpcHandler {
-        key: "eann",
-        exec: Some(spc_handler_pdfm_eann),
-    },
-    SpcHandler {
-        key: "btrans",
-        exec: Some(spc_handler_pdfm_btrans),
-    },
-    SpcHandler {
-        key: "begintransform",
-        exec: Some(spc_handler_pdfm_btrans),
-    },
-    SpcHandler {
-        key: "begintrans",
-        exec: Some(spc_handler_pdfm_btrans),
-    },
-    SpcHandler {
-        key: "bt",
-        exec: Some(spc_handler_pdfm_btrans),
-    },
-    SpcHandler {
-        key: "etrans",
-        exec: Some(spc_handler_pdfm_etrans),
-    },
-    SpcHandler {
-        key: "endtransform",
-        exec: Some(spc_handler_pdfm_etrans),
-    },
-    SpcHandler {
-        key: "endtrans",
-        exec: Some(spc_handler_pdfm_etrans),
-    },
-    SpcHandler {
-        key: "et",
-        exec: Some(spc_handler_pdfm_etrans),
-    },
-    SpcHandler {
-        key: "bform",
-        exec: Some(spc_handler_pdfm_bform),
-    },
-    SpcHandler {
-        key: "beginxobj",
-        exec: Some(spc_handler_pdfm_bform),
-    },
-    SpcHandler {
-        key: "bxobj",
-        exec: Some(spc_handler_pdfm_bform),
-    },
-    SpcHandler {
-        key: "eform",
-        exec: Some(spc_handler_pdfm_eform),
-    },
-    SpcHandler {
-        key: "endxobj",
-        exec: Some(spc_handler_pdfm_eform),
-    },
-    SpcHandler {
-        key: "exobj",
-        exec: Some(spc_handler_pdfm_eform),
-    },
-    SpcHandler {
-        key: "usexobj",
-        exec: Some(spc_handler_pdfm_uxobj),
-    },
-    SpcHandler {
-        key: "uxobj",
-        exec: Some(spc_handler_pdfm_uxobj),
-    },
-    SpcHandler {
-        key: "tounicode",
-        exec: Some(spc_handler_pdfm_tounicode),
-    },
-    SpcHandler {
-        key: "literal",
-        exec: Some(spc_handler_pdfm_literal),
-    },
-    SpcHandler {
-        key: "stream",
-        exec: Some(spc_handler_pdfm_stream),
-    },
-    SpcHandler {
-        key: "fstream",
-        exec: Some(spc_handler_pdfm_fstream),
-    },
-    SpcHandler {
-        key: "names",
-        exec: Some(spc_handler_pdfm_names),
-    },
-    SpcHandler {
-        key: "mapline",
-        exec: Some(spc_handler_pdfm_mapline),
-    },
-    SpcHandler {
-        key: "mapfile",
-        exec: Some(spc_handler_pdfm_mapfile),
-    },
-    SpcHandler {
-        key: "bcontent",
-        exec: Some(spc_handler_pdfm_bcontent),
-    },
-    SpcHandler {
-        key: "econtent",
-        exec: Some(spc_handler_pdfm_econtent),
-    },
-    SpcHandler {
-        key: "code",
-        exec: Some(spc_handler_pdfm_code),
-    },
-    SpcHandler {
-        key: "minorversion",
-        exec: Some(spc_handler_pdfm_do_nothing),
-    },
-    SpcHandler {
-        key: "encrypt",
-        exec: Some(spc_handler_pdfm_do_nothing),
-    },
-];
+
+static PDFM_HANDLERS: phf::Map<&'static str, Handler> = phf::phf_map! {
+    "annotation" => spc_handler_pdfm_annot,
+    "annotate" => spc_handler_pdfm_annot,
+    "annot" => spc_handler_pdfm_annot,
+    "ann" => spc_handler_pdfm_annot,
+    "outline" => spc_handler_pdfm_outline,
+    "out" => spc_handler_pdfm_outline,
+    "article" => spc_handler_pdfm_article,
+    "art" => spc_handler_pdfm_article,
+    "bead" => spc_handler_pdfm_bead,
+    "thread" => spc_handler_pdfm_bead,
+    "destination" => spc_handler_pdfm_dest,
+    "dest" => spc_handler_pdfm_dest,
+    "object" => spc_handler_pdfm_object,
+    "obj" => spc_handler_pdfm_object,
+    "docinfo" => spc_handler_pdfm_docinfo,
+    "docview" => spc_handler_pdfm_docview,
+    "content" => spc_handler_pdfm_content,
+    "put" => spc_handler_pdfm_put,
+    "close" => spc_handler_pdfm_close,
+    "bop" => spc_handler_pdfm_bop,
+    "eop" => spc_handler_pdfm_eop,
+    "image" => spc_handler_pdfm_image,
+    "img" => spc_handler_pdfm_image,
+    "epdf" => spc_handler_pdfm_image,
+    "link" => spc_handler_pdfm_link,
+    "nolink" => spc_handler_pdfm_nolink,
+    "begincolor" => spc_handler_pdfm_bcolor,
+    "bcolor" => spc_handler_pdfm_bcolor,
+    "bc" => spc_handler_pdfm_bcolor,
+    "setcolor" => spc_handler_pdfm_scolor,
+    "scolor" => spc_handler_pdfm_scolor,
+    "sc" => spc_handler_pdfm_scolor,
+    "endcolor" => spc_handler_pdfm_ecolor,
+    "ecolor" => spc_handler_pdfm_ecolor,
+    "ec" => spc_handler_pdfm_ecolor,
+    "begingray" => spc_handler_pdfm_bcolor,
+    "bgray" => spc_handler_pdfm_bcolor,
+    "bg" => spc_handler_pdfm_bcolor,
+    "endgray" => spc_handler_pdfm_ecolor,
+    "egray" => spc_handler_pdfm_ecolor,
+    "eg" => spc_handler_pdfm_ecolor,
+    "bgcolor" => spc_handler_pdfm_bgcolor,
+    "bgc" => spc_handler_pdfm_bgcolor,
+    "bbc" => spc_handler_pdfm_bgcolor,
+    "bbg" => spc_handler_pdfm_bgcolor,
+    "pagesize" => spc_handler_pdfm_pagesize,
+    "bannot" => spc_handler_pdfm_bann,
+    "beginann" => spc_handler_pdfm_bann,
+    "bann" => spc_handler_pdfm_bann,
+    "eannot" => spc_handler_pdfm_eann,
+    "endann" => spc_handler_pdfm_eann,
+    "eann" => spc_handler_pdfm_eann,
+    "btrans" => spc_handler_pdfm_btrans,
+    "begintransform" => spc_handler_pdfm_btrans,
+    "begintrans" => spc_handler_pdfm_btrans,
+    "bt" => spc_handler_pdfm_btrans,
+    "etrans" => spc_handler_pdfm_etrans,
+    "endtransform" => spc_handler_pdfm_etrans,
+    "endtrans" => spc_handler_pdfm_etrans,
+    "et" => spc_handler_pdfm_etrans,
+    "bform" => spc_handler_pdfm_bform,
+    "beginxobj" => spc_handler_pdfm_bform,
+    "bxobj" => spc_handler_pdfm_bform,
+    "eform" => spc_handler_pdfm_eform,
+    "endxobj" => spc_handler_pdfm_eform,
+    "exobj" => spc_handler_pdfm_eform,
+    "usexobj" => spc_handler_pdfm_uxobj,
+    "uxobj" => spc_handler_pdfm_uxobj,
+    "tounicode" => spc_handler_pdfm_tounicode,
+    "literal" => spc_handler_pdfm_literal,
+    "stream" => spc_handler_pdfm_stream,
+    "fstream" => spc_handler_pdfm_fstream,
+    "names" => spc_handler_pdfm_names,
+    "mapline" => spc_handler_pdfm_mapline,
+    "mapfile" => spc_handler_pdfm_mapfile,
+    "bcontent" => spc_handler_pdfm_bcontent,
+    "econtent" => spc_handler_pdfm_econtent,
+    "code" => spc_handler_pdfm_code,
+    "minorversion" => spc_handler_pdfm_do_nothing,
+    "encrypt" => spc_handler_pdfm_do_nothing,
+};
 pub(crate) fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     buf.starts_with(b"pdf:")
@@ -1802,17 +1563,11 @@ pub(crate) unsafe fn spc_pdfm_setup_handler(
     ap.cur = &ap.cur[b"pdf:".len()..];
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
-        for handler in PDFM_HANDLERS.iter() {
-            if q == handler.key {
-                ap.command = Some(handler.key);
-                *sph = SpcHandler {
-                    key: "pdf:",
-                    exec: handler.exec,
-                };
-                ap.cur.skip_white();
-                error = Ok(());
-                break;
-            }
+        if let Some((key, &exec)) = PDFM_HANDLERS.get_entry(q.as_str()) {
+            ap.command = Some(key);
+            *sph = SpcHandler { key: "pdf:", exec };
+            ap.cur.skip_white();
+            error = Ok(());
         }
     }
     error

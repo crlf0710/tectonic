@@ -44,7 +44,7 @@ use crate::spc_warn;
 
 /* quasi-hack to get the primary input */
 
-use super::SpcHandler;
+use super::{Handler, SpcHandler};
 
 use crate::dpx_pdfximage::load_options;
 static mut BLOCK_PENDING: i32 = 0;
@@ -267,48 +267,19 @@ unsafe fn spc_handler_ps_default(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
     pdf_dev_grestore();
     error
 }
-const DVIPS_HANDLERS: [SpcHandler; 10] = [
-    SpcHandler {
-        key: "header",
-        exec: Some(spc_handler_ps_header),
-    },
-    SpcHandler {
-        key: "PSfile",
-        exec: Some(spc_handler_ps_file),
-    },
-    SpcHandler {
-        key: "psfile",
-        exec: Some(spc_handler_ps_file),
-    },
-    SpcHandler {
-        key: "ps: plotfile ",
-        exec: Some(spc_handler_ps_plotfile),
-    },
-    SpcHandler {
-        key: "PS: plotfile ",
-        exec: Some(spc_handler_ps_plotfile),
-    },
-    SpcHandler {
-        key: "PS:",
-        exec: Some(spc_handler_ps_literal),
-    },
-    SpcHandler {
-        key: "ps:",
-        exec: Some(spc_handler_ps_literal),
-    },
-    SpcHandler {
-        key: "PST:",
-        exec: Some(spc_handler_ps_trickscmd),
-    },
-    SpcHandler {
-        key: "pst:",
-        exec: Some(spc_handler_ps_tricksobj),
-    },
-    SpcHandler {
-        key: "\" ",
-        exec: Some(spc_handler_ps_default),
-    },
-];
+
+static DVIPS_HANDLERS: phf::Map<&'static str, Handler> = phf::phf_map! {
+    "header" => spc_handler_ps_header,
+    "PSfile" => spc_handler_ps_file,
+    "psfile" => spc_handler_ps_file,
+    "ps: plotfile " => spc_handler_ps_plotfile,
+    "PS: plotfile " => spc_handler_ps_plotfile,
+    "PS:" => spc_handler_ps_literal,
+    "ps:" => spc_handler_ps_literal,
+    "PST:" => spc_handler_ps_trickscmd,
+    "pst:" => spc_handler_ps_tricksobj,
+    "\" " => spc_handler_ps_default,
+};
 
 pub(crate) unsafe fn spc_dvips_at_begin_document() -> Result<()> {
     /* This function used to start the global_defs temp file. */
@@ -334,8 +305,8 @@ pub(crate) fn spc_dvips_check_special(mut buf: &[u8]) -> bool {
     if buf.is_empty() {
         return false;
     }
-    for handler in DVIPS_HANDLERS.iter() {
-        if buf.starts_with(handler.key.as_bytes()) {
+    for key in DVIPS_HANDLERS.keys() {
+        if buf.starts_with(key.as_bytes()) {
             return true;
         }
     }
@@ -366,14 +337,11 @@ pub(crate) unsafe fn spc_dvips_setup_handler(
         spc_warn!(spe, "Not ps: special???");
         return ERR;
     }
-    for handler in DVIPS_HANDLERS.iter() {
-        if &key[..keylen] == handler.key.as_bytes() {
+    for (hkey, &exec) in DVIPS_HANDLERS.entries() {
+        if &key[..keylen] == hkey.as_bytes() {
             args.cur.skip_white();
-            args.command = Some(handler.key);
-            *handle = SpcHandler {
-                key: "ps:",
-                exec: handler.exec,
-            };
+            args.command = Some(hkey);
+            *handle = SpcHandler { key: "ps:", exec };
             return Ok(());
         }
     }
