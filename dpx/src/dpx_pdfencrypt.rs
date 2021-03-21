@@ -31,13 +31,12 @@ use std::slice::from_raw_parts;
 
 use super::dpx_dpxcrypt::ARC4_CONTEXT;
 use super::dpx_dpxcrypt::{AES_cbc_encrypt_tectonic, AES_ecb_encrypt, ARC4_set_key, ARC4};
-use super::dpx_mem::new;
 use super::dpx_pdfdoc::pdf_doc_mut;
 use super::dpx_pdffont::get_unique_time_if_given;
 use crate::dpx_pdfobj::{pdf_dict, pdf_get_version, pdf_obj, pdf_string, PushObj};
 use crate::warn;
 use chrono::prelude::*;
-use libc::{free, memcpy, memset, srand, strcpy, strlen};
+use libc::{memcpy, srand, strlen};
 use md5::{Digest, Md5};
 use rand::prelude::*;
 use sha2::{Sha256, Sha384, Sha512};
@@ -456,19 +455,16 @@ unsafe fn check_version(p: &mut pdf_sec, version: i32) {
 }
 unsafe fn stringprep_profile(
     input: *const i8,
-    output: *mut *mut i8,
-    mut _profile: *const i8,
+    _profile: &str,
     mut _flags: Stringprep_profile_flags,
-) -> Result<(), std::str::Utf8Error> {
+) -> Result<String, std::str::Utf8Error> {
     let len = strlen(input);
-    let _ = std::str::from_utf8(std::slice::from_raw_parts(input as *const u8, len as _))?;
-    *output = new((len.wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    strcpy(*output, input);
-    Ok(())
+    std::str::from_utf8(std::slice::from_raw_parts(input as *const u8, len as _))
+        .map(|s| s.to_string())
 }
 unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
     let mut error: i32 = 0;
-    memset(outbuf as *mut libc::c_void, 0, 128);
+    std::slice::from_raw_parts_mut(outbuf, 128).fill(0);
     match V {
         1 | 2 | 3 | 4 => {
             /* Need to be converted to PDFDocEncoding - UNIMPLEMENTED */
@@ -491,29 +487,18 @@ unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
         }
         5 => {
             /* This is a dummy routine - not actually stringprep password... */
-            let mut saslpwd: *mut i8 = ptr::null_mut();
-            if stringprep_profile(
-                passwd,
-                &mut saslpwd,
-                b"SASLprep\x00" as *const u8 as *const i8,
-                0,
-            )
-            .is_err()
-            {
-                return -1;
-            } else {
-                if !saslpwd.is_null() {
-                    memcpy(
-                        outbuf as *mut libc::c_void,
-                        saslpwd as *const libc::c_void,
-                        if 127 < strlen(saslpwd) {
-                            127
-                        } else {
-                            strlen(saslpwd)
-                        },
-                    );
-                    free(saslpwd as *mut libc::c_void);
+            if let Ok(saslpwd) = stringprep_profile(passwd, "SASLprep", 0) {
+                if !saslpwd.is_empty() {
+                    let len = if 127 < saslpwd.len() {
+                        127
+                    } else {
+                        saslpwd.len()
+                    };
+                    std::slice::from_raw_parts_mut(outbuf as *mut u8, len)
+                        .copy_from_slice(&saslpwd.as_bytes()[..len]);
                 }
+            } else {
+                return -1;
             }
         }
         _ => error = -1,

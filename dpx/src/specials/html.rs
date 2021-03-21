@@ -447,11 +447,6 @@ unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
 /* ENABLE_HTML_SVG_OPACITY */
 unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> Result<()> {
     let mut ti = transform_info::new();
-    let options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     let mut alpha: f64 = 1.0f64;
     /* ENABLE_HTML_SVG_OPACITY */
     let mut M: TMatrix = TMatrix::create_translation(spe.x_user, spe.y_user);
@@ -513,6 +508,11 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> Result<()> {
         }
     }
     /* ENABLE_HTML_SVG_TRANSFORM */
+    let options: load_options = load_options {
+        page_no: 1,
+        bbox_type: PdfPageBoundary::Auto,
+        dict: ptr::null_mut(),
+    };
     let id = pdf_ximage_findresource(
         &std::str::from_utf8(src.as_string().to_bytes()).unwrap(),
         options,

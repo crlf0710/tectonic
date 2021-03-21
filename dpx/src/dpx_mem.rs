@@ -26,8 +26,7 @@
     non_upper_case_globals
 )]
 
-use libc::{free, malloc, realloc};
-use std::ptr;
+use libc::malloc;
 
 pub(crate) unsafe fn new(size: u32) -> *mut libc::c_void {
     let result: *mut libc::c_void = malloc(size as _);
@@ -35,18 +34,4 @@ pub(crate) unsafe fn new(size: u32) -> *mut libc::c_void {
         panic!("Out of memory - asked for {} bytes\n", size);
     }
     result
-}
-
-pub(crate) unsafe fn renew(mem: *mut libc::c_void, size: u32) -> *mut libc::c_void {
-    if size != 0 {
-        let result: *mut libc::c_void = realloc(mem, size as _);
-        if result.is_null() {
-            panic!("Out of memory - asked for {} bytes\n", size);
-        }
-        return result;
-    } else {
-        /* realloc may not return NULL if size == 0 */
-        free(mem);
-        return ptr::null_mut();
-    };
 }

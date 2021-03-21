@@ -36,7 +36,6 @@ use super::dpx_cmap::{
     CMap_set_verbose,
 };
 use super::dpx_fontmap::fontmap;
-use super::dpx_mem::new;
 use super::dpx_pdfencoding::{
     pdf_close_encodings, pdf_encoding_add_usedchars, pdf_encoding_complete,
     pdf_encoding_findresource, pdf_encoding_get_name, pdf_encoding_get_tounicode,
@@ -55,7 +54,7 @@ use crate::dpx_pdfobj::{
     pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, IntoObj, IntoRef, Object,
 };
 use crate::{info, warn};
-use libc::{free, memset, rand, srand};
+use libc::{memset, rand, srand};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum FontType {
@@ -282,7 +281,7 @@ unsafe fn pdf_flush_font(font: &mut pdf_font) {
     font.descriptor = ptr::null_mut();
 }
 unsafe fn pdf_clean_font_struct(mut font: &mut pdf_font) {
-    free(font.usedchars as *mut libc::c_void);
+    libc::free(font.usedchars as *mut libc::c_void);
     if !font.reference.is_null() {
         panic!("pdf_font>> Object not flushed.");
     }
@@ -333,8 +332,9 @@ pub(crate) unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
         return Type0Font_get_usedchars(&*t0font);
     } else {
         if font.usedchars.is_null() {
-            font.usedchars =
-                new((256_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
+            font.usedchars = crate::dpx_mem::new(
+                (256_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
+            ) as *mut i8;
             memset(
                 font.usedchars as *mut libc::c_void,
                 0,

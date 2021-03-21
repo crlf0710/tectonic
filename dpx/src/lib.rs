@@ -85,12 +85,6 @@ impl SkipBlank for &[u8] {
     }
 }
 
-#[inline]
-unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {
-    libc::free(ptr);
-    std::ptr::null_mut()
-}
-
 use core::mem::MaybeUninit;
 pub(crate) trait FromLEByteSlice {
     fn from_le_byte_slice(b: &[u8]) -> Self;

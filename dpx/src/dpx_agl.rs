@@ -33,11 +33,10 @@ use std::ptr;
 
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
-use super::dpx_mem::new;
 use super::dpx_mfileio::tt_mfreadln;
 use super::dpx_pdfparse::{ParseIdent, SkipWhite};
 use super::dpx_unicode::{UC_UTF16BE_encode_char, UC_is_valid};
-use libc::{free, memcpy, strchr, strlen};
+use libc::{strchr, strlen};
 
 use crate::bridge::TTInputFormat;
 
@@ -66,14 +65,14 @@ pub(crate) unsafe fn agl_set_verbose(level: i32) {
     verbose = level;
 }
 unsafe fn agl_new_name() -> *mut agl_name {
-    let agln =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<agl_name>() as u64) as u32) as *mut agl_name;
-    (*agln).name = ptr::null_mut();
-    (*agln).suffix = ptr::null_mut();
-    (*agln).n_components = 0;
-    (*agln).alternate = ptr::null_mut();
-    (*agln).is_predef = 0;
-    agln
+    Box::into_raw(Box::new(agl_name {
+        name: ptr::null_mut(),
+        suffix: ptr::null_mut(),
+        n_components: 0,
+        alternate: ptr::null_mut(),
+        is_predef: 0,
+        unicodes: [0; 16],
+    }))
 }
 unsafe fn agl_release_name(mut agln: *mut agl_name) {
     while !agln.is_null() {
@@ -83,7 +82,7 @@ unsafe fn agl_release_name(mut agln: *mut agl_name) {
             let _ = CString::from_raw((*agln).suffix);
         }
         (*agln).name = ptr::null_mut();
-        free(agln as *mut libc::c_void);
+        let _ = Box::from(agln);
         agln = next
     }
 }
@@ -699,17 +698,8 @@ pub(crate) unsafe fn agl_get_unicodes(
             delim = endptr;
         }
         let sub_len = delim.offset_from(p) as i32;
-        let name_p = new(
-            ((sub_len + 1) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
-        ) as *mut i8;
-        memcpy(
-            name_p as *mut libc::c_void,
-            p as *const libc::c_void,
-            sub_len as _,
-        );
-        *name_p.offset(sub_len as isize) = '\u{0}' as i32 as i8;
-        let name = CStr::from_ptr(name_p).to_owned();
-        free(name_p as *mut libc::c_void);
+        let slice = std::slice::from_raw_parts(p as *const u8, sub_len as _);
+        let name = CString::new(slice).unwrap();
         if agl_name_is_unicode(name.to_bytes()) {
             let mut p = name.to_bytes();
             if p[1] != b'n' {

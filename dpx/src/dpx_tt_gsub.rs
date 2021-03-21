@@ -35,9 +35,7 @@ use super::dpx_numbers::GetFromFile;
 use super::dpx_sfnt::sfnt_find_table_pos;
 use crate::{info, warn};
 
-use super::dpx_mem::new;
 use super::dpx_otl_opt::OtlOpt;
-use libc::free;
 
 use std::io::{Seek, SeekFrom};
 
@@ -827,7 +825,7 @@ unsafe fn clear_chain(gsub_list: *mut otl_gsub) {
     let mut entry = (*gsub_list).first;
     while !entry.is_null() {
         let next = (*entry).next;
-        free(entry as *mut libc::c_void);
+        let _ = Box::from_raw(entry);
         entry = next
     }
     (*gsub_list).first = ptr::null_mut();
@@ -1015,9 +1013,10 @@ pub(crate) unsafe fn otl_gsub_set_chain(gsub_list: *mut otl_gsub, otl_tags: *con
     for p in CStr::from_ptr(otl_tags).to_bytes().split(|&c| c == b':') {
         if let Ok((script, language, feature)) = scan_otl_tag(p) {
             if let Some(idx) = gsub_find(&*gsub_list, &script, &language, &feature) {
-                let entry =
-                    new((1_u64).wrapping_mul(::std::mem::size_of::<gsub_entry>() as u64) as u32)
-                        as *mut gsub_entry;
+                let entry = Box::into_raw(Box::new(gsub_entry {
+                    index: 0,
+                    next: ptr::null_mut(),
+                }));
                 if (*gsub_list).first.is_null() {
                     (*gsub_list).first = entry
                 }

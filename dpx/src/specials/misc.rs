@@ -62,11 +62,6 @@ fn parse_postscriptbox_special(buf: &str) -> std::result::Result<(f64, f64, Stri
 /* quasi-hack to get the primary input */
 unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let mut ti = transform_info::new();
-    let options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     let mut buf: [u8; 512] = [0; 512];
     if ap.cur.is_empty() {
         spc_warn!(
@@ -112,6 +107,11 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result
                 break;
             }
         }
+        let options: load_options = load_options {
+            page_no: 1,
+            bbox_type: PdfPageBoundary::Auto,
+            dict: ptr::null_mut(),
+        };
         let form_id = pdf_ximage_findresource(&filename, options);
         if form_id < 0 {
             spc_warn!(spe, "Failed to load image file: {}", filename);

@@ -35,7 +35,6 @@ use super::dpx_cid::{
     CIDFont_is_UCSFont,
 };
 use super::dpx_cmap::CMap_cache_get;
-use super::dpx_mem::new;
 use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
 use super::dpx_pdfresource::{pdf_defineresource, pdf_findresource, pdf_get_resource_reference};
 use super::dpx_tt_cmap::otf_create_ToUnicode_stream;
@@ -44,7 +43,7 @@ use crate::dpx_pdfobj::{
     STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use libc::{free, memset};
+use libc::memset;
 
 #[derive(Clone)]
 pub(crate) struct Type0Font {
@@ -68,7 +67,8 @@ pub(crate) unsafe fn Type0Font_set_verbose(level: i32) {
     __verbose = level;
 }
 unsafe fn new_used_chars2() -> *mut i8 {
-    let used_chars = new((8192usize).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
+    let used_chars =
+        crate::dpx_mem::new((8192usize).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
     memset(used_chars as *mut libc::c_void, 0, 8192);
     used_chars
 }
@@ -101,7 +101,7 @@ unsafe fn Type0Font_clean(font: &mut Type0Font) {
         panic!("{}: FontDescriptor unexpected for Type0 font.", "Type0");
     }
     if font.flags & 1 << 0 == 0 && !font.used_chars.is_null() {
-        free(font.used_chars as *mut libc::c_void);
+        libc::free(font.used_chars as *mut libc::c_void);
     }
     font.fontdict = ptr::null_mut();
     font.indirect = ptr::null_mut();

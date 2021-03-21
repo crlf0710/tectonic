@@ -40,7 +40,6 @@ use super::dpx_dpxutil::{
 };
 use super::dpx_dvipdfmx::is_xdv;
 use super::dpx_jpegimage::check_for_jpeg;
-use super::dpx_mem::new;
 use super::dpx_pdfcolor::{pdf_close_colors, pdf_color_set_verbose, pdf_init_colors, WHITE};
 use super::dpx_pdfdev::{
     pdf_dev_bop, pdf_dev_eop, pdf_dev_get_coord, pdf_dev_get_param, pdf_dev_reset_color,
@@ -70,7 +69,6 @@ use crate::dpx_pdfobj::{
     pdf_set_info, pdf_set_root, pdf_stream, pdf_string, DerefObj, IntoObj, IntoRef, Object,
     PushObj, STREAM_COMPRESS,
 };
-use libc::free;
 
 pub(crate) use super::dpx_pdfcolor::PdfColor;
 
@@ -213,11 +211,6 @@ static mut thumb_basename: String = String::new();
     // warn!("Manual thumbnail is not supported without the libpng library.");
 }*/
 unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
-    let options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     let handle = InFile::open(thumb_filename, TTInputFormat::PICT, 0);
     if handle.is_none() {
         warn!("Could not open thumbnail file \"{}\"", thumb_filename);
@@ -228,6 +221,11 @@ unsafe fn read_thumbnail(thumb_filename: &str) -> *mut pdf_obj {
         warn!("Thumbnail \"{}\" not a png/jpeg file!", thumb_filename);
         return ptr::null_mut();
     }
+    let options: load_options = load_options {
+        page_no: 1,
+        bbox_type: PdfPageBoundary::Auto,
+        dict: ptr::null_mut(),
+    };
     let xobj_id = pdf_ximage_findresource(thumb_filename, options);
     if xobj_id < 0 {
         warn!("Could not read thumbnail file \"{}\".", thumb_filename);
@@ -1191,13 +1189,13 @@ impl PdfDoc {
             256u32.wrapping_sub(bm_open_depth as u32)
         }) as i32;
         self.outlines.current_depth = 1;
-        let item = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_olitem>() as u64) as u32)
-            as *mut pdf_olitem;
-        (*item).dict = ptr::null_mut();
-        (*item).next = ptr::null_mut();
-        (*item).first = ptr::null_mut();
-        (*item).parent = ptr::null_mut();
-        (*item).is_open = 1;
+        let item = Box::into_raw(Box::new(pdf_olitem {
+            dict: ptr::null_mut(),
+            next: ptr::null_mut(),
+            first: ptr::null_mut(),
+            parent: ptr::null_mut(),
+            is_open: 1,
+        }));
         self.outlines.current = item;
         self.outlines.first = item;
     }
@@ -1209,7 +1207,7 @@ unsafe fn clean_bookmarks(mut item: *mut pdf_olitem) -> i32 {
         if !(*item).first.is_null() {
             clean_bookmarks((*item).first);
         }
-        free(item as *mut libc::c_void);
+        let _ = Box::from_raw(item);
         item = next
     }
     0
@@ -1278,14 +1276,14 @@ impl PdfDoc {
         let parent = (*item).parent;
         let mut item = (*parent).next;
         if (*parent).next.is_null() {
-            item = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_olitem>() as u64) as u32)
-                as *mut pdf_olitem;
+            item = Box::into_raw(Box::new(pdf_olitem {
+                dict: ptr::null_mut(),
+                first: ptr::null_mut(),
+                next: ptr::null_mut(),
+                is_open: 0,
+                parent: (*parent).parent,
+            }));
             (*parent).next = item;
-            (*item).dict = ptr::null_mut();
-            (*item).first = ptr::null_mut();
-            (*item).next = ptr::null_mut();
-            (*item).is_open = 0;
-            (*item).parent = (*parent).parent
         }
         self.outlines.current = item;
         self.outlines.current_depth -= 1;
@@ -1322,14 +1320,14 @@ impl PdfDoc {
             (*(*item).dict).as_dict_mut().set("A", pdf_link_obj(action));
             crate::release!(action);
         }
-        let first = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_olitem>() as u64) as u32)
-            as *mut pdf_olitem;
+        let first = Box::into_raw(Box::new(pdf_olitem {
+            dict: ptr::null_mut(),
+            is_open: 0,
+            parent: item,
+            next: ptr::null_mut(),
+            first: ptr::null_mut(),
+        }));
         (*item).first = first;
-        (*first).dict = ptr::null_mut();
-        (*first).is_open = 0;
-        (*first).parent = item;
-        (*first).next = ptr::null_mut();
-        (*first).first = ptr::null_mut();
         self.outlines.current = first;
         self.outlines.current_depth += 1;
         0
@@ -1342,9 +1340,13 @@ impl PdfDoc {
     pub(crate) unsafe fn bookmarks_add(&mut self, dict: &mut pdf_obj, is_open: i32) {
         let mut item = self.outlines.current;
         if item.is_null() {
-            item = new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_olitem>() as u64) as u32)
-                as *mut pdf_olitem;
-            (*item).parent = ptr::null_mut();
+            item = Box::into_raw(Box::new(pdf_olitem {
+                dict: ptr::null_mut(),
+                parent: ptr::null_mut(),
+                first: ptr::null_mut(),
+                is_open: 0,
+                next: ptr::null_mut(),
+            }));
             self.outlines.first = item
         } else if !(*item).dict.is_null() {
             /* go to next item */
@@ -1361,15 +1363,14 @@ impl PdfDoc {
         } else {
             is_open
         };
-        let next =
-            &mut *(new((1_u64).wrapping_mul(::std::mem::size_of::<pdf_olitem>() as u64) as u32)
-                as *mut pdf_olitem);
+        let next = Box::into_raw(Box::new(pdf_olitem {
+            dict: ptr::null_mut(),
+            parent: (*item).parent,
+            first: ptr::null_mut(),
+            is_open: -1,
+            next: ptr::null_mut(),
+        }));
         (*item).next = next;
-        next.dict = ptr::null_mut();
-        next.parent = (*item).parent;
-        next.first = ptr::null_mut();
-        next.is_open = -1;
-        next.next = ptr::null_mut();
         self.outlines.current = item;
         self.add_goto((*dict).as_dict_mut());
     }
@@ -2294,23 +2295,23 @@ impl PdfDoc {
         cropbox: &Rect,
     ) -> i32 {
         pdf_dev_push_gstate();
-        let mut fnode =
-            new((1_u64).wrapping_mul(::std::mem::size_of::<form_list_node>() as u64) as u32)
-                as *mut form_list_node;
-        (*fnode).prev = self.pending_forms;
-        (*fnode).q_depth = pdf_dev_current_depth() as i32;
-        let form = &mut (*fnode).form;
-        /*
-         * The reference point of an Xobject is at the lower left corner
-         * of the bounding box.  Since we would like to have an arbitrary
-         * reference point, we use a transformation matrix, translating
-         * the reference point to (0,0).
-         */
-        form.matrix = TMatrix::create_translation(-ref_x, -ref_y);
-        let ref_xy = point2(ref_x, ref_y).to_vector();
-        form.cropbox = cropbox.translate(ref_xy);
-        form.contents = pdf_stream::new(STREAM_COMPRESS).into_obj();
-        form.resources = pdf_dict::new().into_obj();
+        let fnode = Box::into_raw(Box::new(form_list_node {
+            q_depth: pdf_dev_current_depth() as i32,
+            /*
+             * The reference point of an Xobject is at the lower left corner
+             * of the bounding box.  Since we would like to have an arbitrary
+             * reference point, we use a transformation matrix, translating
+             * the reference point to (0,0).
+             */
+            form: pdf_form {
+                ident: ptr::null_mut(),
+                matrix: TMatrix::create_translation(-ref_x, -ref_y),
+                cropbox: cropbox.translate(point2(ref_x, ref_y).to_vector()),
+                contents: pdf_stream::new(STREAM_COMPRESS).into_obj(),
+                resources: pdf_dict::new().into_obj(),
+            },
+            prev: self.pending_forms,
+        }));
         let mut info = Box::new(xform_info::new());
         info.matrix = TMatrix::create_translation(-ref_x, -ref_y);
         info.bbox = *cropbox;
@@ -2318,7 +2319,7 @@ impl PdfDoc {
         let xobj_id = pdf_ximage_defineresource(
             ident,
             XInfo::Form(info),
-            pdf_new_ref(&mut *form.contents).into_obj(),
+            pdf_new_ref(&mut *(*fnode).form.contents).into_obj(),
         );
         self.pending_forms = fnode;
         /*
@@ -2364,7 +2365,7 @@ impl PdfDoc {
         pdf_dev_pop_gstate();
         pdf_dev_reset_fonts(1);
         pdf_dev_reset_color(0);
-        free(fnode as *mut libc::c_void);
+        let _ = Box::from_raw(fnode);
     }
 }
 static mut breaking_state: BreakingState = BreakingState {

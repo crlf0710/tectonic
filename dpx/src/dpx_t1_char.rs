@@ -26,10 +26,8 @@
     non_upper_case_globals
 )]
 
-use super::dpx_mem::new;
-use crate::mfree;
 use crate::warn;
-use libc::{free, memcpy};
+use libc::memcpy;
 use std::cmp::Ordering;
 use std::ptr;
 
@@ -238,11 +236,12 @@ unsafe fn copy_args(mut args1: *mut f64, mut args2: *mut f64, count: i32) {
 unsafe fn add_charpath(mut cd: *mut t1_chardesc, type_0: i32, argv: *mut f64, argn: i32) {
     assert!(!cd.is_null());
     assert!(argn <= 48);
-    let mut p =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<t1_cpath>() as u64) as u32) as *mut t1_cpath;
-    (*p).type_0 = type_0;
-    (*p).num_args = argn;
-    (*p).next = ptr::null_mut();
+    let mut p = Box::into_raw(Box::new(t1_cpath {
+        type_0,
+        num_args: argn,
+        args: [0.; 48],
+        next: ptr::null_mut(),
+    }));
     for i in (0..argn).rev() {
         (*p).args[i as usize] = *argv.offset(i as isize)
     }
@@ -280,7 +279,7 @@ unsafe fn release_charpath(mut cd: *mut t1_chardesc) {
     let mut curr = (*cd).charpath;
     while !curr.is_null() {
         let next = (*curr).next;
-        free(curr as *mut libc::c_void);
+        let _ = Box::from_raw(curr);
         curr = next
     }
     (*cd).lastpath = ptr::null_mut();
@@ -542,7 +541,7 @@ unsafe fn do_othersubr0(mut cd: *mut t1_chardesc) {
             );
         }
         let next = (*cur).next;
-        free(cur as *mut libc::c_void);
+        let _ = Box::from_raw(cur);
         cur = next;
     }
     if !cur.is_null() {
@@ -1159,7 +1158,8 @@ unsafe fn do_postproc(mut cd: &mut t1_chardesc) {
                         );
                         (*prev).num_args += (*cur).num_args;
                         (*prev).next = next;
-                        cur = mfree(cur as *mut libc::c_void) as *mut t1_cpath
+                        let _ = Box::from_raw(cur);
+                        cur = ptr::null_mut();
                     } else if (*prev).type_0 == 8 {
                         copy_args(
                             (*prev).args.as_mut_ptr().offset((*prev).num_args as isize),
@@ -1169,7 +1169,8 @@ unsafe fn do_postproc(mut cd: &mut t1_chardesc) {
                         (*prev).num_args += (*cur).num_args;
                         (*prev).type_0 = 24;
                         (*prev).next = next;
-                        cur = mfree(cur as *mut libc::c_void) as *mut t1_cpath
+                        let _ = Box::from_raw(cur);
+                        cur = ptr::null_mut();
                     }
                 }
             }
@@ -1213,7 +1214,8 @@ unsafe fn do_postproc(mut cd: &mut t1_chardesc) {
                         );
                         (*prev).num_args += (*cur).num_args;
                         (*prev).next = next;
-                        cur = mfree(cur as *mut libc::c_void) as *mut t1_cpath
+                        let _ = Box::from_raw(cur);
+                        cur = ptr::null_mut();
                     }
                 }
             }
@@ -1257,7 +1259,8 @@ unsafe fn do_postproc(mut cd: &mut t1_chardesc) {
                         );
                         (*prev).num_args += (*cur).num_args;
                         (*prev).next = next;
-                        cur = mfree(cur as *mut libc::c_void) as *mut t1_cpath
+                        let _ = Box::from_raw(cur);
+                        cur = ptr::null_mut();
                     }
                 }
             }
@@ -1287,7 +1290,8 @@ unsafe fn do_postproc(mut cd: &mut t1_chardesc) {
                         );
                         (*prev).num_args += (*cur).num_args;
                         (*prev).next = next;
-                        cur = mfree(cur as *mut libc::c_void) as *mut t1_cpath
+                        let _ = Box::from_raw(cur);
+                        cur = ptr::null_mut();
                     } else if (*prev).type_0 == 5 {
                         copy_args(
                             (*prev).args.as_mut_ptr().offset((*prev).num_args as isize),
@@ -1297,7 +1301,8 @@ unsafe fn do_postproc(mut cd: &mut t1_chardesc) {
                         (*prev).num_args += (*cur).num_args;
                         (*prev).type_0 = 25;
                         (*prev).next = next;
-                        cur = mfree(cur as *mut libc::c_void) as *mut t1_cpath
+                        let _ = Box::from_raw(cur);
+                        cur = ptr::null_mut();
                     }
                 }
             }
@@ -1353,7 +1358,8 @@ unsafe fn do_postproc(mut cd: &mut t1_chardesc) {
                         );
                         (*prev).num_args += (*cur).num_args;
                         (*prev).next = next;
-                        cur = mfree(cur as *mut libc::c_void) as *mut t1_cpath
+                        let _ = Box::from_raw(cur);
+                        cur = ptr::null_mut();
                     }
                 }
             }
@@ -1409,7 +1415,8 @@ unsafe fn do_postproc(mut cd: &mut t1_chardesc) {
                         );
                         (*prev).num_args += (*cur).num_args;
                         (*prev).next = next;
-                        cur = mfree(cur as *mut libc::c_void) as *mut t1_cpath
+                        let _ = Box::from_raw(cur);
+                        cur = ptr::null_mut();
                     }
                 }
             }

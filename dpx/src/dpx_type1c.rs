@@ -38,7 +38,6 @@ use super::dpx_cff::{
 };
 use super::dpx_cs_type2::cs_copy_charstring;
 use super::dpx_dpxfile::dpx_open_opentype_file;
-use super::dpx_mem::new;
 use super::dpx_mfileio::work_buffer_u8 as work_buffer;
 use super::dpx_pdfencoding::{pdf_create_ToUnicode_CMap, pdf_encoding_get_encoding};
 use super::dpx_pdffont::{
@@ -291,8 +290,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /* FIXME */
     cffont._string = Some(CffIndex::new(0));
     /* New Charsets data */
-    let mut charset_glyphs = Vec::new();
-    new((256_u64).wrapping_mul(::std::mem::size_of::<s_SID>() as u64) as u32) as *mut s_SID;
+    let mut charset_glyphs = Vec::with_capacity(256);
     /*
      * Encoding related things.
      */

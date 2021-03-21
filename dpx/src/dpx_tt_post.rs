@@ -32,9 +32,6 @@ use crate::warn;
 use std::ffi::CStr;
 use std::io::Read;
 
-use super::dpx_mem::new;
-use libc::free;
-
 use std::ptr;
 
 pub(crate) type Fixed = u32;
@@ -97,16 +94,17 @@ unsafe fn read_v2_post_names<R: Read>(
     if (count as i32) < 1 {
         names = 0 as *mut *mut i8
     } else {
-        names =
-            new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as u32)
-                as *mut *mut i8;
+        names = crate::dpx_mem::new(
+            (count as u32 as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as u32,
+        ) as *mut *mut i8;
         for i in 0..count as i32 {
             /* read Pascal strings */
             let len = u8::get(handle) as i32;
             if len > 0 {
-                *names.offset(i as isize) = new(((len + 1) as u32 as u64)
-                    .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-                    as u32) as *mut i8;
+                *names.offset(i as isize) = crate::dpx_mem::new(
+                    ((len + 1) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64)
+                        as u32,
+                ) as *mut i8;
                 let slice = std::slice::from_raw_parts_mut(
                     (*names.offset(i as isize)) as *mut u8,
                     len as usize,
@@ -118,9 +116,10 @@ unsafe fn read_v2_post_names<R: Read>(
             }
         }
     }
-    let glyphNamePtr = new((numberOfGlyphs as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<*const i8>() as u64) as u32)
-        as *mut *const i8;
+    let glyphNamePtr = crate::dpx_mem::new(
+        (numberOfGlyphs as u32 as u64).wrapping_mul(::std::mem::size_of::<*const i8>() as u64)
+            as u32,
+    ) as *mut *const i8;
     for i in 0..numberOfGlyphs as usize {
         let idx = indices[i];
         if (idx as i32) < 258 {
@@ -142,8 +141,9 @@ unsafe fn read_v2_post_names<R: Read>(
 pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
     /* offset = */
     sfnt_locate_table(sfont, b"post"); /* Fixed */
-    let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
-        as *mut tt_post_table; /* Fixed */
+    let mut post = crate::dpx_mem::new(
+        (1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32,
+    ) as *mut tt_post_table; /* Fixed */
     let handle = &mut &*sfont.handle;
     let Version = u32::get(handle); /* FWord */
     (*post).Version = Version;
@@ -215,18 +215,18 @@ pub(crate) unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> Str
 pub(crate) unsafe fn tt_release_post_table(mut post: *mut tt_post_table) {
     assert!(!post.is_null());
     if !(*post).glyphNamePtr.is_null() && (*post).Version as u64 != 0x10000 {
-        free((*post).glyphNamePtr as *mut libc::c_void);
+        libc::free((*post).glyphNamePtr as *mut libc::c_void);
     }
     if !(*post).names.is_null() {
         for i in 0..(*post).count {
-            free(*(*post).names.offset(i as isize) as *mut libc::c_void);
+            libc::free(*(*post).names.offset(i as isize) as *mut libc::c_void);
         }
-        free((*post).names as *mut libc::c_void);
+        libc::free((*post).names as *mut libc::c_void);
     }
     (*post).count = 0_u16;
     (*post).glyphNamePtr = 0 as *mut *const i8;
     (*post).names = 0 as *mut *mut i8;
-    free(post as *mut libc::c_void);
+    libc::free(post as *mut libc::c_void);
 }
 /* Macintosh glyph order - from apple's TTRefMan */
 static mut macglyphorder: [&[u8]; 258] = [

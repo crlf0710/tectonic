@@ -760,11 +760,6 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
     let sd = &mut _PDF_STAT;
     let mut ident = None;
     let mut ti = transform_info::new();
-    let mut options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     args.cur.skip_white();
     if args.cur[0] == b'@' {
         ident = args.cur.parse_opt_ident();
@@ -785,6 +780,11 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
      * It is for reading "dimensions" and "transformations" and "page" is
      * completely unrelated.
      */
+    let mut options: load_options = load_options {
+        page_no: 1,
+        bbox_type: PdfPageBoundary::Auto,
+        dict: ptr::null_mut(),
+    };
     let mut page_no = Some(options.page_no);
     let mut bbox_type = Some(options.bbox_type);
     transform_info_clear(&mut ti);
@@ -1298,11 +1298,6 @@ unsafe fn spc_handler_pdfm_eform(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result
  */
 unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     let sd = &mut _PDF_STAT;
-    let options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     args.cur.skip_white();
     if let Some(ident) = args.cur.parse_opt_ident() {
         let mut ti = if !args.cur.is_empty() {
@@ -1320,6 +1315,11 @@ unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
          */
         let mut xobj_id = findresource(sd, Some(&ident));
         if xobj_id < 0 {
+            let options: load_options = load_options {
+                page_no: 1,
+                bbox_type: PdfPageBoundary::Auto,
+                dict: ptr::null_mut(),
+            };
             xobj_id = pdf_ximage_findresource(&ident, options);
             if xobj_id < 0 {
                 spc_warn!(spe, "Specified (image) object doesn\'t exist: {}", ident);

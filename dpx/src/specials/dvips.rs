@@ -104,11 +104,6 @@ unsafe fn parse_filename<'a>(pp: &mut &'a [u8]) -> Option<&'a str> {
 }
 /* =filename ... */
 unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
-    let options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     args.cur.skip_white();
     if args.cur.len() <= 1 || args.cur[0] != b'=' {
         spc_warn!(spe, "No filename specified for PSfile special.");
@@ -120,6 +115,11 @@ unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()>
             ti
         } else {
             return ERR;
+        };
+        let options: load_options = load_options {
+            page_no: 1,
+            bbox_type: PdfPageBoundary::Auto,
+            dict: ptr::null_mut(),
         };
         let form_id = pdf_ximage_findresource(filename, options);
         if form_id < 0 {
@@ -137,14 +137,14 @@ unsafe fn spc_handler_ps_file(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()>
 unsafe fn spc_handler_ps_plotfile(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     let mut error = Ok(()); /* xscale = 1.0, yscale = -1.0 */
     let mut p = transform_info::new();
-    let options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     spc_warn!(spe, "\"ps: plotfile\" found (not properly implemented)");
     args.cur.skip_white();
     if let Some(filename) = parse_filename(&mut args.cur) {
+        let options: load_options = load_options {
+            page_no: 1,
+            bbox_type: PdfPageBoundary::Auto,
+            dict: ptr::null_mut(),
+        };
         let form_id = pdf_ximage_findresource(filename, options);
         if form_id < 0 {
             spc_warn!(spe, "Could not open PS file: {}", filename);
