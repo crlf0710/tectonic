@@ -43,7 +43,6 @@ use crate::dpx_pdfobj::{
     STREAM_COMPRESS,
 };
 use crate::shims::sprintf;
-use libc::memset;
 
 #[derive(Clone)]
 pub(crate) struct Type0Font {
@@ -67,9 +66,7 @@ pub(crate) unsafe fn Type0Font_set_verbose(level: i32) {
     __verbose = level;
 }
 unsafe fn new_used_chars2() -> *mut i8 {
-    let used_chars =
-        crate::dpx_mem::new((8192usize).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    memset(used_chars as *mut libc::c_void, 0, 8192);
+    let used_chars = Box::into_raw(Box::new([0_i8; 8192])) as *mut i8;
     used_chars
 }
 
@@ -101,7 +98,7 @@ unsafe fn Type0Font_clean(font: &mut Type0Font) {
         panic!("{}: FontDescriptor unexpected for Type0 font.", "Type0");
     }
     if font.flags & 1 << 0 == 0 && !font.used_chars.is_null() {
-        libc::free(font.used_chars as *mut libc::c_void);
+        let _ = Box::from_raw(font.used_chars as *mut [i8; 8192]);
     }
     font.fontdict = ptr::null_mut();
     font.indirect = ptr::null_mut();

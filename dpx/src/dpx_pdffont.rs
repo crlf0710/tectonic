@@ -281,7 +281,7 @@ unsafe fn pdf_flush_font(font: &mut pdf_font) {
     font.descriptor = ptr::null_mut();
 }
 unsafe fn pdf_clean_font_struct(mut font: &mut pdf_font) {
-    libc::free(font.usedchars as *mut libc::c_void);
+    let _ = Box::from_raw(font.usedchars as *mut [i8; 256]);
     if !font.reference.is_null() {
         panic!("pdf_font>> Object not flushed.");
     }
@@ -332,9 +332,7 @@ pub(crate) unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
         return Type0Font_get_usedchars(&*t0font);
     } else {
         if font.usedchars.is_null() {
-            font.usedchars = crate::dpx_mem::new(
-                (256_u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32,
-            ) as *mut i8;
+            font.usedchars = Box::into_raw(Box::new([0_i8; 256])) as *mut i8;
             memset(
                 font.usedchars as *mut libc::c_void,
                 0,

@@ -879,7 +879,7 @@ pub(crate) unsafe fn pdf_font_load_truetype(font: &mut pdf_font) -> i32 {
     /*
      * Create new TrueType cmap table with MacRoman encoding.
      */
-    let usedchars: *mut i8 = pdf_font_get_usedchars(font);
+    let usedchars = pdf_font_get_usedchars(font);
     let error = if encoding_id < 0 {
         do_builtin_encoding(font, usedchars, &mut sfont)
     } else {

@@ -158,7 +158,6 @@ pub(crate) mod dpx_error;
 pub(crate) mod dpx_fontmap;
 pub(crate) mod dpx_jp2image;
 pub(crate) mod dpx_jpegimage;
-pub(crate) mod dpx_mem;
 pub(crate) mod dpx_mfileio;
 pub(crate) mod dpx_mpost;
 pub(crate) mod dpx_numbers;
