@@ -37,7 +37,7 @@ use crate::{info, warn};
 
 use super::dpx_mem::new;
 use super::dpx_otl_opt::OtlOpt;
-use libc::{free, memset};
+use libc::free;
 
 use std::io::{Seek, SeekFrom};
 
@@ -475,7 +475,6 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> Option<()
         LookupList: 0,
     };
     let mut subtab = Vec::new();
-    let mut feat_bits: [u8; 8192] = [0; 8192];
     let mut feature_list = clt_record_list { record: Vec::new() };
     let mut script_list = clt_record_list { record: Vec::new() };
     let mut lookup_list = clt_number_list { value: Vec::new() };
@@ -487,7 +486,7 @@ unsafe fn otl_gsub_read_feat(gsub: &mut otl_gsub_tab, sfont: &sfnt) -> Option<()
     let script = OtlOpt::parse_optstring(&gsub.script);
     let language = OtlOpt::parse_optstring(&gsub.language);
     let feature = OtlOpt::parse_optstring(&gsub.feature);
-    memset(feat_bits.as_mut_ptr() as *mut libc::c_void, 0, 8192);
+    let mut feat_bits = [0_u8; 8192];
     handle.seek(SeekFrom::Start(gsub_offset as u64)).unwrap();
     otl_gsub_read_header(&mut head, handle);
     let mut offset = gsub_offset.wrapping_add(head.ScriptList as u32);

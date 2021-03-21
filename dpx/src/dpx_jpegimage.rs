@@ -35,7 +35,6 @@ use super::dpx_pdfcolor::{
 };
 use crate::bridge::ttstub_input_get_size;
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj, IntoRef, PushObj, STREAM_COMPRESS};
-use libc::memset;
 
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
@@ -278,11 +277,7 @@ unsafe fn JPEG_info_init(mut j_info: *mut JPEG_info) {
     (*j_info).ydpi = 0.0f64;
     (*j_info).flags = 0;
     (*j_info).appn = Vec::new();
-    memset(
-        (*j_info).skipbits.as_mut_ptr() as *mut libc::c_void,
-        0,
-        1024 / 8 + 1,
-    );
+    (*j_info).skipbits[..1024 / 8 + 1].fill(0);
 }
 unsafe fn JPEG_info_clear(mut j_info: *mut JPEG_info) {
     (*j_info).appn = Vec::new();

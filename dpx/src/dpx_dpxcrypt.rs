@@ -28,7 +28,7 @@
 )]
 
 use crate::FromBEByteSlice;
-use libc::{memcpy, memset, rand};
+use libc::{memcpy, rand};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -45,12 +45,7 @@ pub(crate) struct AES_CONTEXT {
     pub(crate) iv: [u8; 16],
 }
 unsafe fn _gcry_burn_stack(mut bytes: i32) {
-    let mut buf: [i8; 64] = [0; 64];
-    memset(
-        buf.as_mut_ptr() as *mut libc::c_void,
-        0,
-        ::std::mem::size_of::<[i8; 64]>(),
-    );
+    let _buf: [i8; 64] = [0; 64];
     bytes = (bytes as u64).wrapping_sub(::std::mem::size_of::<[i8; 64]>() as u64) as i32 as i32;
     if bytes > 0 {
         _gcry_burn_stack(bytes);
@@ -271,7 +266,7 @@ unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, key: *const u8, keylen: 
         (*ctx).sbox[i] = (*ctx).sbox[j];
         (*ctx).sbox[j] = t as u8;
     }
-    memset(karr.as_mut_ptr() as *mut libc::c_void, 0, 256);
+    karr.fill(0);
 }
 
 pub(crate) unsafe fn ARC4_set_key(ctx: *mut ARC4_CONTEXT, keylen: u32, key: *const u8) {

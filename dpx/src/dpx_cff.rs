@@ -31,7 +31,6 @@ use std::rc::Rc;
 
 use super::dpx_cff_dict::cff_dict;
 use super::dpx_numbers::GetFromFile;
-use libc::memset;
 
 use crate::bridge::InFile;
 use std::io::{Read, Seek, SeekFrom};
@@ -104,9 +103,7 @@ impl Pack for CffIndex {
             if destlen < 2 {
                 panic!("Not enough space available...");
             }
-            unsafe {
-                memset(dest.as_mut_ptr() as *mut libc::c_void, 0, 2);
-            }
+            dest[..2].fill(0);
             return 2;
         }
         let len = self.size();

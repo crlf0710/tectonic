@@ -29,7 +29,7 @@
 use super::dpx_mem::new;
 use crate::mfree;
 use crate::warn;
-use libc::{free, memcpy, memset};
+use libc::{free, memcpy};
 use std::cmp::Ordering;
 use std::ptr;
 
@@ -1673,11 +1673,7 @@ unsafe fn t1char_encode_charpath(
         match (*curr).type_0 {
             -1 => {
                 let mut hintmask: [u8; 12] = [0; 12];
-                memset(
-                    hintmask.as_mut_ptr() as *mut libc::c_void,
-                    0,
-                    (((*cd).num_stems + 7) / 8) as _,
-                );
+                hintmaskp[..(((*cd).num_stems + 7) / 8) as usize].fill(0);
                 while !curr.is_null() && (*curr).type_0 == -1 {
                     let stem_idx = get_stem(cd, (*curr).args[0] as i32);
                     assert!(stem_idx < (*cd).num_stems);
@@ -1701,11 +1697,7 @@ unsafe fn t1char_encode_charpath(
             }
             20 => {
                 let mut cntrmask: [u8; 12] = [0; 12];
-                memset(
-                    cntrmask.as_mut_ptr() as *mut libc::c_void,
-                    0,
-                    (((*cd).num_stems + 7) / 8) as _,
-                );
+                cntrmask[..(((*cd).num_stems + 7) / 8) as usize].fill(0);
                 for i_0 in 0..(*curr).num_args {
                     let stem_idx_0 = get_stem(cd, (*curr).args[i_0 as usize] as i32);
                     assert!(stem_idx_0 < (*cd).num_stems);

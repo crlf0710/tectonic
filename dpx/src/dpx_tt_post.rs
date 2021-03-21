@@ -61,7 +61,9 @@ pub(crate) struct tt_post_table {
 }
 
 /* offset from begenning of the post table */
-unsafe fn read_v2_post_names<R: Read>(handle: &mut R) -> Option<(*mut *mut i8, u16, *mut *const i8, u16)> {
+unsafe fn read_v2_post_names<R: Read>(
+    handle: &mut R,
+) -> Option<(*mut *mut i8, u16, *mut *const i8, u16)> {
     let numberOfGlyphs = u16::get(handle);
     let mut indices = Vec::<u16>::with_capacity(numberOfGlyphs as _);
     let mut maxidx = 257_u16;
@@ -95,9 +97,9 @@ unsafe fn read_v2_post_names<R: Read>(handle: &mut R) -> Option<(*mut *mut i8, u
     if (count as i32) < 1 {
         names = 0 as *mut *mut i8
     } else {
-        names = new((count as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
-            as u32) as *mut *mut i8;
+        names =
+            new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<*mut i8>() as u64) as u32)
+                as *mut *mut i8;
         for i in 0..count as i32 {
             /* read Pascal strings */
             let len = u8::get(handle) as i32;
@@ -117,16 +119,14 @@ unsafe fn read_v2_post_names<R: Read>(handle: &mut R) -> Option<(*mut *mut i8, u
         }
     }
     let glyphNamePtr = new((numberOfGlyphs as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<*const i8>() as u64)
-        as u32) as *mut *const i8;
+        .wrapping_mul(::std::mem::size_of::<*const i8>() as u64) as u32)
+        as *mut *const i8;
     for i in 0..numberOfGlyphs as usize {
         let idx = indices[i];
         if (idx as i32) < 258 {
-            *glyphNamePtr.offset(i as isize) =
-                macglyphorder[idx as usize].as_ptr() as *const i8
+            *glyphNamePtr.offset(i as isize) = macglyphorder[idx as usize].as_ptr() as *const i8
         } else if idx as i32 - 258 < count as i32 {
-            *glyphNamePtr.offset(i as isize) =
-                *names.offset((idx as i32 - 258) as isize)
+            *glyphNamePtr.offset(i as isize) = *names.offset((idx as i32 - 258) as isize)
         } else {
             warn!(
                 "Invalid glyph name index number: {} (>= {})",

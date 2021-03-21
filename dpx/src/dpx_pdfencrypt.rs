@@ -420,61 +420,25 @@ unsafe fn compute_hash_V5(
 unsafe fn compute_owner_password_V5(p: &mut pdf_sec, oplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
-    let mut iv: [u8; 16] = [0; 16];
-    let mut hash = compute_hash_V5(oplain, vsalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
-    memcpy(
-        p.O.as_mut_ptr() as *mut libc::c_void,
-        hash.as_mut_ptr() as *const libc::c_void,
-        32,
-    );
-    memcpy(
-        p.O.as_mut_ptr().offset(32) as *mut libc::c_void,
-        vsalt.as_mut_ptr() as *const libc::c_void,
-        8,
-    );
-    memcpy(
-        p.O.as_mut_ptr().offset(40) as *mut libc::c_void,
-        ksalt.as_mut_ptr() as *const libc::c_void,
-        8,
-    );
+    let hash = compute_hash_V5(oplain, vsalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
+    p.O[..32].copy_from_slice(&hash);
+    p.O[32..40].copy_from_slice(&vsalt);
+    p.O[40..].copy_from_slice(&ksalt);
     let hash = compute_hash_V5(oplain, ksalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
-    memset(iv.as_mut_ptr() as *mut libc::c_void, 0, 16);
-    let OE = AES_cbc_encrypt_tectonic(
-        &hash[..32],
-        iv.as_mut_ptr(),
-        0,
-        &p.key[..p.key_size as usize],
-    );
+    let mut iv = [0_u8; 16];
+    let OE = AES_cbc_encrypt_tectonic(&hash, iv.as_mut_ptr(), 0, &p.key[..p.key_size as usize]);
     p.OE.copy_from_slice(&OE[..32]);
 }
 unsafe fn compute_user_password_V5(p: &mut pdf_sec, uplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
-    let mut iv: [u8; 16] = [0; 16];
-    let mut hash = compute_hash_V5(uplain, vsalt.as_mut_ptr(), ptr::null(), p.R);
-    memcpy(
-        p.U.as_mut_ptr() as *mut libc::c_void,
-        hash.as_mut_ptr() as *const libc::c_void,
-        32,
-    );
-    memcpy(
-        p.U.as_mut_ptr().offset(32) as *mut libc::c_void,
-        vsalt.as_mut_ptr() as *const libc::c_void,
-        8,
-    );
-    memcpy(
-        p.U.as_mut_ptr().offset(40) as *mut libc::c_void,
-        ksalt.as_mut_ptr() as *const libc::c_void,
-        8,
-    );
+    let hash = compute_hash_V5(uplain, vsalt.as_mut_ptr(), ptr::null(), p.R);
+    p.U[..32].copy_from_slice(&hash);
+    p.U[32..40].copy_from_slice(&vsalt);
+    p.U[40..].copy_from_slice(&ksalt);
     let hash = compute_hash_V5(uplain, ksalt.as_mut_ptr(), ptr::null(), p.R);
-    memset(iv.as_mut_ptr() as *mut libc::c_void, 0, 16);
-    let UE = AES_cbc_encrypt_tectonic(
-        &hash[..32],
-        iv.as_mut_ptr(),
-        0,
-        &p.key[..p.key_size as usize],
-    );
+    let mut iv = [0_u8; 16];
+    let UE = AES_cbc_encrypt_tectonic(&hash, iv.as_mut_ptr(), 0, &p.key[..p.key_size as usize]);
     p.UE.copy_from_slice(&UE[..32]);
 }
 unsafe fn check_version(p: &mut pdf_sec, version: i32) {

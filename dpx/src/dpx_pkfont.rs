@@ -51,7 +51,7 @@ use crate::dpx_numbers::{
 use bridge::{InFile, TTInputFormat};
 use std::io::Read;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub(crate) struct pk_header_ {
     pub(crate) pkt_len: u32,
@@ -424,15 +424,15 @@ unsafe fn read_pk_char_header<R: Read>(mut h: *mut pk_header_, opcode: u8, fp: &
 }
 /* CCITT Group 4 filter may reduce file size. */
 unsafe fn create_pk_CharProc_stream(
-    pkh: *mut pk_header_,
+    pkh: &pk_header_,
     chrwid: f64,
     pkt_ptr: *mut u8,
     pkt_len: u32,
 ) -> pdf_stream {
-    let llx = -(*pkh).bm_hoff;
-    let lly = ((*pkh).bm_voff as u32).wrapping_sub((*pkh).bm_ht) as i32;
-    let urx = (*pkh).bm_wd.wrapping_sub((*pkh).bm_hoff as u32) as i32;
-    let ury = (*pkh).bm_voff;
+    let llx = -pkh.bm_hoff;
+    let lly = (pkh.bm_voff as u32).wrapping_sub(pkh.bm_ht) as i32;
+    let urx = pkh.bm_wd.wrapping_sub(pkh.bm_hoff as u32) as i32;
+    let ury = pkh.bm_voff;
     let mut stream = pdf_stream::new(STREAM_COMPRESS); /* charproc */
     /*
      * The following line is a "metric" for the PDF reader:
@@ -456,42 +456,35 @@ unsafe fn create_pk_CharProc_stream(
      *
      * but it does not forbid use of such transformation.
      */
-    if (*pkh).bm_wd != 0 && (*pkh).bm_ht != 0 && pkt_len > 0 {
+    if pkh.bm_wd != 0 && pkh.bm_ht != 0 && pkt_len > 0 {
         /* Otherwise we embed an empty stream :-( */
         /* Scale and translate origin to lower left corner for raster data */
-        let slice = format!(
-            "q\n{} 0 0 {} {} {} cm\n",
-            (*pkh).bm_wd,
-            (*pkh).bm_ht,
-            llx,
-            lly,
-        );
+        let slice = format!("q\n{} 0 0 {} {} {} cm\n", pkh.bm_wd, pkh.bm_ht, llx, lly,);
         stream.add_slice(slice.as_bytes());
         let slice = format!(
             "BI\n/W {}\n/H {}\n/IM true\n/BPC 1\nID ",
-            (*pkh).bm_wd,
-            (*pkh).bm_ht
+            pkh.bm_wd, pkh.bm_ht
         );
         stream.add_slice(slice.as_bytes());
         /* Add bitmap data */
-        if (*pkh).dyn_f == 14 {
+        if pkh.dyn_f == 14 {
             /* bitmap */
             pk_decode_bitmap(
                 &mut stream,
-                (*pkh).bm_wd,
-                (*pkh).bm_ht,
-                (*pkh).dyn_f,
-                (*pkh).run_color,
+                pkh.bm_wd,
+                pkh.bm_ht,
+                pkh.dyn_f,
+                pkh.run_color,
                 pkt_ptr,
                 pkt_len,
             );
         } else {
             pk_decode_packed(
                 &mut stream,
-                (*pkh).bm_wd,
-                (*pkh).bm_ht,
-                (*pkh).dyn_f,
-                (*pkh).run_color,
+                pkh.bm_wd,
+                pkh.bm_ht,
+                pkh.dyn_f,
+                pkh.run_color,
                 pkt_ptr,
                 pkt_len,
             );
@@ -542,19 +535,7 @@ pub(crate) unsafe fn pdf_font_load_pkfont(font: &mut pdf_font) -> i32 {
             break;
         }
         if opcode < 240 {
-            let mut pkh: pk_header_ = pk_header_ {
-                pkt_len: 0,
-                chrcode: 0,
-                wd: 0,
-                dx: 0,
-                dy: 0,
-                bm_wd: 0,
-                bm_ht: 0,
-                bm_hoff: 0,
-                bm_voff: 0,
-                dyn_f: 0,
-                run_color: 0,
-            };
+            let mut pkh = pk_header_::default();
             let error = read_pk_char_header(&mut pkh, opcode as u8, &mut fp);
             if error != 0 {
                 panic!("Error in reading PK character header.");
