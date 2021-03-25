@@ -68,9 +68,7 @@ pub(crate) enum FontType {
     //CidType2 = 6,
 }
 
-use bitflags::bitflags;
-
-bitflags! {
+bitflags::bitflags! {
     pub(crate) struct FontFlag: i32 {
         const NOEMBED = 1 << 0;
         const COMPOSITE = 1 << 1;
@@ -343,11 +341,9 @@ pub(crate) unsafe fn pdf_get_font_usedchars(font_id: i32) -> *mut i8 {
     };
 }
 
-pub(crate) unsafe fn pdf_get_font_wmode(font_id: i32) -> i32 {
-    if font_id < 0 || font_id >= font_cache.len() as i32 {
-        panic!("Invalid font ID: {}", font_id);
-    }
-    let font = &mut font_cache[font_id as usize];
+pub(crate) unsafe fn pdf_get_font_wmode(font_id: usize) -> i32 {
+    assert!(font_id < font_cache.len(), "Invalid font ID: {}", font_id);
+    let font = &mut font_cache[font_id];
     if font.subtype == FontType::Type0 {
         let t0font = Type0Font_cache_get(font.font_id);
         return Type0Font_get_wmode(&*t0font);
@@ -356,18 +352,14 @@ pub(crate) unsafe fn pdf_get_font_wmode(font_id: i32) -> i32 {
     };
 }
 
-pub(crate) unsafe fn pdf_get_font_subtype(font_id: i32) -> FontType {
-    if font_id < 0 || font_id >= font_cache.len() as i32 {
-        panic!("Invalid font ID: {}", font_id);
-    }
+pub(crate) unsafe fn pdf_get_font_subtype(font_id: usize) -> FontType {
+    assert!(font_id < font_cache.len(), "Invalid font ID: {}", font_id);
     let font = &mut font_cache[font_id as usize];
     font.subtype
 }
 
-pub(crate) unsafe fn pdf_get_font_encoding(font_id: i32) -> i32 {
-    if font_id < 0 || font_id >= font_cache.len() as i32 {
-        panic!("Invalid font ID: {}", font_id);
-    }
+pub(crate) unsafe fn pdf_get_font_encoding(font_id: usize) -> i32 {
+    assert!(font_id < font_cache.len(), "Invalid font ID: {}", font_id);
     let font = &mut font_cache[font_id as usize];
     font.encoding_id
 }
@@ -534,7 +526,7 @@ pub(crate) unsafe fn pdf_font_findresource(
     tex_name: &str,
     font_scale: f64,
     mrec: Option<&mut Box<fontmap_rec>>,
-) -> i32 {
+) -> Option<usize> {
     let mut font_id;
     let mut encoding_id: i32 = -1;
     let mut cmap_id = None;
@@ -607,15 +599,12 @@ pub(crate) unsafe fn pdf_font_findresource(
                  * Composite Font
                  */
                 let mut found: i32 = 0;
-                let type0_id = Type0Font_cache_find(&mrec.font_name, Some(id), &mut mrec.opt);
-                if type0_id < 0 {
-                    return -1;
-                }
+                let type0_id = Type0Font_cache_find(&mrec.font_name, Some(id), &mut mrec.opt)?;
                 font_id = 0;
-                while font_id < font_cache.len() as i32 {
-                    let font = &mut font_cache[font_id as usize];
+                while font_id < font_cache.len() {
+                    let font = &mut font_cache[font_id];
                     if font.subtype == FontType::Type0
-                        && font.font_id == type0_id
+                        && font.font_id == type0_id as i32
                         && font.encoding_id == id as i32
                     {
                         found = 1;
@@ -633,11 +622,11 @@ pub(crate) unsafe fn pdf_font_findresource(
                     }
                 }
                 if found == 0 {
-                    font_id = font_cache.len() as i32;
+                    font_id = font_cache.len();
 
                     font_cache.push(pdf_font::new());
-                    let font = &mut font_cache[font_id as usize];
-                    font.font_id = type0_id;
+                    let font = &mut font_cache[font_id];
+                    font.font_id = type0_id as i32;
                     font.subtype = FontType::Type0;
                     font.encoding_id = id as i32;
                     if __verbose != 0 {
@@ -652,8 +641,8 @@ pub(crate) unsafe fn pdf_font_findresource(
                  */
                 let mut found_0: i32 = 0;
                 font_id = 0;
-                while font_id < font_cache.len() as i32 {
-                    let font = &mut font_cache[font_id as usize];
+                while font_id < font_cache.len() {
+                    let font = &mut font_cache[font_id];
                     match font.subtype {
                         FontType::Type1 | FontType::Type1c | FontType::TrueType => {
                             /* fontname here is font file name.
@@ -696,9 +685,9 @@ pub(crate) unsafe fn pdf_font_findresource(
                     }
                 }
                 if found_0 == 0 {
-                    font_id = font_cache.len() as i32;
+                    font_id = font_cache.len();
                     font_cache.push(pdf_font::new());
-                    let font = &mut font_cache[font_id as usize];
+                    let font = &mut font_cache[font_id];
                     font.point_size = font_scale;
                     font.encoding_id = encoding_id;
                     font.ident = mrec.font_name.to_owned();
@@ -714,7 +703,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                         FontType::Type3
                     } else {
                         pdf_clean_font_struct(font);
-                        return -1;
+                        return None;
                     };
                     if __verbose != 0 {
                         info!("\npdf_font>> Simple font \"{}\"", mrec.font_name);
@@ -738,8 +727,8 @@ pub(crate) unsafe fn pdf_font_findresource(
              */
             let mut found_0: i32 = 0;
             font_id = 0;
-            while font_id < font_cache.len() as i32 {
-                let font = &mut font_cache[font_id as usize];
+            while font_id < font_cache.len() {
+                let font = &mut font_cache[font_id];
                 match font.subtype {
                     FontType::Type1 | FontType::Type1c | FontType::TrueType => {
                         /* fontname here is font file name.
@@ -777,9 +766,9 @@ pub(crate) unsafe fn pdf_font_findresource(
                 }
             }
             if found_0 == 0 {
-                font_id = font_cache.len() as i32;
+                font_id = font_cache.len();
                 font_cache.push(pdf_font::new());
-                let font = &mut font_cache[font_id as usize];
+                let font = &mut font_cache[font_id];
                 font.point_size = font_scale;
                 font.encoding_id = encoding_id;
                 font.ident = tex_name.to_owned();
@@ -795,7 +784,7 @@ pub(crate) unsafe fn pdf_font_findresource(
                     FontType::Type3
                 } else {
                     pdf_clean_font_struct(font);
-                    return -1;
+                    return None;
                 };
                 if __verbose != 0 {
                     info!("\npdf_font>> Simple font \"{}\"", tex_name);
@@ -805,7 +794,7 @@ pub(crate) unsafe fn pdf_font_findresource(
             }
         }
     }
-    font_id
+    Some(font_id)
 }
 
 pub(crate) unsafe fn pdf_font_is_in_use(font: &mut pdf_font) -> bool {

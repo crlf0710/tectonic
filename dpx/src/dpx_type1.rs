@@ -466,7 +466,7 @@ unsafe fn write_fontfile(
     fontfile.get_dict_mut().set("Subtype", "Type1C");
     fontfile.add_slice(&stream_data[..offset]);
     descriptor.set("FontFile3", fontfile.into_ref());
-    descriptor.set("CharSet", pdf_string::new(&pdfcharset.content));
+    descriptor.set("CharSet", pdf_string::new(pdfcharset.data()));
     offset as i32
 }
 

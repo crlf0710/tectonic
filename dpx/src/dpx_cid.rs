@@ -44,6 +44,12 @@ use super::dpx_cidtype2::{
 use crate::dpx_pdfobj::{pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, Object};
 use std::borrow::Cow;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CidFont {
+    Type0 = 1,
+    Type2 = 2,
+}
+
 #[derive(Clone)]
 pub(crate) struct CIDSysInfo {
     pub(crate) registry: Cow<'static, str>,
@@ -55,7 +61,7 @@ pub(crate) struct CIDFont {
     pub(crate) ident: String,
     pub(crate) name: String,
     pub(crate) fontname: String,
-    pub(crate) subtype: i32,
+    pub(crate) subtype: CidFont,
     pub(crate) flags: i32,
     pub(crate) parent: [i32; 2],
     pub(crate) csi: Box<CIDSysInfo>,
@@ -285,7 +291,7 @@ pub(crate) unsafe fn CIDFont_get_opt_index(font: &CIDFont) -> i32 {
     font.options.index
 }
 
-pub(crate) unsafe fn CIDFont_get_subtype(font: &CIDFont) -> i32 {
+pub(crate) unsafe fn CIDFont_get_subtype(font: &CIDFont) -> CidFont {
     font.subtype
 }
 
@@ -318,14 +324,14 @@ pub(crate) unsafe fn CIDFont_get_resource(font: &mut CIDFont) -> *mut pdf_obj {
  * Set parent Type0 font.
  */
 
-pub(crate) unsafe fn CIDFont_attach_parent(font: &mut CIDFont, parent_id: i32, wmode: i32) {
+pub(crate) unsafe fn CIDFont_attach_parent(font: &mut CIDFont, parent_id: usize, wmode: i32) {
     if wmode < 0 || wmode > 1 {
         panic!("{}: Invalid wmode value.", "CIDFont");
     }
     if font.parent[wmode as usize] >= 0 {
         warn!("{}: CIDFont already have a parent Type1 font.", "CIDFont");
     }
-    font.parent[wmode as usize] = parent_id;
+    font.parent[wmode as usize] = parent_id as i32;
 }
 
 pub(crate) unsafe fn CIDFont_is_ACCFont(font: &CIDFont) -> bool {
@@ -344,8 +350,8 @@ pub(crate) unsafe fn CIDFont_is_UCSFont(font: &CIDFont) -> bool {
 }
 /* FIXME */
 
-pub(crate) unsafe fn CIDFont_get_flag(font: &CIDFont, mask: i32) -> i32 {
-    return if (*font).flags & mask != 0 { 1 } else { 0 };
+pub(crate) unsafe fn CIDFont_get_flag(font: &CIDFont, mask: i32) -> bool {
+    (*font).flags & mask != 0
 }
 unsafe fn CIDFont_dofont(font: &mut CIDFont) {
     if font.indirect.is_null() {
@@ -360,26 +366,23 @@ unsafe fn CIDFont_dofont(font: &mut CIDFont) {
         }
     }
     match font.subtype {
-        1 => {
+        CidFont::Type0 => {
             if __verbose != 0 {
                 info!("[CIDFontType0]");
             }
-            if CIDFont_get_flag(font, 1 << 8) != 0 {
+            if CIDFont_get_flag(font, 1 << 8) {
                 CIDFont_type0_t1dofont(font);
-            } else if CIDFont_get_flag(font, 1 << 9) != 0 {
+            } else if CIDFont_get_flag(font, 1 << 9) {
                 CIDFont_type0_t1cdofont(font);
             } else {
                 CIDFont_type0_dofont(font);
             }
         }
-        2 => {
+        CidFont::Type2 => {
             if __verbose != 0 {
                 info!("[CIDFontType2]");
             }
             CIDFont_type2_dofont(font);
-        }
-        _ => {
-            panic!("{}: Unknown CIDFontType {}.", "CIDFont", font.subtype);
         }
     };
 }
@@ -498,8 +501,12 @@ unsafe fn CIDFont_base_open(
     mut opt: Box<cid_opt>,
 ) -> Result<Box<CIDFont>, Box<cid_opt>> {
     let basefont = cid_basefont.iter().find(|font| {
-        let acro = name.to_string() + "-Acro";
-        font.fontname == name || font.fontname == acro
+        font.fontname == name || {
+            let len = name.len();
+            font.fontname.len() > len
+                && &font.fontname[..len] == name
+                && &font.fontname[len..] == "-Acro"
+        }
     });
 
     if basefont.is_none() {
@@ -559,9 +566,9 @@ unsafe fn CIDFont_base_open(
         }) => {
             let typ = typ.to_bytes();
             let subtype = if typ == b"CIDFontType0" {
-                1
+                CidFont::Type0
             } else if typ == b"CIDFontType2" {
-                2
+                CidFont::Type2
             } else {
                 panic!("Unknown CIDFontType \"{}\"", typ.display());
             };
@@ -600,11 +607,14 @@ unsafe fn CIDFont_base_open(
 // to get stable pointers to the cached data.
 static mut __cache: Vec<Box<CIDFont>> = Vec::new();
 
-pub(crate) unsafe fn CIDFont_cache_get(font_id: i32) -> &'static mut CIDFont {
-    if font_id < 0 || font_id >= __cache.len() as i32 {
-        panic!("{}: Invalid ID {}", "CIDFont", font_id);
-    }
-    &mut *__cache[font_id as usize]
+pub(crate) unsafe fn CIDFont_cache_get(font_id: usize) -> &'static mut CIDFont {
+    assert!(
+        font_id < __cache.len(),
+        "{}: Invalid ID {}",
+        "CIDFont",
+        font_id
+    );
+    &mut *__cache[font_id]
 }
 /*
  * cmap_csi is NULL if CMap is Identity.
@@ -614,7 +624,7 @@ pub(crate) unsafe fn CIDFont_cache_find(
     map_name: &str,
     cmap_csi: Option<CIDSysInfo>,
     fmap_opt: &mut fontmap_opt,
-) -> i32 {
+) -> Option<usize> {
     let mut opt = Box::new(cid_opt {
         style: fmap_opt.style,
         index: fmap_opt.index,
@@ -639,8 +649,8 @@ pub(crate) unsafe fn CIDFont_cache_find(
      * implicit CIDSystemInfo supplied by CMap for TrueType.
      */
     let mut font_id = 0;
-    while font_id < __cache.len() as i32 {
-        let font = &mut *__cache[font_id as usize];
+    while font_id < __cache.len() {
+        let font = &mut *__cache[font_id];
         if font.name == map_name
             && (*font.options).style == opt.style
             && (*font.options).index == opt.index
@@ -656,7 +666,7 @@ pub(crate) unsafe fn CIDFont_cache_find(
                     if ((*font.csi).registry == opt_csi.registry)
                         && ((*font.csi).ordering == opt_csi.ordering)
                     {
-                        if font.subtype == 2 {
+                        if font.subtype == CidFont::Type2 {
                             (*font.csi).supplement = if opt_csi.supplement > (*font.csi).supplement
                             {
                                 opt_csi.supplement
@@ -667,7 +677,7 @@ pub(crate) unsafe fn CIDFont_cache_find(
                         break;
                     }
                 } else {
-                    if font.subtype != 2 {
+                    if font.subtype != CidFont::Type2 {
                         break;
                     }
                 }
@@ -678,15 +688,15 @@ pub(crate) unsafe fn CIDFont_cache_find(
         }
         font_id += 1
     }
-    if font_id < __cache.len() as i32 {
+    if font_id < __cache.len() {
         if let Some(cmap_csi) = cmap_csi.as_ref() {
-            let font = &mut __cache[font_id as usize];
+            let font = &mut __cache[font_id];
             if font.csi.registry != cmap_csi.registry || (font.csi.ordering != cmap_csi.ordering) {
                 panic!("CIDFont: Incompatible CMap for CIDFont \"{}\"", map_name);
             }
         }
     }
-    if font_id == __cache.len() as i32 {
+    if font_id == __cache.len() {
         if let Ok(font) = CIDFont_type0_open(map_name, &cmap_csi, opt, 0)
             .or_else(|opt| CIDFont_type2_open(map_name, &cmap_csi, opt))
             .or_else(|opt| CIDFont_type0_open(map_name, &cmap_csi, opt, 1 << 8))
@@ -697,10 +707,10 @@ pub(crate) unsafe fn CIDFont_cache_find(
 
             __cache.push(font);
         } else {
-            return -1;
+            return None;
         }
     }
-    font_id
+    Some(font_id)
 }
 /* FIXME */
 /* Converted from Type 1 */

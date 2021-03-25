@@ -35,7 +35,7 @@ use super::dpx_sfnt::{
 use crate::dpx_truetype::SfntTableInfo;
 use crate::{info, warn, FromBEByteSlice};
 
-use super::dpx_cid::{CIDFont_get_embedding, CIDFont_get_parent_id, CIDFont_is_BaseFont};
+use super::dpx_cid::{CIDFont_get_embedding, CIDFont_get_parent_id, CIDFont_is_BaseFont, CidFont};
 use super::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode_char};
 use super::dpx_dpxfile::{dpx_open_dfont_file, dpx_open_truetype_file};
 use super::dpx_pdffont::pdf_font_make_uniqueTag;
@@ -915,7 +915,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
     /*
      * CIDSystemInfo is determined from CMap or from map record option.
      */
-    let subtype = 2;
+    let subtype = CidFont::Type2;
     let csi = Box::new(if let Some(opt_csi) = opt.csi.as_deref_mut() {
         if let Some(cmap_csi) = cmap_csi.as_ref() {
             if opt_csi.registry != cmap_csi.registry || opt_csi.ordering != cmap_csi.ordering {

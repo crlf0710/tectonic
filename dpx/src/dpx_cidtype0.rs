@@ -49,6 +49,7 @@ use super::dpx_cff::{
 };
 use super::dpx_cid::{
     CIDFont_get_embedding, CIDFont_get_opt_index, CIDFont_get_parent_id, CIDFont_is_BaseFont,
+    CidFont,
 };
 use super::dpx_cid::{CSI_IDENTITY, CSI_UNICODE};
 use super::dpx_cmap::{CMap, CMap_cache_add, CMap_cache_find};
@@ -879,7 +880,7 @@ pub(crate) unsafe fn CIDFont_type0_open(
     } else {
         opt.embed = 1
     }
-    let subtype = 1;
+    let subtype = CidFont::Type0;
     let mut fontdict = pdf_dict::new();
     fontdict.set("Type", "Font");
     fontdict.set("Subtype", "CIDFontType0");

@@ -275,7 +275,7 @@ pub struct pdf_dict {
 #[repr(C)]
 pub struct pdf_stream {
     pub(crate) dict: *mut pdf_obj,
-    pub(crate) content: Vec<u8>,
+    content: Vec<u8>,
     pub(crate) objstm_data: Box<[i32]>,
     pub(crate) _flags: i32,
     pub(crate) decodeparms: decode_parms,
@@ -1758,10 +1758,9 @@ impl pdf_stream {
     pub(crate) fn len(&self) -> usize {
         self.content.len()
     }
-}
-
-pub(crate) unsafe fn pdf_stream_dataptr(stream: &pdf_stream) -> *const libc::c_void {
-    stream.content.as_ptr() as *const libc::c_void
+    pub(crate) fn data(&self) -> &[u8] {
+        &self.content
+    }
 }
 
 fn set_objstm_data(objstm: &mut pdf_stream, data: Vec<i32>) {
@@ -2867,7 +2866,7 @@ impl std::ops::DerefMut for DerefObj {
 }
 
 unsafe fn extend_xref(pf: &mut pdf_file, new_size: usize) {
-    pf.xref_table.resize_with(new_size as usize, || xref_entry {
+    pf.xref_table.resize_with(new_size, || xref_entry {
         typ: 0,
         id: (0, 0),
         direct: ptr::null_mut(),
@@ -2875,13 +2874,13 @@ unsafe fn extend_xref(pf: &mut pdf_file, new_size: usize) {
     });
 }
 /* Returns < 0 for error, 1 for success, and 0 when xref stream found. */
-unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
+unsafe fn parse_xref_table(pf: &mut pdf_file, xref_pos: i32) -> i32 {
     /*
      * This routine reads one xref segment. It may be called multiple times
      * on the same file.  xref tables sometimes come in pieces.
      */
-    (*pf).handle.seek(SeekFrom::Start(xref_pos as u64)).unwrap();
-    let buf = tt_mfreadln(255, &mut (*pf).handle);
+    pf.handle.seek(SeekFrom::Start(xref_pos as u64)).unwrap();
+    let buf = tt_mfreadln(255, &mut pf.handle);
     /* We should have already checked that "startxref" section exists. So, EOF
      * here (len = -1) is impossible. We don't treat too long line case
      * seriously.
@@ -2906,8 +2905,8 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
     loop
     /* Next line in file has first item and size of table */
     {
-        let mut current_pos = (*pf).handle.seek(SeekFrom::Current(0)).unwrap();
-        let buf = tt_mfreadln(255, &mut (*pf).handle);
+        let mut current_pos = pf.handle.seek(SeekFrom::Current(0)).unwrap();
+        let buf = tt_mfreadln(255, &mut pf.handle);
         if buf.is_err() {
             warn!("Reading a line failed in xref table.");
             return -1;
@@ -2925,7 +2924,7 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                      * parse_trailer would fail.
                      */
                     current_pos += (buf.len() as u64) - (p.len() as u64); /* Jump to the beginning of "trailer" keyword. */
-                    (*pf).handle.seek(SeekFrom::Start(current_pos)).unwrap();
+                    pf.handle.seek(SeekFrom::Start(current_pos)).unwrap();
                     break;
                 } else {
                     /* Line containing something other than white-space characters found.
@@ -2944,7 +2943,7 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                         return -1;
                     }
                     let q = q.unwrap();
-                    let first = q.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                    let first = q.to_str().unwrap().parse::<i32>().unwrap() as usize;
                     p.skip_white();
                     /* Nnumber of objects in this xref subsection. */
                     let q = p.parse_unsigned();
@@ -2953,7 +2952,7 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                         return -1;
                     }
                     let q = q.unwrap();
-                    let size = q.to_str().unwrap().parse::<i32>().unwrap() as u32;
+                    let size = q.to_str().unwrap().parse::<i32>().unwrap() as usize;
                     p.skip_white();
                     /* Check for unrecognized tokens */
                     if !p.is_empty() {
@@ -2961,13 +2960,13 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                         return -1;
                     }
                     /* The first line of a xref subsection OK. */
-                    if ((*pf).xref_table.len() as u32) < first + size {
-                        extend_xref(&mut *pf, (first + size) as usize);
+                    if pf.xref_table.len() < first + size {
+                        extend_xref(pf, first + size);
                     }
                     /* Start parsing xref subsection body... */
-                    let mut i = first as i32;
+                    let mut i = first;
                     /* Only white-spaces and/or comment. */
-                    while (i as u32) < first.wrapping_add(size) {
+                    while i < first + size {
                         /* PDF spec. requires each xref subsection lines being exactly 20 bytes
                          * long [including end-of-line marker(s)], offset 10 decimal digits,
                          * generation number being 5 decimal digits, and each entries delimitted
@@ -2975,7 +2974,7 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                          * More than one "white-spaces" allowed, can be ended with a comment,
                          * and so on.
                          */
-                        let buf = tt_mfreadln(255, &mut (*pf).handle);
+                        let buf = tt_mfreadln(255, &mut pf.handle);
                         if buf.is_err() {
                             warn!("Something went wrong while reading xref subsection...");
                             return -1;
@@ -3038,7 +3037,7 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                             } else {
                                 if flag != b'n' && flag != b'f'
                                     || flag == b'n'
-                                        && (offset >= (*pf).file_size as u32
+                                        && (offset >= pf.file_size as u32
                                             || offset > 0 && offset < 4)
                                 {
                                     warn!(
@@ -3049,9 +3048,9 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
                                 }
                             }
                             /* Everything seems to be OK. */
-                            if (*pf).xref_table[i as usize].id.0 == 0 {
-                                (*pf).xref_table[i as usize].typ = (flag == b'n') as i32 as u8; /* TODO: change! why? */
-                                (*pf).xref_table[i as usize].id = (offset, obj_gen as u16)
+                            if pf.xref_table[i].id.0 == 0 {
+                                pf.xref_table[i].typ = (flag == b'n') as i32 as u8; /* TODO: change! why? */
+                                pf.xref_table[i].id = (offset, obj_gen as u16)
                             }
                             i += 1
                         }
@@ -3062,21 +3061,21 @@ unsafe fn parse_xref_table(pf: *mut pdf_file, xref_pos: i32) -> i32 {
     }
     1
 }
-unsafe fn parse_xrefstm_field(p: *mut *const i8, length: i32, def: u32) -> u32 {
+unsafe fn parse_xrefstm_field(p: &mut &[u8], length: i32, def: u32) -> u32 {
     let mut val: u32 = 0_u32;
     if length == 0 {
         return def;
     }
     for _ in 0..length {
         val <<= 8;
-        val |= **p as u8 as u32;
-        *p = (*p).offset(1);
+        val |= p[0] as u32;
+        *p = &p[1..];
     }
     val
 }
 unsafe fn parse_xrefstm_subsec(
     pf: &mut pdf_file,
-    p: *mut *const i8,
+    p: &mut &[u8],
     length: *mut i32,
     W: *mut i32,
     wsum: i32,
@@ -3121,7 +3120,7 @@ unsafe fn parse_xref_stream(pf: &mut pdf_file, xref_pos: i32, trailer: *mut *mut
                                 let mut i = 0;
                                 loop {
                                     if i >= 3 {
-                                        let mut p = pdf_stream_dataptr(&xrefstm) as *const i8;
+                                        let mut p = xrefstm.data();
                                         if let Some(index_obj) = (**trailer).as_dict().get("Index")
                                         {
                                             match &index_obj.data {

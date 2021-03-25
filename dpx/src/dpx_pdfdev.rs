@@ -1253,16 +1253,18 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &str, ptsize: spt_t) -> i32 
     }
     let font_id = pdf_font_findresource(font_name, ptsize as f64 * dev_unit.dvi2pts, mrec);
     let mrec = fontmap.get(font_name);
-    if font_id < 0 {
+    let font_id = if let Some(font_id) = font_id {
+        font_id
+    } else {
         return -1;
-    }
+    };
 
     let mut font = dev_font {
         short_name: Vec::new(),
         used_on_this_page: 0,
         tex_name: font_name.to_string(),
         sptsize: ptsize,
-        font_id,
+        font_id: font_id as i32,
         enc_id: pdf_get_font_encoding(font_id),
         real_font_index: if i < dev_fonts.len() { i as i32 } else { -1 },
         resource: ptr::null_mut(),

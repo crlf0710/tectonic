@@ -672,7 +672,7 @@ pub(crate) unsafe fn pdf_font_load_type1c(font: &mut pdf_font) -> i32 {
     /*
      * CharSet
      */
-    descriptor.set("CharSet", pdf_string::new(&pdfcharset.content));
+    descriptor.set("CharSet", pdf_string::new(pdfcharset.data()));
     /*
      * Write PDF FontFile data.
      */

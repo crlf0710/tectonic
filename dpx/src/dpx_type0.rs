@@ -32,7 +32,7 @@ use super::dpx_cid::{
     CIDFont, CIDFont_attach_parent, CIDFont_cache_close, CIDFont_cache_find, CIDFont_cache_get,
     CIDFont_get_CIDSysInfo, CIDFont_get_embedding, CIDFont_get_flag, CIDFont_get_opt_index,
     CIDFont_get_parent_id, CIDFont_get_resource, CIDFont_get_subtype, CIDFont_is_ACCFont,
-    CIDFont_is_UCSFont,
+    CIDFont_is_UCSFont, CidFont,
 };
 use super::dpx_cmap::CMap_cache_get;
 use super::dpx_pdfencoding::pdf_load_ToUnicode_stream;
@@ -175,15 +175,15 @@ unsafe fn add_ToUnicode(font: *mut Type0Font) {
     }
     if csi.registry == "Adobe" && csi.ordering == "Identity" {
         match CIDFont_get_subtype(&*cidfont) {
-            2 => {
+            CidFont::Type2 => {
                 /* PLEASE FIX THIS */
                 tounicode = Type0Font_create_ToUnicode_stream(&*font)
             }
-            _ => {
-                if CIDFont_get_flag(&*cidfont, 1 << 9) != 0 {
+            CidFont::Type0 => {
+                if CIDFont_get_flag(&*cidfont, 1 << 9) {
                     /* FIXME */
                     tounicode = Type0Font_create_ToUnicode_stream(&*font)
-                } else if CIDFont_get_flag(&*cidfont, 1 << 8) != 0 {
+                } else if CIDFont_get_flag(&*cidfont, 1 << 8) {
                     /* FIXME */
                     /* Font loader will create ToUnicode and set. */
                     return;
@@ -271,10 +271,10 @@ pub(crate) unsafe fn Type0Font_cache_find(
     map_name: &str,
     cmap_id: Option<usize>,
     fmap_opt: &mut fontmap_opt,
-) -> i32 {
+) -> Option<usize> {
     let pdf_ver = pdf_get_version() as i32;
     if map_name.is_empty() || cmap_id.is_none() || pdf_ver < 2 {
-        return -1;
+        return None;
     }
     /*
      * Encoding is Identity-H or Identity-V according as thier WMode value.
@@ -289,10 +289,7 @@ pub(crate) unsafe fn Type0Font_cache_find(
     } else {
         (*cmap).get_CIDSysInfo().cloned()
     };
-    let cid_id = CIDFont_cache_find(map_name, csi, fmap_opt);
-    if cid_id < 0 {
-        return -1;
-    }
+    let cid_id = CIDFont_cache_find(map_name, csi, fmap_opt)?;
     /*
      * The descendant CID-keyed font has already been registerd.
      * If CID-keyed font with ID = cid_id is new font, then create new parent
@@ -303,14 +300,14 @@ pub(crate) unsafe fn Type0Font_cache_find(
     /* Does CID-keyed font already have parent ? */
     let parent_id = CIDFont_get_parent_id(CIDFont_cache_get(cid_id), wmode); /* If so, we don't need new one. */
     if parent_id >= 0 {
-        return parent_id;
+        return Some(parent_id as usize);
     }
     /*
      * CIDFont does not have parent or his parent's WMode does not matched with
      * wmode. Create new Type0 font.
      */
 
-    let font_id = __cache.len() as i32;
+    let font_id = __cache.len();
     let mut font = Type0Font::new();
     /*
      * All CJK double-byte characters are mapped so that resulting
@@ -370,7 +367,7 @@ pub(crate) unsafe fn Type0Font_cache_find(
     font.used_chars = ptr::null_mut();
     font.flags = 0;
     match CIDFont_get_subtype(cidfont) {
-        1 => {
+        CidFont::Type0 => {
             font.fontname = format!("{}-{}", fontname, font.encoding);
             (*font.fontdict)
                 .as_dict_mut()
@@ -387,7 +384,7 @@ pub(crate) unsafe fn Type0Font_cache_find(
                 font.flags |= 1 << 0
             }
         }
-        2 => {
+        CidFont::Type2 => {
             /*
              * TrueType:
              *
@@ -398,16 +395,13 @@ pub(crate) unsafe fn Type0Font_cache_find(
                 .set("BaseFont", pdf_name::new(fontname.as_bytes()));
             font.used_chars = new_used_chars2()
         }
-        _ => {
-            panic!("Unrecognized CIDFont Type");
-        }
     }
     (*font.fontdict).as_dict_mut().set(
         "Encoding",
         pdf_name::new(font.encoding.as_bytes()).into_obj(),
     );
     __cache.push(Box::new(font));
-    font_id
+    Some(font_id)
 }
 /* ******************************* CACHE ********************************/
 
