@@ -35,29 +35,25 @@ use super::dpx_sfnt::{
 use crate::dpx_truetype::SfntTableInfo;
 use crate::{info, warn, FromBEByteSlice};
 
-use super::dpx_cid::{CIDFont_get_embedding, CIDFont_get_parent_id, CIDFont_is_BaseFont};
+use super::dpx_cid::{CIDFont_get_embedding, CIDFont_get_parent_id, CIDFont_is_BaseFont, CidFont};
 use super::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_decode_char};
 use super::dpx_dpxfile::{dpx_open_dfont_file, dpx_open_truetype_file};
 use super::dpx_pdffont::pdf_font_make_uniqueTag;
 use super::dpx_tt_aux::tt_get_fontdesc;
 use super::dpx_tt_aux::ttc_read_offset;
-use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read, tt_cmap_release};
+use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read};
 use super::dpx_tt_glyf::{tt_add_glyph, tt_build_tables, tt_get_index, tt_get_metrics};
-use super::dpx_tt_gsub::{
-    otl_gsub_add_feat, otl_gsub_apply, otl_gsub_new, otl_gsub_release, otl_gsub_select,
-};
+use super::dpx_tt_gsub::{otl_gsub, otl_gsub_add_feat, otl_gsub_apply, otl_gsub_select};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use super::dpx_type0::{Type0Font_cache_get, Type0Font_get_usedchars};
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_name, pdf_ref_obj, pdf_stream, pdf_string, IntoObj, IntoRef, PushObj,
     STREAM_COMPRESS,
 };
-use libc::free;
 
 use super::dpx_cid::{cid_opt, CIDFont, CIDSysInfo};
 
 use super::dpx_cmap::CMap;
-use super::dpx_tt_cmap::tt_cmap;
 
 /* 2 for CID, variable for Code..  */
 /* CID (as 16-bit BE), Code ...    */
@@ -252,7 +248,7 @@ unsafe fn add_TTCIDHMetrics(
     fontdict: &mut pdf_dict,
     g: &tt_glyphs,
     used_chars: *mut i8,
-    cidtogidmap: *mut u8,
+    cidtogidmap: &[u8],
     last_cid: u16,
 ) {
     let mut start: i32 = 0;
@@ -270,9 +266,9 @@ unsafe fn add_TTCIDHMetrics(
     };
     for cid in 0..=last_cid as i32 {
         if !(*used_chars.offset((cid / 8) as isize) as i32 & 1 << 7 - cid % 8 == 0) {
-            let gid = (if !cidtogidmap.is_null() {
-                (*cidtogidmap.offset((2 * cid) as isize) as i32) << 8
-                    | *cidtogidmap.offset((2 * cid + 1) as isize) as i32
+            let gid = (if !cidtogidmap.is_empty() {
+                (cidtogidmap[2 * cid as usize] as i32) << 8
+                    | cidtogidmap[2 * cid as usize + 1] as i32
             } else {
                 cid
             }) as u16;
@@ -483,7 +479,7 @@ unsafe fn cid_to_code(cmap: *mut CMap, cid: CID) -> i32 {
 
 pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     let cmap;
-    let mut ttcmap: *mut tt_cmap = ptr::null_mut();
+    let mut ttcmap = None;
     let offset;
     let mut i: i32 = 0;
     let mut unicode_cmap: i32 = 0;
@@ -550,7 +546,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * Select TrueType cmap table, find ToCode CMap for each TrueType encodings.
      */
     if glyph_ordering {
-        ttcmap = ptr::null_mut();
+        ttcmap = None;
         cmap = ptr::null_mut()
     } else {
         /*
@@ -563,11 +559,11 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                 known_encodings[i].platform,
                 known_encodings[i].encoding,
             );
-            if !ttcmap.is_null() {
+            if ttcmap.is_some() {
                 break;
             }
         }
-        if ttcmap.is_null() {
+        if ttcmap.is_none() {
             warn!(
                 "No usable TrueType cmap table found for font \"{}\".",
                 font.ident
@@ -591,7 +587,6 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     } /* .notdef */
     let mut glyphs = tt_glyphs::init();
     let mut last_cid = 0 as CID;
-    let mut num_glyphs = 1_u16;
     let mut v_used_chars = ptr::null_mut();
     let mut h_used_chars = v_used_chars;
     let mut used_chars = h_used_chars;
@@ -648,7 +643,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     if last_cid as u32 >= 0xffffu32 {
         panic!("CID count > 65535");
     }
-    let cidtogidmap = ptr::null_mut();
+    let cidtogidmap = Vec::new();
     /* !NO_GHOSTSCRIPT_BUG */
     /*
      * Map CIDs to GIDs.
@@ -670,6 +665,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                     code = cid as i32
                 } else {
                     code = cid_to_code(cmap, cid);
+                    let ttcmap = ttcmap.as_ref().unwrap();
                     gid = tt_cmap_lookup(ttcmap, code as u32);
                     if gid as i32 == 0 && unicode_cmap != 0 {
                         let alt_code = fix_CJK_symbols(code as u16) as i32;
@@ -690,8 +686,6 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                 }
                 /* TODO: duplicated glyph */
                 tt_add_glyph(&mut glyphs, gid, cid);
-                /* !NO_GHOSTSCRIPT_BUG */
-                num_glyphs = num_glyphs.wrapping_add(1)
             }
         }
     }
@@ -699,26 +693,26 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * Vertical
      */
     if !v_used_chars.is_null() {
-        let mut gsub_list;
         /*
          * Require `vrt2' or `vert'.
          */
-        if glyph_ordering {
-            gsub_list = ptr::null_mut()
+        let gsub_list = if glyph_ordering {
+            None
         } else {
-            gsub_list = otl_gsub_new();
-            if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vrt2", &sfont) < 0 {
-                if otl_gsub_add_feat(&mut *gsub_list, b"*", b"*", b"vert", &sfont) < 0 {
+            let mut gsub_list = otl_gsub::new();
+            if otl_gsub_add_feat(&mut gsub_list, "*", "*", "vrt2", &sfont).is_none() {
+                if otl_gsub_add_feat(&mut gsub_list, "*", "*", "vert", &sfont).is_none() {
                     warn!("GSUB feature vrt2/vert not found.");
-                    otl_gsub_release(gsub_list);
-                    gsub_list = ptr::null_mut()
+                    None
                 } else {
-                    otl_gsub_select(gsub_list, b"*", b"*", b"vert");
+                    otl_gsub_select(&mut gsub_list, "*", "*", "vert");
+                    Some(gsub_list)
                 }
             } else {
-                otl_gsub_select(gsub_list, b"*", b"*", b"vrt2");
+                otl_gsub_select(&mut gsub_list, "*", "*", "vrt2");
+                Some(gsub_list)
             }
-        }
+        };
         for cid in 1..=last_cid as CID {
             let code_0;
             let mut gid_0;
@@ -739,6 +733,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                         code_0 = cid as i32
                     } else {
                         code_0 = cid_to_code(cmap, cid);
+                        let ttcmap = ttcmap.as_ref().unwrap();
                         gid_0 = tt_cmap_lookup(ttcmap, code_0 as u32);
                         if gid_0 as i32 == 0 && unicode_cmap != 0 {
                             let alt_code_0 = fix_CJK_symbols(code_0 as u16) as i32;
@@ -759,8 +754,8 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                             "Glyph missing in font. (CID={}, code=0x{:04x})",
                             cid, code_0,
                         );
-                    } else if !gsub_list.is_null() {
-                        otl_gsub_apply(gsub_list, &mut gid_0);
+                    } else if let Some(gsub) = gsub_list.as_ref() {
+                        otl_gsub_apply(gsub, &mut gid_0);
                     }
                     tt_add_glyph(&mut glyphs, gid_0, cid);
                     /* !NO_GHOSTSCRIPT_BUG */
@@ -769,13 +764,10 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
                         *used_chars.offset((cid as i32 / 8) as isize) |=
                             (1 << 7 - cid as i32 % 8) as i8;
                     }
-                    num_glyphs = num_glyphs.wrapping_add(1)
                 }
             }
         }
-        if !gsub_list.is_null() {
-            otl_gsub_release(gsub_list);
-        }
+        drop(gsub_list);
         if used_chars.is_null() {
             /* We have no horizontal. */
             used_chars = v_used_chars
@@ -784,7 +776,6 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     if used_chars.is_null() {
         panic!("Unexpected error.");
     }
-    tt_cmap_release(ttcmap);
     if CIDFont_get_embedding(font) != 0 {
         if tt_build_tables(&mut sfont, &mut glyphs) < 0 {
             panic!("Could not created FontFile stream.");
@@ -805,7 +796,7 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
             (*font.fontdict).as_dict_mut(),
             &glyphs,
             used_chars,
-            cidtogidmap,
+            &cidtogidmap,
             last_cid,
         );
         if !v_used_chars.is_null() {
@@ -819,7 +810,6 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
     }
     /* Finish here if not embedded. */
     if CIDFont_get_embedding(font) == 0 {
-        free(cidtogidmap as *mut libc::c_void);
         return;
     }
     /* Create font file */
@@ -855,20 +845,16 @@ pub(crate) unsafe fn CIDFont_type2_dofont(font: &mut CIDFont) {
      * default value as "Identity". However, ISO 32000-1 requires it
      * for Type 2 CIDFonts with embedded font programs.
      */
-    if cidtogidmap.is_null() {
+    if cidtogidmap.is_empty() {
         (*font.fontdict)
             .as_dict_mut()
             .set("CIDToGIDMap", "Identity");
     } else {
         let mut c2gmstream = pdf_stream::new(STREAM_COMPRESS);
-        c2gmstream.add(
-            cidtogidmap as *const libc::c_void,
-            (last_cid as i32 + 1) * 2,
-        );
+        c2gmstream.add_slice(&cidtogidmap[..(last_cid as usize + 1) * 2]);
         (*font.fontdict)
             .as_dict_mut()
             .set("CIDToGIDMap", c2gmstream.into_ref());
-        free(cidtogidmap as *mut libc::c_void);
     };
 }
 
@@ -929,7 +915,7 @@ pub(crate) unsafe fn CIDFont_type2_open(
     /*
      * CIDSystemInfo is determined from CMap or from map record option.
      */
-    let subtype = 2;
+    let subtype = CidFont::Type2;
     let csi = Box::new(if let Some(opt_csi) = opt.csi.as_deref_mut() {
         if let Some(cmap_csi) = cmap_csi.as_ref() {
             if opt_csi.registry != cmap_csi.registry || opt_csi.ordering != cmap_csi.ordering {

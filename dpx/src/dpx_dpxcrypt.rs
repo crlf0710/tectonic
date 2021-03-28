@@ -28,7 +28,7 @@
 )]
 
 use crate::FromBEByteSlice;
-use libc::{memcpy, memset, rand};
+use libc::{memcpy, rand};
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -45,12 +45,7 @@ pub(crate) struct AES_CONTEXT {
     pub(crate) iv: [u8; 16],
 }
 unsafe fn _gcry_burn_stack(mut bytes: i32) {
-    let mut buf: [i8; 64] = [0; 64];
-    memset(
-        buf.as_mut_ptr() as *mut libc::c_void,
-        0,
-        ::std::mem::size_of::<[i8; 64]>(),
-    );
+    let _buf: [i8; 64] = [0; 64];
     bytes = (bytes as u64).wrapping_sub(::std::mem::size_of::<[i8; 64]>() as u64) as i32 as i32;
     if bytes > 0 {
         _gcry_burn_stack(bytes);
@@ -271,7 +266,7 @@ unsafe fn do_arcfour_setkey(mut ctx: *mut ARC4_CONTEXT, key: *const u8, keylen: 
         (*ctx).sbox[i] = (*ctx).sbox[j];
         (*ctx).sbox[j] = t as u8;
     }
-    memset(karr.as_mut_ptr() as *mut libc::c_void, 0, 256);
+    karr.fill(0);
 }
 
 pub(crate) unsafe fn ARC4_set_key(ctx: *mut ARC4_CONTEXT, keylen: u32, key: *const u8) {
@@ -279,46 +274,36 @@ pub(crate) unsafe fn ARC4_set_key(ctx: *mut ARC4_CONTEXT, keylen: u32, key: *con
     _gcry_burn_stack(300);
 }
 
-pub(crate) unsafe fn AES_ecb_encrypt(
-    key: *const u8,
-    key_len: usize,
-    plain: *const u8,
-    plain_len: usize,
-) -> Vec<u8> {
+pub(crate) unsafe fn AES_ecb_encrypt(key: &[u8], plain: &[u8]) -> Vec<u8> {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,
         rk: [0; 60],
         iv: [0; 16],
     };
     let ctx = &mut aes;
-    let mut cipher = vec![0_u8; plain_len as _];
-    (*ctx).nrounds =
-        rijndaelSetupEncrypt((*ctx).rk.as_mut_ptr(), key, key_len.wrapping_mul(8) as i32);
+    let mut cipher = vec![0_u8; plain.len()];
+    (*ctx).nrounds = rijndaelSetupEncrypt((*ctx).rk.as_mut_ptr(), key);
     let mut inptr = plain;
     let mut outptr = cipher.as_mut_slice();
-    let mut len = plain_len;
+    let mut len = plain.len();
     while len >= 16 {
         rijndaelEncrypt(
             (*ctx).rk.as_mut_ptr(),
             (*ctx).nrounds,
-            inptr,
+            &inptr[..16],
             outptr.as_mut_ptr(),
         );
-        inptr = inptr.offset(16);
+        inptr = &inptr[16..];
         outptr = &mut outptr[16..];
         len -= 16;
     }
     if len > 0 {
         let mut block: [u8; 16] = [0; 16];
-        memcpy(
-            block.as_mut_ptr() as *mut libc::c_void,
-            inptr as *const libc::c_void,
-            len as _,
-        );
+        block.copy_from_slice(&inptr[..len]);
         rijndaelEncrypt(
             (*ctx).rk.as_mut_ptr(),
             (*ctx).nrounds,
-            block.as_mut_ptr() as *const u8,
+            &block,
             outptr.as_mut_ptr(),
         );
     }
@@ -328,12 +313,10 @@ pub(crate) unsafe fn AES_ecb_encrypt(
 /* NULL iv means here "use random IV". */
 
 pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
-    key: *const u8,
-    key_len: usize,
+    key: &[u8],
     iv: *const u8,
     padding: i32,
-    plain: *const u8,
-    plain_len: usize,
+    plain: &[u8],
 ) -> Vec<u8> {
     let mut aes: AES_CONTEXT = AES_CONTEXT {
         nrounds: 0,
@@ -359,54 +342,50 @@ pub(crate) unsafe fn AES_cbc_encrypt_tectonic(
      * of 16.
      */
     let padbytes = (if padding != 0 {
-        (16 as u64).wrapping_sub((plain_len as u64).wrapping_rem(16 as u64))
-    } else if plain_len.wrapping_rem(16) != 0 {
-        (16 as u64).wrapping_sub((plain_len as u64).wrapping_rem(16 as u64))
+        (16 as u64).wrapping_sub((plain.len() as u64).wrapping_rem(16 as u64))
+    } else if plain.len() % 16 != 0 {
+        (16 as u64).wrapping_sub((plain.len() as u64).wrapping_rem(16 as u64))
     } else {
         0 as u64
     }) as i32;
     /* We do NOT write IV to the output stream if IV is explicitly specified. */
-    let cipher_len = plain_len
-        .wrapping_add((if !iv.is_null() { 0 } else { 16 }) as usize)
-        .wrapping_add(padbytes as usize);
-    let mut cipher = vec![0_u8; cipher_len as _];
-    (*ctx).nrounds =
-        rijndaelSetupEncrypt((*ctx).rk.as_mut_ptr(), key, key_len.wrapping_mul(8) as i32);
+    let cipher_len =
+        plain.len() + ((if !iv.is_null() { 0 } else { 16 }) as usize) + (padbytes as usize);
+    let mut cipher = vec![0_u8; cipher_len];
+    (*ctx).nrounds = rijndaelSetupEncrypt((*ctx).rk.as_mut_ptr(), key);
     let mut inptr = plain;
     let mut outptr = cipher.as_mut_slice();
     if iv.is_null() {
         outptr[..16].copy_from_slice(&(*ctx).iv[..]);
         outptr = &mut outptr[16..];
     }
-    let mut len = plain_len;
+    let mut len = plain.len();
     while len >= 16 {
-        for i in 0..16 as u64 {
-            block[i as usize] =
-                (*inptr.offset(i as isize) as i32 ^ (*ctx).iv[i as usize] as i32) as u8;
+        for i in 0..16 {
+            block[i] = (inptr[i] as i32 ^ (*ctx).iv[i] as i32) as u8;
         }
         rijndaelEncrypt(
             (*ctx).rk.as_mut_ptr(),
             (*ctx).nrounds,
-            block.as_ptr(),
+            &block,
             outptr.as_mut_ptr(),
         );
         (*ctx).iv.copy_from_slice(&outptr[..16]);
-        inptr = inptr.offset(16);
+        inptr = &inptr[16..];
         outptr = &mut outptr[16..];
         len -= 16;
     }
     if len > 0 || padding != 0 {
         for i in 0..len {
-            block[i as usize] =
-                (*inptr.offset(i as isize) as i32 ^ (*ctx).iv[i as usize] as i32) as u8;
+            block[i] = (inptr[i] as i32 ^ (*ctx).iv[i] as i32) as u8;
         }
         for i in len..16 {
-            block[i as usize] = (padbytes ^ (*ctx).iv[i as usize] as i32) as u8;
+            block[i] = (padbytes ^ (*ctx).iv[i] as i32) as u8;
         }
         rijndaelEncrypt(
             (*ctx).rk.as_mut_ptr(),
             (*ctx).nrounds,
-            block.as_ptr(),
+            &block,
             outptr.as_mut_ptr(),
         );
         (*ctx).iv.copy_from_slice(&outptr[..16]);
@@ -600,7 +579,9 @@ static mut rcon: [u32; 10] = [
  *
  * @return the number of rounds for the given cipher key size.
  */
-unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, key: *const u8, keybits: i32) -> i32 {
+unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, key: &[u8]) -> i32 {
+    let keybits = key.len() * 8;
+    let key = key.as_ptr();
     let mut i: u32 = 0_u32;
     *rk.offset(0) = (*key.offset(0) as u32) << 24
         ^ (*key.offset(1) as u32) << 16
@@ -704,12 +685,8 @@ unsafe fn rijndaelSetupEncrypt(mut rk: *mut u32, key: *const u8, keybits: i32) -
     }
     0
 }
-unsafe fn rijndaelEncrypt(
-    mut rk: *const u32,
-    nrounds: i32,
-    plaintext: *const u8,
-    ciphertext: *mut u8,
-) {
+unsafe fn rijndaelEncrypt(mut rk: *const u32, nrounds: i32, plaintext: &[u8], ciphertext: *mut u8) {
+    let plaintext = plaintext.as_ptr();
     /* ?FULL_UNROLL */
     /*
      * map byte array block to cipher state

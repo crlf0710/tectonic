@@ -35,7 +35,6 @@ use super::dpx_pdfcolor::{
 };
 use crate::bridge::ttstub_input_get_size;
 use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj, IntoRef, PushObj, STREAM_COMPRESS};
-use libc::memset;
 
 use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
@@ -205,15 +204,15 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     let mut colorspace = ptr::null_mut();
     if j_info.flags & 1 << 2 != 0 {
         if let Some(icc_stream) = JPEG_get_iccp(&mut j_info) {
-            if iccp_check_colorspace(colortype, &icc_stream.content) < 0 {
+            if iccp_check_colorspace(colortype, icc_stream.data()) < 0 {
                 colorspace = ptr::null_mut()
             } else {
-                let cspc_id = iccp_load_profile("", &icc_stream.content);
+                let cspc_id = iccp_load_profile("", icc_stream.data());
                 if cspc_id < 0 {
                     colorspace = ptr::null_mut()
                 } else {
                     colorspace = pdf_get_colorspace_reference(cspc_id);
-                    let intent = iccp_get_rendering_intent(&icc_stream.content);
+                    let intent = iccp_get_rendering_intent(icc_stream.data());
                     if !intent.is_null() {
                         stream_dict.set("Intent", intent);
                     }
@@ -251,7 +250,7 @@ pub(crate) unsafe fn jpeg_include_image<R: Read + Seek>(
     let (xdensity, ydensity) = jpeg_get_density(&mut j_info);
     info.xdensity = xdensity;
     info.ydensity = ydensity;
-    ximage.set_image(&info, stream.into_obj());
+    ximage.set_image(&info, stream.into());
     JPEG_info_clear(&mut j_info);
     0
 }
@@ -278,11 +277,7 @@ unsafe fn JPEG_info_init(mut j_info: *mut JPEG_info) {
     (*j_info).ydpi = 0.0f64;
     (*j_info).flags = 0;
     (*j_info).appn = Vec::new();
-    memset(
-        (*j_info).skipbits.as_mut_ptr() as *mut libc::c_void,
-        0,
-        1024 / 8 + 1,
-    );
+    (*j_info).skipbits[..1024 / 8 + 1].fill(0);
 }
 unsafe fn JPEG_info_clear(mut j_info: *mut JPEG_info) {
     (*j_info).appn = Vec::new();
@@ -370,23 +365,23 @@ unsafe fn read_APP14_Adobe<R: Read>(j_info: *mut JPEG_info, handle: &mut R) -> u
     add_APPn_marker(j_info, JM_APP14, AppData::ADOBE(app_data));
     7_u16
 }
-unsafe fn read_exif_bytes(pp: &mut *mut u8, n: i32, endian: i32) -> i32 {
+unsafe fn read_exif_bytes(pp: &mut &[u8], n: usize, endian: i32) -> i32 {
     let mut rval: i32 = 0;
-    let p: *mut u8 = *pp;
+    let p = *pp;
     match endian {
         0 => {
             for i in 0..n {
-                rval = (rval << 8) + *p.offset(i as isize) as i32;
+                rval = (rval << 8) + p[i] as i32;
             }
         }
         1 => {
             for i in (0..n).rev() {
-                rval = (rval << 8) + *p.offset(i as isize) as i32;
+                rval = (rval << 8) + p[i] as i32;
             }
         }
         _ => {}
     }
-    *pp = (*pp).offset(n as isize);
+    *pp = &pp[n..];
     rval
 }
 unsafe fn read_APP1_Exif<R: Read>(
@@ -405,32 +400,30 @@ unsafe fn read_APP1_Exif<R: Read>(
     let mut xres_ms: u32 = 0_u32;
     let mut yres_ms: u32 = 0_u32;
     let mut res_unit_ms: f64 = 0.0f64;
-    let mut buffer = vec![0u8; length as usize];
+    let mut buffer = vec![0_u8; length];
     if handle.read_exact(&mut buffer).is_err() {
         return length;
     }
 
-    let buffer = buffer.as_mut_ptr();
-    let mut p = buffer;
-    let endptr = buffer.offset(length as isize);
-    while p < buffer.offset(length as isize) && *p == 0 {
-        p = p.offset(1)
+    let mut p = buffer.as_slice();
+    while !p.is_empty() && p[0] == 0 {
+        p = &p[1..];
     }
-    if !(p.offset(8) >= endptr) {
+    if p.len() > 8 {
         return length;
     }
 
     let tiff_header = p;
-    if *p as i32 == 'M' as i32 && *p.offset(1) as i32 == 'M' as i32 {
+    if p[0] == b'M' && p[1] == b'M' {
         bigendian = 0_i8;
-    } else if *p as i32 == 'I' as i32 && *p.offset(1) as i32 == 'I' as i32 {
+    } else if p[0] == b'I' && p[1] == b'I' {
         bigendian = 1_i8;
     } else {
         warn!("JPEG: Invalid value in Exif TIFF header.");
         return length;
     }
 
-    p = p.offset(2);
+    p = &p[2..];
     let mut i = read_exif_bytes(&mut p, 2, bigendian as i32);
     if i != 42 {
         warn!("JPEG: Invalid value in Exif TIFF header.");
@@ -438,7 +431,7 @@ unsafe fn read_APP1_Exif<R: Read>(
     }
 
     i = read_exif_bytes(&mut p, 4, bigendian as i32);
-    p = tiff_header.offset(i as isize);
+    p = &tiff_header[i as usize..];
     let mut num_fields = read_exif_bytes(&mut p, 2, bigendian as i32);
     while num_fields > 0 {
         num_fields -= num_fields - 1;
@@ -448,27 +441,27 @@ unsafe fn read_APP1_Exif<R: Read>(
         let count = read_exif_bytes(&mut p, 4, bigendian as i32);
         match type_0 {
             1 => {
-                value = *p as i32;
-                p = p.offset(4)
+                value = p[0] as i32;
+                p = &p[4..];
             }
             3 => {
                 value = read_exif_bytes(&mut p, 2, bigendian as i32);
-                p = p.offset(2)
+                p = &p[2..];
             }
             4 | 9 => value = read_exif_bytes(&mut p, 4, bigendian as i32),
             5 | 10 => {
                 value = read_exif_bytes(&mut p, 4, bigendian as i32);
-                let mut rp = tiff_header.offset(value as isize);
+                let mut rp = &tiff_header[value as usize..];
                 num = read_exif_bytes(&mut rp, 4, bigendian as i32);
                 den = read_exif_bytes(&mut rp, 4, bigendian as i32)
             }
             7 => {
-                value = *p as i32;
-                p = p.offset(4);
+                value = p[0] as i32;
+                p = &p[4..];
             }
             2 | _ => {
                 value = 0;
-                p = p.offset(4)
+                p = &p[4..];
             }
         }
         match tag {
@@ -502,7 +495,7 @@ unsafe fn read_APP1_Exif<R: Read>(
                     return length;
                 } else {
                     value = read_exif_bytes(&mut p, 1, bigendian as i32);
-                    p = p.offset(3);
+                    p = &p[3..];
                     res_unit_ms = if value == 1 {
                         0.0254 /* Unit is meter */
                     } else {

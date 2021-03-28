@@ -26,14 +26,9 @@
     non_upper_case_globals
 )]
 
-use std::ptr;
-
 use super::dpx_cff::{cff_add_string, cff_get_string};
-use super::dpx_mem::{new, renew};
-use crate::mfree;
 use crate::shims::sprintf;
 use crate::warn;
-use libc::{free, memset};
 
 pub(crate) type s_SID = u16;
 
@@ -73,8 +68,6 @@ enum CffError {
 of an Offset field or fields, range 1-4 */
 /* 1, 2, 3, or 4-byte offset */
 /* 2-byte string identifier  */
-use super::dpx_cff::cff_dict;
-use super::dpx_cff::cff_dict_entry;
 /* CID-Keyed font specific */
 use super::dpx_cff::cff_font;
 #[derive(Copy, Clone)]
@@ -84,25 +77,33 @@ pub(crate) struct Operator {
     pub(crate) argtype: i32,
 }
 
-pub(crate) unsafe fn cff_new_dict() -> *mut cff_dict {
-    let dict =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<cff_dict>() as u64) as u32) as *mut cff_dict;
-    (*dict).max = 16;
-    (*dict).count = 0;
-    (*dict).entries = new(((*dict).max as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
-        as u32) as *mut cff_dict_entry;
-    dict
+impl Operator {
+    const fn new(opname: &'static str, argtype: i32) -> Self {
+        Self { opname, argtype }
+    }
 }
 
-pub(crate) unsafe fn cff_release_dict(dict: &mut cff_dict) {
-    if !dict.entries.is_null() {
-        for i in 0..dict.count {
-            free((*dict.entries.offset(i as isize)).values as *mut libc::c_void);
+#[derive(Clone, Default)]
+#[repr(C)]
+pub(crate) struct cff_dict {
+    pub(crate) entries: Vec<cff_dict_entry>,
+}
+
+impl cff_dict {
+    pub(crate) fn new() -> Self {
+        Self {
+            entries: Vec::with_capacity(16),
         }
-        free(dict.entries as *mut libc::c_void);
     }
-    free(dict as *mut cff_dict as *mut libc::c_void);
+}
+
+/* Dictionary */
+#[derive(Clone)]
+pub(crate) struct cff_dict_entry {
+    pub(crate) id: i32,
+    pub(crate) key: &'static str,
+    pub(crate) values: Box<[f64]>,
+    /* values                                  */
 }
 
 const CFF_DICT_STACK_LIMIT: usize = 64;
@@ -114,250 +115,67 @@ const CFF_LAST_DICT_OP2: usize = 39;
 const CFF_LAST_DICT_OP: usize = CFF_LAST_DICT_OP1 + CFF_LAST_DICT_OP2;
 
 static mut dict_operator: [Operator; CFF_LAST_DICT_OP] = [
-    Operator {
-        opname: "version",
-        argtype: CFF_TYPE_SID,
-    },
-    Operator {
-        opname: "Notice",
-        argtype: CFF_TYPE_SID,
-    },
-    Operator {
-        opname: "FullName",
-        argtype: CFF_TYPE_SID,
-    },
-    Operator {
-        opname: "FamilyName",
-        argtype: CFF_TYPE_SID,
-    },
-    Operator {
-        opname: "Weight",
-        argtype: CFF_TYPE_SID,
-    },
-    Operator {
-        opname: "FontBBox",
-        argtype: CFF_TYPE_ARRAY,
-    },
-    Operator {
-        opname: "BlueValues",
-        argtype: CFF_TYPE_DELTA,
-    },
-    Operator {
-        opname: "OtherBlues",
-        argtype: CFF_TYPE_DELTA,
-    },
-    Operator {
-        opname: "FamilyBlues",
-        argtype: CFF_TYPE_DELTA,
-    },
-    Operator {
-        opname: "FamilyOtherBlues",
-        argtype: CFF_TYPE_DELTA,
-    },
-    Operator {
-        opname: "StdHW",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "StdVW",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "",
-        argtype: -1,
-    },
-    Operator {
-        opname: "UniqueID",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "XUID",
-        argtype: CFF_TYPE_ARRAY,
-    },
-    Operator {
-        opname: "charset",
-        argtype: CFF_TYPE_OFFSET,
-    },
-    Operator {
-        opname: "Encoding",
-        argtype: CFF_TYPE_OFFSET,
-    },
-    Operator {
-        opname: "CharStrings",
-        argtype: CFF_TYPE_OFFSET,
-    },
-    Operator {
-        opname: "Private",
-        argtype: CFF_TYPE_SZOFF,
-    },
-    Operator {
-        opname: "Subrs",
-        argtype: CFF_TYPE_OFFSET,
-    },
-    Operator {
-        opname: "defaultWidthX",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "nominalWidthX",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "Copyright",
-        argtype: CFF_TYPE_SID,
-    },
-    Operator {
-        opname: "IsFixedPitch",
-        argtype: CFF_TYPE_BOOLEAN,
-    },
-    Operator {
-        opname: "ItalicAngle",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "UnderlinePosition",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "UnderlineThickness",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "PaintType",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "CharstringType",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "FontMatrix",
-        argtype: CFF_TYPE_ARRAY,
-    },
-    Operator {
-        opname: "StrokeWidth",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "BlueScale",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "BlueShift",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "BlueFuzz",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "StemSnapH",
-        argtype: CFF_TYPE_DELTA,
-    },
-    Operator {
-        opname: "StemSnapV",
-        argtype: CFF_TYPE_DELTA,
-    },
-    Operator {
-        opname: "ForceBold",
-        argtype: CFF_TYPE_BOOLEAN,
-    },
-    Operator {
-        opname: "",
-        argtype: -1,
-    },
-    Operator {
-        opname: "",
-        argtype: -1,
-    },
-    Operator {
-        opname: "LanguageGroup",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "ExpansionFactor",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "InitialRandomSeed",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "SyntheticBase",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "PostScript",
-        argtype: CFF_TYPE_SID,
-    },
-    Operator {
-        opname: "BaseFontName",
-        argtype: CFF_TYPE_SID,
-    },
-    Operator {
-        opname: "BaseFontBlend",
-        argtype: CFF_TYPE_DELTA,
-    },
-    Operator {
-        opname: "",
-        argtype: -1,
-    },
-    Operator {
-        opname: "",
-        argtype: -1,
-    },
-    Operator {
-        opname: "",
-        argtype: -1,
-    },
-    Operator {
-        opname: "",
-        argtype: -1,
-    },
-    Operator {
-        opname: "",
-        argtype: -1,
-    },
-    Operator {
-        opname: "",
-        argtype: -1,
-    },
-    Operator {
-        opname: "ROS",
-        argtype: CFF_TYPE_ROS,
-    },
-    Operator {
-        opname: "CIDFontVersion",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "CIDFontRevision",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "CIDFontType",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "CIDCount",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "UIDBase",
-        argtype: CFF_TYPE_NUMBER,
-    },
-    Operator {
-        opname: "FDArray",
-        argtype: CFF_TYPE_OFFSET,
-    },
-    Operator {
-        opname: "FDSelect",
-        argtype: CFF_TYPE_OFFSET,
-    },
-    Operator {
-        opname: "FontName",
-        argtype: CFF_TYPE_SID,
-    },
+    Operator::new("version", CFF_TYPE_SID),
+    Operator::new("Notice", CFF_TYPE_SID),
+    Operator::new("FullName", CFF_TYPE_SID),
+    Operator::new("FamilyName", CFF_TYPE_SID),
+    Operator::new("Weight", CFF_TYPE_SID),
+    Operator::new("FontBBox", CFF_TYPE_ARRAY),
+    Operator::new("BlueValues", CFF_TYPE_DELTA),
+    Operator::new("OtherBlues", CFF_TYPE_DELTA),
+    Operator::new("FamilyBlues", CFF_TYPE_DELTA),
+    Operator::new("FamilyOtherBlues", CFF_TYPE_DELTA),
+    Operator::new("StdHW", CFF_TYPE_NUMBER),
+    Operator::new("StdVW", CFF_TYPE_NUMBER),
+    Operator::new("", -1),
+    Operator::new("UniqueID", CFF_TYPE_NUMBER),
+    Operator::new("XUID", CFF_TYPE_ARRAY),
+    Operator::new("charset", CFF_TYPE_OFFSET),
+    Operator::new("Encoding", CFF_TYPE_OFFSET),
+    Operator::new("CharStrings", CFF_TYPE_OFFSET),
+    Operator::new("Private", CFF_TYPE_SZOFF),
+    Operator::new("Subrs", CFF_TYPE_OFFSET),
+    Operator::new("defaultWidthX", CFF_TYPE_NUMBER),
+    Operator::new("nominalWidthX", CFF_TYPE_NUMBER),
+    Operator::new("Copyright", CFF_TYPE_SID),
+    Operator::new("IsFixedPitch", CFF_TYPE_BOOLEAN),
+    Operator::new("ItalicAngle", CFF_TYPE_NUMBER),
+    Operator::new("UnderlinePosition", CFF_TYPE_NUMBER),
+    Operator::new("UnderlineThickness", CFF_TYPE_NUMBER),
+    Operator::new("PaintType", CFF_TYPE_NUMBER),
+    Operator::new("CharstringType", CFF_TYPE_NUMBER),
+    Operator::new("FontMatrix", CFF_TYPE_ARRAY),
+    Operator::new("StrokeWidth", CFF_TYPE_NUMBER),
+    Operator::new("BlueScale", CFF_TYPE_NUMBER),
+    Operator::new("BlueShift", CFF_TYPE_NUMBER),
+    Operator::new("BlueFuzz", CFF_TYPE_NUMBER),
+    Operator::new("StemSnapH", CFF_TYPE_DELTA),
+    Operator::new("StemSnapV", CFF_TYPE_DELTA),
+    Operator::new("ForceBold", CFF_TYPE_BOOLEAN),
+    Operator::new("", -1),
+    Operator::new("", -1),
+    Operator::new("LanguageGroup", CFF_TYPE_NUMBER),
+    Operator::new("ExpansionFactor", CFF_TYPE_NUMBER),
+    Operator::new("InitialRandomSeed", CFF_TYPE_NUMBER),
+    Operator::new("SyntheticBase", CFF_TYPE_NUMBER),
+    Operator::new("PostScript", CFF_TYPE_SID),
+    Operator::new("BaseFontName", CFF_TYPE_SID),
+    Operator::new("BaseFontBlend", CFF_TYPE_DELTA),
+    Operator::new("", -1),
+    Operator::new("", -1),
+    Operator::new("", -1),
+    Operator::new("", -1),
+    Operator::new("", -1),
+    Operator::new("", -1),
+    Operator::new("ROS", CFF_TYPE_ROS),
+    Operator::new("CIDFontVersion", CFF_TYPE_NUMBER),
+    Operator::new("CIDFontRevision", CFF_TYPE_NUMBER),
+    Operator::new("CIDFontType", CFF_TYPE_NUMBER),
+    Operator::new("CIDCount", CFF_TYPE_NUMBER),
+    Operator::new("UIDBase", CFF_TYPE_NUMBER),
+    Operator::new("FDArray", CFF_TYPE_OFFSET),
+    Operator::new("FDSelect", CFF_TYPE_OFFSET),
+    Operator::new("FontName", CFF_TYPE_SID),
 ];
 /* Parse DICT data */
 fn get_integer(data: &mut &[u8]) -> Result<f64, CffError> {
@@ -403,7 +221,7 @@ fn get_integer(data: &mut &[u8]) -> Result<f64, CffError> {
     } as f64)
 }
 /* Simply uses strtod */
-unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
+fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
     let mut nibble: i32 = 0;
     let mut fail: i32 = 0;
     /* skip first byte (30) */
@@ -459,67 +277,52 @@ unsafe fn get_real(data: &mut &[u8]) -> Result<f64, CffError> {
     }
 }
 /* operators */
-unsafe fn add_dict(mut dict: *mut cff_dict, data: &mut &[u8]) -> Result<(), CffError> {
-    let mut id = data[0] as i32;
-    if id == 0xc {
-        *data = &data[1..];
-        if data.is_empty() || {
-            id = data[0] as i32 + CFF_LAST_DICT_OP1 as i32;
-            id >= CFF_LAST_DICT_OP as i32
-        } {
+impl cff_dict {
+    unsafe fn add_from_data(&mut self, data: &mut &[u8]) -> Result<(), CffError> {
+        let mut id = data[0] as i32;
+        if id == 0xc {
+            *data = &data[1..];
+            if data.is_empty() || {
+                id = data[0] as i32 + CFF_LAST_DICT_OP1 as i32;
+                id >= CFF_LAST_DICT_OP as i32
+            } {
+                return Err(CffError::ParseError);
+            }
+        } else if id >= CFF_LAST_DICT_OP1 as i32 {
             return Err(CffError::ParseError);
         }
-    } else if id >= CFF_LAST_DICT_OP1 as i32 {
-        return Err(CffError::ParseError);
-    }
-    let argtype = dict_operator[id as usize].argtype;
-    if dict_operator[id as usize].opname.is_empty() || argtype < 0 {
-        /* YuppySC-Regular.otf from OS X for instance uses op id 37, simply ignore
-        this dict instead of treat it as parsing error. */
-        return Ok(());
-    }
-    if (*dict).count >= (*dict).max {
-        (*dict).max += 16;
-        (*dict).entries = renew(
-            (*dict).entries as *mut libc::c_void,
-            ((*dict).max as u32 as u64).wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
-                as u32,
-        ) as *mut cff_dict_entry
-    }
-    (*(*dict).entries.offset((*dict).count as isize)).id = id;
-    (*(*dict).entries.offset((*dict).count as isize)).key = dict_operator[id as usize].opname;
-    if argtype == CFF_TYPE_NUMBER
-        || argtype == CFF_TYPE_BOOLEAN
-        || argtype == CFF_TYPE_SID
-        || argtype == CFF_TYPE_OFFSET
-    {
-        /* check for underflow here, as exactly one operand is expected */
-        if stack_top < 1 {
-            return Err(CffError::StackUnderflow);
+        let argtype = dict_operator[id as usize].argtype;
+        if dict_operator[id as usize].opname.is_empty() || argtype < 0 {
+            /* YuppySC-Regular.otf from OS X for instance uses op id 37, simply ignore
+            this dict instead of treat it as parsing error. */
+            return Ok(());
         }
-        stack_top -= 1;
-        (*(*dict).entries.offset((*dict).count as isize)).count = 1;
-        (*(*dict).entries.offset((*dict).count as isize)).values =
-            new((1_u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32) as *mut f64;
-        *(*(*dict).entries.offset((*dict).count as isize))
-            .values
-            .offset(0) = arg_stack[stack_top as usize];
-        (*dict).count += 1
-    } else if stack_top > 0 {
-        (*(*dict).entries.offset((*dict).count as isize)).count = stack_top;
-        (*(*dict).entries.offset((*dict).count as isize)).values = new((stack_top as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<f64>() as u64)
-            as u32) as *mut f64;
-        while stack_top > 0 {
+        if argtype == CFF_TYPE_NUMBER
+            || argtype == CFF_TYPE_BOOLEAN
+            || argtype == CFF_TYPE_SID
+            || argtype == CFF_TYPE_OFFSET
+        {
+            /* check for underflow here, as exactly one operand is expected */
+            if stack_top < 1 {
+                return Err(CffError::StackUnderflow);
+            }
             stack_top -= 1;
-            *(*(*dict).entries.offset((*dict).count as isize))
-                .values
-                .offset(stack_top as isize) = arg_stack[stack_top as usize]
+            self.entries.push(cff_dict_entry {
+                id,
+                key: dict_operator[id as usize].opname,
+                values: vec![arg_stack[stack_top as usize]].into_boxed_slice(),
+            });
+        } else if stack_top > 0 {
+            self.entries.push(cff_dict_entry {
+                id,
+                key: dict_operator[id as usize].opname,
+                values: Vec::from(&arg_stack[..stack_top as usize]).into_boxed_slice(),
+            });
+            stack_top = 0;
         }
-        (*dict).count += 1
+        *data = &data[1..];
+        Ok(())
     }
-    *data = &data[1..];
-    Ok(())
 }
 /* just ignore operator if there were no operands provided;
 don't treat this as underflow (e.g. StemSnapV in TemporaLGCUni-Italic.otf) */
@@ -528,44 +331,45 @@ don't treat this as underflow (e.g. StemSnapV in TemporaLGCUni-Italic.otf) */
  *  Private: two numbers, size and offset
  *  ROS    : three numbers, SID, SID, and a number
  */
-
-pub(crate) unsafe fn cff_dict_unpack(mut data: &[u8]) -> *mut cff_dict {
-    fn expect<T>(res: Result<T, CffError>) -> T {
-        match res {
-            Ok(res) => res,
-            Err(e) => panic!("{}: Parsing CFF DICT failed. (error={:?})", "CFF", e),
+impl cff_dict {
+    pub(crate) unsafe fn unpack(mut data: &[u8]) -> cff_dict {
+        fn expect<T>(res: Result<T, CffError>) -> T {
+            match res {
+                Ok(res) => res,
+                Err(e) => panic!("{}: Parsing CFF DICT failed. (error={:?})", "CFF", e),
+            }
         }
-    }
 
-    stack_top = 0;
-    let dict = cff_new_dict();
-    while !data.is_empty() {
-        if (data[0] as i32) < 22 {
-            /* operator */
-            expect(add_dict(dict, &mut data));
-        } else if data[0] as i32 == 30 {
-            /* real - First byte of a sequence (variable) */
-            if stack_top < CFF_DICT_STACK_LIMIT as i32 {
-                arg_stack[stack_top as usize] = expect(get_real(&mut data)); /* everything else are integer */
+        stack_top = 0;
+        let mut dict = cff_dict::new();
+        while !data.is_empty() {
+            if (data[0] as i32) < 22 {
+                /* operator */
+                expect(dict.add_from_data(&mut data));
+            } else if data[0] as i32 == 30 {
+                /* real - First byte of a sequence (variable) */
+                if stack_top < CFF_DICT_STACK_LIMIT as i32 {
+                    arg_stack[stack_top as usize] = expect(get_real(&mut data)); /* everything else are integer */
+                    stack_top += 1
+                } else {
+                    expect(Result::<(), _>::Err(CffError::StackOverflow));
+                }
+            } else if data[0] as i32 == 255 || data[0] as i32 >= 22 && data[0] as i32 <= 27 {
+                /* reserved */
+                data = &data[1..];
+            } else if stack_top < CFF_DICT_STACK_LIMIT as i32 {
+                arg_stack[stack_top as usize] = expect(get_integer(&mut data));
                 stack_top += 1
             } else {
                 expect(Result::<(), _>::Err(CffError::StackOverflow));
             }
-        } else if data[0] as i32 == 255 || data[0] as i32 >= 22 && data[0] as i32 <= 27 {
-            /* reserved */
-            data = &data[1..];
-        } else if stack_top < CFF_DICT_STACK_LIMIT as i32 {
-            arg_stack[stack_top as usize] = expect(get_integer(&mut data));
-            stack_top += 1
-        } else {
-            expect(Result::<(), _>::Err(CffError::StackOverflow));
         }
+        if stack_top != 0 {
+            warn!("{}: Garbage in CFF DICT data.", "CFF");
+            stack_top = 0
+        }
+        dict
     }
-    if stack_top != 0 {
-        warn!("{}: Garbage in CFF DICT data.", "CFF");
-        stack_top = 0
-    }
-    dict
 }
 /* Pack DICT data */
 fn pack_integer(dest: &mut [u8], value: i32) -> usize {
@@ -573,7 +377,7 @@ fn pack_integer(dest: &mut [u8], value: i32) -> usize {
         dest[0] = (value + 139 & 0xff) as u8;
         1
     } else if value >= 108 && value <= 1131 {
-        let value = (0xf700u32 + (value as u32) - 108) as u16;
+        let value = (0xf700 + (value as u32) - 108) as u16;
         dest[0..2].copy_from_slice(&value.to_be_bytes());
         2
     } else if value >= -1131 && value <= -108 {
@@ -666,7 +470,7 @@ unsafe fn cff_dict_put_number(value: f64, dest: &mut [u8], type_0: i32) -> usize
 }
 unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
     let mut len = 0;
-    if de.count > 0 {
+    if !de.values.is_empty() {
         let id = de.id;
         let type_0 = if dict_operator[id as usize].argtype == CFF_TYPE_OFFSET
             || dict_operator[id as usize].argtype == CFF_TYPE_SZOFF
@@ -675,8 +479,8 @@ unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
         } else {
             CFF_TYPE_NUMBER
         };
-        for i in 0..de.count {
-            len += cff_dict_put_number(*de.values.offset(i as isize), &mut dest[len..], type_0);
+        for &val in &*de.values {
+            len += cff_dict_put_number(val, &mut dest[len..], type_0);
         }
         if id >= 0 && id < CFF_LAST_DICT_OP1 as i32 {
             dest[len] = id as u8;
@@ -696,15 +500,15 @@ unsafe fn put_dict_entry(de: &cff_dict_entry, dest: &mut [u8]) -> usize {
 impl cff_dict {
     pub(crate) unsafe fn pack(&self, dest: &mut [u8]) -> usize {
         let mut len = 0_usize;
-        for i in 0..self.count as isize {
-            if (*self.entries.offset(i)).key == "ROS" {
-                len += put_dict_entry(&*self.entries.offset(i), dest);
+        for e in &self.entries {
+            if e.key == "ROS" {
+                len += put_dict_entry(&e, dest);
                 break;
             }
         }
-        for i in 0..self.count as isize {
-            if (*self.entries.offset(i)).key != "ROS" {
-                len += put_dict_entry(&*self.entries.offset(i), &mut dest[len..])
+        for e in &self.entries {
+            if e.key != "ROS" {
+                len += put_dict_entry(&e, &mut dest[len..])
             }
         }
         len
@@ -724,57 +528,36 @@ impl cff_dict {
         if id == CFF_LAST_DICT_OP as i32 {
             panic!("{}: Unknown CFF DICT operator.", "CFF");
         }
-        for i in 0..self.count {
-            if (*self.entries.offset(i as isize)).id == id {
-                if (*self.entries.offset(i as isize)).count != count {
+        for e in &self.entries {
+            if e.id == id {
+                if e.values.len() != count as usize {
                     panic!("{}: Inconsistent DICT argument number.", "CFF");
                 }
                 return;
             }
         }
-        if self.count + 1 >= self.max {
-            self.max += 8;
-            self.entries = renew(
-                self.entries as *mut libc::c_void,
-                (self.max as u32 as u64)
-                    .wrapping_mul(::std::mem::size_of::<cff_dict_entry>() as u64)
-                    as u32,
-            ) as *mut cff_dict_entry
-        }
-        (*self.entries.offset(self.count as isize)).id = id;
-        (*self.entries.offset(self.count as isize)).key = dict_operator[id as usize].opname;
-        (*self.entries.offset(self.count as isize)).count = count;
-        if count > 0 {
-            (*self.entries.offset(self.count as isize)).values =
-                new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<f64>() as u64) as u32)
-                    as *mut f64;
-            memset(
-                (*self.entries.offset(self.count as isize)).values as *mut libc::c_void,
-                0,
-                (::std::mem::size_of::<f64>()).wrapping_mul(count as _),
-            );
-        } else {
-            (*self.entries.offset(self.count as isize)).values = ptr::null_mut()
-        }
-        self.count += 1;
+        self.entries.push(cff_dict_entry {
+            id,
+            key: dict_operator[id as usize].opname,
+            values: if count > 0 {
+                vec![0.; count as usize].into_boxed_slice()
+            } else {
+                Vec::new().into_boxed_slice()
+            },
+        });
     }
 
     pub(crate) unsafe fn remove(&mut self, key: &str) {
-        for i in 0..self.count {
-            if key == (*self.entries.offset(i as isize)).key {
-                (*self.entries.offset(i as isize)).count = 0;
-                (*self.entries.offset(i as isize)).values =
-                    mfree((*self.entries.offset(i as isize)).values as *mut libc::c_void)
-                        as *mut f64
+        for e in &mut self.entries {
+            if key == e.key {
+                e.values = Vec::new().into_boxed_slice();
             }
         }
     }
 
     pub(crate) unsafe fn contains_key(&self, key: &str) -> bool {
-        for i in 0..self.count {
-            if key == (*self.entries.offset(i as isize)).key
-                && (*self.entries.offset(i as isize)).count > 0
-            {
+        for e in &self.entries {
+            if key == e.key && !e.values.is_empty() {
                 return true;
             }
         }
@@ -782,76 +565,47 @@ impl cff_dict {
     }
 
     pub(crate) unsafe fn get(&self, key: &str, idx: i32) -> f64 {
-        let mut value: f64 = 0.0f64;
         assert!(!key.is_empty());
-        let mut i = 0;
-        while i < self.count {
-            if key == (*self.entries.offset(i as isize)).key {
-                if (*self.entries.offset(i as isize)).count > idx {
-                    value = *(*self.entries.offset(i as isize))
-                        .values
-                        .offset(idx as isize)
+        for e in &self.entries {
+            if key == e.key {
+                if e.values.len() > idx as usize {
+                    return e.values[idx as usize];
                 } else {
                     panic!("{}: Invalid index number.", "CFF");
                 }
-                break;
-            } else {
-                i += 1
             }
         }
-        if i == self.count {
-            panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
-        }
-        value
+        panic!("{}: DICT entry \"{}\" not found.", "CFF", key)
     }
 
     pub(crate) unsafe fn set(&mut self, key: &str, idx: i32, value: f64) {
         assert!(!key.is_empty());
-        let mut i = 0;
-        while i < self.count {
-            if key == (*self.entries.offset(i as isize)).key {
-                if (*self.entries.offset(i as isize)).count > idx {
-                    *(*self.entries.offset(i as isize))
-                        .values
-                        .offset(idx as isize) = value
+        for e in &mut self.entries {
+            if key == e.key {
+                if e.values.len() > idx as usize {
+                    e.values[idx as usize] = value
                 } else {
                     panic!("{}: Invalid index number.", "CFF");
                 }
-                break;
-            } else {
-                i += 1
+                return;
             }
         }
-        if i == self.count {
-            panic!("{}: DICT entry \"{}\" not found.", "CFF", key,);
-        };
+        panic!("{}: DICT entry \"{}\" not found.", "CFF", key);
     }
 
     /* decode/encode DICT */
     pub(crate) unsafe fn update(&mut self, cff: &mut cff_font) {
-        for i in 0..self.count {
-            if (*self.entries.offset(i as isize)).count > 0 {
-                let id = (*self.entries.offset(i as isize)).id;
+        for e in &mut self.entries {
+            if !e.values.is_empty() {
+                let id = e.id;
                 if dict_operator[id as usize].argtype == CFF_TYPE_SID {
-                    let s = cff_get_string(
-                        cff,
-                        *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
-                    );
-                    *(*self.entries.offset(i as isize)).values.offset(0) =
-                        cff_add_string(cff, &s, 1) as f64;
+                    let s = cff_get_string(cff, e.values[0] as s_SID);
+                    e.values[0] = cff_add_string(cff, &s, 1) as f64;
                 } else if dict_operator[id as usize].argtype == CFF_TYPE_ROS {
-                    let s = cff_get_string(
-                        cff,
-                        *(*self.entries.offset(i as isize)).values.offset(0) as s_SID,
-                    );
-                    *(*self.entries.offset(i as isize)).values.offset(0) =
-                        cff_add_string(cff, &s, 1) as f64;
-                    let s = cff_get_string(
-                        cff,
-                        *(*self.entries.offset(i as isize)).values.offset(1) as s_SID,
-                    );
-                    *(*self.entries.offset(i as isize)).values.offset(1) =
-                        cff_add_string(cff, &s, 1) as f64;
+                    let s = cff_get_string(cff, e.values[0] as s_SID);
+                    e.values[0] = cff_add_string(cff, &s, 1) as f64;
+                    let s = cff_get_string(cff, e.values[1] as s_SID);
+                    e.values[1] = cff_add_string(cff, &s, 1) as f64;
                 }
             }
         }

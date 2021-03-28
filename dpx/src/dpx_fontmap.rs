@@ -26,20 +26,19 @@
     non_upper_case_globals
 )]
 
+use crate::dpx_cff::Charsets;
 use crate::dpx_error::{Result, ERR};
+use std::rc::Rc;
 
 use crate::bridge::DisplayExt;
-use std::ffi::{CStr, CString};
-use std::ptr;
+use std::ffi::CString;
 
-use crate::strstartswith;
 use crate::{info, warn, SkipBlank};
 
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_dpxutil::{ParseCString, ParseFloatDecimal};
-use super::dpx_mem::new;
 use super::dpx_subfont::{release_sfd_record, sfd_get_subfont_ids};
-use libc::{atof, atoi, memcpy, strchr, strcpy, strlen, strtol, strtoul};
+use libc::{atof, atoi, strtol};
 
 use crate::bridge::TTInputFormat;
 
@@ -52,7 +51,7 @@ pub(crate) struct fontmap_opt {
     pub(crate) flags: i32,
     pub(crate) otl_tags: String,
     pub(crate) tounicode: String,
-    pub(crate) cff_charsets: *mut libc::c_void,
+    pub(crate) cff_charsets: Option<Rc<Charsets>>,
     pub(crate) design_size: f64,
     pub(crate) charcoll: String,
     pub(crate) index: i32,
@@ -109,7 +108,7 @@ pub(crate) unsafe fn pdf_init_fontmap_record() -> fontmap_rec {
             charcoll: String::new(),
             style: 0,
             stemv: -1,
-            cff_charsets: ptr::null_mut(),
+            cff_charsets: None,
         },
     }
 }
@@ -136,7 +135,7 @@ unsafe fn pdf_copy_fontmap_record(src: &fontmap_rec) -> fontmap_rec {
             charcoll: src.opt.charcoll.clone(),
             style: src.opt.style,
             stemv: src.opt.stemv,
-            cff_charsets: src.opt.cff_charsets,
+            cff_charsets: src.opt.cff_charsets.clone(),
         },
     }
 }
@@ -299,8 +298,8 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> Res
          * compatibility with dvipdfm.
          */
         let tmp = strip_options(&mrec.font_name, &mut mrec.opt);
-        if !tmp.is_null() {
-            mrec.font_name = CStr::from_ptr(tmp).to_str().unwrap().to_owned()
+        if !tmp.is_empty() {
+            mrec.font_name = tmp;
         }
     }
     p.skip_blank();
@@ -949,124 +948,82 @@ pub(crate) unsafe fn pdf_close_fontmaps() {
  *
  *   (:int:)?!?string(/string)?(,string)?
  */
-unsafe fn substr(str: *mut *const i8, stop: i8) -> *mut i8 {
-    let endptr = strchr(*str, stop as i32) as *const i8;
-    if endptr.is_null() || endptr == *str {
-        return ptr::null_mut();
-    }
-    let sstr = new(((endptr.offset_from(*str) as i64 + 1 as i64) as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    memcpy(
-        sstr as *mut libc::c_void,
-        *str as *const libc::c_void,
-        endptr.offset_from(*str) as _,
-    );
-    *sstr.offset(endptr.offset_from(*str) as i64 as isize) = '\u{0}' as i32 as i8;
-    *str = endptr.offset(1);
-    sstr
-}
 /* CIDFont */
-unsafe fn strip_options(map_name: &str, opt: &mut fontmap_opt) -> *mut i8 {
+unsafe fn strip_options(map_name: &str, opt: &mut fontmap_opt) -> String {
     let font_name;
-    let mut next: *mut i8 = ptr::null_mut();
     let mut have_csi = false;
     let mut have_style = false;
-    let map_name_ = CString::new(map_name).unwrap();
-    let mut p = map_name_.as_ptr();
+    let mut p = map_name;
     opt.charcoll.clear();
     opt.index = 0;
     opt.style = 0;
     opt.flags = 0;
-    if *p as i32 == ':' as i32 && (*p.offset(1) as u8).is_ascii_digit() {
-        opt.index = strtoul(p.offset(1), &mut next, 10) as i32;
-        if *next as i32 == ':' as i32 {
-            p = next.offset(1)
+    let bytes = p.as_bytes();
+    if bytes[0] == b':' && bytes[1].is_ascii_digit() {
+        let pp = &p[1..];
+        let next = pp
+            .bytes()
+            .position(|b| !b.is_ascii_digit())
+            .unwrap_or_else(|| pp.len());
+        opt.index = pp[..next].parse::<i64>().unwrap() as i32;
+        if pp.as_bytes()[next] == b':' {
+            p = &pp[next + 1..];
         } else {
             opt.index = 0;
         }
     }
-    if *p as i32 == '!' as i32 {
+    if p.as_bytes()[0] == b'!' {
         /* no-embedding */
-        p = p.offset(1);
-        if *p as i32 == '\u{0}' as i32 {
-            panic!(
-                "Invalid map record: {} (--> {})",
-                map_name,
-                CStr::from_ptr(p).display(),
-            );
+        p = &p[1..];
+        if p.is_empty() {
+            panic!("Invalid map record: {} (--> {})", map_name, p);
         }
         opt.flags |= 1 << 1;
     }
-    next = strchr(p, '/' as i32);
-    if !next.is_null() {
-        if next == p as *mut i8 {
-            panic!(
-                "Invalid map record: {} (--> {})",
-                map_name,
-                CStr::from_ptr(p).display(),
-            );
+    if let Some(next) = p.bytes().position(|b| b == b'/') {
+        if next == 0 {
+            panic!("Invalid map record: {} (--> {})", map_name, p);
         }
-        font_name = substr(&mut p, '/' as i32 as i8);
+        font_name = p[..next].to_string();
+        p = &p[..next + 1];
         have_csi = true;
     } else {
-        next = strchr(p, ',' as i32);
-        if !next.is_null() {
-            if next == p as *mut i8 {
-                panic!(
-                    "Invalid map record: {} (--> {})",
-                    map_name,
-                    CStr::from_ptr(p).display(),
-                );
+        if let Some(next) = p.bytes().position(|b| b == b',') {
+            if next == 0 {
+                panic!("Invalid map record: {} (--> {})", map_name, p);
             }
-            font_name = substr(&mut p, ',' as i32 as i8);
+            font_name = p[..next].to_string();
+            p = &p[..next + 1];
             have_style = true;
         } else {
-            font_name =
-                new((strlen(p).wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _)
-                    as *mut i8;
-            strcpy(font_name, p);
+            font_name = p.to_string();
         }
     }
     if have_csi {
-        next = strchr(p, ',' as i32);
-        if !next.is_null() {
-            opt.charcoll = CStr::from_ptr(substr(&mut p, ',' as i32 as i8))
-                .to_str()
-                .unwrap()
-                .to_owned();
+        if let Some(next) = p.bytes().position(|b| b == b',') {
+            opt.charcoll = p[..next].to_string();
+            p = &p[..next + 1];
             have_style = true;
-        } else if *p.offset(0) as i32 == '\u{0}' as i32 {
+        } else if p.is_empty() {
             panic!("Invalid map record: {}.", map_name);
         } else {
-            opt.charcoll = CStr::from_ptr(p).to_str().unwrap().to_owned();
+            opt.charcoll = p.to_string();
         }
     }
     if have_style {
-        if !strstartswith(p, b"BoldItalic\x00" as *const u8 as *const i8).is_null() {
-            if *p.offset(10) != 0 {
-                panic!(
-                    "Invalid map record: {} (--> {})",
-                    map_name,
-                    CStr::from_ptr(p).display(),
-                );
+        if p.starts_with("BoldItalic") {
+            if p.len() != 10 {
+                panic!("Invalid map record: {} (--> {})", map_name, p);
             }
             opt.style = 3
-        } else if !strstartswith(p, b"Bold\x00" as *const u8 as *const i8).is_null() {
-            if *p.offset(4) != 0 {
-                panic!(
-                    "Invalid map record: {} (--> {})",
-                    map_name,
-                    CStr::from_ptr(p).display(),
-                );
+        } else if p.starts_with("Bold") {
+            if p.len() != 4 {
+                panic!("Invalid map record: {} (--> {})", map_name, p);
             }
             opt.style = 1
-        } else if !strstartswith(p, b"Italic\x00" as *const u8 as *const i8).is_null() {
-            if *p.offset(6) != 0 {
-                panic!(
-                    "Invalid map record: {} (--> {})",
-                    map_name,
-                    CStr::from_ptr(p).display(),
-                );
+        } else if p.starts_with("Italic") {
+            if p.len() != 6 {
+                panic!("Invalid map record: {} (--> {})", map_name, p);
             }
             opt.style = 2
         }

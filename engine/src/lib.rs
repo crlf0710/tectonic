@@ -49,7 +49,7 @@ pub unsafe fn dvipdfmx_simple_main(
             dpx_config,
             pdfname,
             dviname,
-            ptr::null(),
+            "",
             0,
             false,
             compress,

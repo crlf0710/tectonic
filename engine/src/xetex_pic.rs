@@ -1,7 +1,6 @@
 #![allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 
 use crate::t_eprint;
-use std::ffi::CString;
 use std::ptr;
 
 use crate::help;
@@ -39,12 +38,12 @@ pub(crate) unsafe fn count_pdf_file_pages(filename: &str) -> i32 {
     }
 }
 unsafe fn pdf_get_rect(
-    filename: *const i8,
+    filename: &str,
     handle: InFile,
     mut page_num: i32,
     pdf_box: i32,
 ) -> Result<Rect, ()> {
-    let pf = pdf_open(crate::c_pointer_to_str(filename), handle);
+    let pf = pdf_open(filename, handle);
     if pf.is_none() {
         /* TODO: issue warning */
         return Err(());
@@ -134,8 +133,7 @@ unsafe fn find_pic_file(filename: &str, pdfBoxType: i32, page: i32) -> Result<(R
     let mut handle = handle.unwrap();
     let bounds = if pdfBoxType != 0 {
         /* if cmd was \XeTeXpdffile, use xpdflib to read it */
-        let name = CString::new(filename).unwrap();
-        pdf_get_rect(name.as_ptr(), handle, page, pdfBoxType).map_err(|_| -1)?
+        pdf_get_rect(filename, handle, page, pdfBoxType).map_err(|_| -1)?
     } else {
         match get_image_size_in_inches(&mut handle) {
             Ok((wd, ht)) => Rect::from_size(size2(

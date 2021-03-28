@@ -34,9 +34,7 @@ pub(crate) mod xtx;
 
 use euclid::point2;
 
-use crate::bridge::DisplayExt;
 use crate::warn;
-use std::ffi::CStr;
 use std::ptr;
 
 use self::color::{spc_color_check_special, spc_color_setup_handler};
@@ -67,41 +65,36 @@ use super::specials::dvips::{
     spc_dvips_at_begin_document, spc_dvips_at_begin_page, spc_dvips_at_end_document,
     spc_dvips_at_end_page, spc_dvips_check_special, spc_dvips_setup_handler,
 };
-use crate::dpx_pdfobj::{pdf_obj, pdf_ref_obj, IntoObj};
-use crate::shims::sprintf;
+use crate::dpx_pdfobj::{pdf_dict, pdf_obj, pdf_ref_obj, IntoObj};
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 pub(crate) struct SpcEnv {
     pub(crate) x_user: f64,
     pub(crate) y_user: f64,
     pub(crate) mag: f64,
     pub(crate) pg: i32,
 }
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 pub(crate) struct SpcArg<'a> {
     pub(crate) cur: &'a [u8],
     pub(crate) base: &'a [u8],
     pub(crate) command: Option<&'static str>,
 }
-#[derive(Copy, Clone, Default)]
-pub(crate) struct SpcHandler {
-    pub(crate) key: &'static str,
-    pub(crate) exec: Option<unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> Result<()>>,
-}
+
+type Handler = unsafe fn(_: &mut SpcEnv, _: &mut SpcArg) -> Result<()>;
 
 use super::dpx_dpxutil::ht_table;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct Special {
-    pub(crate) key: *const i8,
+    pub(crate) key: &'static str,
     pub(crate) bodhk_func: Option<unsafe fn() -> Result<()>>,
     pub(crate) eodhk_func: Option<unsafe fn() -> Result<()>>,
     pub(crate) bophk_func: Option<unsafe fn() -> Result<()>>,
     pub(crate) eophk_func: Option<unsafe fn() -> Result<()>>,
     pub(crate) check_func: fn(_: &[u8]) -> bool,
-    pub(crate) setup_func:
-        unsafe fn(_: &mut SpcHandler, _: &mut SpcEnv, _: &mut SpcArg) -> Result<()>,
+    pub(crate) setup_func: unsafe fn(&mut SpcEnv, _: &mut SpcArg) -> Result<Handler>,
 }
 static mut VERBOSE: i32 = 0;
 pub(crate) unsafe fn spc_set_verbose(level: i32) {
@@ -110,7 +103,7 @@ pub(crate) unsafe fn spc_set_verbose(level: i32) {
 /* This is currently just to make other spc_xxx to not directly
  * call dvi_xxx.
  */
-pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: *mut pdf_obj) -> Result<()> {
+pub(crate) unsafe fn spc_begin_annot(mut _spe: &mut SpcEnv, dict: pdf_dict) -> Result<()> {
     pdf_doc_begin_annot(dict); /* Tell dvi interpreter to handle line-break. */
     dvi_tag_depth();
     Ok(())
@@ -234,32 +227,25 @@ pub(crate) unsafe fn spc_clear_objects() {
     pdf_delete_name_tree(&mut NAMED_OBJECTS);
     NAMED_OBJECTS = pdf_new_name_tree();
 }
-unsafe fn spc_handler_unknown(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
-    args.cur = &[];
-    ERR
-}
-unsafe fn init_special<'a, 'b>(
-    special: &mut SpcHandler,
-    mut spe: &mut SpcEnv,
-    mut args: &'a mut SpcArg<'b>,
+unsafe fn init_special<'b>(
     buf: &'b [u8],
     x_user: f64,
     y_user: f64,
     mag: f64,
-) where
-    'b: 'a,
-{
-    *special = SpcHandler {
-        key: "",
-        exec: Some(spc_handler_unknown),
-    };
-    spe.x_user = x_user;
-    spe.y_user = y_user;
-    spe.mag = mag;
-    spe.pg = pdf_doc().current_page_number() as i32;
-    args.cur = buf;
-    args.base = buf;
-    args.command = None;
+) -> (SpcEnv, SpcArg<'b>) {
+    (
+        SpcEnv {
+            x_user,
+            y_user,
+            mag,
+            pg: pdf_doc().current_page_number() as i32,
+        },
+        SpcArg {
+            cur: buf,
+            base: buf,
+            command: None,
+        },
+    )
 }
 unsafe fn check_garbage(args: &mut SpcArg) {
     if args.cur.is_empty() {
@@ -273,7 +259,7 @@ unsafe fn check_garbage(args: &mut SpcArg) {
 }
 const KNOWN_SPECIALS: [Special; 8] = [
     Special {
-        key: b"pdf:\x00" as *const u8 as *const i8,
+        key: "pdf:",
         bodhk_func: Some(spc_pdfm_at_begin_document),
         eodhk_func: Some(spc_pdfm_at_end_document),
         bophk_func: None,
@@ -282,7 +268,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_pdfm_setup_handler,
     },
     Special {
-        key: b"x:\x00" as *const u8 as *const i8,
+        key: "x:",
         bodhk_func: None,
         eodhk_func: None,
         bophk_func: None,
@@ -291,7 +277,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_xtx_setup_handler,
     },
     Special {
-        key: b"dvipdfmx:\x00" as *const u8 as *const i8,
+        key: "dvipdfmx:",
         bodhk_func: None,
         eodhk_func: None,
         bophk_func: None,
@@ -300,7 +286,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_dvipdfmx_setup_handler,
     },
     Special {
-        key: b"ps:\x00" as *const u8 as *const i8,
+        key: "ps:",
         bodhk_func: Some(spc_dvips_at_begin_document),
         eodhk_func: Some(spc_dvips_at_end_document),
         bophk_func: Some(spc_dvips_at_begin_page),
@@ -309,7 +295,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_dvips_setup_handler,
     },
     Special {
-        key: b"color\x00" as *const u8 as *const i8,
+        key: "color",
         bodhk_func: None,
         eodhk_func: None,
         bophk_func: None,
@@ -318,7 +304,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_color_setup_handler,
     },
     Special {
-        key: b"tpic\x00" as *const u8 as *const i8,
+        key: "tpic",
         bodhk_func: Some(spc_tpic_at_begin_document),
         eodhk_func: Some(spc_tpic_at_end_document),
         bophk_func: Some(spc_tpic_at_begin_page),
@@ -327,7 +313,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_tpic_setup_handler,
     },
     Special {
-        key: b"html:\x00" as *const u8 as *const i8,
+        key: "html:",
         bodhk_func: Some(spc_html_at_begin_document),
         eodhk_func: Some(spc_html_at_end_document),
         bophk_func: Some(spc_html_at_begin_page),
@@ -336,7 +322,7 @@ const KNOWN_SPECIALS: [Special; 8] = [
         setup_func: spc_html_setup_handler,
     },
     Special {
-        key: b"unknown\x00" as *const u8 as *const i8,
+        key: "unknown",
         bodhk_func: None,
         eodhk_func: None,
         bophk_func: None,
@@ -387,16 +373,16 @@ pub(crate) unsafe fn spc_exec_at_end_document() -> Result<()> {
     }
     error
 }
-unsafe fn print_error(name: *const i8, spe: &mut SpcEnv, ap: &mut SpcArg) {
-    let mut ebuf: [u8; 64] = [0; 64];
+unsafe fn print_error(name: &str, spe: &mut SpcEnv, ap: &mut SpcArg) {
+    let mut ebuf = arrayvec::ArrayString::<[_; 64]>::new();
     let pg: i32 = spe.pg;
     let mut c = point2(spe.x_user, spe.y_user);
     pdf_dev_transform(&mut c, None);
-    if ap.command.is_some() && !name.is_null() {
+    if ap.command.is_some() && !name.is_empty() {
         warn!(
             "Interpreting special command {} ({}) failed.",
             ap.command.unwrap(),
-            CStr::from_ptr(name).display(),
+            name,
         );
         warn!(
             ">> at page=\"{}\" position=\"({}, {})\" (in PDF)",
@@ -409,59 +395,50 @@ unsafe fn print_error(name: *const i8, spe: &mut SpcEnv, ap: &mut SpcArg) {
             break;
         }
         if libc::isprint(b as _) != 0 {
-            ebuf[i] = b;
+            ebuf.push(char::from(b));
             i += 1;
         } else {
             if !(i + 4 < 63) {
                 break;
             }
-            i += sprintf(
-                ebuf.as_mut_ptr().offset(i as isize) as *mut i8,
-                b"\\x%02x\x00" as *const u8 as *const i8,
-                b as i32,
-            ) as usize;
+            let s = format!("\\x{:02x}", b);
+            ebuf.push_str(&s);
+            i += s.len();
         }
     }
-    ebuf[i] = 0;
     if !ap.cur.is_empty() {
-        for j in 60..i {
-            ebuf[j] = b'.';
+        ebuf.truncate(60);
+        for _ in 60..i {
+            ebuf.push('.');
         }
     }
-    warn!(
-        ">> xxx \"{}\"",
-        CStr::from_ptr(ebuf.as_ptr() as *const i8).display()
-    );
+    warn!(">> xxx \"{}\"", ebuf);
     if !ap.cur.is_empty() {
+        ebuf.clear();
         let mut i = 0;
         for &b in ap.cur {
             if i >= 63 {
                 break;
             }
             if libc::isprint(b as _) != 0 {
-                ebuf[i] = b;
+                ebuf.push(char::from(b));
                 i += 1;
             } else {
                 if !(i + 4 < 63) {
                     break;
                 }
-                i += sprintf(
-                    ebuf.as_mut_ptr().offset(i as isize) as *mut i8,
-                    b"\\x%02x\x00" as *const u8 as *const i8,
-                    b as i32,
-                ) as usize;
+                let s = format!("\\x{:02x}", b);
+                ebuf.push_str(&s);
+                i += s.len();
             }
         }
-        ebuf[i] = 0;
         if !ap.cur.is_empty() {
-            for j in 60..i {
-                ebuf[j] = b'.';
+            ebuf.truncate(60);
+            for _ in 60..i {
+                ebuf.push('.');
             }
         }
-        warn!(
-            ">> Reading special command stopped around >>{}<<",
-            CStr::from_ptr(ebuf.as_ptr() as *const i8).display()
-        );
+        warn!(">> Reading special command stopped around >>{}<<", ebuf);
         ap.cur = &[];
     };
 }
@@ -476,28 +453,16 @@ pub(crate) unsafe fn spc_exec_special(
     mag: f64,
 ) -> Result<()> {
     let mut error = ERR;
-    let mut spe = SpcEnv::default();
-    let mut args = SpcArg::default();
-    let mut special = SpcHandler::default();
     if VERBOSE > 3 {
         dump(buffer);
     }
-    init_special(
-        &mut special,
-        &mut spe,
-        &mut args,
-        buffer,
-        x_user,
-        y_user,
-        mag,
-    );
+    let (mut spe, mut args) = init_special(buffer, x_user, y_user, mag);
 
     for spc in &KNOWN_SPECIALS {
         let found = (spc.check_func)(buffer);
         if found {
-            error = (spc.setup_func)(&mut special, &mut spe, &mut args);
-            if error.is_ok() {
-                error = special.exec.expect("non-null function pointer")(&mut spe, &mut args)
+            if let Ok(handler) = (spc.setup_func)(&mut spe, &mut args) {
+                error = handler(&mut spe, &mut args)
             }
             if error.is_err() {
                 print_error(spc.key, &mut spe, &mut args);

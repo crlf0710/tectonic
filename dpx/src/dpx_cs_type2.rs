@@ -29,9 +29,7 @@
 use crate::warn;
 use libc::memmove;
 
-use std::ptr;
-
-use super::dpx_cff::cff_index;
+use crate::dpx_cff::CffIndex;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub(crate) struct cs_ginfo {
@@ -188,9 +186,9 @@ unsafe fn clear_stack(dest: &mut *mut u8, limit: *mut u8) {
  *  1: hint declaration, first stack-clearing operator appeared
  *  2: in path construction
  */
-unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, endptr: *mut u8) {
-    let op: u8 = **data;
-    *data = (*data).offset(1);
+unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut &[u8]) {
+    let op: u8 = data[0];
+    *data = &data[1..];
     match op as i32 {
         18 | 23 | 1 | 3 => {
             /* charstring may have hintmask if above operator have seen */
@@ -229,16 +227,16 @@ unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
                     status = -3;
                     return;
                 }
-                if endptr < (*data).offset(masklen as isize) {
+                if data.len() < masklen as usize {
                     status = -1;
                     return;
                 }
                 memmove(
                     *dest as *mut libc::c_void,
-                    *data as *const libc::c_void,
+                    (*data).as_ptr() as *const libc::c_void,
                     masklen as _,
                 );
-                *data = (*data).offset(masklen as isize);
+                *data = &data[masklen as usize..];
                 *dest = (*dest).offset(masklen as isize)
             }
             phase = 2;
@@ -333,14 +331,14 @@ unsafe fn do_operator1(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
  * Following operators are not supported:
  *  random: How random ?
  */
-unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, endptr: *mut u8) {
-    *data = (*data).offset(1);
-    if endptr < (*data).offset(1) {
+unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut &[u8]) {
+    *data = &data[1..];
+    if data.len() < 1 {
         status = -1;
         return;
     }
-    let op = **data;
-    *data = (*data).offset(1);
+    let op = data[0];
+    *data = &data[1..];
     match op as i32 {
         0 => {
             /* deprecated */
@@ -610,43 +608,43 @@ unsafe fn do_operator2(dest: &mut *mut u8, limit: *mut u8, data: &mut *mut u8, e
  * integer:
  *  exactly the same as the DICT encoding (except 29)
  */
-unsafe fn get_integer(data: &mut *mut u8, endptr: *mut u8) {
+unsafe fn get_integer(data: &mut &[u8]) {
     let mut result;
-    let b0: u8 = **data;
-    *data = (*data).offset(1);
+    let b0: u8 = data[0];
+    *data = &data[1..];
     if b0 as i32 == 28 {
         /* shortint */
-        if endptr < (*data).offset(2) {
+        if data.len() < 2 {
             status = -1;
             return;
         }
-        let b1 = **data;
-        let b2 = *(*data).offset(1);
+        let b1 = data[0];
+        let b2 = data[1];
         result = b1 as i32 * 256 + b2 as i32;
         if result > 0x7fff {
             result = (result as i64 - 0x10000) as i32
         }
-        *data = (*data).offset(2)
+        *data = &data[2..];
     } else if b0 as i32 >= 32 && b0 as i32 <= 246 {
         /* int (1) */
         result = b0 as i32 - 139
     } else if b0 as i32 >= 247 && b0 as i32 <= 250 {
         /* int (2) */
-        if endptr < (*data).offset(1) {
+        if data.len() < 1 {
             status = -1;
             return;
         }
-        let b1 = **data;
+        let b1 = data[0];
         result = (b0 as i32 - 247) * 256 + b1 as i32 + 108;
-        *data = (*data).offset(1)
+        *data = &data[1..];
     } else if b0 as i32 >= 251 && b0 as i32 <= 254 {
-        if endptr < (*data).offset(1) {
+        if data.len() < 1 {
             status = -1;
             return;
         }
-        let b1 = **data;
+        let b1 = data[0];
         result = -(b0 as i32 - 251) * 256 - b1 as i32 - 108;
-        *data = (*data).offset(1)
+        *data = &data[1..];
     } else {
         status = -1;
         return;
@@ -661,19 +659,19 @@ unsafe fn get_integer(data: &mut *mut u8, endptr: *mut u8) {
 /*
  * Signed 16.16-bits fixed number for Type 2 charstring encoding
  */
-unsafe fn get_fixed(data: &mut *mut u8, endptr: *mut u8) {
-    *data = (*data).offset(1);
-    if endptr < (*data).offset(4) {
+unsafe fn get_fixed(data: &mut &[u8]) {
+    *data = &data[1..];
+    if data.len() < 4 {
         status = -1;
         return;
     }
-    let ivalue = **data as i32 * 0x100 + *(*data).offset(1) as i32;
+    let ivalue = data[0] as i32 * 0x100 + data[1] as i32;
     let mut rvalue = (if ivalue as i64 > 0x7fff {
         ivalue as i64 - 0x10000
     } else {
         ivalue as i64
     }) as f64;
-    let ivalue = *(*data).offset(2) as i32 * 0x100 + *(*data).offset(3) as i32;
+    let ivalue = data[2] as i32 * 0x100 + data[3] as i32;
     rvalue += ivalue as f64 / 0x10000i64 as f64;
     if 48 < stack_top + 1 {
         status = -2;
@@ -681,7 +679,7 @@ unsafe fn get_fixed(data: &mut *mut u8, endptr: *mut u8) {
     }
     arg_stack[stack_top as usize] = rvalue;
     stack_top += 1;
-    *data = (*data).offset(4);
+    *data = &data[4..];
 }
 /*
  * Subroutines:
@@ -692,14 +690,14 @@ unsafe fn get_fixed(data: &mut *mut u8, endptr: *mut u8) {
  * subr_idx: CFF INDEX data that contains subroutines.
  * id:       biased subroutine number.
  */
-unsafe fn get_subr(subr: &mut *mut u8, len: *mut i32, subr_idx: *mut cff_index, mut id: i32) {
-    if subr_idx.is_null() {
+unsafe fn get_subr(subr_idx: &Option<Box<CffIndex>>, mut id: i32) -> &[u8] {
+    let subr_idx = subr_idx.as_ref().unwrap_or_else(|| {
         panic!(
             "{}: Subroutine called but no subroutine found.",
             "Type2 Charstring Parser",
-        );
-    }
-    let count = (*subr_idx).count;
+        )
+    });
+    let count = subr_idx.count;
     /* Adding bias number */
     if (count as i32) < 1240 {
         id += 107
@@ -714,12 +712,8 @@ unsafe fn get_subr(subr: &mut *mut u8, len: *mut i32, subr_idx: *mut cff_index, 
             "Type2 Charstring Parser", id, count,
         );
     }
-    *len = (*(*subr_idx).offset.offset((id + 1) as isize))
-        .wrapping_sub(*(*subr_idx).offset.offset(id as isize)) as i32;
-    *subr = (*subr_idx)
-        .data
-        .offset(*(*subr_idx).offset.offset(id as isize) as isize)
-        .offset(-1);
+    &subr_idx.data
+        [subr_idx.offset[id as usize] as usize - 1..subr_idx.offset[(id + 1) as usize] as usize - 1]
 }
 /*
  * NOTE:
@@ -730,13 +724,10 @@ unsafe fn get_subr(subr: &mut *mut u8, len: *mut i32, subr_idx: *mut cff_index, 
 unsafe fn do_charstring(
     dest: &mut *mut u8,
     limit: *mut u8,
-    data: &mut *mut u8,
-    endptr: *mut u8,
-    gsubr_idx: *mut cff_index,
-    subr_idx: *mut cff_index,
+    data: &mut &[u8],
+    gsubr_idx: &Option<Box<CffIndex>>,
+    subr_idx: &Option<Box<CffIndex>>,
 ) {
-    let mut subr: *mut u8 = ptr::null_mut();
-    let mut len: i32 = 0;
     if nest > 10 {
         panic!(
             "{}: Subroutine nested too deeply.",
@@ -744,11 +735,11 @@ unsafe fn do_charstring(
         );
     }
     nest += 1;
-    while *data < endptr && status == 0 {
-        let b0 = **data;
+    while !data.is_empty() && status == 0 {
+        let b0 = data[0];
         if b0 as i32 == 255 {
             /* 16-bit.16-bit fixed signed number */
-            get_fixed(data, endptr);
+            get_fixed(data);
         } else if b0 as i32 == 11 {
             status = 2
         } else if b0 as i32 == 29 {
@@ -756,53 +747,41 @@ unsafe fn do_charstring(
                 status = -2
             } else {
                 stack_top -= 1;
-                get_subr(
-                    &mut subr,
-                    &mut len,
-                    gsubr_idx,
-                    arg_stack[stack_top as usize] as i32,
-                );
-                if (*dest).offset(len as isize) > limit {
+                let mut subr = get_subr(gsubr_idx, arg_stack[stack_top as usize] as i32);
+                if (*dest).offset(subr.len() as isize) > limit {
                     panic!("{}: Possible buffer overflow.", "Type2 Charstring Parser");
                 }
-                let endptr = subr.offset(len as isize);
-                do_charstring(dest, limit, &mut subr, endptr, gsubr_idx, subr_idx);
-                *data = (*data).offset(1)
+                do_charstring(dest, limit, &mut subr, gsubr_idx, subr_idx);
+                *data = &data[1..];
             }
         } else if b0 as i32 == 10 {
             if stack_top < 1 {
                 status = -2
             } else {
                 stack_top -= 1;
-                get_subr(
-                    &mut subr,
-                    &mut len,
-                    subr_idx,
-                    arg_stack[stack_top as usize] as i32,
-                );
-                if limit < (*dest).offset(len as isize) {
+                let mut subr = get_subr(subr_idx, arg_stack[stack_top as usize] as i32);
+                if limit < (*dest).offset(subr.len() as isize) {
                     panic!("{}: Possible buffer overflow.", "Type2 Charstring Parser");
                 }
-                let endptr = subr.offset(len as isize);
-                do_charstring(dest, limit, &mut subr, endptr, gsubr_idx, subr_idx);
-                *data = (*data).offset(1)
+                do_charstring(dest, limit, &mut subr, gsubr_idx, subr_idx);
+                *data = &data[1..];
             }
         } else if b0 as i32 == 12 {
-            do_operator2(dest, limit, data, endptr);
+            do_operator2(dest, limit, data);
         } else if (b0 as i32) < 32 && b0 as i32 != 28 {
             /* 19, 20 need mask */
-            do_operator1(dest, limit, data, endptr);
+            do_operator1(dest, limit, data);
         } else if b0 as i32 >= 22 && b0 as i32 <= 27 || b0 as i32 == 31 {
             /* reserved */
             status = -1
         /* not an error ? */
         } else {
-            get_integer(data, endptr);
+            get_integer(data);
         }
     }
     if status == 2 {
         status = 0
-    } else if status == 3 && *data < endptr {
+    } else if status == 3 && !data.is_empty() {
         warn!("{}: Garbage after endchar.", "Type2 Charstring Parser");
     } else if status < 0 {
         /* error */
@@ -829,10 +808,9 @@ unsafe fn cs_parse_init() {
 pub(crate) unsafe fn cs_copy_charstring(
     mut dst: *mut u8,
     dstlen: i32,
-    mut src: *mut u8,
-    srclen: i32,
-    gsubr: *mut cff_index,
-    subr: *mut cff_index,
+    mut src: &[u8],
+    gsubr: &Option<Box<CffIndex>>,
+    subr: &Option<Box<CffIndex>>,
     default_width: f64,
     nominal_width: f64,
     mut ginfo: *mut cs_ginfo,
@@ -843,8 +821,7 @@ pub(crate) unsafe fn cs_copy_charstring(
     have_width = 0;
     /* expand call(g)subrs */
     let dstend = dst.offset(dstlen as isize);
-    let srcend = src.offset(srclen as isize);
-    do_charstring(&mut dst, dstend, &mut src, srcend, gsubr, subr); /* not used */
+    do_charstring(&mut dst, dstend, &mut src, gsubr, subr); /* not used */
     if !ginfo.is_null() {
         (*ginfo).flags = 0;
         if have_width != 0 {

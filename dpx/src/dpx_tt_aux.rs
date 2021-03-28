@@ -28,7 +28,7 @@
 
 use super::dpx_dvipdfmx::always_embed;
 use super::dpx_numbers::GetFromFile;
-use super::dpx_tt_post::{tt_read_post_table, tt_release_post_table};
+use super::dpx_tt_post::tt_read_post_table;
 use super::dpx_tt_table::{tt_read_head_table, tt_read_os2__table};
 use crate::dpx_pdfobj::{pdf_dict, pdf_string, PushObj};
 
@@ -75,10 +75,7 @@ pub(crate) unsafe fn tt_get_fontdesc(
     /* TrueType tables */
     let os2 = tt_read_os2__table(sfont);
     let head = tt_read_head_table(sfont);
-    let post = tt_read_post_table(sfont);
-    if post.is_null() {
-        return None;
-    }
+    let post = tt_read_post_table(sfont)?;
     let mut descriptor = pdf_dict::new();
     descriptor.set("Type", "FontDescriptor");
     if *embed != 0 {
@@ -197,9 +194,9 @@ pub(crate) unsafe fn tt_get_fontdesc(
     /* post */
     descriptor.set(
         "ItalicAngle",
-        ((*post).italicAngle as i64 % 0x10000) as f64 / 0x10000 as f64
-            + ((*post).italicAngle as i64 / 0x10000) as f64
-            - (if (*post).italicAngle as i64 / 0x10000 > 0x7fff {
+        (post.italicAngle as i64 % 0x10000) as f64 / 0x10000 as f64
+            + (post.italicAngle as i64 / 0x10000) as f64
+            - (if post.italicAngle as i64 / 0x10000 > 0x7fff {
                 0x10000
             } else {
                 0i64
@@ -218,7 +215,7 @@ pub(crate) unsafe fn tt_get_fontdesc(
     if os2.sFamilyClass as i32 >> 8 & 0xff == 10 {
         flag |= 1 << 3
     }
-    if (*post).isFixedPitch != 0 {
+    if post.isFixedPitch != 0 {
         flag |= 1 << 0
     }
     descriptor.set("Flags", flag as f64);
@@ -232,6 +229,5 @@ pub(crate) unsafe fn tt_get_fontdesc(
         styledict.set("Panose", pdf_string::new(panose));
         descriptor.set("Style", styledict);
     }
-    tt_release_post_table(post);
     Some(descriptor)
 }

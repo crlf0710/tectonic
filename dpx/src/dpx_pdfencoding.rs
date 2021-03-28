@@ -38,8 +38,7 @@ use super::dpx_cmap::CMap;
 use super::dpx_cmap_write::CMap_create_stream;
 use super::dpx_dpxfile::dpx_tt_open;
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_stream,
-    IntoObj, PushObj,
+    pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_stream, IntoObj, PushObj,
 };
 use crate::dpx_pdfparse::{ParsePdfObj, SkipWhite};
 
@@ -121,25 +120,28 @@ unsafe fn create_encoding_resource(
         };
     };
 }
-unsafe fn pdf_flush_encoding(encoding: &mut pdf_encoding) {
-    if !encoding.resource.is_null() {
-        pdf_release_obj(encoding.resource);
-        encoding.resource = ptr::null_mut()
+impl Drop for pdf_encoding {
+    fn drop(&mut self) {
+        unsafe {
+            if let Some(resource) = self.resource.as_mut() {
+                if resource.id.0 == 0 {
+                    crate::release!(resource);
+                } else {
+                    crate::release2!(resource);
+                }
+                self.resource = ptr::null_mut()
+            }
+            if !self.tounicode.is_null() {
+                crate::release2!(self.tounicode);
+                self.tounicode = ptr::null_mut()
+            }
+            for code in 0..256 {
+                self.glyphs[code as usize] = String::new();
+            }
+        }
     }
-    if !encoding.tounicode.is_null() {
-        pdf_release_obj(encoding.tounicode);
-        encoding.tounicode = ptr::null_mut()
-    };
 }
-unsafe fn pdf_clean_encoding_struct(encoding: &mut pdf_encoding) {
-    if !encoding.resource.is_null() {
-        panic!("Object not flushed.");
-    }
-    pdf_release_obj(encoding.tounicode);
-    for code in 0..256 {
-        encoding.glyphs[code as usize] = String::new();
-    }
-}
+
 unsafe fn is_similar_charset(enc_vec: &[String], enc_vec2: &[&str]) -> bool {
     let mut same: i32 = 0;
     for code in 0..256 {
@@ -315,7 +317,7 @@ unsafe fn pdf_encoding_new_encoding(
 ) -> i32 {
     let enc_id = enc_cache.len();
     enc_cache.push(Box::new(pdf_init_encoding_struct()));
-    let mut encoding = &mut *enc_cache[enc_id];
+    let encoding = &mut *enc_cache[enc_id];
 
     encoding.ident = ident.to_owned();
     encoding.enc_name = enc_name.to_owned();
@@ -389,10 +391,6 @@ pub(crate) unsafe fn pdf_encoding_complete() {
 }
 
 pub(crate) unsafe fn pdf_close_encodings() {
-    for encoding in &mut enc_cache {
-        pdf_flush_encoding(encoding.as_mut());
-        pdf_clean_encoding_struct(encoding.as_mut());
-    }
     enc_cache.clear();
 }
 

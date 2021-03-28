@@ -28,15 +28,13 @@
 
 use crate::bridge::DisplayExt;
 use crate::warn;
-use std::ptr;
+use std::rc::Rc;
 
+use super::dpx_cff::cff_set_name;
 use super::dpx_cff::{cff_add_string, cff_get_sid, cff_update_string, CffIndex};
-use super::dpx_cff::{cff_new_index, cff_set_name};
-use super::dpx_cff_dict::cff_new_dict;
-use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
 use crate::bridge::InFile;
-use libc::{free, memcpy, memmove, memset};
+use libc::memmove;
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -52,11 +50,9 @@ pub(crate) type l_offset = u32;
 pub(crate) type s_SID = u16;
 /* 2-byte string identifier  */
 
-use super::dpx_cff::cff_index;
-
-use super::dpx_cff::cff_dict;
+use super::dpx_cff_dict::cff_dict;
 /* Encoding, Charset and FDSelect */
-use super::dpx_cff::cff_charsets;
+use super::dpx_cff::Charsets;
 
 use super::dpx_cff::cff_font;
 
@@ -860,15 +856,13 @@ unsafe fn parse_encoding(enc_vec: &mut [String], start: &mut *const u8, end: *co
     0
 }
 unsafe fn parse_subrs(
-    font: &cff_font,
+    font: &mut cff_font,
     start: &mut *const u8,
     end: *const u8,
     lenIV: i32,
     mode: i32,
 ) -> Result<(), ()> {
     let mut max_size;
-    let offsets;
-    let lengths;
     let count = match pst_get_token(start, end) {
         Some(PstObj::Integer(count)) if count >= 0 => count,
         _ => {
@@ -877,7 +871,7 @@ unsafe fn parse_subrs(
         }
     };
     if count == 0 {
-        *font.subrs.offset(0) = ptr::null_mut();
+        font.subrs[0] = None;
         return Ok(());
     }
     match pst_get_token(start, end) {
@@ -885,43 +879,25 @@ unsafe fn parse_subrs(
         _ => return Err(()),
     }
     let mut data;
+    let mut offsets;
+    let mut lengths;
     if mode != 1 {
         max_size = 65536;
-        data = new((max_size as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32)
-            as *mut u8;
-        offsets =
-            new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as u32)
-                as *mut i32;
-        lengths =
-            new((count as u32 as u64).wrapping_mul(::std::mem::size_of::<i32>() as u64) as u32)
-                as *mut i32;
-        memset(
-            offsets as *mut libc::c_void,
-            0,
-            (::std::mem::size_of::<i32>()).wrapping_mul(count as _),
-        );
-        memset(
-            lengths as *mut libc::c_void,
-            0,
-            (::std::mem::size_of::<i32>()).wrapping_mul(count as _),
-        );
+        data = vec![0_u8; max_size];
+        offsets = vec![0_i32; count as _];
+        lengths = vec![0_i32; count as _];
     } else {
         max_size = 0;
-        data = ptr::null_mut();
-        offsets = ptr::null_mut();
-        lengths = ptr::null_mut()
+        data = Vec::new();
+        offsets = Vec::new();
+        lengths = Vec::new()
     }
     let mut offset = 0;
     /* dup subr# n-bytes RD n-binary-bytes NP */
     let mut i = 0;
     while i < count {
         match pst_get_token(start, end) {
-            None => {
-                free(data as *mut libc::c_void);
-                free(offsets as *mut libc::c_void);
-                free(lengths as *mut libc::c_void);
-                return Err(());
-            }
+            None => return Err(()),
             Some(PstObj::Unknown(tok))
                 if (tok.starts_with(b"ND")
                     || tok.starts_with(b"|-")
@@ -932,13 +908,8 @@ unsafe fn parse_subrs(
             Some(PstObj::Unknown(tok)) if tok.starts_with(b"dup") => {
                 /* Found "dup" */
                 let idx = match pst_get_token(start, end) {
-                    Some(PstObj::Integer(idx)) if (idx >= 0 && idx < count) => idx,
-                    _ => {
-                        free(data as *mut libc::c_void);
-                        free(offsets as *mut libc::c_void);
-                        free(lengths as *mut libc::c_void);
-                        return Err(());
-                    }
+                    Some(PstObj::Integer(idx)) if (idx >= 0 && idx < count) => idx as usize,
+                    _ => return Err(()),
                 };
                 let len = match pst_get_token(start, end) {
                     Some(PstObj::Integer(len)) if (len >= 0 && len <= 65536) => len,
@@ -949,45 +920,33 @@ unsafe fn parse_subrs(
                         matches!(tok, PstObj::Unknown(tok) if (tok.starts_with(b"RD")) || tok.starts_with(b"-|"))
                             || seek_operator(start, end, b"readstring")
                                 >= 0
-                    })
-                    .ok_or_else(|| {
-                        free(data as *mut libc::c_void);
-                        free(offsets as *mut libc::c_void);
-                        free(lengths as *mut libc::c_void);
-                        ()
-                    })?;
+                    }).ok_or(())?;
                 *start = (*start).offset(1);
                 if (*start).offset(len as isize) >= end {
-                    free(data as *mut libc::c_void);
-                    free(offsets as *mut libc::c_void);
-                    free(lengths as *mut libc::c_void);
                     return Err(());
                 }
                 if mode != 1 {
-                    if offset + len >= max_size {
+                    if offset + len >= max_size as i32 {
                         max_size += 65536;
-                        data = renew(
-                            data as *mut libc::c_void,
-                            (max_size as u32 as u64)
-                                .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                                as u32,
-                        ) as *mut u8
+                        data.resize(max_size, 0);
                     }
                     if lenIV >= 0 {
-                        t1_decrypt(4330_u16, data.offset(offset as isize), *start, lenIV, len);
-                        *offsets.offset(idx as isize) = offset;
-                        let ref mut fresh16 = *lengths.offset(idx as isize);
-                        *fresh16 = len - lenIV;
-                        offset += *fresh16
-                    } else if len > 0 {
-                        *offsets.offset(idx as isize) = offset;
-                        *lengths.offset(idx as isize) = len;
-                        memcpy(
-                            &mut *data.offset(offset as isize) as *mut u8 as *mut libc::c_void,
-                            *start as *const libc::c_void,
-                            len as _,
+                        t1_decrypt(
+                            4330_u16,
+                            data[offset as usize..].as_mut_ptr(),
+                            *start,
+                            lenIV,
+                            len,
                         );
-                        offset += len
+                        offsets[idx] = offset;
+                        lengths[idx] = len - lenIV;
+                        offset += lengths[idx];
+                    } else if len > 0 {
+                        offsets[idx] = offset;
+                        lengths[idx] = len;
+                        data[offset as usize..(offset + len) as usize]
+                            .copy_from_slice(std::slice::from_raw_parts(*start, len as _));
+                        offset += len;
                     }
                 }
                 *start = (*start).offset(len as isize);
@@ -997,35 +956,26 @@ unsafe fn parse_subrs(
         }
     }
     if mode != 1 {
-        if (*font.subrs.offset(0)).is_null() {
-            let ref mut fresh17 = *font.subrs.offset(0);
-            *fresh17 = cff_new_index(count as u16);
-            let subrs = *fresh17;
-            (*subrs).data = new((offset as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                as u32) as *mut u8;
-            offset = 0;
-            for i in 0..count {
-                *(*subrs).offset.offset(i as isize) = (offset + 1) as l_offset;
-                if *lengths.offset(i as isize) > 0 {
-                    memcpy(
-                        (*subrs).data.offset(offset as isize) as *mut libc::c_void,
-                        data.offset(*offsets.offset(i as isize) as isize) as *const libc::c_void,
-                        *lengths.offset(i as isize) as _,
-                    );
-                    offset += *lengths.offset(i as isize)
+        if font.subrs[0].is_none() {
+            let mut subrs = CffIndex::new(count as u16);
+            subrs.data = Vec::with_capacity(offset as usize);
+            for i in 0..count as usize {
+                subrs.offset[i] = (subrs.data.len() + 1) as l_offset;
+                if lengths[i] > 0 {
+                    let offset = offsets[i] as usize;
+                    subrs
+                        .data
+                        .extend(&data[offset..offset + lengths[i] as usize]);
                 }
             }
-            *(*subrs).offset.offset(count as isize) = (offset + 1) as l_offset
+            subrs.offset[count as usize] = (subrs.data.len() + 1) as l_offset;
+            font.subrs[0] = Some(subrs);
         } else {
             /* Adobe's OPO_____.PFB and OPBO____.PFB have two /Subrs dicts,
              * and also have /CharStrings not followed by dicts.
              * Simply ignores those data. By ChoF on 2009/04/08. */
             warn!("Already found /Subrs; ignores the other /Subrs dicts.");
         }
-        free(data as *mut libc::c_void);
-        free(offsets as *mut libc::c_void);
-        free(lengths as *mut libc::c_void);
     }
     Ok(())
 }
@@ -1036,7 +986,6 @@ unsafe fn parse_charstrings(
     lenIV: i32,
     mode: i32,
 ) -> Result<(), ()> {
-    let charstrings;
     let mut max_size;
     /* /CharStrings n dict dup begin
      * /GlyphName n-bytes RD -n-binary-bytes- ND
@@ -1047,31 +996,16 @@ unsafe fn parse_charstrings(
     let tok = pst_get_token(start, end).unwrap(); /* .notdef must be at gid = 0 in CFF */
     match tok {
         PstObj::Integer(count) if (count >= 0 && count < 65000) => {
-            if mode != 1 {
-                charstrings = cff_new_index(count as u16);
+            font.cstrings = if mode != 1 {
+                let mut charstrings = CffIndex::new(count as u16);
                 max_size = 65536;
-                (*charstrings).data = new((max_size as u32 as u64)
-                    .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                    as u32) as *mut u8
+                charstrings.data = vec![0; max_size as _];
+                Some(charstrings)
             } else {
-                charstrings = ptr::null_mut();
-                max_size = 0
-            }
-            font.cstrings = charstrings;
-            font.charsets =
-                new((1_u64).wrapping_mul(::std::mem::size_of::<cff_charsets>() as u64) as u32)
-                    as *mut cff_charsets;
-            let charset = font.charsets;
-            (*charset).format = 0 as u8;
-            (*charset).num_entries = (count - 1) as u16;
-            (*charset).data.glyphs = new(((count - 1) as u32 as u64)
-                .wrapping_mul(::std::mem::size_of::<s_SID>() as u64)
-                as u32) as *mut s_SID;
-            memset(
-                (*charset).data.glyphs as *mut libc::c_void,
-                0,
-                (::std::mem::size_of::<s_SID>()).wrapping_mul(count as usize - 1),
-            );
+                max_size = 0;
+                None
+            };
+            let mut charset_glyphs = vec![0; count as usize - 1];
             let mut offset = 0;
             let mut have_notdef = 0;
             font.is_notdef_notzero = 0;
@@ -1105,7 +1039,7 @@ unsafe fn parse_charstrings(
                             gid = i + 1;
                         }
                         if gid > 0 {
-                            *(*charset).data.glyphs.offset((gid - 1) as isize) =
+                            charset_glyphs[(gid - 1) as usize] =
                                 cff_add_string(font, &glyph_name, 0)
                         }
                         /*
@@ -1126,41 +1060,32 @@ unsafe fn parse_charstrings(
                         if (*start).offset(len as isize).offset(1) >= end {
                             return Err(());
                         }
+                        let charstrings = font.cstrings.as_mut().unwrap();
                         if mode != 1 {
                             if offset + len >= max_size {
                                 max_size += if len > 65536 { len } else { 65536 };
-                                (*charstrings).data = renew(
-                                    (*charstrings).data as *mut libc::c_void,
-                                    (max_size as u32 as u64)
-                                        .wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                                        as u32,
-                                ) as *mut u8
+                                charstrings.data.resize(max_size as _, 0);
                             }
                             if gid == 0 {
                                 if lenIV >= 0 {
                                     memmove(
-                                        (*charstrings)
-                                            .data
-                                            .offset(len as isize)
-                                            .offset(-(lenIV as isize))
+                                        charstrings.data[(len - lenIV) as usize..].as_mut_ptr()
                                             as *mut libc::c_void,
-                                        (*charstrings).data as *const libc::c_void,
+                                        charstrings.data.as_ptr() as *const libc::c_void,
                                         offset as _,
                                     );
                                     for j in 1..=i {
-                                        *(*charstrings).offset.offset(j as isize) +=
-                                            (len - lenIV) as l_offset;
+                                        charstrings.offset[j as usize] += (len - lenIV) as l_offset;
                                     }
                                 } else {
                                     memmove(
-                                        (*charstrings).data.offset(len as isize)
+                                        charstrings.data[len as usize..].as_mut_ptr()
                                             as *mut libc::c_void,
-                                        (*charstrings).data as *const libc::c_void,
+                                        charstrings.data.as_ptr() as *const libc::c_void,
                                         offset as _,
                                     );
                                     for j in 1..=i {
-                                        *(*charstrings).offset.offset(j as isize) +=
-                                            len as l_offset;
+                                        charstrings.offset[j as usize] += len as l_offset;
                                     }
                                 }
                             }
@@ -1169,34 +1094,24 @@ unsafe fn parse_charstrings(
                         if mode != 1 {
                             if lenIV >= 0 {
                                 let offs: i32 = if gid != 0 { offset } else { 0 };
-                                *(*charstrings).offset.offset(gid as isize) =
-                                    (offs + 1) as l_offset;
+                                charstrings.offset[gid as usize] = (offs + 1) as l_offset;
                                 t1_decrypt(
                                     4330_u16,
-                                    (*charstrings).data.offset(offs as isize),
+                                    charstrings.data[offs as usize..].as_mut_ptr(),
                                     *start,
                                     lenIV,
                                     len,
                                 );
                                 offset += len - lenIV
                             } else {
+                                let slice = std::slice::from_raw_parts(*start, len as _);
                                 if gid == 0 {
-                                    *(*charstrings).offset.offset(gid as isize) = 1 as l_offset;
-                                    memcpy(
-                                        &mut *(*charstrings).data.offset(0) as *mut u8
-                                            as *mut libc::c_void,
-                                        *start as *const libc::c_void,
-                                        len as _,
-                                    );
+                                    charstrings.offset[gid as usize] = 1 as l_offset;
+                                    charstrings.data[..len as usize].copy_from_slice(slice);
                                 } else {
-                                    *(*charstrings).offset.offset(gid as isize) =
-                                        (offset + 1) as l_offset;
-                                    memcpy(
-                                        &mut *(*charstrings).data.offset(offset as isize) as *mut u8
-                                            as *mut libc::c_void,
-                                        *start as *const libc::c_void,
-                                        len as _,
-                                    );
+                                    charstrings.offset[gid as usize] = (offset + 1) as l_offset;
+                                    charstrings.data[offset as usize..(offset + len) as usize]
+                                        .copy_from_slice(slice);
                                 }
                                 offset += len
                             }
@@ -1217,8 +1132,9 @@ unsafe fn parse_charstrings(
                     }
                 }
             }
+            font.charsets = Some(Rc::new(Charsets::Glyphs(charset_glyphs.into_boxed_slice())));
             if mode != 1 {
-                *(*charstrings).offset.offset(count as isize) = (offset + 1) as l_offset
+                font.cstrings.as_mut().unwrap().offset[count as usize] = (offset + 1) as l_offset;
             }
             font.num_glyphs = count as u16;
         }
@@ -1263,13 +1179,14 @@ unsafe fn parse_part2(
                             warn!("{} values expected but only {} read.", 0, -1);
                             ()
                         })?;
-                    (**font.private.offset(0)).add(&key, argn as i32);
+                    let private = font.private[0].as_mut().unwrap();
+                    private.add(&key, argn as i32);
                     loop {
                         if argn == 0 {
                             break;
                         }
                         argn -= 1;
-                        (**font.private.offset(0)).set(
+                        private.set(
                             &key,
                             argn as i32,
                             if argn == 0 {
@@ -1288,15 +1205,17 @@ unsafe fn parse_part2(
                      */
                     parse_nvalue(start, end, argv.as_mut_ptr(), 1)
                         .and_then(|a| check_size(a, 1))?;
-                    (**font.private.offset(0)).add(&key, 1);
-                    (**font.private.offset(0)).set(&key, 0, argv[0]);
+                    let private = font.private[0].as_mut().unwrap();
+                    private.add(&key, 1);
+                    private.set(&key, 0, argv[0]);
                 }
                 "ForceBold" => {
                     parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
                         .and_then(|a| check_size(a, 1))?;
                     if argv[0] != 0. {
-                        (**font.private.offset(0)).add(&key, 1);
-                        (**font.private.offset(0)).set(&key, 0, 1.);
+                        let private = font.private[0].as_mut().unwrap();
+                        private.add(&key, 1);
+                        private.set(&key, 0, 1.);
                     }
                 }
                 /*
@@ -1363,26 +1282,26 @@ unsafe fn parse_part1(
                     parse_nvalue(start, end, argv.as_mut_ptr(), 1)
                         .and_then(|a| check_size(a, 1))?;
                     if argv[0] != 0.0f64 {
-                        (*font.topdict).add(&key, 1);
-                        (*font.topdict).set(&key, 0, argv[0]);
+                        font.topdict.add(&key, 1);
+                        font.topdict.set(&key, 0, argv[0]);
                     }
                 }
                 "UnderLinePosition" | "UnderLineThickness" => {
                     parse_nvalue(start, end, argv.as_mut_ptr(), 1)
                         .and_then(|a| check_size(a, 1))?;
-                    (*font.topdict).add(&key, 1);
-                    (*font.topdict).set(&key, 0, argv[0]);
+                    font.topdict.add(&key, 1);
+                    font.topdict.set(&key, 0, argv[0]);
                 }
                 "FontBBox" => {
                     let mut argn = parse_nvalue(start, end, argv.as_mut_ptr(), 4)
                         .and_then(|a| check_size(a, 4))?;
-                    (*font.topdict).add(&key, 4);
+                    font.topdict.add(&key, 4);
                     loop {
                         if argn == 0 {
                             break;
                         }
                         argn -= 1;
-                        (*font.topdict).set(&key, argn as i32, argv[argn]);
+                        font.topdict.set(&key, argn as i32, argv[argn]);
                     }
                 }
                 "FontMatrix" => {
@@ -1395,13 +1314,13 @@ unsafe fn parse_part1(
                         || argv[4] != 0.
                         || argv[5] != 0.
                     {
-                        (*font.topdict).add(&key, 6);
+                        font.topdict.add(&key, 6);
                         loop {
                             if argn == 0 {
                                 break;
                             }
                             argn -= 1;
-                            (*font.topdict).set(&key, argn as i32, argv[argn]);
+                            font.topdict.set(&key, argn as i32, argv[argn]);
                         }
                     }
                 }
@@ -1410,7 +1329,7 @@ unsafe fn parse_part1(
                      * FontInfo
                      */
                     let strval = parse_svalue(start, end)?;
-                    (*font.topdict).add(&key, 1);
+                    font.topdict.add(&key, 1);
                     let mut sid = cff_get_sid(&font, &strval) as s_SID;
                     if sid as i32 == 65535 {
                         sid = cff_add_string(font, &strval, 0)
@@ -1419,14 +1338,15 @@ unsafe fn parse_part1(
                      * We don't care about duplicate strings here since
                      * later a subset font of this font will be generated.
                      */
-                    (*font.topdict).set(&key, 0, sid as f64); /* No Global Subr */
+                    font.topdict.set(&key, 0, sid as f64); /* No Global Subr */
                 }
                 "IsFixedPitch" => {
                     parse_bvalue(start, end, &mut *argv.as_mut_ptr().offset(0))
                         .and_then(|a| check_size(a, 1))?;
-                    if argv[0] != 0.0f64 {
-                        (**font.private.offset(0)).add(&key, 1);
-                        (**font.private.offset(0)).set(&key, 0, 1.);
+                    if argv[0] != 0. {
+                        let private = font.private[0].as_mut().unwrap();
+                        private.add(&key, 1);
+                        private.set(&key, 0, 1.);
                     }
                 }
                 _ => {}
@@ -1545,10 +1465,10 @@ pub(crate) unsafe fn t1_get_fontname<R: Read + Seek>(handle: &mut R, fontname: &
 
 impl cff_font {
     unsafe fn new() -> Self {
-        let cff = cff_font {
+        Self {
             handle: None,
             filter: 0,
-            fontname: ptr::null_mut(),
+            fontname: String::new(),
             index: 0,
             flag: 1 << 1,
             header: crate::dpx_cff::cff_header {
@@ -1557,29 +1477,24 @@ impl cff_font {
                 hdr_size: 4 as u8,
                 offsize: 4 as c_offsize,
             },
-            name: cff_new_index(1),
-            topdict: cff_new_dict(),
+            name: CffIndex::new(1),
+            topdict: cff_dict::new(),
             string: None,
-            gsubr: cff_new_index(0),
-            encoding: ptr::null_mut(),
-            charsets: ptr::null_mut(),
-            fdselect: ptr::null_mut(),
-            cstrings: ptr::null_mut(),
-            fdarray: 0 as *mut *mut cff_dict,
-            private: new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_dict>() as u64) as u32)
-                as *mut *mut cff_dict,
-            subrs: new((1_u64).wrapping_mul(::std::mem::size_of::<*mut cff_index>() as u64) as u32)
-                as *mut *mut cff_index,
+            gsubr: Some(CffIndex::new(0)),
+            encoding: None,
+            charsets: None,
+            fdselect: None,
+            cstrings: None,
+            fdarray: Vec::new(),
+            private: vec![Some(cff_dict::new())],
+            subrs: vec![None],
             offset: 0 as l_offset,
             gsubr_offset: 0 as l_offset,
             num_glyphs: 0,
             num_fds: 1,
             _string: Some(CffIndex::new(0)),
             is_notdef_notzero: 0,
-        };
-        *cff.private.offset(0) = cff_new_dict();
-        *cff.subrs.offset(0) = ptr::null_mut();
-        cff
+        }
     }
 }
 

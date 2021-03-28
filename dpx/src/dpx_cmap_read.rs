@@ -32,10 +32,9 @@ use std::io::{Read, Seek, SeekFrom};
 use crate::warn;
 
 use super::dpx_cmap::{CMap_cache_find, CMap_cache_get, CMap_set_usecmap};
-use super::dpx_mem::{new, renew};
 use super::dpx_pst::{pst_get_token, PstObj};
 use crate::bridge::{ttstub_input_get_size, InFile};
-use libc::{free, memmove, strstr};
+use libc::{memmove, strstr};
 
 use super::dpx_cid::CIDSysInfo;
 /* Mapping types, MAP_IS_NAME is not supported. */
@@ -51,31 +50,22 @@ pub(crate) type CID = u16;
 pub(crate) struct ifreader {
     pub(crate) cursor: *const u8,
     pub(crate) endptr: *const u8,
-    pub(crate) buf: *mut u8,
+    pub(crate) buf: Vec<u8>,
     pub(crate) max: usize,
     pub(crate) handle: InFile,
     pub(crate) unread: usize,
 }
 impl ifreader {
     unsafe fn new(handle: InFile, size: usize, bufsize: usize) -> Self {
-        let buf = new((bufsize.wrapping_add(1) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-        let reader = Self {
+        let buf = vec![0; bufsize + 1];
+        let bufptr = buf.as_ptr();
+        Self {
             buf,
             max: bufsize,
             handle,
             unread: size,
-            endptr: buf,
-            cursor: buf,
-        };
-        *buf = 0;
-        reader
-    }
-}
-impl Drop for ifreader {
-    fn drop(&mut self) {
-        unsafe {
-            free(self.buf as *mut libc::c_void);
+            endptr: bufptr,
+            cursor: bufptr,
         }
     }
 }
@@ -86,35 +76,27 @@ unsafe fn ifreader_read(reader: &mut ifreader, size: usize) -> usize {
         if __verbose != 0 {
             info!("\nExtending buffer ({} bytes)...\n", size);
         }
-        reader.buf = renew(
-            reader.buf as *mut libc::c_void,
-            (size.wrapping_add(1) as u32 as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64)
-                as u32,
-        ) as *mut u8;
+        reader.buf.resize(size + 1, 0);
         reader.max = size
     }
     if reader.unread > 0 && bytesrem < size {
         bytesread = if reader.max.wrapping_sub(bytesrem) < reader.unread {
-            reader.max.wrapping_sub(bytesrem)
+            reader.max - bytesrem
         } else {
             reader.unread
         };
         memmove(
-            reader.buf as *mut libc::c_void,
+            reader.buf.as_mut_ptr() as *mut libc::c_void,
             reader.cursor as *const libc::c_void,
             bytesrem as _,
         );
-        let slice = std::slice::from_raw_parts_mut(
-            reader.buf.offset(bytesrem as isize),
-            bytesread as usize,
-        );
         reader
             .handle
-            .read_exact(slice)
+            .read_exact(&mut reader.buf[bytesrem..bytesrem + bytesread])
             .expect("Reading file failed.");
-        reader.cursor = reader.buf;
-        reader.endptr = reader.buf.offset((bytesrem + bytesread) as isize);
-        reader.unread = (reader.unread as u64).wrapping_sub(bytesread as _) as usize;
+        reader.cursor = reader.buf.as_ptr();
+        reader.endptr = reader.buf[bytesrem + bytesread..].as_ptr();
+        reader.unread -= bytesread;
         if __verbose != 0 {
             info!(
                 "Reading more {} bytes ({} bytes remains in buffer)...\n",
@@ -123,8 +105,8 @@ unsafe fn ifreader_read(reader: &mut ifreader, size: usize) -> usize {
         }
     }
     let len = reader.endptr.offset_from(reader.cursor);
-    *reader.buf.offset(len) = 0_u8;
-    bytesread.wrapping_add(bytesrem)
+    reader.buf[len as usize] = 0;
+    bytesread + bytesrem
 }
 
 unsafe fn check_next_token(input: &mut ifreader, key: &str) -> Option<()> {

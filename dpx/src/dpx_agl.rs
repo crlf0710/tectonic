@@ -33,11 +33,10 @@ use std::ptr;
 
 use super::dpx_dpxfile::dpx_tt_open;
 use super::dpx_dpxutil::{ht_append_table, ht_clear_table, ht_init_table, ht_lookup_table};
-use super::dpx_mem::new;
-use super::dpx_mfileio::tt_mfgets;
-use super::dpx_pdfparse::{parse_ident, skip_white};
+use super::dpx_mfileio::tt_mfreadln;
+use super::dpx_pdfparse::{ParseIdent, SkipWhite};
 use super::dpx_unicode::{UC_UTF16BE_encode_char, UC_is_valid};
-use libc::{free, memcpy, strchr, strlen, strtol};
+use libc::{strchr, strlen};
 
 use crate::bridge::TTInputFormat;
 
@@ -66,14 +65,14 @@ pub(crate) unsafe fn agl_set_verbose(level: i32) {
     verbose = level;
 }
 unsafe fn agl_new_name() -> *mut agl_name {
-    let agln =
-        new((1_u64).wrapping_mul(::std::mem::size_of::<agl_name>() as u64) as u32) as *mut agl_name;
-    (*agln).name = ptr::null_mut();
-    (*agln).suffix = ptr::null_mut();
-    (*agln).n_components = 0;
-    (*agln).alternate = ptr::null_mut();
-    (*agln).is_predef = 0;
-    agln
+    Box::into_raw(Box::new(agl_name {
+        name: ptr::null_mut(),
+        suffix: ptr::null_mut(),
+        n_components: 0,
+        alternate: ptr::null_mut(),
+        is_predef: 0,
+        unicodes: [0; 16],
+    }))
 }
 unsafe fn agl_release_name(mut agln: *mut agl_name) {
     while !agln.is_null() {
@@ -83,7 +82,7 @@ unsafe fn agl_release_name(mut agln: *mut agl_name) {
             let _ = CString::from_raw((*agln).suffix);
         }
         (*agln).name = ptr::null_mut();
-        free(agln as *mut libc::c_void);
+        let _ = Box::from(agln);
         agln = next
     }
 }
@@ -360,7 +359,6 @@ pub(crate) unsafe fn agl_close_map() {
 /* Hash */
 unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
     let mut count: u32 = 0;
-    let mut wbuf: [i8; 1024] = [0; 1024];
     if filename.is_empty() {
         return Err(());
     }
@@ -372,98 +370,92 @@ unsafe fn agl_load_listfile(filename: &str, is_predef: i32) -> Result<u32, ()> {
     if verbose != 0 {
         info!("<AGL:{}", filename);
     }
-    loop {
-        let mut p = tt_mfgets(wbuf.as_mut_ptr(), 1024, &mut handle) as *const i8;
-        if p.is_null() {
-            break;
-        }
+    while let Ok(wbuf) = tt_mfreadln(1024, &mut handle) {
+        let mut p = wbuf.as_slice();
         let mut unicodes: [i32; 16] = [0; 16];
-        let endptr = p.offset(strlen(p) as isize);
-        skip_white(&mut p, endptr);
+        p.skip_white();
         /* Need table version check. */
-        if p.is_null() || *p.offset(0) as i32 == '#' as i32 || p >= endptr {
+        if p.is_empty() || p[0] == b'#' {
             continue;
         }
-        let mut nextptr = strchr(p, ';' as i32) as *mut i8;
-        if nextptr.is_null() || nextptr == p as *mut i8 {
-            continue;
-        }
-        let name = parse_ident(&mut p, nextptr);
-        skip_white(&mut p, endptr);
-        if name.is_null() || *p.offset(0) as i32 != ';' as i32 {
-            warn!(
-                "Invalid AGL entry: {}",
-                CStr::from_ptr(wbuf.as_ptr()).display()
-            );
-            free(name as *mut libc::c_void);
-        } else {
-            p = p.offset(1);
-            skip_white(&mut p, endptr);
-            let mut n_unicodes = 0;
-            while p < endptr
-                && (*p.offset(0) as i32 >= '0' as i32 && *p.offset(0) as i32 <= '9' as i32
-                    || *p.offset(0) as i32 >= 'A' as i32 && *p.offset(0) as i32 <= 'F' as i32)
-            {
-                if n_unicodes >= 16 {
-                    warn!("Too many Unicode values");
-                    break;
-                } else {
-                    unicodes[n_unicodes as usize] = strtol(p, &mut nextptr, 16) as i32;
-                    n_unicodes += 1;
-                    p = nextptr;
-                    skip_white(&mut p, endptr);
-                }
-            }
-            if n_unicodes == 0 {
-                warn!(
-                    "AGL entry ignored (no mapping): {}",
-                    CStr::from_ptr(wbuf.as_ptr()).display(),
-                );
-                free(name as *mut libc::c_void);
-            } else {
-                let bname = CStr::from_ptr(name).to_bytes();
-                let agln = agl_normalized_name(bname);
-                (*agln).is_predef = is_predef;
-                (*agln).n_components = n_unicodes;
-                for i in 0..n_unicodes as usize {
-                    (*agln).unicodes[i] = unicodes[i];
-                }
-                let mut duplicate = ht_lookup_table(&mut aglmap, bname) as *mut agl_name;
-                if duplicate.is_null() {
-                    ht_append_table(&mut aglmap, bname, agln as *mut libc::c_void);
-                } else {
-                    while !(*duplicate).alternate.is_null() {
-                        duplicate = (*duplicate).alternate
-                    }
-                    (*duplicate).alternate = agln
-                }
-                if verbose > 3 {
-                    if !(*agln).suffix.is_null() {
-                        info!(
-                            "agl: {} [{}.{}] -->",
-                            bname.display(),
-                            CStr::from_ptr((*agln).name).display(),
-                            CStr::from_ptr((*agln).suffix).display(),
-                        );
+        let pos = match p.iter().position(|&c| c == b';') {
+            Some(pos) if pos != 0 => pos,
+            _ => continue,
+        };
+        let name = (&p[..pos]).parse_ident();
+        p = &p[pos..];
+        p.skip_white();
+        match name {
+            Some(name) if p[0] == b';' => {
+                p = &p[1..];
+                p.skip_white();
+                let mut n_unicodes = 0;
+                while !p.is_empty()
+                    && (p[0] >= b'0' && p[0] <= b'9' || p[0] >= b'A' && p[0] <= b'F')
+                {
+                    if n_unicodes >= 16 {
+                        warn!("Too many Unicode values");
+                        break;
                     } else {
-                        info!(
-                            "agl: {} [{}] -->",
-                            bname.display(),
-                            CStr::from_ptr((*agln).name).display(),
-                        );
+                        let pos = p
+                            .iter()
+                            .position(|&c| !c.is_ascii_hexdigit())
+                            .unwrap_or(p.len());
+                        unicodes[n_unicodes as usize] =
+                            i64::from_str_radix(std::str::from_utf8(&p[..pos]).unwrap(), 16)
+                                .unwrap() as i32;
+                        n_unicodes += 1;
+                        p = &p[pos..];
+                        p.skip_white();
                     }
-                    for i in 0..(*agln).n_components as usize {
-                        if (*agln).unicodes[i] > 0xffff {
-                            info!(" U+{:06X}", (*agln).unicodes[i]);
-                        } else {
-                            info!(" U+{:04X}", (*agln).unicodes[i]);
-                        }
-                    }
-                    info!("\n");
                 }
-                free(name as *mut libc::c_void);
-                count += 1
+                if n_unicodes == 0 {
+                    warn!("AGL entry ignored (no mapping): {}", wbuf.display(),);
+                } else {
+                    let bname = name.as_bytes();
+                    let agln = agl_normalized_name(bname);
+                    (*agln).is_predef = is_predef;
+                    (*agln).n_components = n_unicodes;
+                    for i in 0..n_unicodes as usize {
+                        (*agln).unicodes[i] = unicodes[i];
+                    }
+                    let mut duplicate = ht_lookup_table(&mut aglmap, bname) as *mut agl_name;
+                    if duplicate.is_null() {
+                        ht_append_table(&mut aglmap, bname, agln as *mut libc::c_void);
+                    } else {
+                        while !(*duplicate).alternate.is_null() {
+                            duplicate = (*duplicate).alternate
+                        }
+                        (*duplicate).alternate = agln
+                    }
+                    if verbose > 3 {
+                        if !(*agln).suffix.is_null() {
+                            info!(
+                                "agl: {} [{}.{}] -->",
+                                bname.display(),
+                                CStr::from_ptr((*agln).name).display(),
+                                CStr::from_ptr((*agln).suffix).display(),
+                            );
+                        } else {
+                            info!(
+                                "agl: {} [{}] -->",
+                                bname.display(),
+                                CStr::from_ptr((*agln).name).display(),
+                            );
+                        }
+                        for i in 0..(*agln).n_components as usize {
+                            if (*agln).unicodes[i] > 0xffff {
+                                info!(" U+{:06X}", (*agln).unicodes[i]);
+                            } else {
+                                info!(" U+{:04X}", (*agln).unicodes[i]);
+                            }
+                        }
+                        info!("\n");
+                    }
+                    count += 1
+                }
             }
+            _ => warn!("Invalid AGL entry: {}", wbuf.display()),
         }
     }
     if verbose != 0 {
@@ -706,17 +698,8 @@ pub(crate) unsafe fn agl_get_unicodes(
             delim = endptr;
         }
         let sub_len = delim.offset_from(p) as i32;
-        let name_p = new(
-            ((sub_len + 1) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32
-        ) as *mut i8;
-        memcpy(
-            name_p as *mut libc::c_void,
-            p as *const libc::c_void,
-            sub_len as _,
-        );
-        *name_p.offset(sub_len as isize) = '\u{0}' as i32 as i8;
-        let name = CStr::from_ptr(name_p).to_owned();
-        free(name_p as *mut libc::c_void);
+        let slice = std::slice::from_raw_parts(p as *const u8, sub_len as _);
+        let name = CString::new(slice).unwrap();
         if agl_name_is_unicode(name.to_bytes()) {
             let mut p = name.to_bytes();
             if p[1] != b'n' {

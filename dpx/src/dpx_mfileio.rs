@@ -32,7 +32,6 @@ use std::io::{Read, Seek, SeekFrom};
 use std::ptr;
 
 /* Note: this is really just a random array used in other files. */
-pub(crate) static mut work_buffer: [i8; 1024] = [0; 1024];
 pub(crate) static mut work_buffer_u8: [u8; 1024] = [0; 1024];
 /* Tectonic-enabled versions */
 /* Modified versions of the above functions based on the Tectonic I/O system. */
@@ -63,4 +62,44 @@ pub(crate) unsafe fn tt_mfgets<R: Read + Seek>(
         }
     }
     buffer
+}
+
+/* PDF reading starts around here */
+/* As each lines may contain null-characters, so outptr here is NOT
+ * null-terminated string. Returns -1 for when EOF is already reached, and -2
+ * if buffer has no enough space.
+ */
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum MfReadErr {
+    Eof,
+    NotEnoughSpace,
+}
+
+use arrayvec::ArrayVec;
+pub(crate) unsafe fn tt_mfreadln<R: Read + Seek>(
+    size: usize,
+    handle: &mut R,
+) -> Result<ArrayVec<[u8; 1024]>, MfReadErr> {
+    let mut c;
+    let mut buf = ArrayVec::<[u8; 1024]>::new();
+    loop {
+        c = handle.read_byte();
+        if let Some(c) = c.filter(|&c| c != b'\n' && c != b'\r') {
+            if buf.len() >= size {
+                return Err(MfReadErr::NotEnoughSpace);
+            }
+            buf.push(c as u8);
+        } else {
+            break;
+        }
+    }
+    if c.is_none() && buf.is_empty() {
+        return Err(MfReadErr::Eof);
+    }
+    if c == Some(b'\r') {
+        if handle.read_byte().filter(|&c| c != b'\n').is_some() {
+            handle.seek(SeekFrom::Current(-1)).unwrap();
+        }
+    }
+    Ok(buf)
 }

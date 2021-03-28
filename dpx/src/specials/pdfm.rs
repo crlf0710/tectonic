@@ -21,7 +21,7 @@
 */
 #![allow(non_camel_case_types, non_snake_case)]
 
-use super::{Result, ERR};
+use super::{Result, ERR, ERROR};
 
 use euclid::point2;
 use once_cell::sync::Lazy;
@@ -58,19 +58,18 @@ use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear,
 use crate::dpx_pdfdoc::{pdf_doc_mut, pdf_doc_set_bgcolor, PdfPageBoundary};
 use crate::dpx_pdfdraw::{pdf_dev_concat, pdf_dev_grestore, pdf_dev_gsave, pdf_dev_transform};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_release_obj, pdf_remove_dict, pdf_stream,
-    pdf_string, IntoObj, Object, STREAM_COMPRESS,
+    pdf_dict, pdf_link_obj, pdf_name, pdf_obj, pdf_stream, pdf_string, IntoObj, Object,
+    STREAM_COMPRESS,
 };
 use crate::dpx_pdfparse::{ParseIdent, ParsePdfObj, SkipWhite};
 use crate::dpx_pdfximage::{pdf_ximage_findresource, pdf_ximage_get_reference};
 use crate::dpx_unicode::{UC_UTF16BE_is_valid_string, UC_UTF8_is_valid_string};
 
-use super::{SpcArg, SpcEnv};
+use super::{Handler, SpcArg, SpcEnv};
 
-use super::SpcHandler;
 #[derive(Clone)]
 pub(crate) struct spc_pdf_ {
-    pub(crate) annot_dict: *mut pdf_obj,
+    pub(crate) annotation_started: bool,
     pub(crate) lowest_level: i32,
     pub(crate) resourcemap: HashMap<String, resource_map>,
     pub(crate) cd: tounicode,
@@ -80,7 +79,7 @@ pub(crate) struct spc_pdf_ {
 impl spc_pdf_ {
     pub(crate) fn new() -> Self {
         Self {
-            annot_dict: ptr::null_mut(),
+            annotation_started: false,
             lowest_level: 255,
             resourcemap: HashMap::new(),
             cd: tounicode {
@@ -142,7 +141,7 @@ unsafe fn spc_handler_pdfm__init(sd: &mut spc_pdf_) -> Result<()> {
         "Title", "Author", "Subject", "Keywords", "Creator", "Producer", "Contents", "Subj", "TU",
         "T", "TM",
     ];
-    sd.annot_dict = ptr::null_mut();
+    sd.annotation_started = false;
     sd.lowest_level = 255;
     sd.resourcemap.clear();
     let array: Vec<*mut pdf_obj> = DEFAULT_TAINTKEYS
@@ -153,14 +152,13 @@ unsafe fn spc_handler_pdfm__init(sd: &mut spc_pdf_) -> Result<()> {
     Ok(())
 }
 unsafe fn spc_handler_pdfm__clean(sd: &mut spc_pdf_) -> Result<()> {
-    if !sd.annot_dict.is_null() {
+    if sd.annotation_started {
         warn!("Unbalanced bann and eann found.");
-        pdf_release_obj(sd.annot_dict);
     }
     sd.lowest_level = 255;
-    sd.annot_dict = ptr::null_mut();
+    sd.annotation_started = false;
     sd.resourcemap.clear();
-    pdf_release_obj(sd.cd.taintkeys);
+    crate::release!(sd.cd.taintkeys);
     sd.cd.taintkeys = ptr::null_mut();
     Ok(())
 }
@@ -314,7 +312,7 @@ unsafe fn spc_handler_pdfm_put(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> 
             error = ERR;
         }
     }
-    pdf_release_obj(obj2);
+    crate::release!(obj2);
     error
 }
 /* For pdf:tounicode support
@@ -507,35 +505,34 @@ unsafe fn spc_handler_pdfm_annot(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
     if let Some(i) = ident {
         spc_flush_object(&i);
     }
-    pdf_release_obj(annot_dict);
+    crate::release!(annot_dict);
     Ok(())
 }
 /* NOTE: This can't have ident. See "Dvipdfm User's Manual". */
 unsafe fn spc_handler_pdfm_bann(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     let sd = &mut _PDF_STAT;
-    if !sd.annot_dict.is_null() {
+    if sd.annotation_started {
         spc_warn!(spe, "Can\'t begin an annotation when one is pending.");
         return ERR;
     }
     args.cur.skip_white();
     if let Some(annot_dict) = args.cur.parse_pdf_dict_with_tounicode(&mut sd.cd) {
-        sd.annot_dict = annot_dict.into_obj();
+        sd.annotation_started = true;
+        spc_begin_annot(spe, annot_dict)
     } else {
-        sd.annot_dict = ptr::null_mut();
+        sd.annotation_started = false;
         spc_warn!(spe, "Ignoring annotation with invalid dictionary.");
         return ERR;
     }
-    spc_begin_annot(spe, sd.annot_dict)
 }
 unsafe fn spc_handler_pdfm_eann(spe: &mut SpcEnv, _args: &mut SpcArg) -> Result<()> {
     let sd = &mut _PDF_STAT;
-    if sd.annot_dict.is_null() {
+    if !sd.annotation_started {
         spc_warn!(spe, "Tried to end an annotation without starting one!");
         return ERR;
     }
     let error = spc_end_annot(spe);
-    pdf_release_obj(sd.annot_dict);
-    sd.annot_dict = ptr::null_mut();
+    sd.annotation_started = false;
     error
 }
 /* Color:.... */
@@ -635,10 +632,10 @@ unsafe fn spc_handler_pdfm_outline(spe: &mut SpcEnv, args: &mut SpcArg) -> Resul
     args.cur.skip_white();
     let mut level = if let Some(tmp) = args.cur.parse_pdf_object(ptr::null_mut()) {
         if let Object::Number(level) = (*tmp).data {
-            pdf_release_obj(tmp);
+            crate::release!(tmp);
             level as i32
         } else {
-            pdf_release_obj(tmp);
+            crate::release!(tmp);
             spc_warn!(spe, "Expecting number for outline item depth.");
             return ERR;
         }
@@ -763,11 +760,6 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
     let sd = &mut _PDF_STAT;
     let mut ident = None;
     let mut ti = transform_info::new();
-    let mut options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     args.cur.skip_white();
     if args.cur[0] == b'@' {
         ident = args.cur.parse_opt_ident();
@@ -788,6 +780,11 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
      * It is for reading "dimensions" and "transformations" and "page" is
      * completely unrelated.
      */
+    let mut options: load_options = load_options {
+        page_no: 1,
+        bbox_type: PdfPageBoundary::Auto,
+        dict: ptr::null_mut(),
+    };
     let mut page_no = Some(options.page_no);
     let mut bbox_type = Some(options.bbox_type);
     transform_info_clear(&mut ti);
@@ -812,7 +809,7 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
                 pdf_ximage_findresource(std::str::from_utf8(string.to_bytes()).unwrap(), options);
             if xobj_id < 0 {
                 spc_warn!(spe, "Could not find image resource...");
-                pdf_release_obj(fspec);
+                crate::release!(fspec);
                 return ERR;
             }
             if ti.flags & 1 << 4 == 0 {
@@ -821,11 +818,11 @@ unsafe fn spc_handler_pdfm_image(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
             if let Some(i) = ident {
                 addresource(sd, &i, xobj_id);
             }
-            pdf_release_obj(fspec);
+            crate::release!(fspec);
             Ok(())
         } else {
             spc_warn!(spe, "Missing filename string for pdf:image.");
-            pdf_release_obj(fspec);
+            crate::release!(fspec);
             ERR
         }
     } else {
@@ -845,23 +842,23 @@ unsafe fn spc_handler_pdfm_dest(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<(
                         .ok();
                 } else {
                     spc_warn!(spe, "Destination not specified as an array object!");
-                    pdf_release_obj(name);
-                    pdf_release_obj(array);
+                    crate::release!(name);
+                    crate::release!(array);
                     return ERR;
                 }
             } else {
                 spc_warn!(spe, "No destination specified for pdf:dest.");
-                pdf_release_obj(name);
+                crate::release!(name);
                 return ERR;
             }
-            pdf_release_obj(name);
+            crate::release!(name);
             Ok(())
         } else {
             spc_warn!(
                 spe,
                 "PDF string expected for destination name but invalid type."
             );
-            pdf_release_obj(name);
+            crate::release!(name);
             ERR
         }
     } else {
@@ -881,8 +878,8 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
                         let size = array.len() as i32;
                         if size % 2 != 0 {
                             spc_warn!(spe, "Array size not multiple of 2 for pdf:names.");
-                            pdf_release_obj(category);
-                            pdf_release_obj(tmp);
+                            crate::release!(category);
+                            crate::release!(tmp);
                             return ERR;
                         }
                         for i in 0..(size / 2) as usize {
@@ -898,18 +895,18 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
                                     .is_err()
                                 {
                                     spc_warn!(spe, "Failed to add Name tree entry...");
-                                    pdf_release_obj(category);
-                                    pdf_release_obj(tmp);
+                                    crate::release!(category);
+                                    crate::release!(tmp);
                                     return ERR;
                                 }
                             } else {
                                 spc_warn!(spe, "Name tree key must be string.");
-                                pdf_release_obj(category);
-                                pdf_release_obj(tmp);
+                                crate::release!(category);
+                                crate::release!(tmp);
                                 return ERR;
                             }
                         }
-                        pdf_release_obj(tmp);
+                        crate::release!(tmp);
                     }
                     Object::String(string) => {
                         if let Some(value) = args.cur.parse_pdf_object(ptr::null_mut()) {
@@ -918,35 +915,35 @@ unsafe fn spc_handler_pdfm_names(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
                                 .is_err()
                             {
                                 spc_warn!(spe, "Failed to add Name tree entry...");
-                                pdf_release_obj(category);
-                                pdf_release_obj(tmp);
+                                crate::release!(category);
+                                crate::release!(tmp);
                                 return ERR;
                             }
-                            pdf_release_obj(tmp);
+                            crate::release!(tmp);
                         } else {
-                            pdf_release_obj(category);
-                            pdf_release_obj(tmp);
+                            crate::release!(category);
+                            crate::release!(tmp);
                             spc_warn!(spe, "PDF object expected but not found.");
                             return ERR;
                         }
                     }
                     _ => {
-                        pdf_release_obj(tmp);
-                        pdf_release_obj(category);
+                        crate::release!(tmp);
+                        crate::release!(category);
                         spc_warn!(spe, "Invalid object type for pdf:names.");
                         return ERR;
                     }
                 }
             } else {
                 spc_warn!(spe, "PDF object expected but not found.");
-                pdf_release_obj(category);
+                crate::release!(category);
                 return ERR;
             }
-            pdf_release_obj(category);
+            crate::release!(category);
             Ok(())
         } else {
             spc_warn!(spe, "PDF name expected but not found.");
-            pdf_release_obj(category);
+            crate::release!(category);
             ERR
         }
     } else {
@@ -974,7 +971,7 @@ unsafe fn spc_handler_pdfm_docview(spe: &mut SpcEnv, args: &mut SpcArg) -> Resul
         let pref_add = dict.get("ViewerPreferences");
         if let (Some(pref_old), Some(pref_add)) = (pref_old, pref_add) {
             (*pref_old).as_dict_mut().merge((*pref_add).as_dict());
-            pdf_remove_dict(&mut dict, "ViewerPreferences");
+            dict.remove("ViewerPreferences");
         }
         (*catalog).as_dict_mut().merge(&dict);
         Ok(())
@@ -1109,7 +1106,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                     1 => {
                         if instring.is_empty() {
                             spc_warn!(spe, "Missing filename for pdf:fstream.");
-                            pdf_release_obj(tmp);
+                            crate::release!(tmp);
                             return ERR;
                         }
                         let fullname: Option<String> = None; // TODO: check dead code
@@ -1128,12 +1125,12 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                                 fstream
                             } else {
                                 spc_warn!(spe, "Could not open file: {}", instring.display());
-                                pdf_release_obj(tmp);
+                                crate::release!(tmp);
                                 return ERR;
                             }
                         } else {
                             spc_warn!(spe, "File \"{}\" not found.", instring.display());
-                            pdf_release_obj(tmp);
+                            crate::release!(tmp);
                             return ERR;
                         }
                     }
@@ -1148,11 +1145,11 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                         fstream
                     }
                     _ => {
-                        pdf_release_obj(tmp);
+                        crate::release!(tmp);
                         return ERR;
                     }
                 };
-                pdf_release_obj(tmp);
+                crate::release!(tmp);
                 /*
                  * Optional dict.
                  *
@@ -1163,9 +1160,9 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                     let stream_dict = fstream.get_dict_mut();
                     if let Some(mut tmp) = args.cur.parse_pdf_dict(ptr::null_mut()) {
                         if tmp.has("Length") {
-                            pdf_remove_dict(&mut tmp, "Length");
+                            tmp.remove("Length");
                         } else if tmp.has("Filter") {
-                            pdf_remove_dict(&mut tmp, "Filter");
+                            tmp.remove("Filter");
                         }
                         stream_dict.merge(&tmp);
                     } else {
@@ -1178,7 +1175,7 @@ unsafe fn spc_handler_pdfm_stream_with_type(
                 Ok(())
             } else {
                 spc_warn!(spe, "Invalid type of input string for pdf:(f)stream.");
-                pdf_release_obj(tmp);
+                crate::release!(tmp);
                 ERR
             }
         } else {
@@ -1301,11 +1298,6 @@ unsafe fn spc_handler_pdfm_eform(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result
  */
 unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     let sd = &mut _PDF_STAT;
-    let options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     args.cur.skip_white();
     if let Some(ident) = args.cur.parse_opt_ident() {
         let mut ti = if !args.cur.is_empty() {
@@ -1323,6 +1315,11 @@ unsafe fn spc_handler_pdfm_uxobj(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
          */
         let mut xobj_id = findresource(sd, Some(&ident));
         if xobj_id < 0 {
+            let options: load_options = load_options {
+                page_no: 1,
+                bbox_type: PdfPageBoundary::Auto,
+                dict: ptr::null_mut(),
+            };
             xobj_id = pdf_ximage_findresource(&ident, options);
             if xobj_id < 0 {
                 spc_warn!(spe, "Specified (image) object doesn\'t exist: {}", ident);
@@ -1463,359 +1460,108 @@ unsafe fn spc_handler_pdfm_tounicode(spe: &mut SpcEnv, args: &mut SpcArg) -> Res
         ERR
     }
 }
-const PDFM_HANDLERS: [SpcHandler; 80] = [
-    SpcHandler {
-        key: "annotation",
-        exec: Some(spc_handler_pdfm_annot),
-    },
-    SpcHandler {
-        key: "annotate",
-        exec: Some(spc_handler_pdfm_annot),
-    },
-    SpcHandler {
-        key: "annot",
-        exec: Some(spc_handler_pdfm_annot),
-    },
-    SpcHandler {
-        key: "ann",
-        exec: Some(spc_handler_pdfm_annot),
-    },
-    SpcHandler {
-        key: "outline",
-        exec: Some(spc_handler_pdfm_outline),
-    },
-    SpcHandler {
-        key: "out",
-        exec: Some(spc_handler_pdfm_outline),
-    },
-    SpcHandler {
-        key: "article",
-        exec: Some(spc_handler_pdfm_article),
-    },
-    SpcHandler {
-        key: "art",
-        exec: Some(spc_handler_pdfm_article),
-    },
-    SpcHandler {
-        key: "bead",
-        exec: Some(spc_handler_pdfm_bead),
-    },
-    SpcHandler {
-        key: "thread",
-        exec: Some(spc_handler_pdfm_bead),
-    },
-    SpcHandler {
-        key: "destination",
-        exec: Some(spc_handler_pdfm_dest),
-    },
-    SpcHandler {
-        key: "dest",
-        exec: Some(spc_handler_pdfm_dest),
-    },
-    SpcHandler {
-        key: "object",
-        exec: Some(spc_handler_pdfm_object),
-    },
-    SpcHandler {
-        key: "obj",
-        exec: Some(spc_handler_pdfm_object),
-    },
-    SpcHandler {
-        key: "docinfo",
-        exec: Some(spc_handler_pdfm_docinfo),
-    },
-    SpcHandler {
-        key: "docview",
-        exec: Some(spc_handler_pdfm_docview),
-    },
-    SpcHandler {
-        key: "content",
-        exec: Some(spc_handler_pdfm_content),
-    },
-    SpcHandler {
-        key: "put",
-        exec: Some(spc_handler_pdfm_put),
-    },
-    SpcHandler {
-        key: "close",
-        exec: Some(spc_handler_pdfm_close),
-    },
-    SpcHandler {
-        key: "bop",
-        exec: Some(spc_handler_pdfm_bop),
-    },
-    SpcHandler {
-        key: "eop",
-        exec: Some(spc_handler_pdfm_eop),
-    },
-    SpcHandler {
-        key: "image",
-        exec: Some(spc_handler_pdfm_image),
-    },
-    SpcHandler {
-        key: "img",
-        exec: Some(spc_handler_pdfm_image),
-    },
-    SpcHandler {
-        key: "epdf",
-        exec: Some(spc_handler_pdfm_image),
-    },
-    SpcHandler {
-        key: "link",
-        exec: Some(spc_handler_pdfm_link),
-    },
-    SpcHandler {
-        key: "nolink",
-        exec: Some(spc_handler_pdfm_nolink),
-    },
-    SpcHandler {
-        key: "begincolor",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "bcolor",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "bc",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "setcolor",
-        exec: Some(spc_handler_pdfm_scolor),
-    },
-    SpcHandler {
-        key: "scolor",
-        exec: Some(spc_handler_pdfm_scolor),
-    },
-    SpcHandler {
-        key: "sc",
-        exec: Some(spc_handler_pdfm_scolor),
-    },
-    SpcHandler {
-        key: "endcolor",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "ecolor",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "ec",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "begingray",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "bgray",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "bg",
-        exec: Some(spc_handler_pdfm_bcolor),
-    },
-    SpcHandler {
-        key: "endgray",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "egray",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "eg",
-        exec: Some(spc_handler_pdfm_ecolor),
-    },
-    SpcHandler {
-        key: "bgcolor",
-        exec: Some(spc_handler_pdfm_bgcolor),
-    },
-    SpcHandler {
-        key: "bgc",
-        exec: Some(spc_handler_pdfm_bgcolor),
-    },
-    SpcHandler {
-        key: "bbc",
-        exec: Some(spc_handler_pdfm_bgcolor),
-    },
-    SpcHandler {
-        key: "bbg",
-        exec: Some(spc_handler_pdfm_bgcolor),
-    },
-    SpcHandler {
-        key: "pagesize",
-        exec: Some(spc_handler_pdfm_pagesize),
-    },
-    SpcHandler {
-        key: "bannot",
-        exec: Some(spc_handler_pdfm_bann),
-    },
-    SpcHandler {
-        key: "beginann",
-        exec: Some(spc_handler_pdfm_bann),
-    },
-    SpcHandler {
-        key: "bann",
-        exec: Some(spc_handler_pdfm_bann),
-    },
-    SpcHandler {
-        key: "eannot",
-        exec: Some(spc_handler_pdfm_eann),
-    },
-    SpcHandler {
-        key: "endann",
-        exec: Some(spc_handler_pdfm_eann),
-    },
-    SpcHandler {
-        key: "eann",
-        exec: Some(spc_handler_pdfm_eann),
-    },
-    SpcHandler {
-        key: "btrans",
-        exec: Some(spc_handler_pdfm_btrans),
-    },
-    SpcHandler {
-        key: "begintransform",
-        exec: Some(spc_handler_pdfm_btrans),
-    },
-    SpcHandler {
-        key: "begintrans",
-        exec: Some(spc_handler_pdfm_btrans),
-    },
-    SpcHandler {
-        key: "bt",
-        exec: Some(spc_handler_pdfm_btrans),
-    },
-    SpcHandler {
-        key: "etrans",
-        exec: Some(spc_handler_pdfm_etrans),
-    },
-    SpcHandler {
-        key: "endtransform",
-        exec: Some(spc_handler_pdfm_etrans),
-    },
-    SpcHandler {
-        key: "endtrans",
-        exec: Some(spc_handler_pdfm_etrans),
-    },
-    SpcHandler {
-        key: "et",
-        exec: Some(spc_handler_pdfm_etrans),
-    },
-    SpcHandler {
-        key: "bform",
-        exec: Some(spc_handler_pdfm_bform),
-    },
-    SpcHandler {
-        key: "beginxobj",
-        exec: Some(spc_handler_pdfm_bform),
-    },
-    SpcHandler {
-        key: "bxobj",
-        exec: Some(spc_handler_pdfm_bform),
-    },
-    SpcHandler {
-        key: "eform",
-        exec: Some(spc_handler_pdfm_eform),
-    },
-    SpcHandler {
-        key: "endxobj",
-        exec: Some(spc_handler_pdfm_eform),
-    },
-    SpcHandler {
-        key: "exobj",
-        exec: Some(spc_handler_pdfm_eform),
-    },
-    SpcHandler {
-        key: "usexobj",
-        exec: Some(spc_handler_pdfm_uxobj),
-    },
-    SpcHandler {
-        key: "uxobj",
-        exec: Some(spc_handler_pdfm_uxobj),
-    },
-    SpcHandler {
-        key: "tounicode",
-        exec: Some(spc_handler_pdfm_tounicode),
-    },
-    SpcHandler {
-        key: "literal",
-        exec: Some(spc_handler_pdfm_literal),
-    },
-    SpcHandler {
-        key: "stream",
-        exec: Some(spc_handler_pdfm_stream),
-    },
-    SpcHandler {
-        key: "fstream",
-        exec: Some(spc_handler_pdfm_fstream),
-    },
-    SpcHandler {
-        key: "names",
-        exec: Some(spc_handler_pdfm_names),
-    },
-    SpcHandler {
-        key: "mapline",
-        exec: Some(spc_handler_pdfm_mapline),
-    },
-    SpcHandler {
-        key: "mapfile",
-        exec: Some(spc_handler_pdfm_mapfile),
-    },
-    SpcHandler {
-        key: "bcontent",
-        exec: Some(spc_handler_pdfm_bcontent),
-    },
-    SpcHandler {
-        key: "econtent",
-        exec: Some(spc_handler_pdfm_econtent),
-    },
-    SpcHandler {
-        key: "code",
-        exec: Some(spc_handler_pdfm_code),
-    },
-    SpcHandler {
-        key: "minorversion",
-        exec: Some(spc_handler_pdfm_do_nothing),
-    },
-    SpcHandler {
-        key: "encrypt",
-        exec: Some(spc_handler_pdfm_do_nothing),
-    },
-];
+
+static PDFM_HANDLERS: phf::Map<&'static str, Handler> = phf::phf_map! {
+    "annotation" => spc_handler_pdfm_annot,
+    "annotate" => spc_handler_pdfm_annot,
+    "annot" => spc_handler_pdfm_annot,
+    "ann" => spc_handler_pdfm_annot,
+    "outline" => spc_handler_pdfm_outline,
+    "out" => spc_handler_pdfm_outline,
+    "article" => spc_handler_pdfm_article,
+    "art" => spc_handler_pdfm_article,
+    "bead" => spc_handler_pdfm_bead,
+    "thread" => spc_handler_pdfm_bead,
+    "destination" => spc_handler_pdfm_dest,
+    "dest" => spc_handler_pdfm_dest,
+    "object" => spc_handler_pdfm_object,
+    "obj" => spc_handler_pdfm_object,
+    "docinfo" => spc_handler_pdfm_docinfo,
+    "docview" => spc_handler_pdfm_docview,
+    "content" => spc_handler_pdfm_content,
+    "put" => spc_handler_pdfm_put,
+    "close" => spc_handler_pdfm_close,
+    "bop" => spc_handler_pdfm_bop,
+    "eop" => spc_handler_pdfm_eop,
+    "image" => spc_handler_pdfm_image,
+    "img" => spc_handler_pdfm_image,
+    "epdf" => spc_handler_pdfm_image,
+    "link" => spc_handler_pdfm_link,
+    "nolink" => spc_handler_pdfm_nolink,
+    "begincolor" => spc_handler_pdfm_bcolor,
+    "bcolor" => spc_handler_pdfm_bcolor,
+    "bc" => spc_handler_pdfm_bcolor,
+    "setcolor" => spc_handler_pdfm_scolor,
+    "scolor" => spc_handler_pdfm_scolor,
+    "sc" => spc_handler_pdfm_scolor,
+    "endcolor" => spc_handler_pdfm_ecolor,
+    "ecolor" => spc_handler_pdfm_ecolor,
+    "ec" => spc_handler_pdfm_ecolor,
+    "begingray" => spc_handler_pdfm_bcolor,
+    "bgray" => spc_handler_pdfm_bcolor,
+    "bg" => spc_handler_pdfm_bcolor,
+    "endgray" => spc_handler_pdfm_ecolor,
+    "egray" => spc_handler_pdfm_ecolor,
+    "eg" => spc_handler_pdfm_ecolor,
+    "bgcolor" => spc_handler_pdfm_bgcolor,
+    "bgc" => spc_handler_pdfm_bgcolor,
+    "bbc" => spc_handler_pdfm_bgcolor,
+    "bbg" => spc_handler_pdfm_bgcolor,
+    "pagesize" => spc_handler_pdfm_pagesize,
+    "bannot" => spc_handler_pdfm_bann,
+    "beginann" => spc_handler_pdfm_bann,
+    "bann" => spc_handler_pdfm_bann,
+    "eannot" => spc_handler_pdfm_eann,
+    "endann" => spc_handler_pdfm_eann,
+    "eann" => spc_handler_pdfm_eann,
+    "btrans" => spc_handler_pdfm_btrans,
+    "begintransform" => spc_handler_pdfm_btrans,
+    "begintrans" => spc_handler_pdfm_btrans,
+    "bt" => spc_handler_pdfm_btrans,
+    "etrans" => spc_handler_pdfm_etrans,
+    "endtransform" => spc_handler_pdfm_etrans,
+    "endtrans" => spc_handler_pdfm_etrans,
+    "et" => spc_handler_pdfm_etrans,
+    "bform" => spc_handler_pdfm_bform,
+    "beginxobj" => spc_handler_pdfm_bform,
+    "bxobj" => spc_handler_pdfm_bform,
+    "eform" => spc_handler_pdfm_eform,
+    "endxobj" => spc_handler_pdfm_eform,
+    "exobj" => spc_handler_pdfm_eform,
+    "usexobj" => spc_handler_pdfm_uxobj,
+    "uxobj" => spc_handler_pdfm_uxobj,
+    "tounicode" => spc_handler_pdfm_tounicode,
+    "literal" => spc_handler_pdfm_literal,
+    "stream" => spc_handler_pdfm_stream,
+    "fstream" => spc_handler_pdfm_fstream,
+    "names" => spc_handler_pdfm_names,
+    "mapline" => spc_handler_pdfm_mapline,
+    "mapfile" => spc_handler_pdfm_mapfile,
+    "bcontent" => spc_handler_pdfm_bcontent,
+    "econtent" => spc_handler_pdfm_econtent,
+    "code" => spc_handler_pdfm_code,
+    "minorversion" => spc_handler_pdfm_do_nothing,
+    "encrypt" => spc_handler_pdfm_do_nothing,
+};
 pub(crate) fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
     buf.starts_with(b"pdf:")
 }
 
-pub(crate) unsafe fn spc_pdfm_setup_handler(
-    sph: &mut SpcHandler,
-    spe: &mut SpcEnv,
-    ap: &mut SpcArg,
-) -> Result<()> {
-    let mut error = ERR;
+pub(crate) unsafe fn spc_pdfm_setup_handler(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<Handler> {
     ap.cur.skip_white();
     if !ap.cur.starts_with(b"pdf:") {
         spc_warn!(spe, "Not pdf: special???");
-        return ERR;
+        return ERROR();
     }
     ap.cur = &ap.cur[b"pdf:".len()..];
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
-        for handler in PDFM_HANDLERS.iter() {
-            if q == handler.key {
-                ap.command = Some(handler.key);
-                *sph = SpcHandler {
-                    key: "pdf:",
-                    exec: handler.exec,
-                };
-                ap.cur.skip_white();
-                error = Ok(());
-                break;
-            }
+        if let Some((key, &exec)) = PDFM_HANDLERS.get_entry(q.as_str()) {
+            ap.command = Some(key);
+            ap.cur.skip_white();
+            return Ok(exec);
         }
     }
-    error
+    ERROR()
 }

@@ -85,29 +85,6 @@ impl SkipBlank for &[u8] {
     }
 }
 
-#[inline]
-unsafe fn strstartswith(s: *const i8, prefix: *const i8) -> *const i8 {
-    let length = libc::strlen(prefix);
-    if libc::strncmp(s, prefix, length) == 0 {
-        return s.offset(length as isize);
-    }
-    std::ptr::null()
-}
-
-#[inline]
-unsafe fn streq_ptr(s1: *const i8, s2: *const i8) -> bool {
-    if !s1.is_null() && !s2.is_null() {
-        return libc::strcmp(s1, s2) == 0;
-    }
-    false
-}
-
-#[inline]
-unsafe fn mfree(ptr: *mut libc::c_void) -> *mut libc::c_void {
-    libc::free(ptr);
-    std::ptr::null_mut()
-}
-
 use core::mem::MaybeUninit;
 pub(crate) trait FromLEByteSlice {
     fn from_le_byte_slice(b: &[u8]) -> Self;
@@ -181,7 +158,6 @@ pub(crate) mod dpx_error;
 pub(crate) mod dpx_fontmap;
 pub(crate) mod dpx_jp2image;
 pub(crate) mod dpx_jpegimage;
-pub(crate) mod dpx_mem;
 pub(crate) mod dpx_mfileio;
 pub(crate) mod dpx_mpost;
 pub(crate) mod dpx_numbers;
@@ -230,3 +206,19 @@ pub use crate::dpx_pdfdraw::pdf_dev_transform;
 pub use crate::dpx_pdfobj::{pdf_file, pdf_obj, pdf_open};
 pub use crate::dpx_pdfobj::{pdf_files_close, pdf_files_init};
 pub use crate::dpx_pngimage::{check_for_png, png_get_bbox};
+
+#[macro_export]
+macro_rules! release(
+    ($($arg:tt)*) => {{
+        //dbg!("release");
+        $crate::dpx_pdfobj::pdf_release_obj($($arg)*);
+    }};
+);
+
+#[macro_export]
+macro_rules! release2(
+    ($($arg:tt)*) => {{
+        //dbg!("release");
+        $crate::dpx_pdfobj::pdf_release_obj2($($arg)*);
+    }};
+);

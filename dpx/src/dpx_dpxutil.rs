@@ -29,9 +29,6 @@
 use std::ffi::{CStr, CString};
 use std::ptr;
 
-use super::dpx_mem::new;
-use libc::{free, memcpy};
-
 use std::collections::HashMap;
 
 // HtTable implements defers to a normal std::collections::HashMap
@@ -94,17 +91,16 @@ impl<T> Drop for HtTable<T> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct ht_entry {
-    pub(crate) key: *mut u8,
-    pub(crate) keylen: i32,
+    pub(crate) key: Vec<u8>,
     pub(crate) value: *mut libc::c_void,
     pub(crate) next: *mut ht_entry,
 }
 impl ht_entry {
     pub(crate) fn get_key(&self) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(self.key, self.keylen as _) }
+        &self.key
     }
 }
 pub(crate) type hval_free_func = Option<unsafe fn(_: *mut libc::c_void) -> ()>;
@@ -170,12 +166,8 @@ pub(crate) unsafe fn ht_clear_table(mut ht: *mut ht_table) {
                 (*ht).hval_free_fn.expect("non-null function pointer")((*hent).value);
             }
             (*hent).value = ptr::null_mut();
-            if !(*hent).key.is_null() {
-                free((*hent).key as *mut libc::c_void);
-            }
-            (*hent).key = ptr::null_mut();
             let next = (*hent).next;
-            free(hent as *mut libc::c_void);
+            let _ = Box::from_raw(hent);
             hent = next
         }
         (*ht).table[i] = ptr::null_mut();
@@ -216,26 +208,25 @@ pub(crate) unsafe fn ht_append_table(mut ht: *mut ht_table, key: &[u8], value: *
     let hkey = get_hash(key) as usize;
     let mut hent = (*ht).table[hkey];
     if hent.is_null() {
-        hent = new((1_u64).wrapping_mul(::std::mem::size_of::<ht_entry>() as u64) as u32)
-            as *mut ht_entry;
+        hent = Box::into_raw(Box::new(ht_entry {
+            key: Vec::new(),
+            value: 0 as *mut libc::c_void,
+            next: ptr::null_mut(),
+        }));
         (*ht).table[hkey] = hent
     } else {
         while !hent.is_null() {
             last = hent;
             hent = (*hent).next
         }
-        hent = new((1_u64).wrapping_mul(::std::mem::size_of::<ht_entry>() as u64) as u32)
-            as *mut ht_entry;
+        hent = Box::into_raw(Box::new(ht_entry {
+            key: Vec::new(),
+            value: 0 as *mut libc::c_void,
+            next: ptr::null_mut(),
+        }));
         (*last).next = hent
     }
-    (*hent).key =
-        new((key.len() as u64).wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-    memcpy(
-        (*hent).key as *mut libc::c_void,
-        key.as_ptr() as *const libc::c_void,
-        key.len() as _,
-    );
-    (*hent).keylen = key.len() as _;
+    (*hent).key = Vec::from(key);
     (*hent).value = value;
     (*hent).next = ptr::null_mut();
     (*ht).count += 1;
@@ -266,20 +257,20 @@ impl ht_iter {
     pub(crate) unsafe fn get_key(&self) -> &[u8] {
         let hent = self.curr as *mut ht_entry;
         if !hent.is_null() {
-            return std::slice::from_raw_parts((*hent).key, (*hent).keylen as _);
+            &(*hent).key
         } else {
-            return &[];
-        };
+            &[]
+        }
     }
 }
 
 pub(crate) unsafe fn ht_iter_getval(iter: *const ht_iter) -> *const libc::c_void {
     let hent = (*iter).curr as *mut ht_entry;
     if !iter.is_null() && !hent.is_null() {
-        return (*hent).value;
+        (*hent).value
     } else {
-        return ptr::null_mut();
-    };
+        ptr::null_mut()
+    }
 }
 
 pub(crate) unsafe fn ht_iter_next(mut iter: *mut ht_iter) -> i32 {

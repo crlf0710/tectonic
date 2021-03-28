@@ -36,26 +36,23 @@ use crate::dpx_pdfximage::{
 
 use super::{spc_begin_annot, spc_end_annot};
 use crate::dpx_dpxutil::{ParseCIdent, ParseFloatDecimal};
-use crate::dpx_mem::new;
 use crate::dpx_pdfdev::{graphics_mode, transform_info, transform_info_clear, TMatrix};
 use crate::dpx_pdfdoc::pdf_doc_mut;
 use crate::dpx_pdfdraw::{pdf_dev_grestore, pdf_dev_gsave, pdf_dev_rectclip};
 use crate::dpx_pdfobj::{
-    pdf_dict, pdf_link_obj, pdf_obj, pdf_release_obj, pdf_string, IntoObj, IntoRef, Object, PushObj,
+    pdf_dict, pdf_link_obj, pdf_obj, pdf_string, IntoObj, IntoRef, Object, PushObj,
 };
 use crate::spc_warn;
-use libc::{atof, free, strcpy};
+use libc::atof;
 
-use super::{SpcArg, SpcEnv};
+use super::{Handler, SpcArg, SpcEnv};
 
-use super::SpcHandler;
-
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct spc_html_ {
     pub(crate) opts: C2RustUnnamed_0,
-    pub(crate) link_dict: *mut pdf_obj,
-    pub(crate) baseurl: *mut i8,
+    pub(crate) annotation_started: bool,
+    pub(crate) baseurl: String,
     pub(crate) pending_type: i32,
 }
 
@@ -71,8 +68,8 @@ use crate::dpx_pdfdev::Point;
 
 static mut _HTML_STATE: spc_html_ = spc_html_ {
     opts: C2RustUnnamed_0 { extensions: 0 },
-    link_dict: ptr::null_mut(),
-    baseurl: ptr::null_mut(),
+    annotation_started: false,
+    baseurl: String::new(),
     pending_type: -1,
 };
 /* ENABLE_HTML_SVG_TRANSFORM */
@@ -199,23 +196,21 @@ unsafe fn read_html_tag(attr: &mut pdf_obj, type_0: &mut i32, pp: &mut &[u8]) ->
 
 unsafe fn spc_handler_html__init(dp: *mut libc::c_void) -> Result<()> {
     let mut sd: *mut spc_html_ = dp as *mut spc_html_;
-    (*sd).link_dict = ptr::null_mut();
-    (*sd).baseurl = ptr::null_mut();
+    (*sd).annotation_started = false;
+    (*sd).baseurl = String::new();
     (*sd).pending_type = -1;
     Ok(())
 }
 
 unsafe fn spc_handler_html__clean(spe: *mut SpcEnv, dp: *mut libc::c_void) -> Result<()> {
-    let mut sd: *mut spc_html_ = dp as *mut spc_html_;
-    free((*sd).baseurl as *mut libc::c_void);
-    if (*sd).pending_type >= 0 || !(*sd).link_dict.is_null() {
+    let mut sd = &mut *(dp as *mut spc_html_);
+    if sd.pending_type >= 0 || sd.annotation_started {
         let spe = &*spe;
         spc_warn!(spe, "Unclosed html anchor found.");
     }
-    pdf_release_obj((*sd).link_dict);
-    (*sd).pending_type = -1;
-    (*sd).baseurl = ptr::null_mut();
-    (*sd).link_dict = ptr::null_mut();
+    sd.pending_type = -1;
+    sd.baseurl = String::new();
+    sd.annotation_started = false;
     Ok(())
 }
 
@@ -240,63 +235,53 @@ unsafe fn spc_handler_html__eophook(spe: *mut SpcEnv, dp: *mut libc::c_void) -> 
     Ok(())
 }
 
-unsafe fn fqurl(baseurl: &[u8], name: &[u8]) -> Vec<u8> {
-    let mut q = Vec::with_capacity(if baseurl.is_empty() {
+unsafe fn fqurl(baseurl: &str, name: &str) -> String {
+    let mut q = String::with_capacity(if baseurl.is_empty() {
         name.len()
     } else {
         name.len() + baseurl.len() + 1
     });
     if !baseurl.is_empty() {
         let len = baseurl.len();
-        q.extend(if baseurl[len - 1] == b'/' {
+        q.push_str(if baseurl.as_bytes()[len - 1] == b'/' {
             &baseurl[..len - 1]
         } else {
             baseurl
         });
-        if !name.is_empty() && name[0] != b'/' {
-            q.push(b'/');
+        if !name.is_empty() && name.as_bytes()[0] != b'/' {
+            q.push('/');
         }
     }
-    q.extend(name);
+    q += name;
     q
 }
 
-unsafe fn html_open_link(spe: &mut SpcEnv, name: &[u8], mut sd: *mut spc_html_) -> Result<()> {
+unsafe fn html_open_link(spe: &mut SpcEnv, name: &str, mut sd: *mut spc_html_) -> Result<()> {
     assert!(!name.is_empty());
-    assert!((*sd).link_dict.is_null());
-    (*sd).link_dict = pdf_dict::new().into_obj();
-    (*(*sd).link_dict).as_dict_mut().set("Type", "Annot");
-    (*(*sd).link_dict).as_dict_mut().set("Subtype", "Link");
+    assert!(!(*sd).annotation_started);
+    (*sd).annotation_started = true;
+    let mut link_dict = pdf_dict::new();
+    link_dict.set("Type", "Annot");
+    link_dict.set("Subtype", "Link");
     let mut color = vec![];
     color.push_obj(0f64);
     color.push_obj(0f64);
     color.push_obj(1f64);
-    (*(*sd).link_dict).as_dict_mut().set("C", color);
-    let url = fqurl(
-        if (*sd).baseurl.is_null() {
-            &[]
-        } else {
-            CStr::from_ptr((*sd).baseurl).to_bytes()
-        },
-        name,
-    );
-    if url[0] == b'#' {
+    link_dict.set("C", color);
+    let url = fqurl(&(*sd).baseurl, name);
+    if url.as_bytes()[0] == b'#' {
         /* url++; causes memory leak in free(url) */
-        (*(*sd).link_dict)
-            .as_dict_mut()
-            .set("Dest", pdf_string::new(&url[1..])); /* Otherwise must be bug */
+        link_dict.set("Dest", pdf_string::new(&url[1..])); /* Otherwise must be bug */
     } else {
         let mut action = pdf_dict::new();
         action.set("Type", "Action");
         action.set("S", "URI");
         action.set("URI", pdf_string::new(url));
         let action = action.into_obj();
-        (*(*sd).link_dict)
-            .as_dict_mut()
-            .set("A", pdf_link_obj(action));
-        pdf_release_obj(action);
+        link_dict.set("A", pdf_link_obj(action));
+        crate::release!(action);
     }
-    spc_begin_annot(spe, (*sd).link_dict).ok();
+    spc_begin_annot(spe, link_dict).ok();
     (*sd).pending_type = 0;
     Ok(())
 }
@@ -326,7 +311,7 @@ unsafe fn spc_html__anchor_open(
     attr: &pdf_obj,
     sd: *mut spc_html_,
 ) -> Result<()> {
-    if (*sd).pending_type >= 0 || !(*sd).link_dict.is_null() {
+    if (*sd).pending_type >= 0 || (*sd).annotation_started {
         spc_warn!(spe, "Nested html anchors found!");
         return ERR;
     }
@@ -340,7 +325,11 @@ unsafe fn spc_html__anchor_open(
             );
             ERR
         }
-        (Some(href), None) => html_open_link(spe, href.as_string().to_bytes_without_nul(), sd),
+        (Some(href), None) => html_open_link(
+            spe,
+            std::str::from_utf8(href.as_string().to_bytes_without_nul()).unwrap(),
+            sd,
+        ),
         (None, Some(name)) => {
             /* name */
             html_open_dest(spe, name.as_string().to_bytes_without_nul(), sd)
@@ -356,10 +345,9 @@ unsafe fn spc_html__anchor_close(spe: &mut SpcEnv, mut sd: *mut spc_html_) -> Re
     let mut error = Ok(());
     match (*sd).pending_type {
         0 => {
-            if !(*sd).link_dict.is_null() {
+            if (*sd).annotation_started {
                 spc_end_annot(spe).ok();
-                pdf_release_obj((*sd).link_dict);
-                (*sd).link_dict = ptr::null_mut();
+                (*sd).annotation_started = false;
                 (*sd).pending_type = -1
             } else {
                 spc_warn!(spe, "Closing html anchor (link) without starting!");
@@ -375,11 +363,7 @@ unsafe fn spc_html__anchor_close(spe: &mut SpcEnv, mut sd: *mut spc_html_) -> Re
     error
 }
 
-unsafe fn spc_html__base_empty(
-    spe: &mut SpcEnv,
-    attr: &pdf_obj,
-    mut sd: *mut spc_html_,
-) -> Result<()> {
+unsafe fn spc_html__base_empty(spe: &mut SpcEnv, attr: &pdf_obj, sd: &mut spc_html_) -> Result<()> {
     let href = attr.as_dict().get("href");
     if href.is_none() {
         spc_warn!(spe, "\"href\" not found for \"base\" tag!");
@@ -387,19 +371,15 @@ unsafe fn spc_html__base_empty(
     }
     let href = href.unwrap();
     let vp = (*href).as_string().to_bytes();
-    if !(*sd).baseurl.is_null() {
+    if !sd.baseurl.is_empty() {
         spc_warn!(
             spe,
             "\"baseurl\" changed: \"{}\" --> \"{}\"",
-            CStr::from_ptr((*sd).baseurl).display(),
+            &sd.baseurl,
             vp.display(),
         );
-        free((*sd).baseurl as *mut libc::c_void);
     }
-    (*sd).baseurl =
-        new((vp.len().wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    let cstr = CString::new(vp).unwrap();
-    strcpy((*sd).baseurl, cstr.as_ptr());
+    sd.baseurl = std::str::from_utf8(vp).unwrap().to_string();
     Ok(())
 }
 /* This isn't completed.
@@ -467,11 +447,6 @@ unsafe fn check_resourcestatus(category: &str, resname: &str) -> i32 {
 /* ENABLE_HTML_SVG_OPACITY */
 unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> Result<()> {
     let mut ti = transform_info::new();
-    let options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     let mut alpha: f64 = 1.0f64;
     /* ENABLE_HTML_SVG_OPACITY */
     let mut M: TMatrix = TMatrix::create_translation(spe.x_user, spe.y_user);
@@ -533,6 +508,11 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> Result<()> {
         }
     }
     /* ENABLE_HTML_SVG_TRANSFORM */
+    let options: load_options = load_options {
+        page_no: 1,
+        bbox_type: PdfPageBoundary::Auto,
+        dict: ptr::null_mut(),
+    };
     let id = pdf_ximage_findresource(
         &std::str::from_utf8(src.as_string().to_bytes()).unwrap(),
         options,
@@ -576,7 +556,7 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> Result<()> {
 }
 /* ENABLE_HTML_IMG_SUPPORT */
 unsafe fn spc_handler_html_default(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
-    let sd: *mut spc_html_ = &mut _HTML_STATE; /* treat "open" same as "empty" */
+    let sd = &mut _HTML_STATE; /* treat "open" same as "empty" */
     /* treat "open" same as "empty" */
     let mut type_0: i32 = 1;
     if ap.cur.is_empty() {
@@ -585,7 +565,7 @@ unsafe fn spc_handler_html_default(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<
     let attr = pdf_dict::new().into_obj();
     let name = read_html_tag(&mut *attr, &mut type_0, &mut ap.cur);
     if name.is_err() {
-        pdf_release_obj(attr);
+        crate::release!(attr);
         return ERR;
     }
     let error = match name.unwrap().as_slice() {
@@ -615,7 +595,7 @@ unsafe fn spc_handler_html_default(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<
         }
         _ => Ok(()),
     };
-    pdf_release_obj(attr);
+    crate::release!(attr);
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];
     }
@@ -756,25 +736,17 @@ pub(crate) fn spc_html_check_special(buf: &[u8]) -> bool {
     buf.starts_with(b"html:")
 }
 
-pub(crate) unsafe fn spc_html_setup_handler(
-    sph: &mut SpcHandler,
-    _spe: &mut SpcEnv,
-    ap: &mut SpcArg,
-) -> Result<()> {
+pub(crate) unsafe fn spc_html_setup_handler(_spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<Handler> {
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];
     }
     if !ap.cur.starts_with(b"html:") {
-        return ERR;
+        return ERROR();
     }
     ap.command = Some("");
-    *sph = SpcHandler {
-        key: "html:",
-        exec: Some(spc_handler_html_default),
-    };
     ap.cur = &ap.cur[b"html:".len()..];
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];
     }
-    Ok(())
+    Ok(spc_handler_html_default)
 }

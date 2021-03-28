@@ -32,17 +32,12 @@ use crate::warn;
 use std::ffi::CStr;
 use std::io::Read;
 
-use super::dpx_mem::new;
-use libc::free;
-
-use std::ptr;
-
 pub(crate) type Fixed = u32;
 pub(crate) type FWord = i16;
 
 use super::dpx_sfnt::sfnt;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[repr(C)]
 pub(crate) struct tt_post_table {
     pub(crate) Version: Fixed,
@@ -55,18 +50,17 @@ pub(crate) struct tt_post_table {
     pub(crate) minMemType1: u32,
     pub(crate) maxMemType1: u32,
     pub(crate) numberOfGlyphs: u16,
-    pub(crate) glyphNamePtr: *mut *const i8,
-    pub(crate) names: *mut *mut i8,
+    pub(crate) glyphNamePtr: Vec<*const u8>,
+    pub(crate) names: Vec<Vec<u8>>,
     pub(crate) count: u16,
 }
 
 /* offset from begenning of the post table */
-unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut R) -> i32 {
-    (*post).numberOfGlyphs = u16::get(handle);
-    let indices = new(((*post).numberOfGlyphs as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32) as *mut u16;
+unsafe fn read_v2_post_names<R: Read>(handle: &mut R) -> Option<(Vec<Vec<u8>>, Vec<*const u8>)> {
+    let numberOfGlyphs = u16::get(handle) as usize;
+    let mut indices = Vec::<u16>::with_capacity(numberOfGlyphs);
     let mut maxidx = 257_u16;
-    for i in 0..(*post).numberOfGlyphs as i32 {
+    for _ in 0..numberOfGlyphs {
         let mut idx = u16::get(handle);
         if idx as i32 >= 258 {
             if idx as i32 > maxidx as i32 {
@@ -89,103 +83,96 @@ unsafe fn read_v2_post_names<R: Read>(mut post: *mut tt_post_table, handle: &mut
                 idx = 0_u16
             }
         }
-        *indices.offset(i as isize) = idx;
+        indices.push(idx);
     }
-    (*post).count = (maxidx as i32 - 257) as u16;
-    if ((*post).count as i32) < 1 {
-        (*post).names = 0 as *mut *mut i8
+    let count = (maxidx as i32 - 257) as u16;
+    let mut names;
+    if (count as i32) < 1 {
+        names = Vec::new();
     } else {
-        (*post).names = new(((*post).count as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<*mut i8>() as u64)
-            as u32) as *mut *mut i8;
-        for i in 0..(*post).count as i32 {
+        names = Vec::with_capacity(count as _);
+        for _ in 0..count as i32 {
             /* read Pascal strings */
-            let len = u8::get(handle) as i32;
-            if len > 0 {
-                *(*post).names.offset(i as isize) = new(((len + 1) as u32 as u64)
-                    .wrapping_mul(::std::mem::size_of::<i8>() as u64)
-                    as u32) as *mut i8;
-                let slice = std::slice::from_raw_parts_mut(
-                    (*(*post).names.offset(i as isize)) as *mut u8,
-                    len as usize,
-                );
-                handle.read(slice).unwrap();
-                *(*(*post).names.offset(i as isize)).offset(len as isize) = 0_i8
+            let len = u8::get(handle) as usize;
+            names.push(if len > 0 {
+                let mut name = vec![0_u8; len + 1];
+                handle.read(&mut name[..len]).unwrap();
+                name
             } else {
-                *(*post).names.offset(i as isize) = ptr::null_mut();
-            }
+                Vec::new()
+            });
         }
     }
-    (*post).glyphNamePtr = new(((*post).numberOfGlyphs as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<*const i8>() as u64)
-        as u32) as *mut *const i8;
-    for i in 0..(*post).numberOfGlyphs as i32 {
-        let idx = *indices.offset(i as isize);
+    let mut glyphNamePtr = Vec::<*const u8>::with_capacity(numberOfGlyphs);
+    for i in 0..numberOfGlyphs {
+        let idx = indices[i];
         if (idx as i32) < 258 {
-            *(*post).glyphNamePtr.offset(i as isize) =
-                macglyphorder[idx as usize].as_ptr() as *const i8
-        } else if idx as i32 - 258 < (*post).count as i32 {
-            *(*post).glyphNamePtr.offset(i as isize) =
-                *(*post).names.offset((idx as i32 - 258) as isize)
+            glyphNamePtr.push(macglyphorder[idx as usize].as_ptr());
+        } else if idx as i32 - 258 < count as i32 {
+            glyphNamePtr.push(names[(idx as i32 - 258) as usize].as_ptr());
         } else {
             warn!(
                 "Invalid glyph name index number: {} (>= {})",
                 idx,
-                (*post).count + 258,
+                count + 258,
             );
-            free(indices as *mut libc::c_void);
-            return -1;
+            return None;
         }
     }
-    free(indices as *mut libc::c_void);
-    0
+    Some((names, glyphNamePtr))
 }
 
-pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> *mut tt_post_table {
+pub(crate) unsafe fn tt_read_post_table(sfont: &sfnt) -> Option<tt_post_table> {
     /* offset = */
     sfnt_locate_table(sfont, b"post"); /* Fixed */
-    let mut post = new((1_u64).wrapping_mul(::std::mem::size_of::<tt_post_table>() as u64) as u32)
-        as *mut tt_post_table; /* Fixed */
+    /* Fixed */
     let handle = &mut &*sfont.handle;
-    (*post).Version = u32::get(handle); /* FWord */
-    (*post).italicAngle = u32::get(handle); /* FWord */
-    (*post).underlinePosition = i16::get(handle); /* wrong */
-    (*post).underlineThickness = i16::get(handle);
-    (*post).isFixedPitch = u32::get(handle);
-    (*post).minMemType42 = u32::get(handle);
-    (*post).maxMemType42 = u32::get(handle);
-    (*post).minMemType1 = u32::get(handle);
-    (*post).maxMemType1 = u32::get(handle);
-    (*post).numberOfGlyphs = 0_u16;
-    (*post).glyphNamePtr = 0 as *mut *const i8;
-    (*post).count = 0_u16;
-    (*post).names = 0 as *mut *mut i8;
-    if (*post).Version as u64 == 0x10000 {
-        (*post).numberOfGlyphs = 258_u16;
-        (*post).glyphNamePtr = macglyphorder.as_mut_ptr() as *mut *const u8 as *mut *const i8
-    } else if (*post).Version as u64 == 0x28000 {
+    let Version = u32::get(handle); /* FWord */
+    let mut post = tt_post_table {
+        Version,
+        italicAngle: u32::get(handle),       /* FWord */
+        underlinePosition: i16::get(handle), /* wrong */
+        underlineThickness: i16::get(handle),
+        isFixedPitch: u32::get(handle),
+        minMemType42: u32::get(handle),
+        maxMemType42: u32::get(handle),
+        minMemType1: u32::get(handle),
+        maxMemType1: u32::get(handle),
+        numberOfGlyphs: 0_u16,
+        glyphNamePtr: Vec::new(),
+        count: 0_u16,
+        names: Vec::new(),
+    };
+    if Version == 0x10000 {
+        post.numberOfGlyphs = 258;
+        post.glyphNamePtr = macglyphorder.iter().map(|s| s.as_ptr()).collect();
+    } else if Version == 0x28000 {
         warn!("TrueType \'post\' version 2.5 found (deprecated)");
-    } else if (*post).Version as u64 == 0x20000 {
-        if read_v2_post_names(post, handle) < 0 {
+    } else if Version == 0x20000 {
+        if let Some(res) = read_v2_post_names(handle) {
+            post.count = res.0.len() as _;
+            post.names = res.0;
+            post.numberOfGlyphs = res.1.len() as _;
+            post.glyphNamePtr = res.1;
+        } else {
             warn!("Invalid version 2.0 \'post\' table");
-            tt_release_post_table(post);
-            post = ptr::null_mut()
+            return None;
         }
-    } else if !((*post).Version as u64 == 0x30000 || (*post).Version as u64 == 0x40000) {
+    } else if !(Version == 0x30000 || Version == 0x40000) {
         warn!(
             "Unknown \'post\' version: {:08X}, assuming version 3.0",
-            (*post).Version,
+            Version,
         );
     }
-    post
+    Some(post)
 }
 
-pub(crate) unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: &str) -> u16 {
-    assert!(!post.is_null() && !glyphname.is_empty());
-    for gid in 0..(*post).count as u16 {
-        if !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
+pub(crate) unsafe fn tt_lookup_post_table(post: &tt_post_table, glyphname: &str) -> u16 {
+    assert!(!glyphname.is_empty());
+    for gid in 0..post.count as u16 {
+        if !post.glyphNamePtr[gid as usize].is_null()
             && glyphname.as_bytes()
-                == CStr::from_ptr(*(*post).glyphNamePtr.offset(gid as isize)).to_bytes()
+                == CStr::from_ptr(post.glyphNamePtr[gid as usize] as *const i8).to_bytes()
         {
             return gid;
         }
@@ -193,37 +180,16 @@ pub(crate) unsafe fn tt_lookup_post_table(post: *mut tt_post_table, glyphname: &
     0
 }
 
-pub(crate) unsafe fn tt_get_glyphname(post: *mut tt_post_table, gid: u16) -> String {
-    if (gid as i32) < (*post).count as i32
-        && !(*(*post).glyphNamePtr.offset(gid as isize)).is_null()
-    {
-        return CStr::from_ptr(*(*post).glyphNamePtr.offset(gid as isize))
+pub(crate) unsafe fn tt_get_glyphname(post: &tt_post_table, gid: u16) -> String {
+    if (gid as i32) < post.count as i32 && !post.glyphNamePtr[gid as usize].is_null() {
+        return CStr::from_ptr(post.glyphNamePtr[gid as usize] as *const i8)
             .to_str()
             .unwrap()
             .to_string();
     }
     String::new()
 }
-/* Glyph names (pointer to C string) */
-/* Non-standard glyph names */
-/* Number of glyph names in names[] */
 
-pub(crate) unsafe fn tt_release_post_table(mut post: *mut tt_post_table) {
-    assert!(!post.is_null());
-    if !(*post).glyphNamePtr.is_null() && (*post).Version as u64 != 0x10000 {
-        free((*post).glyphNamePtr as *mut libc::c_void);
-    }
-    if !(*post).names.is_null() {
-        for i in 0..(*post).count {
-            free(*(*post).names.offset(i as isize) as *mut libc::c_void);
-        }
-        free((*post).names as *mut libc::c_void);
-    }
-    (*post).count = 0_u16;
-    (*post).glyphNamePtr = 0 as *mut *const i8;
-    (*post).names = 0 as *mut *mut i8;
-    free(post as *mut libc::c_void);
-}
 /* Macintosh glyph order - from apple's TTRefMan */
 static mut macglyphorder: [&[u8]; 258] = [
     b".notdef\x00",

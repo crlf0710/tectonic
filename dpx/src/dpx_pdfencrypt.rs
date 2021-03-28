@@ -31,13 +31,12 @@ use std::slice::from_raw_parts;
 
 use super::dpx_dpxcrypt::ARC4_CONTEXT;
 use super::dpx_dpxcrypt::{AES_cbc_encrypt_tectonic, AES_ecb_encrypt, ARC4_set_key, ARC4};
-use super::dpx_mem::new;
 use super::dpx_pdfdoc::pdf_doc_mut;
 use super::dpx_pdffont::get_unique_time_if_given;
 use crate::dpx_pdfobj::{pdf_dict, pdf_get_version, pdf_obj, pdf_string, PushObj};
 use crate::warn;
 use chrono::prelude::*;
-use libc::{free, memcpy, memset, srand, strcpy, strlen};
+use libc::{memcpy, srand, strlen};
 use md5::{Digest, Md5};
 use rand::prelude::*;
 use sha2::{Sha256, Sha384, Sha512};
@@ -369,24 +368,11 @@ unsafe fn compute_hash_V5(
                 48,
             );
         }
-        let Kr = new((K1_len.wrapping_mul(64 as u64) as u32 as u64)
-            .wrapping_mul(::std::mem::size_of::<u8>() as u64) as u32) as *mut u8;
-        for i in 0..64 {
-            memcpy(
-                Kr.offset((i as u64).wrapping_mul(K1_len) as isize) as *mut libc::c_void,
-                K1.as_mut_ptr() as *const libc::c_void,
-                K1_len as _,
-            );
+        let mut Kr = Vec::<u8>::with_capacity(K1_len as usize * 64);
+        for _ in 0..64 {
+            Kr.extend(&K1[..K1_len as usize]);
         }
-        let E = AES_cbc_encrypt_tectonic(
-            K.as_mut_ptr(),
-            16,
-            K.as_mut_ptr().offset(16),
-            0,
-            Kr,
-            K1_len.wrapping_mul(64) as _,
-        );
-        free(Kr as *mut libc::c_void);
+        let E = AES_cbc_encrypt_tectonic(&K[..16], K.as_ptr().offset(16), 0, &Kr);
         for i in 0..16 {
             E_mod3 += E[i as usize] as i32;
         }
@@ -433,65 +419,25 @@ unsafe fn compute_hash_V5(
 unsafe fn compute_owner_password_V5(p: &mut pdf_sec, oplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
-    let mut iv: [u8; 16] = [0; 16];
-    let mut hash = compute_hash_V5(oplain, vsalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
-    memcpy(
-        p.O.as_mut_ptr() as *mut libc::c_void,
-        hash.as_mut_ptr() as *const libc::c_void,
-        32,
-    );
-    memcpy(
-        p.O.as_mut_ptr().offset(32) as *mut libc::c_void,
-        vsalt.as_mut_ptr() as *const libc::c_void,
-        8,
-    );
-    memcpy(
-        p.O.as_mut_ptr().offset(40) as *mut libc::c_void,
-        ksalt.as_mut_ptr() as *const libc::c_void,
-        8,
-    );
-    let mut hash = compute_hash_V5(oplain, ksalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
-    memset(iv.as_mut_ptr() as *mut libc::c_void, 0, 16);
-    let OE = AES_cbc_encrypt_tectonic(
-        hash.as_mut_ptr(),
-        32,
-        iv.as_mut_ptr(),
-        0,
-        p.key.as_mut_ptr(),
-        p.key_size as usize,
-    );
+    let hash = compute_hash_V5(oplain, vsalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
+    p.O[..32].copy_from_slice(&hash);
+    p.O[32..40].copy_from_slice(&vsalt);
+    p.O[40..].copy_from_slice(&ksalt);
+    let hash = compute_hash_V5(oplain, ksalt.as_mut_ptr(), p.U.as_mut_ptr(), p.R);
+    let mut iv = [0_u8; 16];
+    let OE = AES_cbc_encrypt_tectonic(&hash, iv.as_mut_ptr(), 0, &p.key[..p.key_size as usize]);
     p.OE.copy_from_slice(&OE[..32]);
 }
 unsafe fn compute_user_password_V5(p: &mut pdf_sec, uplain: *const i8) {
     let mut vsalt: [u8; 8] = random();
     let mut ksalt: [u8; 8] = random();
-    let mut iv: [u8; 16] = [0; 16];
-    let mut hash = compute_hash_V5(uplain, vsalt.as_mut_ptr(), ptr::null(), p.R);
-    memcpy(
-        p.U.as_mut_ptr() as *mut libc::c_void,
-        hash.as_mut_ptr() as *const libc::c_void,
-        32,
-    );
-    memcpy(
-        p.U.as_mut_ptr().offset(32) as *mut libc::c_void,
-        vsalt.as_mut_ptr() as *const libc::c_void,
-        8,
-    );
-    memcpy(
-        p.U.as_mut_ptr().offset(40) as *mut libc::c_void,
-        ksalt.as_mut_ptr() as *const libc::c_void,
-        8,
-    );
-    let mut hash = compute_hash_V5(uplain, ksalt.as_mut_ptr(), ptr::null(), p.R);
-    memset(iv.as_mut_ptr() as *mut libc::c_void, 0, 16);
-    let UE = AES_cbc_encrypt_tectonic(
-        hash.as_mut_ptr(),
-        32,
-        iv.as_mut_ptr(),
-        0,
-        p.key.as_mut_ptr(),
-        p.key_size as usize,
-    );
+    let hash = compute_hash_V5(uplain, vsalt.as_mut_ptr(), ptr::null(), p.R);
+    p.U[..32].copy_from_slice(&hash);
+    p.U[32..40].copy_from_slice(&vsalt);
+    p.U[40..].copy_from_slice(&ksalt);
+    let hash = compute_hash_V5(uplain, ksalt.as_mut_ptr(), ptr::null(), p.R);
+    let mut iv = [0_u8; 16];
+    let UE = AES_cbc_encrypt_tectonic(&hash, iv.as_mut_ptr(), 0, &p.key[..p.key_size as usize]);
     p.UE.copy_from_slice(&UE[..32]);
 }
 unsafe fn check_version(p: &mut pdf_sec, version: i32) {
@@ -509,20 +455,16 @@ unsafe fn check_version(p: &mut pdf_sec, version: i32) {
 }
 unsafe fn stringprep_profile(
     input: *const i8,
-    output: *mut *mut i8,
-    mut _profile: *const i8,
+    _profile: &str,
     mut _flags: Stringprep_profile_flags,
-) -> Result<(), std::str::Utf8Error> {
+) -> Result<String, std::str::Utf8Error> {
     let len = strlen(input);
-    let _ = std::str::from_utf8(std::slice::from_raw_parts(input as *const u8, len as _))?;
-    *output = new((len.wrapping_add(1)).wrapping_mul(::std::mem::size_of::<i8>()) as _) as *mut i8;
-    strcpy(*output, input);
-    Ok(())
+    std::str::from_utf8(std::slice::from_raw_parts(input as *const u8, len as _))
+        .map(|s| s.to_string())
 }
 unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
-    let mut saslpwd: *mut i8 = ptr::null_mut();
     let mut error: i32 = 0;
-    memset(outbuf as *mut libc::c_void, 0, 128);
+    std::slice::from_raw_parts_mut(outbuf, 128).fill(0);
     match V {
         1 | 2 | 3 | 4 => {
             /* Need to be converted to PDFDocEncoding - UNIMPLEMENTED */
@@ -545,28 +487,18 @@ unsafe fn preproc_password(passwd: *const i8, outbuf: *mut i8, V: i32) -> i32 {
         }
         5 => {
             /* This is a dummy routine - not actually stringprep password... */
-            if stringprep_profile(
-                passwd,
-                &mut saslpwd,
-                b"SASLprep\x00" as *const u8 as *const i8,
-                0,
-            )
-            .is_err()
-            {
-                return -1;
-            } else {
-                if !saslpwd.is_null() {
-                    memcpy(
-                        outbuf as *mut libc::c_void,
-                        saslpwd as *const libc::c_void,
-                        if 127 < strlen(saslpwd) {
-                            127
-                        } else {
-                            strlen(saslpwd)
-                        },
-                    );
-                    free(saslpwd as *mut libc::c_void);
+            if let Ok(saslpwd) = stringprep_profile(passwd, "SASLprep", 0) {
+                if !saslpwd.is_empty() {
+                    let len = if 127 < saslpwd.len() {
+                        127
+                    } else {
+                        saslpwd.len()
+                    };
+                    std::slice::from_raw_parts_mut(outbuf as *mut u8, len)
+                        .copy_from_slice(&saslpwd.as_bytes()[..len]);
                 }
+            } else {
+                return -1;
             }
         }
         _ => error = -1,
@@ -684,28 +616,19 @@ pub(crate) unsafe fn pdf_encrypt_data(plain: &[u8]) -> Vec<u8> {
             cipher
         }
         4 => {
-            let mut key = calculate_key(p);
+            let key = calculate_key(p);
             AES_cbc_encrypt_tectonic(
-                key.as_mut_ptr(),
-                (if 16 < p.key_size + 5 {
+                &key[..(if 16 < p.key_size + 5 {
                     16
                 } else {
                     p.key_size + 5
-                }) as usize,
+                }) as usize],
                 ptr::null(),
                 1,
-                plain.as_ptr(),
-                plain.len() as _,
+                plain,
             )
         }
-        5 => AES_cbc_encrypt_tectonic(
-            p.key.as_mut_ptr(),
-            p.key_size as usize,
-            ptr::null(),
-            1,
-            plain.as_ptr(),
-            plain.len() as _,
-        ),
+        5 => AES_cbc_encrypt_tectonic(&p.key[..p.key_size as usize], ptr::null(), 1, plain),
         _ => {
             panic!("pdfencrypt: Unexpected V value: {}", p.V);
         }
@@ -762,12 +685,7 @@ pub(crate) unsafe fn pdf_encrypt_obj() -> pdf_dict {
         perms[13] = 0_u8;
         perms[14] = 0_u8;
         perms[15] = 0_u8;
-        let cipher = AES_ecb_encrypt(
-            p.key.as_mut_ptr(),
-            p.key_size as usize,
-            perms.as_mut_ptr(),
-            16,
-        );
+        let cipher = AES_ecb_encrypt(&p.key[..p.key_size as usize], &perms);
         doc_encrypt.set("Perms", pdf_string::new(&cipher));
     }
     if p.R > 5 {

@@ -21,8 +21,8 @@
 */
 #![allow()]
 
-use super::{Result, ERR};
-use super::{SpcArg, SpcEnv, SpcHandler};
+use super::{Handler, SpcArg, SpcEnv};
+use super::{Result, ERROR};
 use crate::dpx_dpxutil::ParseCIdent;
 use crate::dpx_pdfparse::SkipWhite;
 use crate::spc_warn;
@@ -31,10 +31,9 @@ unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     args.cur = &[];
     Ok(())
 }
-const DVIPDFMX_HANDLERS: [SpcHandler; 1] = [SpcHandler {
-    key: "config",
-    exec: Some(spc_handler_null),
-}];
+static DVIPDFMX_HANDLERS: phf::Map<&'static str, Handler> = phf::phf_map! {
+    "config" => spc_handler_null,
+};
 
 pub(crate) fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
@@ -42,31 +41,22 @@ pub(crate) fn spc_dvipdfmx_check_special(mut buf: &[u8]) -> bool {
 }
 
 pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
-    sph: &mut SpcHandler,
     spe: &mut SpcEnv,
     ap: &mut SpcArg,
-) -> Result<()> {
-    let mut error = ERR;
+) -> Result<Handler> {
     ap.cur.skip_white();
     if !ap.cur.starts_with(b"dvipdfmx:") {
         spc_warn!(spe, "Not dvipdfmx: special???");
-        return ERR;
+        return ERROR();
     }
     ap.cur = &ap.cur[b"dvipdfmx:".len()..];
     ap.cur.skip_white();
     if let Some(q) = ap.cur.parse_c_ident() {
-        for handler in DVIPDFMX_HANDLERS.iter() {
-            if q == handler.key {
-                ap.command = Some(handler.key);
-                *sph = SpcHandler {
-                    key: "dvipdfmx:",
-                    exec: handler.exec,
-                };
-                ap.cur.skip_white();
-                error = Ok(());
-                break;
-            }
+        if let Some((key, &exec)) = DVIPDFMX_HANDLERS.get_entry(q.as_str()) {
+            ap.command = Some(key);
+            ap.cur.skip_white();
+            return Ok(exec);
         }
     }
-    error
+    ERROR()
 }

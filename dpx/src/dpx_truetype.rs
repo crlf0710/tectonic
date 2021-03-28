@@ -32,7 +32,7 @@ use super::dpx_sfnt::{
 };
 use crate::bridge::DisplayExt;
 use crate::{info, warn};
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_agl::{
@@ -40,7 +40,6 @@ use super::dpx_agl::{
     agl_suffix_to_otltag,
 };
 use super::dpx_dpxfile::{dpx_open_dfont_file, dpx_open_truetype_file};
-use super::dpx_mem::new;
 use super::dpx_pdfencoding::{pdf_encoding_get_encoding, pdf_encoding_is_predefined};
 use super::dpx_pdffont::{
     pdf_font, pdf_font_get_descriptor, pdf_font_get_encoding, pdf_font_get_index,
@@ -49,17 +48,15 @@ use super::dpx_pdffont::{
 use super::dpx_tfm::{tfm_get_width, tfm_open};
 use super::dpx_tt_aux::tt_get_fontdesc;
 use super::dpx_tt_aux::ttc_read_offset;
-use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read, tt_cmap_release};
+use super::dpx_tt_cmap::{tt_cmap_lookup, tt_cmap_read};
 use super::dpx_tt_glyf::{tt_add_glyph, tt_build_tables, tt_find_glyph, tt_get_index, tt_glyphs};
 use super::dpx_tt_gsub::{
     otl_gsub, otl_gsub_add_feat, otl_gsub_apply, otl_gsub_apply_alt, otl_gsub_apply_lig,
-    otl_gsub_new, otl_gsub_release, otl_gsub_select,
+    otl_gsub_select,
 };
-use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table, tt_release_post_table};
+use super::dpx_tt_post::{tt_lookup_post_table, tt_read_post_table};
 use super::dpx_tt_table::tt_get_ps_fontname;
 use crate::dpx_pdfobj::{pdf_obj, IntoRef, PushObj};
-use crate::shims::sprintf;
-use libc::{atoi, free, memcpy, memset, strcpy, strlen};
 
 use super::dpx_sfnt::{sfnt, PutBE};
 
@@ -133,10 +130,10 @@ pub(crate) mod sfnt_table_info {
  */
 #[repr(C)]
 pub(crate) struct glyph_mapper<'a> {
-    pub(crate) codetogid: *mut tt_cmap,
+    pub(crate) codetogid: Option<tt_cmap>,
     pub(crate) gsub: *mut otl_gsub,
     pub(crate) sfont: &'a sfnt,
-    pub(crate) nametogid: *mut tt_post_table,
+    pub(crate) nametogid: Option<tt_post_table>,
 }
 
 /* TrueType */
@@ -286,10 +283,11 @@ static mut verbose: i32 = 0;
 unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: &mut sfnt) -> i32 {
     let mut widths: [f64; 256] = [0.; 256];
     let ttcm = tt_cmap_read(sfont, 1_u16, 0_u16);
-    if ttcm.is_null() {
+    if ttcm.is_none() {
         warn!("Could not read Mac-Roman TrueType cmap table...");
         return -1;
     }
+    let ttcm = ttcm.unwrap();
     let mut cmap_table = Vec::with_capacity(274);
     cmap_table.put_be(0_u16); //  Version
     cmap_table.put_be(1_u16); // Number of subtables
@@ -311,7 +309,7 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
                 info!("/.c0x{:02x}", code);
             }
             let mut idx;
-            let gid = tt_cmap_lookup(ttcm, code as u32);
+            let gid = tt_cmap_lookup(&ttcm, code as u32);
             if gid as i32 == 0 {
                 warn!(
                     "Glyph for character code=0x{:02x} missing in font font-file=\"{}\".",
@@ -333,7 +331,6 @@ unsafe fn do_builtin_encoding(font: &mut pdf_font, usedchars: *const i8, sfont: 
         }
     }
 
-    tt_cmap_release(ttcm);
     if verbose > 2 {
         info!("]");
     }
@@ -383,134 +380,108 @@ fn agl_decompose_glyphname(glyphname: &mut String) -> (Vec<String>, Option<Strin
     }
     (nptrs, suffix)
 }
-unsafe fn select_gsub(feat: &[u8], gm: &mut glyph_mapper) -> i32 {
+unsafe fn select_gsub(feat: &str, gm: &mut glyph_mapper) -> i32 {
     if feat.is_empty() || gm.gsub.is_null() {
         return -1;
     }
     /* First treat as is */
-    let idx = otl_gsub_select(gm.gsub, b"*", b"*", feat);
-    if idx >= 0 {
+    let idx = otl_gsub_select(&mut *gm.gsub, "*", "*", feat);
+    if idx.is_some() {
         return 0;
     }
     if verbose > 1 {
-        info!(
-            "\ntrutype>> Try loading OTL GSUB for \"*.*.{}\"...",
-            feat.display()
-        );
+        info!("\ntrutype>> Try loading OTL GSUB for \"*.*.{}\"...", feat);
     }
-    let error = otl_gsub_add_feat(&mut *gm.gsub, b"*", b"*", feat, gm.sfont);
-    if error == 0 {
-        let idx = otl_gsub_select(gm.gsub, b"*", b"*", feat);
-        return if idx >= 0 { 0 } else { -1 };
+    if otl_gsub_add_feat(&mut *gm.gsub, "*", "*", feat, gm.sfont).is_some() {
+        let idx = otl_gsub_select(&mut *gm.gsub, "*", "*", feat);
+        return if idx.is_some() { 0 } else { -1 };
     }
     -1
 }
 /* Apply GSUB. This is a bit tricky... */
-unsafe fn selectglyph(
-    mut in_0: u16,
-    suffix: *const i8,
-    gm: &mut glyph_mapper,
-    out: *mut u16,
-) -> i32 {
-    let mut t: [i8; 5] = [0; 5];
+unsafe fn selectglyph(mut in_0: u16, suffix: &str, gm: &mut glyph_mapper, out: *mut u16) -> i32 {
+    let mut t: [u8; 4] = [0; 4];
     let mut error;
-    assert!(!suffix.is_null() && !out.is_null());
-    assert!(!suffix.is_null() && *suffix as i32 != 0);
-    let s = new((strlen(suffix).wrapping_add(1) as u32 as u64)
-        .wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32) as *mut i8;
-    strcpy(s, suffix);
+    assert!(!out.is_null());
+    assert!(!suffix.is_empty());
+    let mut s = suffix;
     /* First try converting suffix to feature tag.
      * agl.c currently only knows less ambiguos cases;
      * e.g., 'sc', 'superior', etc.
      */
-    if let Some(r) = agl_suffix_to_otltag(CStr::from_ptr(s).to_bytes())
+    if let Some(r) = agl_suffix_to_otltag(s.as_bytes())
     /* 'suffix' may represent feature tag. */
     {
         /* We found feature tag for 'suffix'. */
-        error = select_gsub(r, gm); /* no fallback for this */
+        error = select_gsub(std::str::from_utf8(r).unwrap(), gm); /* no fallback for this */
         if error == 0 {
-            error = otl_gsub_apply(gm.gsub, &mut in_0)
+            error = otl_gsub_apply(&*gm.gsub, &mut in_0)
         }
     } else {
         /* Try loading GSUB only when length of 'suffix' is less
          * than or equal to 4. tt_gsub give a warning otherwise.
          */
-        if strlen(s) > 4 {
+        if s.len() > 4 {
             error = -1
-        } else if strlen(s) == 4 {
-            error = select_gsub(CStr::from_ptr(s).to_bytes(), gm)
+        } else if s.len() == 4 {
+            error = select_gsub(s, gm)
         } else {
             /* Uh */
             /* less than 4. pad ' '. */
-            memset(t.as_mut_ptr() as *mut libc::c_void, ' ' as i32, 4);
-            t[4] = '\u{0}' as i32 as i8;
-            memcpy(
-                t.as_mut_ptr() as *mut libc::c_void,
-                s as *const libc::c_void,
-                strlen(s),
-            );
-            error = select_gsub(CStr::from_ptr(t.as_mut_ptr()).to_bytes(), gm)
+            t.fill(b' ');
+            t[..s.len()].copy_from_slice(s.as_bytes());
+            error = select_gsub(std::str::from_utf8(&t).unwrap(), gm)
         }
         if error == 0 {
             /* 'suffix' represents feature tag. */
-            error = otl_gsub_apply(gm.gsub, &mut in_0)
+            error = otl_gsub_apply(&*gm.gsub, &mut in_0)
         } else {
             /* other case: alt1, nalt10... (alternates) */
-            let mut q = s.offset(strlen(s) as isize).offset(-1);
-            while q > s && *q as i32 >= '0' as i32 && *q as i32 <= '9' as i32 {
-                q = q.offset(-1)
-            }
-            if q == s {
-                error = -1
-            } else {
-                /* starting at 1 */
-                let n = atoi(q.offset(1)) - 1;
-                *q.offset(1) = '\u{0}' as i32 as i8;
-                if strlen(s) > 4 {
+            if let Some(q) = s.bytes().rposition(|b| !b.is_ascii_digit()) {
+                if q == 0 {
                     error = -1
                 } else {
-                    /* This may be alternate substitution. */
-                    memset(t.as_mut_ptr() as *mut libc::c_void, ' ' as i32, 4);
-                    t[4] = '\u{0}' as i32 as i8;
-                    memcpy(
-                        t.as_mut_ptr() as *mut libc::c_void,
-                        s as *const libc::c_void,
-                        strlen(s),
-                    );
-                    error = select_gsub(CStr::from_ptr(s).to_bytes(), gm);
-                    if error == 0 {
-                        error = otl_gsub_apply_alt(gm.gsub, n as u16, &mut in_0 as *mut u16)
+                    /* starting at 1 */
+                    let n = s[q + 1..].parse::<i32>().unwrap() - 1;
+                    s = &s[..q + 1];
+                    if s.len() > 4 {
+                        error = -1
+                    } else {
+                        /* This may be alternate substitution. */
+                        t.fill(b' ');
+                        t[..s.len()].copy_from_slice(s.as_bytes());
+                        error = select_gsub(std::str::from_utf8(&t).unwrap(), gm);
+                        if error == 0 {
+                            error = otl_gsub_apply_alt(gm.gsub, n as u16, &mut in_0 as *mut u16)
+                        }
                     }
                 }
+            } else {
+                error = -1;
             }
         }
     }
-    free(s as *mut libc::c_void);
     *out = in_0;
     error
 }
 /* Compose glyphs via ligature substitution. */
 unsafe fn composeglyph(
-    glyphs: *mut u16,
-    n_glyphs: usize,
+    glyphs: &[u16],
     feat: Option<&str>,
     gm: &mut glyph_mapper,
     gid: *mut u16,
 ) -> i32 {
-    assert!(!glyphs.is_null() && n_glyphs > 0 && !gid.is_null());
+    assert!(!glyphs.is_empty() && !gid.is_null());
     let mut error = match feat {
         None | Some("") => {
             /* meaning "Unknown" */
-            select_gsub(b"(?lig|lig?|?cmp|cmp?|frac|afrc)", gm)
+            select_gsub("(?lig|lig?|?cmp|cmp?|frac|afrc)", gm)
         }
         Some(s) if s.len() > 4 => -1,
-        Some(s) => {
-            let t = s.to_string();
-            select_gsub(t.as_bytes(), gm)
-        }
+        Some(s) => select_gsub(s, gm),
     };
     if error == 0 {
-        error = otl_gsub_apply_lig(gm.gsub, glyphs, n_glyphs as u16, gid)
+        error = otl_gsub_apply_lig(gm.gsub, glyphs, gid)
     }
     error
 }
@@ -523,39 +494,35 @@ unsafe fn composeuchar(
     gid: *mut u16,
 ) -> i32 {
     let mut error: i32 = 0;
-    if gm.codetogid.is_null() {
+    if gm.codetogid.is_none() {
         return -1;
     }
-    let gids =
-        new((n_unicodes as u32 as u64).wrapping_mul(::std::mem::size_of::<u16>() as u64) as u32)
-            as *mut u16;
+    let mut gids = vec![0_u16; n_unicodes as _];
     let mut i = 0;
-    while error == 0 && i < n_unicodes {
-        *gids.offset(i as isize) =
-            tt_cmap_lookup(gm.codetogid, *unicodes.offset(i as isize) as u32);
-        error = if *gids.offset(i as isize) as i32 == 0 {
-            -1
-        } else {
-            0
-        };
+    while error == 0 && i < n_unicodes as usize {
+        gids[i] = tt_cmap_lookup(
+            gm.codetogid.as_ref().unwrap(),
+            *unicodes.offset(i as isize) as u32,
+        );
+        error = if gids[i] == 0 { -1 } else { 0 };
         i += 1
     }
     if error == 0 {
-        error = composeglyph(gids, n_unicodes as usize, feat, gm, gid)
+        error = composeglyph(&gids, feat, gm, gid)
     }
-    free(gids as *mut libc::c_void);
     error
 }
 /* Search 'post' table. */
 unsafe fn findposttable(glyph_name: &str, gid: *mut u16, gm: *mut glyph_mapper) -> i32 {
-    if (*gm).nametogid.is_null() {
-        return -1;
-    }
-    *gid = tt_lookup_post_table((*gm).nametogid, glyph_name);
-    if *gid as i32 == 0 {
-        -1
+    if let Some(post) = (*gm).nametogid.as_ref() {
+        *gid = tt_lookup_post_table(post, glyph_name);
+        if *gid as i32 == 0 {
+            -1
+        } else {
+            0
+        }
     } else {
-        0
+        -1
     }
 }
 /* This is wrong. We must care about '.'. */
@@ -589,18 +556,17 @@ unsafe fn findcomposite(glyphname: &mut String, gid: *mut u16, gm: &mut glyph_ma
                     || suffix == "ccmp"
                     || suffix == "afrc") =>
             {
-                error = composeglyph(gids.as_mut_ptr(), nptrs.len(), Some(suffix), gm, gid)
+                error = composeglyph(&gids[..nptrs.len()], Some(suffix), gm, gid)
             }
             Some(suffix) => {
-                error = composeglyph(gids.as_mut_ptr(), nptrs.len(), None, gm, gid);
+                error = composeglyph(&gids[..nptrs.len()], None, gm, gid);
                 if error == 0 {
                     /* a_b_c.vert */
-                    let suffix = CString::new(suffix.as_bytes()).unwrap();
-                    error = selectglyph(*gid, suffix.as_ptr(), gm, gid)
+                    error = selectglyph(*gid, suffix, gm, gid)
                 }
             }
             None => {
-                error = composeglyph(gids.as_mut_ptr(), nptrs.len(), None, gm, gid);
+                error = composeglyph(&gids[..nptrs.len()], None, gm, gid);
             }
         }
     }
@@ -617,7 +583,12 @@ unsafe fn findparanoiac(glyphname: &[u8], gid: *mut u16, gm: &mut glyph_mapper) 
             if error != 0 {
                 return error;
             }
-            error = selectglyph(idx, (*agln).suffix, gm, &mut idx);
+            error = selectglyph(
+                idx,
+                CStr::from_ptr((*agln).suffix).to_str().unwrap(),
+                gm,
+                &mut idx,
+            );
             if error != 0 {
                 warn!(
                     "Variant \"{}\" for glyph \"{}\" might not be found.",
@@ -629,7 +600,7 @@ unsafe fn findparanoiac(glyphname: &[u8], gid: *mut u16, gm: &mut glyph_mapper) 
                 /* ignore */
             }
         } else if (*agln).n_components == 1 {
-            idx = tt_cmap_lookup(gm.codetogid, (*agln).unicodes[0] as u32)
+            idx = tt_cmap_lookup(gm.codetogid.as_ref().unwrap(), (*agln).unicodes[0] as u32)
         } else if (*agln).n_components > 1 {
             if verbose >= 0 {
                 /* give warning */
@@ -649,46 +620,31 @@ unsafe fn findparanoiac(glyphname: &[u8], gid: *mut u16, gm: &mut glyph_mapper) 
                 if error != 0 {
                     warn!("Not found...");
                 } else {
-                    let mut _i: i32 = 0;
-                    let mut _n: i32 = 0;
-                    let mut _p: *mut i8 = ptr::null_mut();
-                    let mut _buf: [i8; 256] = [0; 256];
+                    let mut buf =
+                        String::with_capacity((((*agln).n_components as usize) * 10).max(256));
                     warn!(
                         ">> Composite glyph glyph-name=\"{}\" found at glyph-id=\"{}\".",
                         CStr::from_ptr((*agln).name).display(),
                         idx,
                     );
-                    _p = _buf.as_mut_ptr();
-                    _i = 0;
-                    while _i < (*agln).n_components && _n < 245 {
-                        *_p.offset(_n as isize) =
-                            (if _i == 0 { '<' as i32 } else { ' ' as i32 }) as i8;
-                        _n = _n + 1;
-                        if (*agln).unicodes[_i as usize] >= 0x10000 {
-                            _n += sprintf(
-                                _p.offset(_n as isize),
-                                b"U+%06X\x00" as *const u8 as *const i8,
-                                (*agln).unicodes[_i as usize],
-                            )
-                        } else {
-                            _n += sprintf(
-                                _p.offset(_n as isize),
-                                b"U+%04X\x00" as *const u8 as *const i8,
-                                (*agln).unicodes[_i as usize],
-                            )
+                    for i in 0..(*agln).n_components as usize {
+                        if buf.len() > 245 {
+                            break;
                         }
-                        *_p.offset(_n as isize) = (if _i == (*agln).n_components - 1 {
-                            '>' as i32
+                        buf.push(if i == 0 { '<' } else { ' ' });
+                        if (*agln).unicodes[i] >= 0x10000 {
+                            buf.push_str(&format!("U+{:06X}", (*agln).unicodes[i]));
                         } else {
-                            ',' as i32
-                        }) as i8;
-                        _n = _n + 1;
-                        _i += 1;
+                            buf.push_str(&format!("U+{:04X}", (*agln).unicodes[i]));
+                        }
+                        buf.push(if i == (*agln).n_components as usize - 1 {
+                            '>'
+                        } else {
+                            ','
+                        });
                     }
-                    *_p.offset(_n as isize) = '\u{0}' as i32 as i8;
-                    _n = _n + 1;
                     warn!(">> Input Unicode seq.=\"{}\" ==> glyph-id=\"{}\" in font-file=\"_please_try_-v_\".",
-                                CStr::from_ptr(_buf.as_mut_ptr()).display(), idx);
+                                buf, idx);
                 }
             }
         } else {
@@ -716,14 +672,14 @@ unsafe fn resolve_glyph(glyphname: &str, gid: *mut u16, gm: &mut glyph_mapper) -
     if error == 0 {
         return 0;
     }
-    if gm.codetogid.is_null() {
+    if gm.codetogid.is_none() {
         return -1;
     }
     let (name, suffix) = agl_chop_suffix(glyphname.as_bytes());
     if let Some(name) = name {
         let mut error = if agl_name_is_unicode(name.to_bytes()) {
             let ucv = agl_name_convert_unicode(name.as_ptr());
-            *gid = tt_cmap_lookup(gm.codetogid, ucv as u32);
+            *gid = tt_cmap_lookup(gm.codetogid.as_ref().unwrap(), ucv as u32);
             if *gid as i32 == 0 {
                 -1
             } else {
@@ -734,7 +690,7 @@ unsafe fn resolve_glyph(glyphname: &str, gid: *mut u16, gm: &mut glyph_mapper) -
         };
         if error == 0 {
             if let Some(suffix) = suffix {
-                error = selectglyph(*gid, suffix.as_ptr(), gm, gid);
+                error = selectglyph(*gid, suffix.to_str().unwrap(), gm, gid);
                 if error != 0 {
                     warn!(
                         "Variant \"{}\" for glyph \"{}\" might not be found.",
@@ -758,17 +714,9 @@ impl<'a> Drop for glyph_mapper<'a> {
     fn drop(&mut self) {
         unsafe {
             if !self.gsub.is_null() {
-                otl_gsub_release(self.gsub);
-            }
-            if !self.codetogid.is_null() {
-                tt_cmap_release(self.codetogid);
-            }
-            if !self.nametogid.is_null() {
-                tt_release_post_table(self.nametogid);
+                let _ = Box::from_raw(self.gsub);
             }
             self.gsub = ptr::null_mut();
-            self.codetogid = ptr::null_mut();
-            self.nametogid = ptr::null_mut();
         }
     }
 }
@@ -788,11 +736,9 @@ unsafe fn do_custom_encoding(
      */
     // setup_glyph_mapper
     let nametogid = tt_read_post_table(sfont);
-    let mut codetogid = tt_cmap_read(sfont, 3_u16, 10_u16);
-    if codetogid.is_null() {
-        codetogid = tt_cmap_read(sfont, 3_u16, 1_u16)
-    }
-    if nametogid.is_null() && codetogid.is_null() {
+    let codetogid =
+        tt_cmap_read(sfont, 3_u16, 10_u16).or_else(|| tt_cmap_read(sfont, 3_u16, 1_u16));
+    if nametogid.is_none() && codetogid.is_none() {
         warn!(
             "No post table nor Unicode cmap found in font: {}",
             (&*font).ident,
@@ -807,7 +753,7 @@ unsafe fn do_custom_encoding(
                 sfont,
                 nametogid,
                 codetogid,
-                gsub: otl_gsub_new(),
+                gsub: Box::into_raw(Box::new(otl_gsub::new())),
             };
             cmap_table = Vec::with_capacity(274);
             cmap_table.put_be(0_u16); // Version
@@ -933,7 +879,7 @@ pub(crate) unsafe fn pdf_font_load_truetype(font: &mut pdf_font) -> i32 {
     /*
      * Create new TrueType cmap table with MacRoman encoding.
      */
-    let usedchars: *mut i8 = pdf_font_get_usedchars(font);
+    let usedchars = pdf_font_get_usedchars(font);
     let error = if encoding_id < 0 {
         do_builtin_encoding(font, usedchars, &mut sfont)
     } else {

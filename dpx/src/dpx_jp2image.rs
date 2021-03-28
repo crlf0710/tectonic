@@ -30,7 +30,7 @@ use crate::warn;
 
 use super::dpx_numbers::GetFromFile;
 use crate::bridge::ttstub_input_get_size;
-use crate::dpx_pdfobj::{pdf_get_version, pdf_stream, IntoObj};
+use crate::dpx_pdfobj::{pdf_get_version, pdf_stream};
 use std::io::{Read, Seek, SeekFrom};
 
 pub(crate) type __off_t = i64;
@@ -356,7 +356,7 @@ pub(crate) unsafe fn jp2_include_image<R: Read + Seek>(ximage: &mut pdf_ximage, 
         }
         stream.add(buffer.as_mut_ptr() as *const libc::c_void, nb_read as i32);
     }
-    ximage.set_image(&info, stream.into_obj());
+    ximage.set_image(&info, stream.into());
     0
 }
 

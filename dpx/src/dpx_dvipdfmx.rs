@@ -42,9 +42,8 @@ use super::dpx_pdffont::{
 };
 use super::dpx_tt_aux::tt_aux_set_verbose;
 use crate::bridge::DisplayExt;
-use crate::dpx_pdfparse::parse_unsigned;
+use crate::dpx_pdfparse::ParseNumber;
 use crate::info;
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cid::CIDFont_set_flags;
@@ -64,7 +63,6 @@ use super::dpx_vf::vf_reset_global_state;
 use crate::specials::{
     spc_exec_at_begin_document, spc_exec_at_end_document, tpic::tpic_set_fill_mode,
 };
-use libc::{atoi, free, strlen};
 
 use std::borrow::Cow;
 
@@ -143,55 +141,48 @@ unsafe fn select_paper(paperspec_str: &str) {
         );
     };
 }
-unsafe fn select_pages(pagespec: *const i8, page_ranges: &mut Vec<PageRange>) {
-    let mut p: *const i8 = pagespec;
-    while *p != 0 {
-        let mut page_range = PageRange { first: 0, last: 0 };
-
-        while *p != 0 && libc::isspace(*p as _) != 0 {
-            p = p.offset(1)
+unsafe fn select_pages(pagespec: &str, page_ranges: &mut Vec<PageRange>) {
+    let mut p = pagespec.as_bytes();
+    while !p.is_empty() {
+        while !p.is_empty() && p[0].is_ascii_whitespace() {
+            p = &p[1..];
         }
-        let q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
-        if !q.is_null() {
+        let mut page_range = if let Some(q) = p.parse_unsigned() {
             /* '-' is allowed here */
-            page_range.first = atoi(q) - 1; /* Root node */
-            page_range.last = page_range.first;
-            free(q as *mut libc::c_void);
+            let first = q.to_str().unwrap().parse::<i32>().unwrap() - 1;
+            PageRange { first, last: first } /* Root node */
+        } else {
+            PageRange { first: 0, last: 0 }
+        };
+        while !p.is_empty() && p[0].is_ascii_whitespace() {
+            p = &p[1..];
         }
-        while *p != 0 && libc::isspace(*p as _) != 0 {
-            p = p.offset(1)
-        }
-        if *p as i32 == '-' as i32 {
-            p = p.offset(1);
-            while *p != 0 && libc::isspace(*p as _) != 0 {
-                p = p.offset(1)
+        if p[0] == b'-' {
+            p = &p[1..];
+            while !p.is_empty() && p[0].is_ascii_whitespace() {
+                p = &p[1..];
             }
             page_range.last = -1;
-            if *p != 0 {
-                let q = parse_unsigned(&mut p, p.offset(strlen(p) as isize));
-                if !q.is_null() {
-                    page_range.last = atoi(q) - 1;
-                    free(q as *mut libc::c_void);
+            if !p.is_empty() {
+                if let Some(q) = p.parse_unsigned() {
+                    page_range.last = q.to_str().unwrap().parse::<i32>().unwrap() - 1;
                 }
-                while *p != 0 && libc::isspace(*p as _) != 0 {
-                    p = p.offset(1)
+                while !p.is_empty() && p[0].is_ascii_whitespace() {
+                    p = &p[1..];
                 }
             }
         } else {
             page_range.last = page_range.first;
         }
         page_ranges.push(page_range);
-        if *p as i32 == ',' as i32 {
-            p = p.offset(1)
+        if p[0] == b',' {
+            p = &p[1..];
         } else {
-            while *p != 0 && libc::isspace(*p as _) != 0 {
-                p = p.offset(1)
+            while !p.is_empty() && p[0].is_ascii_whitespace() {
+                p = &p[1..];
             }
-            if *p != 0 {
-                panic!(
-                    "Bad page range specification: {}",
-                    CStr::from_ptr(p).display()
-                );
+            if !p.is_empty() {
+                panic!("Bad page range specification: {}", p.display());
             }
         }
     }
@@ -218,7 +209,7 @@ unsafe fn do_dvi_pages(mut page_ranges: Vec<PageRange>) {
         };
         let mut page_no = page_ranges[i].first;
         while dvi_npages() != 0 {
-            if (page_no as u32) < dvi_npages() {
+            if (page_no as usize) < dvi_npages() {
                 info!("[{}", page_no + 1);
                 /* Users want to change page size even after page is started! */
                 page_width = paper_width;
@@ -285,7 +276,7 @@ pub unsafe fn dvipdfmx_main(
     dpx_config: &XdvipdfmxConfig,
     pdf_filename: &str,
     dvi_filename: &str,
-    pagespec: *const i8,
+    pagespec: &str,
     opt_flags: i32,
     translate: bool,
     compress: bool,
@@ -333,7 +324,7 @@ pub unsafe fn dvipdfmx_main(
     pdf_load_fontmap_file("pdftex.map", '+' as i32).ok();
     pdf_load_fontmap_file("kanjix.map", '+' as i32).ok();
     pdf_load_fontmap_file("ckx.map", '+' as i32).ok();
-    if !pagespec.is_null() {
+    if !pagespec.is_empty() {
         select_pages(pagespec, &mut page_ranges);
     }
     if page_ranges.is_empty() {

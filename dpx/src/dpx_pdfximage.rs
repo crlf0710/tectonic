@@ -28,21 +28,19 @@
 
 use euclid::point2;
 
-use crate::mfree;
-use crate::strstartswith;
 use crate::{info, warn};
 use std::ptr;
 
 use super::dpx_bmpimage::{bmp_include_image, check_for_bmp};
 use super::dpx_dpxfile::{dpx_delete_temp_file, keep_cache};
 use super::dpx_jpegimage::{check_for_jpeg, jpeg_include_image};
-use super::dpx_mfileio::{tt_mfgets, work_buffer};
+use super::dpx_mfileio::tt_mfreadln;
 use super::dpx_pdfdraw::pdf_dev_transform;
 use super::dpx_pngimage::{check_for_png, png_include_image};
 use crate::dpx_epdf::pdf_include_page;
 use crate::dpx_pdfdoc::PdfPageBoundary;
 use crate::dpx_pdfobj::{
-    check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, pdf_release_obj, Object,
+    check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, IntoObj, IntoRef, Object,
 };
 use crate::shims::sprintf;
 
@@ -138,13 +136,13 @@ pub(crate) struct attr_ {
 #[repr(C)]
 pub(crate) struct opt_ {
     pub(crate) verbose: i32,
-    pub(crate) cmdtmpl: *mut i8,
+    //    pub(crate) cmdtmpl: *mut i8,
 }
 static mut ximages: Vec<pdf_ximage> = Vec::new();
 
 static mut _opts: opt_ = opt_ {
     verbose: 0,
-    cmdtmpl: ptr::null_mut(),
+    //    cmdtmpl: ptr::null_mut(),
 };
 
 pub(crate) unsafe fn pdf_ximage_set_verbose(level: i32) {
@@ -177,9 +175,11 @@ impl pdf_ximage {
 impl Drop for pdf_ximage {
     fn drop(&mut self) {
         unsafe {
-            pdf_release_obj(self.reference);
-            pdf_release_obj(self.resource);
-            pdf_release_obj(self.attr.dict);
+            if let Some(reference) = self.reference.as_mut() {
+                crate::release!(reference);
+            }
+            assert!(self.resource.is_null());
+            assert!(self.attr.dict.is_null());
         }
     }
 }
@@ -208,7 +208,7 @@ pub(crate) unsafe fn pdf_close_images() {
         }
     }
     ximages = Vec::new();
-    _opts.cmdtmpl = mfree(_opts.cmdtmpl as *mut libc::c_void) as *mut i8;
+    //    _opts.cmdtmpl = mfree(_opts.cmdtmpl as *mut libc::c_void) as *mut i8;
 }
 unsafe fn source_image_type<R: Read + Seek>(handle: &mut R) -> ImageType {
     handle.seek(SeekFrom::Start(0)).unwrap();
@@ -457,40 +457,60 @@ impl ximage_info {
 }
 
 impl pdf_ximage {
-    pub(crate) unsafe fn set_image(&mut self, image_info: &ximage_info, resource: *mut pdf_obj) {
+    pub(crate) unsafe fn set_image(&mut self, image_info: &ximage_info, mut resource: Object) {
         let info = image_info;
-        if let Some(resource) = resource.as_mut() {
-            if let Object::Stream(_) = (*resource).data {
-                self.subtype = PdfXObjectType::Image;
-                self.attr.width = info.width;
-                self.attr.height = info.height;
-                self.attr.xdensity = info.xdensity;
-                self.attr.ydensity = info.ydensity;
-                let dict = (*resource).as_stream_mut().get_dict_mut();
-                dict.set("Type", "XObject");
-                dict.set("Subtype", "Image");
-                dict.set("Width", (*info).width as f64);
-                dict.set("Height", (*info).height as f64);
-                if (*info).bits_per_component > 0 {
-                    /* Ignored for JPXDecode filter. FIXME */
-                    dict.set("BitsPerComponent", (*info).bits_per_component as f64);
-                    /* Caller don't know we are using reference. */
-                }
-                if !self.attr.dict.is_null() {
-                    dict.merge((*self.attr.dict).as_dict());
-                }
-                self.reference = pdf_ref_obj(resource);
-                pdf_release_obj(resource);
-                self.resource = ptr::null_mut();
-            } else {
-                panic!("Image XObject must be of stream type.");
+        if let Object::Stream(res) = &mut resource {
+            self.subtype = PdfXObjectType::Image;
+            self.attr.width = info.width;
+            self.attr.height = info.height;
+            self.attr.xdensity = info.xdensity;
+            self.attr.ydensity = info.ydensity;
+            let dict = res.get_dict_mut();
+            dict.set("Type", "XObject");
+            dict.set("Subtype", "Image");
+            dict.set("Width", (*info).width as f64);
+            dict.set("Height", (*info).height as f64);
+            if (*info).bits_per_component > 0 {
+                /* Ignored for JPXDecode filter. FIXME */
+                dict.set("BitsPerComponent", (*info).bits_per_component as f64);
+                /* Caller don't know we are using reference. */
             }
+            if !self.attr.dict.is_null() {
+                dict.merge((*self.attr.dict).as_dict());
+            }
+            self.reference = resource.into_ref().into_obj();
+            self.resource = ptr::null_mut();
         } else {
             panic!("Image XObject must be of stream type.");
         }
     }
+    pub(crate) unsafe fn set_image1(&mut self, _image_info: &ximage_info, _resource: *mut pdf_obj) {
+        unreachable!()
+    }
 
-    pub(crate) unsafe fn set_form(&mut self, form_info: &xform_info, resource: *mut pdf_obj) {
+    pub(crate) unsafe fn set_form(&mut self, form_info: &xform_info, resource: Object) {
+        let info = form_info;
+        self.subtype = PdfXObjectType::Form;
+        /* Image's attribute "bbox" here is affected by /Rotate entry of included
+         * PDF page.
+         */
+        let mut p1 = info.bbox.min;
+        pdf_dev_transform(&mut p1, Some(&info.matrix));
+        let mut p2 = point2(info.bbox.max.x, info.bbox.min.y);
+        pdf_dev_transform(&mut p2, Some(&info.matrix));
+        let mut p3 = info.bbox.max;
+        pdf_dev_transform(&mut p3, Some(&info.matrix));
+        let mut p4 = point2(info.bbox.min.x, info.bbox.max.y);
+        pdf_dev_transform(&mut p4, Some(&info.matrix));
+        self.attr.bbox.min.x = p1.x.min(p2.x).min(p3.x).min(p4.x);
+        self.attr.bbox.min.y = p1.y.min(p2.y).min(p3.y).min(p4.y);
+        self.attr.bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
+        self.attr.bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
+        self.reference = resource.into_ref().into_obj();
+        self.resource = ptr::null_mut();
+    }
+    #[deprecated]
+    pub(crate) unsafe fn set_form1(&mut self, form_info: &xform_info, resource: *mut pdf_obj) {
         let info = form_info;
         self.subtype = PdfXObjectType::Form;
         /* Image's attribute "bbox" here is affected by /Rotate entry of included
@@ -509,7 +529,7 @@ impl pdf_ximage {
         self.attr.bbox.max.x = p1.x.max(p2.x).max(p3.x).max(p4.x);
         self.attr.bbox.max.y = p1.y.max(p2.y).max(p3.y).max(p4.y);
         self.reference = pdf_ref_obj(resource);
-        pdf_release_obj(resource);
+        crate::release2!(resource);
         self.resource = ptr::null_mut();
     }
 }
@@ -550,7 +570,7 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
     }
     match info {
         XInfo::Image(info) => {
-            I.set_image(&info, resource);
+            I.set_image1(&info, resource);
             sprintf(
                 I.res_name.as_mut_ptr(),
                 b"Im%d\x00" as *const u8 as *const i8,
@@ -558,7 +578,7 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
             );
         }
         XInfo::Form(info) => {
-            I.set_form(&info, resource);
+            I.set_form1(&info, resource);
             sprintf(
                 I.res_name.as_mut_ptr(),
                 b"Fm%d\x00" as *const u8 as *const i8,
@@ -805,14 +825,10 @@ pub(crate) unsafe fn pdf_ximage_scale_image(id: i32, p: &transform_info) -> (Rec
 }*/
 unsafe fn check_for_ps<R: Read + Seek>(handle: &mut R) -> i32 {
     handle.seek(SeekFrom::Start(0)).unwrap();
-    tt_mfgets(work_buffer.as_mut_ptr(), 1024, handle);
-    if !strstartswith(
-        work_buffer.as_mut_ptr(),
-        b"%!\x00" as *const u8 as *const i8,
-    )
-    .is_null()
-    {
-        return 1;
+    if let Ok(buffer) = tt_mfreadln(1024, handle) {
+        if buffer.starts_with(b"%!") {
+            return 1;
+        }
     }
     0
 }

@@ -32,13 +32,11 @@ use std::ffi::CString;
 use std::ptr;
 
 use super::dpx_dpxutil::xtoi;
-use super::dpx_mem::new;
 use crate::dpx_pdfobj::{
     pdf_dict, pdf_file, pdf_indirect, pdf_name, pdf_obj, pdf_stream, pdf_string, DerefObj, IntoObj,
     Object, STREAM_COMPRESS,
 };
 use crate::specials::spc_lookup_reference;
-use libc::memcpy;
 
 fn is_space(c: &u8) -> bool {
     c.is_ascii_whitespace() || *c == 0
@@ -143,22 +141,6 @@ impl SkipWhite for &[u8] {
         };
     }
 }
-unsafe fn parsed_string(start: *const i8, end: *const i8) -> *mut i8 {
-    let mut result: *mut i8 = ptr::null_mut();
-    let len = end.offset_from(start) as i64 as i32;
-    if len > 0 {
-        result =
-            new(((len + 1) as u32 as u64).wrapping_mul(::std::mem::size_of::<i8>() as u64) as u32)
-                as *mut i8;
-        memcpy(
-            result as *mut libc::c_void,
-            start as *const libc::c_void,
-            len as _,
-        );
-        *result.offset(len as isize) = '\u{0}' as i32 as i8
-    }
-    result
-}
 fn parsed_string_slice(buf: &[u8]) -> Option<CString> {
     if !buf.is_empty() {
         Some(CString::new(buf).unwrap())
@@ -172,40 +154,6 @@ fn parsed_string_slice_string(buf: &[u8]) -> Option<String> {
     } else {
         None
     }
-}
-
-pub(crate) unsafe fn parse_number(start: *mut *const i8, end: *const i8) -> *mut i8 {
-    skip_white(start, end);
-    let mut p = *start;
-    if p < end && (*p as i32 == '+' as i32 || *p as i32 == '-' as i32) {
-        p = p.offset(1)
-    }
-    while p < end && (*p as u8).is_ascii_digit() {
-        p = p.offset(1)
-    }
-    if p < end && *p as i32 == '.' as i32 {
-        p = p.offset(1);
-        while p < end && (*p as u8).is_ascii_digit() {
-            p = p.offset(1)
-        }
-    }
-    let number = parsed_string(*start, p);
-    *start = p;
-    number
-}
-
-pub(crate) unsafe fn parse_unsigned(start: *mut *const i8, end: *const i8) -> *mut i8 {
-    skip_white(start, end);
-    let mut p = *start;
-    while p < end {
-        if !(*p as u8).is_ascii_digit() {
-            break;
-        }
-        p = p.offset(1)
-    }
-    let number = parsed_string(*start, p);
-    *start = p;
-    number
 }
 
 pub(crate) trait ParseNumber {
@@ -249,19 +197,6 @@ impl ParseNumber for &[u8] {
     }
 }
 
-unsafe fn parse_gen_ident(start: *mut *const i8, end: *const i8, valid_chars: &[u8]) -> *mut i8 {
-    /* No skip_white(start, end)? */
-    let mut p = *start;
-    while p < end {
-        if !valid_chars.contains(&(*p as u8)) {
-            break;
-        }
-        p = p.offset(1)
-    }
-    let ident = parsed_string(*start, p);
-    *start = p;
-    ident
-}
 fn parse_gen_ident_slice(buf: &mut &[u8], valid_chars: &[u8]) -> Option<String> {
     /* No skip_white(start, end)? */
     let mut i = 0;
@@ -274,12 +209,6 @@ fn parse_gen_ident_slice(buf: &mut &[u8], valid_chars: &[u8]) -> Option<String> 
     let ident = parsed_string_slice_string(&buf[..i]);
     *buf = &buf[i..];
     ident
-}
-
-pub(crate) unsafe fn parse_ident(start: *mut *const i8, end: *const i8) -> *mut i8 {
-    const VALID_CHARS: &[u8] =
-        b"!\"#$&\'*+,-.0123456789:;=?@ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz|~";
-    parse_gen_ident(start, end, VALID_CHARS)
 }
 
 pub(crate) trait ParseIdent {
@@ -797,14 +726,14 @@ impl ParsePdfObj for &[u8] {
     }
     fn parse_pdf_null(&mut self) -> Option<()> {
         self.skip_white();
-        if (*self).len() < 4 {
+        if self.len() < 4 {
             warn!("Not a null object.");
             return None;
-        } else if (*self).len() > 4 && !istokensep(&self[4]) {
+        } else if self.len() > 4 && !istokensep(&self[4]) {
             warn!("Not a null object.");
             return None;
         } else if self.starts_with(b"null") {
-            *self = &(*self)[4..];
+            *self = &self[4..];
             return Some(());
         } else {
             warn!("Not a null object.");
@@ -814,13 +743,13 @@ impl ParsePdfObj for &[u8] {
     fn parse_pdf_boolean(&mut self) -> Option<bool> {
         self.skip_white();
         if self.starts_with(b"true") {
-            if (*self).len() == 4 || istokensep(&self[4]) {
-                *self = &(*self)[4..];
+            if self.len() == 4 || istokensep(&self[4]) {
+                *self = &self[4..];
                 return Some(true);
             }
         } else if self.starts_with(b"false") {
-            if (*self).len() == 5 || istokensep(&self[5]) {
-                *self = &(*self)[5..];
+            if self.len() == 5 || istokensep(&self[5]) {
+                *self = &self[5..];
                 return Some(false);
             }
         }
@@ -856,7 +785,7 @@ impl ParsePdfObj for &[u8] {
             warn!("Could not find a name object.");
             return None;
         }
-        *self = &(*self)[1..];
+        *self = &self[1..];
         while !self.is_empty() && !istokensep(&self[0]) {
             let ch = unsafe { pn_getc(self) };
             if ch < 0 || ch > 0xff {

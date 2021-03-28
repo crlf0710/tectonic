@@ -20,7 +20,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 */
 
-use crate::dpx_mfileio::tt_mfgets;
+use crate::dpx_mfileio::tt_mfreadln;
 use crate::dpx_mpost::mps_scan_bbox;
 use crate::dpx_pdfdev::{pdf_dev_put_image, transform_info, transform_info_clear};
 use crate::dpx_pdfdoc::PdfPageBoundary;
@@ -28,13 +28,10 @@ use crate::dpx_pdfparse::SkipWhite;
 use crate::dpx_pdfximage::pdf_ximage_findresource;
 use crate::spc_warn;
 use bridge::{InFile, TTInputFormat};
-use libc::strlen;
 use std::ptr;
 
-use super::{Result, ERR};
-use super::{SpcArg, SpcEnv};
-
-use super::SpcHandler;
+use super::{Handler, SpcArg, SpcEnv};
+use super::{Result, ERR, ERROR};
 
 use crate::dpx_pdfximage::load_options;
 
@@ -65,11 +62,6 @@ fn parse_postscriptbox_special(buf: &str) -> std::result::Result<(f64, f64, Stri
 /* quasi-hack to get the primary input */
 unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<()> {
     let mut ti = transform_info::new();
-    let options: load_options = load_options {
-        page_no: 1,
-        bbox_type: PdfPageBoundary::Auto,
-        dict: ptr::null_mut(),
-    };
     let mut buf: [u8; 512] = [0; 512];
     if ap.cur.is_empty() {
         spc_warn!(
@@ -104,16 +96,22 @@ unsafe fn spc_handler_postscriptbox(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result
     if let Some(mut handle) = InFile::open(&filename, TTInputFormat::PICT, 0) {
         ti.flags |= 1 << 1 | 1 << 2;
         loop {
-            let mut p: *const i8 = tt_mfgets(buf.as_ptr() as *mut i8, 512, &mut handle);
-            if p.is_null() {
+            if let Ok(buf) = tt_mfreadln(512, &mut handle) {
+                let mut p = buf.as_slice();
+                if !(mps_scan_bbox(&mut p, &mut ti.bbox) >= 0) {
+                    continue;
+                }
+                ti.flags |= 1 << 0;
+                break;
+            } else {
                 break;
             }
-            if !(mps_scan_bbox(&mut p, p.offset(strlen(p) as isize), &mut ti.bbox) >= 0) {
-                continue;
-            }
-            ti.flags |= 1 << 0;
-            break;
         }
+        let options: load_options = load_options {
+            page_no: 1,
+            bbox_type: PdfPageBoundary::Auto,
+            dict: ptr::null_mut(),
+        };
         let form_id = pdf_ximage_findresource(&filename, options);
         if form_id < 0 {
             spc_warn!(spe, "Failed to load image file: {}", filename);
@@ -130,37 +128,20 @@ unsafe fn spc_handler_null(_spe: &mut SpcEnv, args: &mut SpcArg) -> Result<()> {
     args.cur = &[];
     Ok(())
 }
-const MISC_HANDLERS: [SpcHandler; 6] = [
-    SpcHandler {
-        key: "postscriptbox",
-        exec: Some(spc_handler_postscriptbox),
-    },
-    SpcHandler {
-        key: "landscape",
-        exec: Some(spc_handler_null),
-    },
-    SpcHandler {
-        key: "papersize",
-        exec: Some(spc_handler_null),
-    },
-    SpcHandler {
-        key: "src:",
-        exec: Some(spc_handler_null),
-    },
-    SpcHandler {
-        key: "pos:",
-        exec: Some(spc_handler_null),
-    },
-    SpcHandler {
-        key: "om:",
-        exec: Some(spc_handler_null),
-    },
-];
+
+static MISC_HANDLERS: phf::Map<&'static str, Handler> = phf::phf_map! {
+    "postscriptbox" => spc_handler_postscriptbox,
+    "landscape" => spc_handler_null,
+    "papersize" => spc_handler_null,
+    "src:" => spc_handler_null,
+    "pos:" => spc_handler_null,
+    "om:" => spc_handler_null,
+};
 
 pub(crate) fn spc_misc_check_special(mut buf: &[u8]) -> bool {
     buf.skip_white();
-    for handler in MISC_HANDLERS.iter() {
-        if buf.starts_with(handler.key.as_bytes()) {
+    for key in MISC_HANDLERS.keys() {
+        if buf.starts_with(key.as_bytes()) {
             return true;
         }
     }
@@ -168,10 +149,9 @@ pub(crate) fn spc_misc_check_special(mut buf: &[u8]) -> bool {
 }
 
 pub(crate) unsafe fn spc_misc_setup_handler(
-    handle: &mut SpcHandler,
     _spe: &mut SpcEnv,
     args: &mut SpcArg,
-) -> Result<()> {
+) -> Result<Handler> {
     args.cur.skip_white();
     let key = args.cur;
     let mut keylen = 0;
@@ -187,18 +167,14 @@ pub(crate) unsafe fn spc_misc_setup_handler(
         keylen += 1;
     }
     if keylen < 1 {
-        return ERR;
+        return ERROR();
     }
-    for handler in MISC_HANDLERS.iter() {
-        if &key[..keylen] == handler.key.as_bytes() {
+    for (hkey, &exec) in MISC_HANDLERS.entries() {
+        if &key[..keylen] == hkey.as_bytes() {
             args.cur.skip_white();
-            args.command = Some(handler.key);
-            *handle = SpcHandler {
-                key: "???:",
-                exec: handler.exec,
-            };
-            return Ok(());
+            args.command = Some(hkey);
+            return Ok(exec);
         }
     }
-    ERR
+    ERROR()
 }

@@ -27,6 +27,8 @@
 )]
 
 use crate::dpx_error::{Result, ERR};
+use crate::dpx_pdffont::FontType;
+use std::rc::Rc;
 
 use euclid::point2;
 
@@ -54,7 +56,7 @@ use super::dpx_pdffont::{
 use super::dpx_pdfximage::{
     pdf_ximage_get_reference, pdf_ximage_get_resname, pdf_ximage_scale_image,
 };
-use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdf_release_obj, pdfobj_escape_str};
+use crate::dpx_pdfobj::{pdf_link_obj, pdf_obj, pdfobj_escape_str};
 
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum MotionState {
@@ -186,21 +188,22 @@ pub(crate) struct dev_font {
     pub(crate) ucs_group: i32,
     pub(crate) ucs_plane: i32,
     pub(crate) is_unicode: i32,
-    pub(crate) cff_charsets: *mut cff_charsets,
+    pub(crate) cff_charsets: Option<Rc<Charsets>>,
 }
 
 impl Drop for dev_font {
     fn drop(&mut self) {
         unsafe {
             self.tex_name = String::new();
-            pdf_release_obj(self.resource);
+            if let Some(resource) = self.resource.as_mut() {
+                crate::release!(resource);
+            }
             self.resource = ptr::null_mut();
-            self.cff_charsets = ptr::null_mut();
         }
     }
 }
 
-use super::dpx_cff::cff_charsets;
+use super::dpx_cff::Charsets;
 /*
  * Unit conversion, formatting and others.
  */
@@ -824,7 +827,7 @@ static mut sbuf0: [u8; 4096] = [0; 4096];
 static mut sbuf1: [u8; 4096] = [0; 4096];
 unsafe fn handle_multibyte_string(font: &dev_font, string: &mut &[u8], ctype: i32) -> Result<()> {
     let mut p = *string;
-    if ctype == -1 && !font.cff_charsets.is_null() {
+    if ctype == -1 && font.cff_charsets.is_some() {
         /* freetype glyph indexes */
         /* Convert freetype glyph indexes to CID. */
         let mut inbuf = p;
@@ -834,7 +837,7 @@ unsafe fn handle_multibyte_string(font: &dev_font, string: &mut &[u8], ctype: i3
             inbuf = &inbuf[1..];
             gid += inbuf[0] as u32;
             inbuf = &inbuf[1..];
-            gid = cff_charsets_lookup_cid(&*font.cff_charsets, gid as u16) as u32;
+            gid = cff_charsets_lookup_cid(font.cff_charsets.as_deref().unwrap(), gid as u16) as u32;
             outbuf[0] = (gid >> 8) as u8;
             outbuf = &mut outbuf[1..];
             outbuf[0] = (gid & 0xff) as u8;
@@ -1252,23 +1255,25 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &str, ptsize: spt_t) -> i32 
     }
     let font_id = pdf_font_findresource(font_name, ptsize as f64 * dev_unit.dvi2pts, mrec);
     let mrec = fontmap.get(font_name);
-    if font_id < 0 {
+    let font_id = if let Some(font_id) = font_id {
+        font_id
+    } else {
         return -1;
-    }
+    };
 
     let mut font = dev_font {
         short_name: Vec::new(),
         used_on_this_page: 0,
         tex_name: font_name.to_string(),
         sptsize: ptsize,
-        font_id,
+        font_id: font_id as i32,
         enc_id: pdf_get_font_encoding(font_id),
         real_font_index: if i < dev_fonts.len() { i as i32 } else { -1 },
         resource: ptr::null_mut(),
         used_chars: ptr::null_mut(),
         format: match pdf_get_font_subtype(font_id) {
-            2 => 2,
-            4 => 3,
+            FontType::Type3 => 2,
+            FontType::Type0 => 3,
             _ => 1,
         },
         wmode: pdf_get_font_wmode(font_id),
@@ -1307,11 +1312,11 @@ pub(crate) unsafe fn pdf_dev_locate_font(font_name: &str, ptsize: spt_t) -> i32 
             Some(mrec) if mrec.enc_name == "unicode" => 1,
             _ => 0,
         },
-        cff_charsets: 0 as *mut cff_charsets,
+        cff_charsets: None,
     };
 
     if let Some(mrec) = mrec {
-        font.cff_charsets = mrec.opt.cff_charsets as *mut cff_charsets
+        font.cff_charsets = mrec.opt.cff_charsets.clone();
     }
     /* We found device font here. */
     if i < dev_fonts.len() {
@@ -1634,17 +1639,14 @@ pub(crate) unsafe fn transform_info_clear(info: &mut transform_info) {
     info.flags = 0;
 }
 
-pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count: i32) {
+pub(crate) unsafe fn pdf_dev_begin_actualtext(unicodes: &[u16]) {
     let mut pdf_doc_enc = 1_usize;
     /* check whether we can use PDFDocEncoding for this string
     (we punt on the 0x80..0xA0 range that does not directly correspond to unicode)  */
     /* if using PDFDocEncoding, we only care about the low 8 bits,
     so start with the second byte of our pair */
-    for i in 0..count {
-        if *unicodes.offset(i as isize) as i32 > 0xff
-            || *unicodes.offset(i as isize) as i32 > 0x7f
-                && (*unicodes.offset(i as isize) as i32) < 0xa1
-        {
+    for &b16 in unicodes {
+        if b16 > 0xff || b16 > 0x7f && b16 < 0xa1 {
             pdf_doc_enc = 0;
             break;
         }
@@ -1656,12 +1658,8 @@ pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count:
     }
     let p = pdf_doc_mut();
     p.add_page_content(&content);
-    loop {
-        if !(count > 0) {
-            break;
-        }
-        count -= 1;
-        let s: [u8; 2] = (*unicodes).to_be_bytes();
+    for b16 in unicodes {
+        let s: [u8; 2] = b16.to_be_bytes();
         let mut content = String::new();
         for i in pdf_doc_enc..2 {
             let c: u8 = s[i];
@@ -1674,7 +1672,6 @@ pub(crate) unsafe fn pdf_dev_begin_actualtext(mut unicodes: *mut u16, mut count:
             }
         }
         p.add_page_content(content.as_bytes());
-        unicodes = unicodes.offset(1)
     }
     p.add_page_content(b")>>BDC");
 }
