@@ -1115,10 +1115,14 @@ impl pdf_colorspace {
     }
 }
 unsafe fn pdf_clean_colorspace_struct(colorspace: &mut pdf_colorspace) {
-    crate::release!(colorspace.resource);
-    crate::release!(colorspace.reference);
-    colorspace.resource = ptr::null_mut();
-    colorspace.reference = ptr::null_mut();
+    if let Some(resource) = colorspace.resource.as_mut() {
+        crate::release!(resource);
+        colorspace.resource = ptr::null_mut();
+    }
+    if let Some(reference) = colorspace.reference.as_mut() {
+        crate::release!(reference);
+        colorspace.reference = ptr::null_mut();
+    }
     if let Some(cdata) = colorspace.cdata.as_ref() {
         match colorspace.subtype {
             4 => {
@@ -1131,9 +1135,11 @@ unsafe fn pdf_clean_colorspace_struct(colorspace: &mut pdf_colorspace) {
     colorspace.subtype = 0;
 }
 unsafe fn pdf_flush_colorspace(colorspace: &mut pdf_colorspace) {
-    crate::release!(colorspace.resource);
+    if let Some(resource) = colorspace.resource.as_mut() {
+        crate::release!(resource);
+        colorspace.resource = ptr::null_mut();
+    }
     crate::release!(colorspace.reference);
-    colorspace.resource = ptr::null_mut();
     colorspace.reference = ptr::null_mut();
 }
 /* **************************** COLOR SPACE *****************************/

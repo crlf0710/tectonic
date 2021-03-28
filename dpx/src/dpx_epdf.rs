@@ -74,7 +74,9 @@ pub(crate) unsafe fn pdf_include_page(
 
     let mut resources: *mut pdf_obj = ptr::null_mut();
     let error_silent = move || -> i32 {
-        crate::release!(resources);
+        if let Some(resources) = resources.as_mut() {
+            crate::release!(resources);
+        }
         -1
     };
     let error = || -> i32 {

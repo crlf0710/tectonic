@@ -175,7 +175,9 @@ impl pdf_ximage {
 impl Drop for pdf_ximage {
     fn drop(&mut self) {
         unsafe {
-            crate::release!(self.reference);
+            if let Some(reference) = self.reference.as_mut() {
+                crate::release!(reference);
+            }
             assert!(self.resource.is_null());
             assert!(self.attr.dict.is_null());
         }

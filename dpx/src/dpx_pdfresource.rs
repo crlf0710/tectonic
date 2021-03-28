@@ -91,8 +91,7 @@ impl Drop for pdf_res {
         unsafe {
             crate::release!(self.reference);
             self.reference = ptr::null_mut();
-            crate::release!(self.object);
-            self.object = ptr::null_mut();
+            assert!(self.object.is_null());
         };
     }
 }

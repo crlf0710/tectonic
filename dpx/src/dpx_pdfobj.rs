@@ -1095,7 +1095,7 @@ impl Drop for pdf_array {
         let values = &mut self.values;
         for val in values.drain(..) {
             unsafe {
-                crate::release!(val);
+                assert!(val.is_null());
             }
         }
     }
@@ -2421,7 +2421,7 @@ pub unsafe fn pdf_release_obj(object: *mut pdf_obj) {
             let _ = Box::from_raw(object);
         }
     } else {
-        //dbg!("already released");
+        panic!("already released");
     }
 }
 pub unsafe fn pdf_release_obj2(object: *mut pdf_obj) {
@@ -2458,7 +2458,7 @@ pub unsafe fn pdf_release_obj2(object: *mut pdf_obj) {
             let _ = Box::from_raw(object);
         }
     } else {
-        //dbg!("already released");
+        panic!("already released");
     }
 }
 
@@ -3313,10 +3313,16 @@ impl Drop for pdf_file {
                         crate::release2!(direct);
                     }
                 }
-                crate::release!(item.indirect);
+                if let Some(indirect) = item.indirect.as_mut() {
+                    crate::release!(indirect);
+                }
             }
-            crate::release!(self.trailer);
-            crate::release!(self.catalog);
+            if let Some(trailer) = self.trailer.as_mut() {
+                crate::release!(trailer);
+            }
+            if let Some(catalog) = self.catalog.as_mut() {
+                crate::release!(catalog);
+            }
         }
     }
 }

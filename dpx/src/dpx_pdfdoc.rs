@@ -1096,7 +1096,9 @@ pub unsafe fn pdf_doc_get_page(
                 if let Some(tmp_0) =
                     pdf_deref_obj(page_tree.as_dict_mut().get_mut("Resources")).as_mut()
                 {
-                    crate::release!(resources);
+                    if let Some(resources) = resources.as_mut() {
+                        crate::release!(resources);
+                    }
                     resources = tmp_0
                 }
                 if let Some(mut kids) = DerefObj::new(page_tree.as_dict_mut().get_mut("Kids")) {
@@ -1261,8 +1263,10 @@ unsafe fn flush_bookmarks(
         .as_dict_mut()
         .set("Last", pdf_link_obj(prev_ref));
     crate::release!(prev_ref);
-    crate::release!(node.dict);
-    node.dict = ptr::null_mut();
+    if let Some(dict) = node.dict.as_mut() {
+        crate::release!(dict);
+        node.dict = ptr::null_mut();
+    }
     retval
 }
 
@@ -2360,7 +2364,9 @@ impl PdfDoc {
             attrib,
         );
         crate::release2!((*form).contents);
-        crate::release!(attrib);
+        if let Some(attrib) = attrib.as_mut() {
+            crate::release!(attrib);
+        }
         self.pending_forms = (*fnode).prev;
         pdf_dev_pop_gstate();
         pdf_dev_reset_fonts(1);

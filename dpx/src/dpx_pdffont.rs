@@ -272,11 +272,15 @@ unsafe fn pdf_flush_font(font: &mut pdf_font) {
             crate::release2!(obj);
         }
     }
-    crate::release2!(font.descriptor);
-    crate::release!(font.reference);
-    font.reference = ptr::null_mut();
+    if let Some(descriptor) = font.descriptor.as_mut() {
+        crate::release2!(descriptor);
+        font.descriptor = ptr::null_mut();
+    }
+    if let Some(reference) = font.reference.as_mut() {
+        crate::release!(reference);
+        font.reference = ptr::null_mut();
+    }
     font.resource = ptr::null_mut();
-    font.descriptor = ptr::null_mut();
 }
 unsafe fn pdf_clean_font_struct(mut font: &mut pdf_font) {
     let _ = Box::from_raw(font.usedchars as *mut [i8; 256]);

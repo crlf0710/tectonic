@@ -195,7 +195,9 @@ impl Drop for dev_font {
     fn drop(&mut self) {
         unsafe {
             self.tex_name = String::new();
-            crate::release!(self.resource);
+            if let Some(resource) = self.resource.as_mut() {
+                crate::release!(resource);
+            }
             self.resource = ptr::null_mut();
         }
     }
