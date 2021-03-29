@@ -2616,21 +2616,21 @@ unsafe fn pdf_read_object(
     }
     let mut p = q;
     p.skip_white();
-    if !p.starts_with(b"obj") {
-        warn!("Didn\'t find \"obj\".");
-        return None;
-    }
-    p = &p[b"obj".len()..];
-    let result = p.parse_pdf_object(pf);
-    p.skip_white();
-    if !p.starts_with(b"endobj") {
-        warn!("Didn\'t find \"endobj\".");
-        if let Some(res) = result {
-            crate::release!(res);
+    if let Some(mut p) = p.strip_prefix(b"obj") {
+        let result = p.parse_pdf_object(pf);
+        p.skip_white();
+        if !p.starts_with(b"endobj") {
+            warn!("Didn\'t find \"endobj\".");
+            if let Some(res) = result {
+                crate::release!(res);
+            }
+            None
+        } else {
+            result
         }
-        None
     } else {
-        result
+        warn!("Didn\'t find \"obj\".");
+        None
     }
 }
 unsafe fn read_objstm(pf: &mut pdf_file, num: u32) -> *mut pdf_obj {
@@ -3380,9 +3380,9 @@ pub unsafe fn pdf_open(ident: &str, mut handle: InFile) -> Option<&mut Box<pdf_f
             }) => {
                 if let Some(new_version) = DerefObj::new(catalog.get_mut("Version")) {
                     let minor = if let Object::Name(n) = &new_version.data {
-                        let new_version_str = n.to_bytes();
-                        let minor_num_str = if new_version_str.starts_with(b"1.") {
-                            std::str::from_utf8(&new_version_str[2..]).unwrap_or("")
+                        let minor_num_str = if let Some(version) = n.to_bytes().strip_prefix(b"1.")
+                        {
+                            std::str::from_utf8(version).unwrap_or("")
                         } else {
                             ""
                         };
@@ -3430,11 +3430,11 @@ fn parse_pdf_version<R: Read + Seek>(handle: &mut R) -> Result<u32, ()> {
         .trim_end()
         .to_string();
 
-    if !buffer.starts_with("%PDF-1.") {
-        return Err(());
+    if let Some(buf) = buffer.strip_prefix("%PDF-1.") {
+        buf.parse::<u32>().map_err(|_| ())
+    } else {
+        Err(())
     }
-
-    buffer["%PDF-1.".len()..].parse::<u32>().map_err(|_| ())
 }
 
 pub(crate) unsafe fn check_for_pdf<R: Read + Seek>(handle: &mut R) -> bool {

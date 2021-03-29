@@ -134,10 +134,10 @@ const MODIFIERS: [&[u8]; 20] = [
 fn skip_capital<'a>(p: &'a [u8]) -> (&'a [u8], usize) {
     if p.starts_with(b"AE") || p.starts_with(b"OE") {
         (&p[2..], 2)
-    } else if p.starts_with(b"Eth") {
-        (&p[3..], 3)
-    } else if p.starts_with(b"Thorn") {
-        (&p[5..], 5)
+    } else if let Some(p) = p.strip_prefix(b"Eth") {
+        (p, 3)
+    } else if let Some(p) = p.strip_prefix(b"Thorn") {
+        (p, 5)
     } else if p.len() >= 1 {
         if p[0].is_ascii_uppercase() {
             (&p[1..], 1)

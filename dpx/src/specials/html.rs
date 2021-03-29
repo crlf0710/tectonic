@@ -740,13 +740,14 @@ pub(crate) unsafe fn spc_html_setup_handler(_spe: &mut SpcEnv, ap: &mut SpcArg) 
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];
     }
-    if !ap.cur.starts_with(b"html:") {
+    if let Some(cur) = ap.cur.strip_prefix(b"html:") {
+        ap.command = Some("");
+        ap.cur = cur;
+        while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
+            ap.cur = &ap.cur[1..];
+        }
+        Ok(spc_handler_html_default)
+    } else {
         return ERROR();
     }
-    ap.command = Some("");
-    ap.cur = &ap.cur[b"html:".len()..];
-    while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
-        ap.cur = &ap.cur[1..];
-    }
-    Ok(spc_handler_html_default)
 }

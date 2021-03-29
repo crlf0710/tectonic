@@ -1899,9 +1899,9 @@ impl ReadLength for &[u8] {
         p.skip_white();
         if let Some(q) = p.parse_c_ident() {
             let mut bytes = q.as_str();
-            if bytes.starts_with("true") {
+            if let Some(b) = bytes.strip_prefix("true") {
                 u /= if mag != 0. { mag } else { 1. };
-                bytes = &bytes["true".len()..];
+                bytes = b;
             }
             let q = if bytes.is_empty() {
                 /* "true" was a separate word from the units */

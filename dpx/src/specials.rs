@@ -128,16 +128,15 @@ static mut NAMED_OBJECTS: *mut ht_table = ptr::null_mut();
  * Note that page need not exist at this time.
  */
 unsafe fn ispageref(key: &str) -> bool {
-    if !key.starts_with("page") {
-        return false;
-    } else {
-        let mut p = &key[4..];
+    if let Some(mut p) = key.strip_prefix("page") {
         while !p.is_empty() && (b'0'..=b'9').contains(&p.as_bytes()[0]) {
             p = &p[1..];
         }
         if !p.is_empty() {
             return false;
         }
+    } else {
+        return false;
     }
     true
 }

@@ -693,8 +693,8 @@ pub(crate) unsafe fn spc_tpic_setup_handler(_spe: &mut SpcEnv, ap: &mut SpcArg) 
     let mut hasnsp: i32 = 0;
     let mut error = ERROR::<Handler>();
     ap.cur.skip_blank();
-    if ap.cur.starts_with(b"tpic:") {
-        ap.cur = &ap.cur[b"tpic:".len()..];
+    if let Some(cur) = ap.cur.strip_prefix(b"tpic:") {
+        ap.cur = cur;
         hasnsp = 1;
     }
     if let Some(q) = ap.cur.parse_c_ident() {
