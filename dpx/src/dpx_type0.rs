@@ -42,7 +42,6 @@ use crate::dpx_pdfobj::{
     pdf_dict, pdf_get_version, pdf_link_obj, pdf_name, pdf_obj, pdf_ref_obj, pdf_stream, IntoObj,
     STREAM_COMPRESS,
 };
-use crate::shims::sprintf;
 
 #[derive(Clone)]
 pub(crate) struct Type0Font {
@@ -424,54 +423,25 @@ pub(crate) unsafe fn Type0Font_cache_close() {
 }
 /* ******************************* COMPAT ********************************/
 unsafe fn create_dummy_CMap() -> pdf_stream {
-    let mut buf: [u8; 32] = [0; 32];
     let mut stream = pdf_stream::new(STREAM_COMPRESS);
     stream.add_str("%!PS-Adobe-3.0 Resource-CMap\n%%DocumentNeededResources: ProcSet (CIDInit)\n%%IncludeResource: ProcSet (CIDInit)\n%%BeginResource: CMap (Adobe-Identity-UCS2)\n%%Title: (Adobe-Identity-UCS2 Adobe UCS2 0)\n%%Version: 1.0\n%%Copyright:\n%% ---\n%%EndComments\n\n");
     stream.add_str("/CIDInit /ProcSet findresource begin\n\n12 dict begin\n\nbegincmap\n\n/CIDSystemInfo 3 dict dup begin\n  /Registry (Adobe) def\n  /Ordering (UCS2) def\n  /Supplement 0 def\nend def\n\n/CMapName /Adobe-Identity-UCS2 def\n/CMapVersion 1.0 def\n/CMapType 2 def\n\n2 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n");
     stream.add_str("\n100 beginbfrange\n");
     for i in 0..0x64 {
-        let n = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b"<%02X00> <%02XFF> <%02X00>\n\x00" as *const u8 as *const i8,
-            i,
-            i,
-            i,
-        ) as usize;
-        stream.add_slice(&buf[..n]);
+        stream.add_str(&format!("<{0:02X}00> <{0:02X}FF> <{0:02X}00>\n", i));
     }
     stream.add_str("endbfrange\n\n");
     stream.add_str("\n100 beginbfrange\n");
     for i in 0x64..0xc8 {
-        let n = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b"<%02X00> <%02XFF> <%02X00>\n\x00" as *const u8 as *const i8,
-            i,
-            i,
-            i,
-        ) as usize;
-        stream.add_slice(&buf[..n]);
+        stream.add_str(&format!("<{0:02X}00> <{0:02X}FF> <{0:02X}00>\n", i));
     }
     stream.add_str("endbfrange\n\n");
     stream.add_str("\n48 beginbfrange\n");
     for i in 0xc8..=0xd7 {
-        let n = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b"<%02X00> <%02XFF> <%02X00>\n\x00" as *const u8 as *const i8,
-            i,
-            i,
-            i,
-        ) as usize;
-        stream.add_slice(&buf[..n]);
+        stream.add_str(&format!("<{0:02X}00> <{0:02X}FF> <{0:02X}00>\n", i));
     }
     for i in 0xe0..=0xff {
-        let n = sprintf(
-            buf.as_mut_ptr() as *mut i8,
-            b"<%02X00> <%02XFF> <%02X00>\n\x00" as *const u8 as *const i8,
-            i,
-            i,
-            i,
-        ) as usize;
-        stream.add_slice(&buf[..n]);
+        stream.add_str(&format!("<{0:02X}00> <{0:02X}FF> <{0:02X}00>\n", i));
     }
     stream.add_str("endbfrange\n\n");
     stream.add_str("endcmap\n\nCMapName currentdict /CMap defineresource pop\n\nend\nend\n\n%%EndResource\n%%EOF\n");

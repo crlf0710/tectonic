@@ -194,7 +194,7 @@ pub(crate) mod dpx_type1;
 pub(crate) mod dpx_type1c;
 pub(crate) mod dpx_unicode;
 pub(crate) mod dpx_vf;
-mod shims;
+pub(crate) mod g_format;
 pub(crate) mod specials;
 
 pub use crate::dpx_bmpimage::{bmp_get_bbox, check_for_bmp};

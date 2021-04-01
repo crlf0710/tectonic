@@ -32,7 +32,6 @@ use super::dpx_dpxutil::{is_delim, is_space, skip_white_spaces, xtoi};
 use crate::bridge::stub_errno as errno;
 use crate::warn;
 
-use crate::shims::sprintf;
 use libc::{strtod, strtol};
 use std::ptr;
 
@@ -96,13 +95,9 @@ pub(crate) unsafe fn pst_parse_null(inbuf: &mut &[u8]) -> Option<PstObj> {
 /* NUMBERS */
 /* REAL */
 unsafe fn pst_real_SV(obj: f64) -> String {
-    let mut fmt_buf: [u8; 15] = [0; 15];
-    let len = sprintf(
-        fmt_buf.as_mut_ptr() as *mut i8,
-        b"%.5g\x00" as *const u8 as *const i8,
-        obj,
-    ) as usize;
-    String::from_utf8_lossy(&fmt_buf[..len]).into()
+    let mut buf = Vec::<u8>::new();
+    crate::g_format::write_engineering(&mut buf, obj, Some(5)).unwrap();
+    String::from_utf8(buf).unwrap()
 }
 /* NOTE: the input buffer must be null-terminated, i.e., *inbufend == 0 */
 /* leading white-space is ignored */

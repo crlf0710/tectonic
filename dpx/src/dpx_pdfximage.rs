@@ -42,7 +42,6 @@ use crate::dpx_pdfdoc::PdfPageBoundary;
 use crate::dpx_pdfobj::{
     check_for_pdf, pdf_link_obj, pdf_obj, pdf_ref_obj, IntoObj, IntoRef, Object,
 };
-use crate::shims::sprintf;
 
 use std::io::{Read, Seek, SeekFrom};
 
@@ -109,7 +108,7 @@ pub(crate) struct load_options {
 #[derive(Clone)]
 pub(crate) struct pdf_ximage {
     pub(crate) ident: String,
-    pub(crate) res_name: [i8; 16],
+    pub(crate) res_name: String,
     pub(crate) subtype: PdfXObjectType,
     pub(crate) attr: attr_,
     pub(crate) filename: String,
@@ -154,7 +153,7 @@ impl pdf_ximage {
             ident: String::new(),
             filename: String::new(),
             subtype: PdfXObjectType::None,
-            res_name: [0; 16],
+            res_name: String::new(),
             reference: ptr::null_mut(),
             resource: ptr::null_mut(),
             attr: attr_ {
@@ -322,18 +321,10 @@ unsafe fn load_image(
 
     match I.subtype {
         PdfXObjectType::Image => {
-            sprintf(
-                I.res_name.as_mut_ptr(),
-                b"Im%d\x00" as *const u8 as *const i8,
-                id,
-            );
+            I.res_name = format!("Im{}", id);
         }
         PdfXObjectType::Form => {
-            sprintf(
-                I.res_name.as_mut_ptr(),
-                b"Fm%d\x00" as *const u8 as *const i8,
-                id,
-            );
+            I.res_name = format!("Fm{}", id);
         }
         _ => {
             panic!("Unknown XObject subtype: {}", -1);
@@ -571,31 +562,23 @@ pub(crate) unsafe fn pdf_ximage_defineresource(
     match info {
         XInfo::Image(info) => {
             I.set_image1(&info, resource);
-            sprintf(
-                I.res_name.as_mut_ptr(),
-                b"Im%d\x00" as *const u8 as *const i8,
-                id,
-            );
+            I.res_name = format!("Im{}", id);
         }
         XInfo::Form(info) => {
             I.set_form1(&info, resource);
-            sprintf(
-                I.res_name.as_mut_ptr(),
-                b"Fm%d\x00" as *const u8 as *const i8,
-                id,
-            );
+            I.res_name = format!("Fm{}", id);
         }
     }
     ximages.push(I);
     id as i32
 }
 
-pub(crate) unsafe fn pdf_ximage_get_resname(id: i32) -> *const i8 {
+pub(crate) unsafe fn pdf_ximage_get_resname(id: i32) -> &'static str {
     if id < 0 || id >= ximages.len() as i32 {
         panic!("Invalid XObject ID: {}", id);
     }
     let I = &ximages[id as usize];
-    I.res_name.as_ptr()
+    &I.res_name
 }
 
 /*pub(crate) unsafe fn pdf_ximage_get_subtype(id: i32) -> PdfXObjectType {

@@ -24,7 +24,7 @@
 use super::{Result, ERR, ERROR};
 
 use crate::bridge::DisplayExt;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::ptr;
 
 use crate::dpx_pdfdoc::PdfPageBoundary;
@@ -544,12 +544,12 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> Result<()> {
         M = M1.post_transform(&M);
         pdf_dev_concat(&mut M);
         pdf_dev_rectclip(&r);
-        let res_name = CStr::from_ptr(pdf_ximage_get_resname(id));
+        let res_name = pdf_ximage_get_resname(id);
         p.add_page_content(b" /");
-        p.add_page_content(res_name.to_bytes());
+        p.add_page_content(res_name.as_bytes());
         p.add_page_content(b" Do");
         pdf_dev_grestore();
-        p.add_page_resource("XObject", res_name.to_bytes(), pdf_ximage_get_reference(id));
+        p.add_page_resource("XObject", res_name.as_bytes(), pdf_ximage_get_reference(id));
         /* ENABLE_HTML_SVG_XXX */
         Ok(())
     }

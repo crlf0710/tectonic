@@ -32,9 +32,7 @@ use std::rc::Rc;
 
 use euclid::point2;
 
-use crate::bridge::DisplayExt;
 use crate::{info, warn};
-use std::ffi::CStr;
 use std::ptr;
 
 use super::dpx_cff::cff_charsets_lookup_cid;
@@ -1580,12 +1578,12 @@ pub(crate) unsafe fn pdf_dev_put_image(
     if p.flags & 1 << 3 != 0 {
         pdf_dev_rectclip(&r); /* op: Do */
     }
-    let res_name = CStr::from_ptr(pdf_ximage_get_resname(id));
-    let content = format!(" /{} Do", res_name.display());
+    let res_name = pdf_ximage_get_resname(id);
+    let content = format!(" /{} Do", res_name);
     let doc = pdf_doc_mut();
     doc.add_page_content(content.as_bytes());
     pdf_dev_grestore();
-    doc.add_page_resource("XObject", res_name.to_bytes(), pdf_ximage_get_reference(id));
+    doc.add_page_resource("XObject", res_name.as_bytes(), pdf_ximage_get_reference(id));
     if dvi_is_tracking_boxes() {
         let mut rect = Rect::zero();
         let mut corner: [Point; 4] = [Point::zero(); 4];

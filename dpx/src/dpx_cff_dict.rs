@@ -27,7 +27,6 @@
 )]
 
 use super::dpx_cff::{cff_add_string, cff_get_string};
-use crate::shims::sprintf;
 use crate::warn;
 
 pub(crate) type s_SID = u16;
@@ -412,11 +411,7 @@ unsafe fn pack_real(dest: &mut [u8], mut value: f64) -> usize {
     /* To avoid the problem with Mac OS X 10.4 Quartz,
      * change the presion of the real numbers
      * on June 27, 2007 for musix20.pfb */
-    sprintf(
-        buffer.as_mut_ptr() as *mut i8,
-        b"%.13g\x00" as *const u8 as *const i8,
-        value,
-    );
+    crate::g_format::write_engineering(&mut buffer.as_mut(), value, Some(13)).unwrap();
     let mut i = 0;
     while buffer[i] != '\u{0}' as u8 {
         let ch = if buffer[i] == b'.' {

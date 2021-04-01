@@ -26,7 +26,6 @@ use super::dpx_pdfdev::{pdf_dev_get_param, pdf_dev_reset_color};
 use crate::dpx_pdfobj::{
     pdf_get_version, pdf_link_obj, pdf_obj, pdf_stream, IntoObj, IntoRef, PushObj, STREAM_COMPRESS,
 };
-use crate::shims::sprintf;
 use crate::{info, warn, FromBEByteSlice};
 use md5::{Digest, Md5};
 use std::error::Error;
@@ -250,15 +249,9 @@ impl PdfColor {
 
     pub(crate) unsafe fn to_string(&self, mask: u8) -> String {
         let format_float_with_printf_g = |value: f64| {
-            // TODO: refactor this ugly hack while preserving sematics of printf %g
-            let mut buf = String::from_utf8_lossy(&[0x41; 256]).into_owned();
-            let len = sprintf(
-                buf.as_mut_ptr() as *mut i8,
-                b"%g\0" as *const u8 as *const i8,
-                value,
-            ) as usize;
-            buf.truncate(len);
-            buf
+            let mut buf = Vec::<u8>::new();
+            crate::g_format::write_engineering(&mut buf, value, None).unwrap();
+            String::from_utf8(buf).unwrap()
         };
 
         let values_to_string = |values: &[f64]| {
