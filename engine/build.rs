@@ -310,10 +310,7 @@ fn main() {
     for flag in &cppflags {
         cppcfg.flag_if_supported(flag);
     }
-    ccfg.flag("-Wall")
-        .file("tectonic/stub_icu.c")
-        .file("tectonic/stub_stdio.c")
-        .include(".");
+    ccfg.flag("-Wall").file("tectonic/stub_icu.c").include(".");
 
     profile_config(&mut cppcfg);
 

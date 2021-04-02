@@ -24,7 +24,7 @@
 use super::{Result, ERR, ERROR};
 
 use crate::bridge::DisplayExt;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::ptr;
 
 use crate::dpx_pdfdoc::PdfPageBoundary;
@@ -544,12 +544,12 @@ unsafe fn spc_html__img_empty(spe: &mut SpcEnv, attr: &pdf_obj) -> Result<()> {
         M = M1.post_transform(&M);
         pdf_dev_concat(&mut M);
         pdf_dev_rectclip(&r);
-        let res_name = CStr::from_ptr(pdf_ximage_get_resname(id));
+        let res_name = pdf_ximage_get_resname(id);
         p.add_page_content(b" /");
-        p.add_page_content(res_name.to_bytes());
+        p.add_page_content(res_name.as_bytes());
         p.add_page_content(b" Do");
         pdf_dev_grestore();
-        p.add_page_resource("XObject", res_name.to_bytes(), pdf_ximage_get_reference(id));
+        p.add_page_resource("XObject", res_name.as_bytes(), pdf_ximage_get_reference(id));
         /* ENABLE_HTML_SVG_XXX */
         Ok(())
     }
@@ -740,13 +740,14 @@ pub(crate) unsafe fn spc_html_setup_handler(_spe: &mut SpcEnv, ap: &mut SpcArg) 
     while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
         ap.cur = &ap.cur[1..];
     }
-    if !ap.cur.starts_with(b"html:") {
+    if let Some(cur) = ap.cur.strip_prefix(b"html:") {
+        ap.command = Some("");
+        ap.cur = cur;
+        while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
+            ap.cur = &ap.cur[1..];
+        }
+        Ok(spc_handler_html_default)
+    } else {
         return ERROR();
     }
-    ap.command = Some("");
-    ap.cur = &ap.cur[b"html:".len()..];
-    while !ap.cur.is_empty() && libc::isspace(ap.cur[0] as _) != 0 {
-        ap.cur = &ap.cur[1..];
-    }
-    Ok(spc_handler_html_default)
 }

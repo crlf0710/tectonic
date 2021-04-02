@@ -334,9 +334,9 @@ unsafe fn vf_xxx(len: usize, slice: &mut &[u8]) {
         /*
          * Warning message from virtual font.
          */
-        if buffer[i..].starts_with(b"Warning:") {
+        if let Some(buf) = buffer[i..].strip_prefix(b"Warning:") {
             if verbose != 0 {
-                warn!("VF:{}", buffer[i + 8..].display());
+                warn!("VF:{}", buf.display());
             }
         } else {
             dvi_do_special(buffer.as_slice());

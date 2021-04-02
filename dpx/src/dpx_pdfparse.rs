@@ -375,10 +375,11 @@ impl ParsePdfObj for &[u8] {
         let stream_length;
         let mut p = *self;
         p.skip_white();
-        if !p.starts_with(b"stream") {
+        if let Some(pp) = p.strip_prefix(b"stream") {
+            p = pp;
+        } else {
             return None;
         }
-        p = &p[6..];
         /* The keyword stream that follows the stream dictionary
          * should be followed by an end-of-line marker consisting of
          * either a carriage return (0x0D;\r) and a line feed (0x0A;\n)
@@ -434,12 +435,10 @@ impl ParsePdfObj for &[u8] {
         if !p.is_empty() && p[0] == b'\n' {
             p = &p[1..];
         }
-        if !p.starts_with(b"endstream") {
-            return None;
-        }
-        p = &p[9..];
-        *self = p;
-        Some(stream)
+        p.strip_prefix(b"endstream").map(|p| {
+            *self = p;
+            stream
+        })
     }
     fn parse_pdf_array(&mut self, pf: *mut pdf_file) -> Option<Vec<*mut pdf_obj>> {
         let mut p = *self;
@@ -732,8 +731,8 @@ impl ParsePdfObj for &[u8] {
         } else if self.len() > 4 && !istokensep(&self[4]) {
             warn!("Not a null object.");
             return None;
-        } else if self.starts_with(b"null") {
-            *self = &self[4..];
+        } else if let Some(s) = self.strip_prefix(b"null") {
+            *self = s;
             return Some(());
         } else {
             warn!("Not a null object.");
@@ -742,14 +741,14 @@ impl ParsePdfObj for &[u8] {
     }
     fn parse_pdf_boolean(&mut self) -> Option<bool> {
         self.skip_white();
-        if self.starts_with(b"true") {
-            if self.len() == 4 || istokensep(&self[4]) {
-                *self = &self[4..];
+        if let Some(s) = self.strip_prefix(b"true") {
+            if s.is_empty() || istokensep(&s[0]) {
+                *self = s;
                 return Some(true);
             }
-        } else if self.starts_with(b"false") {
-            if self.len() == 5 || istokensep(&self[5]) {
-                *self = &self[5..];
+        } else if let Some(s) = self.strip_prefix(b"false") {
+            if s.is_empty() || istokensep(&s[0]) {
+                *self = s;
                 return Some(false);
             }
         }

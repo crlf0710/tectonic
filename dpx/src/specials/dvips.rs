@@ -165,15 +165,15 @@ unsafe fn spc_handler_ps_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
     let x_user;
     let y_user;
     assert!(!args.cur.is_empty());
-    if args.cur.starts_with(b":[begin]") {
+    if let Some(cur) = args.cur.strip_prefix(b":[begin]") {
         BLOCK_PENDING += 1;
         POSITION_SET = 1;
         PENDING_X = spe.x_user;
         x_user = PENDING_X;
         PENDING_Y = spe.y_user;
         y_user = PENDING_Y;
-        args.cur = &args.cur[b":[begin]".len()..];
-    } else if args.cur.starts_with(b":[end]") {
+        args.cur = cur;
+    } else if let Some(cur) = args.cur.strip_prefix(b":[end]") {
         if BLOCK_PENDING <= 0 {
             spc_warn!(spe, "No corresponding ::[begin] found.");
             return ERR;
@@ -182,7 +182,7 @@ unsafe fn spc_handler_ps_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> Result<
         POSITION_SET = 0;
         x_user = PENDING_X;
         y_user = PENDING_Y;
-        args.cur = &args.cur[b":[end]".len()..];
+        args.cur = cur;
     } else if !args.cur.is_empty() && args.cur[0] == b':' {
         x_user = if POSITION_SET != 0 {
             PENDING_X
@@ -325,8 +325,8 @@ pub(crate) unsafe fn spc_dvips_setup_handler(
     /* Test for "ps:". The "ps::" special is subsumed under this case.  */
     if !args.cur.is_empty() && args.cur[0] == b':' {
         args.cur = &args.cur[1..];
-        if args.cur.starts_with(b" plotfile ") {
-            args.cur = &args.cur[b" plotfile ".len()..];
+        if let Some(cur) = args.cur.strip_prefix(b" plotfile ") {
+            args.cur = cur;
         }
     } else if args.cur.len() > 1 && args.cur[0] == b'\"' && args.cur[1] == b' ' {
         args.cur = &args.cur[2..];

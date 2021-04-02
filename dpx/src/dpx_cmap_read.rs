@@ -398,7 +398,6 @@ impl CMap {
         if handle.read_exact(&mut sig[..64]).is_err() {
             result = ERR;
         } else {
-            sig[64] = 0;
             if !sig.starts_with(b"%!PS") {
                 result = ERR;
             } else if !strstr(

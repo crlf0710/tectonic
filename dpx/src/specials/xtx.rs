@@ -307,18 +307,19 @@ pub(crate) fn spc_xtx_check_special(mut buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_xtx_setup_handler(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<Handler> {
     ap.cur.skip_white();
-    if !ap.cur.starts_with(b"x:") {
-        spc_warn!(spe, "Not x: special???");
-        return ERROR();
-    }
-    ap.cur = &ap.cur[b"x:".len()..];
-    ap.cur.skip_white();
-    if let Some(q) = ap.cur.parse_c_ident() {
-        if let Some((key, &exec)) = XTX_HANDLERS.get_entry(q.as_str()) {
-            ap.command = Some(key);
-            ap.cur.skip_white();
-            return Ok(exec);
+    if let Some(cur) = ap.cur.strip_prefix(b"x:") {
+        ap.cur = cur;
+        ap.cur.skip_white();
+        if let Some(q) = ap.cur.parse_c_ident() {
+            if let Some((key, &exec)) = XTX_HANDLERS.get_entry(q.as_str()) {
+                ap.command = Some(key);
+                ap.cur.skip_white();
+                return Ok(exec);
+            }
         }
+        ERROR()
+    } else {
+        spc_warn!(spe, "Not x: special???");
+        ERROR()
     }
-    ERROR()
 }

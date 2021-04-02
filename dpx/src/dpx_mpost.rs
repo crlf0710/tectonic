@@ -244,8 +244,8 @@ pub(crate) unsafe fn mps_scan_bbox(pp: &mut &[u8], bbox: &mut Rect) -> i32 {
     }
     /* Scan for bounding box record */
     while !pp.is_empty() && pp[0] == b'%' {
-        if pp.starts_with(b"%%BoundingBox:") {
-            *pp = &pp[14..];
+        if let Some(p) = pp.strip_prefix(b"%%BoundingBox:") {
+            *pp = p;
             let mut i = 0;
             while i < 4 {
                 pp.skip_white();

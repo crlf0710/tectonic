@@ -43,10 +43,11 @@ fn parse_postscriptbox_special(buf: &str) -> std::result::Result<(f64, f64, Stri
             // "{a}{b}".split("}") is ["{a", "{b", ""]
             continue;
         }
-        if !elem.starts_with("{") {
+        if let Some(el) = elem.strip_prefix("{") {
+            parts.push(el);
+        } else {
             return Err(());
         }
-        parts.push(&elem[1..]);
     }
 
     if parts.len() != 3 {

@@ -420,9 +420,9 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> Res
                         warn!("Invalid value for option \'m\'.");
                         return ERR;
                     }
-                } else if p.starts_with(b"sfd:") {
+                } else if let Some(pp) = p.strip_prefix(b"sfd:") {
                     /* SFD mapping: sfd:Big5,00 */
-                    p = &p[4..];
+                    p = pp;
                     p.skip_blank();
                     let q = p.parse_string_value();
                     if q.is_empty() {
@@ -447,8 +447,8 @@ unsafe fn fontmap_parse_mapdef_dpm(mrec: &mut fontmap_rec, mapdef: &[u8]) -> Res
                     }
                     mrec.charmap.sfd_name = sfd_name;
                     mrec.charmap.subfont_id = subfont_id.to_owned();
-                } else if p.starts_with(b"pad:") {
-                    p = &p[4..];
+                } else if let Some(pp) = p.strip_prefix(b"pad:") {
+                    p = pp;
                     p.skip_blank();
                     if let Some(q) = p.parse_integer_value(16) {
                         if !p.is_empty() && libc::isspace(p[0] as _) == 0 {
@@ -1011,21 +1011,14 @@ unsafe fn strip_options(map_name: &str, opt: &mut fontmap_opt) -> String {
         }
     }
     if have_style {
-        if p.starts_with("BoldItalic") {
-            if p.len() != 10 {
-                panic!("Invalid map record: {} (--> {})", map_name, p);
+        for style in &["BoldItalic", "Bold", "Italic"] {
+            if let Some(s) = p.strip_prefix(style) {
+                if s.is_empty() {
+                    panic!("Invalid map record: {} (--> {})", map_name, p);
+                }
+                opt.style = p.len() as _;
+                break;
             }
-            opt.style = 3
-        } else if p.starts_with("Bold") {
-            if p.len() != 4 {
-                panic!("Invalid map record: {} (--> {})", map_name, p);
-            }
-            opt.style = 1
-        } else if p.starts_with("Italic") {
-            if p.len() != 6 {
-                panic!("Invalid map record: {} (--> {})", map_name, p);
-            }
-            opt.style = 2
         }
     }
     font_name

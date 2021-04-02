@@ -1035,15 +1035,16 @@ unsafe fn spc_handler_pdfm_literal(spe: &mut SpcEnv, args: &mut SpcArg) -> Resul
     let mut direct: i32 = 0;
     args.cur.skip_white();
     while !args.cur.is_empty() {
-        if args.cur.len() >= 7 && args.cur.starts_with(b"reverse") {
-            args.cur = &args.cur[7..];
+        if let Some(cur) = args.cur.strip_prefix(b"reverse") {
+            args.cur = cur;
             warn!("The special \"pdf:literal reverse ...\" is no longer supported.\nIgnore the \"reverse\" option.");
         } else {
-            if !(args.cur.len() >= 6 && args.cur.starts_with(b"direct")) {
+            if let Some(cur) = args.cur.strip_prefix(b"direct") {
+                direct = 1;
+                args.cur = cur;
+            } else {
                 break;
             }
-            direct = 1;
-            args.cur = &args.cur[6..];
         }
         args.cur.skip_white();
     }
@@ -1550,18 +1551,19 @@ pub(crate) fn spc_pdfm_check_special(mut buf: &[u8]) -> bool {
 
 pub(crate) unsafe fn spc_pdfm_setup_handler(spe: &mut SpcEnv, ap: &mut SpcArg) -> Result<Handler> {
     ap.cur.skip_white();
-    if !ap.cur.starts_with(b"pdf:") {
-        spc_warn!(spe, "Not pdf: special???");
-        return ERROR();
-    }
-    ap.cur = &ap.cur[b"pdf:".len()..];
-    ap.cur.skip_white();
-    if let Some(q) = ap.cur.parse_c_ident() {
-        if let Some((key, &exec)) = PDFM_HANDLERS.get_entry(q.as_str()) {
-            ap.command = Some(key);
-            ap.cur.skip_white();
-            return Ok(exec);
+    if let Some(cur) = ap.cur.strip_prefix(b"pdf:") {
+        ap.cur = cur;
+        ap.cur.skip_white();
+        if let Some(q) = ap.cur.parse_c_ident() {
+            if let Some((key, &exec)) = PDFM_HANDLERS.get_entry(q.as_str()) {
+                ap.command = Some(key);
+                ap.cur.skip_white();
+                return Ok(exec);
+            }
         }
+        ERROR()
+    } else {
+        spc_warn!(spe, "Not pdf: special???");
+        ERROR()
     }
-    ERROR()
 }

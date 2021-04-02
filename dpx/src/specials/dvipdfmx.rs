@@ -45,18 +45,19 @@ pub(crate) unsafe fn spc_dvipdfmx_setup_handler(
     ap: &mut SpcArg,
 ) -> Result<Handler> {
     ap.cur.skip_white();
-    if !ap.cur.starts_with(b"dvipdfmx:") {
-        spc_warn!(spe, "Not dvipdfmx: special???");
-        return ERROR();
-    }
-    ap.cur = &ap.cur[b"dvipdfmx:".len()..];
-    ap.cur.skip_white();
-    if let Some(q) = ap.cur.parse_c_ident() {
-        if let Some((key, &exec)) = DVIPDFMX_HANDLERS.get_entry(q.as_str()) {
-            ap.command = Some(key);
-            ap.cur.skip_white();
-            return Ok(exec);
+    if let Some(cur) = ap.cur.strip_prefix(b"dvipdfmx:") {
+        ap.cur = cur;
+        ap.cur.skip_white();
+        if let Some(q) = ap.cur.parse_c_ident() {
+            if let Some((key, &exec)) = DVIPDFMX_HANDLERS.get_entry(q.as_str()) {
+                ap.command = Some(key);
+                ap.cur.skip_white();
+                return Ok(exec);
+            }
         }
+        ERROR()
+    } else {
+        spc_warn!(spe, "Not dvipdfmx: special???");
+        ERROR()
     }
-    ERROR()
 }
